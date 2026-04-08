@@ -12,6 +12,7 @@ import DailyPage from "./pages/DailyPage";
 import WeeklyPage from "./pages/WeeklyPage";
 import GoalsPage from "./pages/GoalsPage";
 import ProfilePage from "./pages/ProfilePage";
+import CalendarPage from "./pages/CalendarPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
