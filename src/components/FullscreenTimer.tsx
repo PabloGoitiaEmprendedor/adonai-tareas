@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Pause, Play, RotateCcw, Check } from 'lucide-react';
+import { X, Pause, Play, RotateCcw, Check, Minus, Plus } from 'lucide-react';
 import { useTasks } from '@/hooks/useTasks';
 import { toast } from 'sonner';
 
@@ -14,16 +14,22 @@ const FullscreenTimer = ({ task, open, onClose }: FullscreenTimerProps) => {
   const { updateTask } = useTasks();
   const [running, setRunning] = useState(false);
   const [elapsed, setElapsed] = useState(0);
+  const [customMinutes, setCustomMinutes] = useState(25);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const totalSeconds = (task?.estimated_minutes || 25) * 60;
+  const totalSeconds = customMinutes * 60;
   const remaining = Math.max(totalSeconds - elapsed, 0);
   const progress = totalSeconds > 0 ? Math.min(elapsed / totalSeconds, 1) : 0;
 
   useEffect(() => {
-    if (open) { setElapsed(0); setRunning(true); }
-    else { setRunning(false); }
-  }, [open]);
+    if (open && task) {
+      setCustomMinutes(task.estimated_minutes || 25);
+      setElapsed(0);
+      setRunning(true);
+    } else {
+      setRunning(false);
+    }
+  }, [open, task]);
 
   useEffect(() => {
     if (running) {
@@ -33,6 +39,14 @@ const FullscreenTimer = ({ task, open, onClose }: FullscreenTimerProps) => {
     }
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, [running]);
+
+  // Auto-complete when timer reaches 0
+  useEffect(() => {
+    if (remaining === 0 && elapsed > 0 && running) {
+      setRunning(false);
+      handleComplete();
+    }
+  }, [remaining]);
 
   const formatTime = (secs: number) => {
     const m = Math.floor(secs / 60);
@@ -44,6 +58,12 @@ const FullscreenTimer = ({ task, open, onClose }: FullscreenTimerProps) => {
     updateTask.mutate({ id: task.id, status: 'done', completed_at: new Date().toISOString() });
     toast.success('¡Tarea completada!');
     onClose();
+  };
+
+  const adjustMinutes = (delta: number) => {
+    if (running) return;
+    setCustomMinutes((m) => Math.max(1, Math.min(480, m + delta)));
+    setElapsed(0);
   };
 
   if (!open || !task) return null;
@@ -61,7 +81,22 @@ const FullscreenTimer = ({ task, open, onClose }: FullscreenTimerProps) => {
         </button>
 
         <p className="text-on-surface-variant text-xs font-bold uppercase tracking-widest mb-2">Enfocado en</p>
-        <h2 className="text-xl font-bold text-foreground text-center mb-12 max-w-xs">{task.title}</h2>
+        <h2 className="text-xl font-bold text-foreground text-center mb-8 max-w-xs">{task.title}</h2>
+
+        {/* Time adjuster (only when paused) */}
+        {!running && elapsed === 0 && (
+          <div className="flex items-center gap-4 mb-6">
+            <button onClick={() => adjustMinutes(-5)}
+              className="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center">
+              <Minus className="w-4 h-4 text-on-surface-variant" />
+            </button>
+            <span className="text-lg font-bold text-foreground">{customMinutes} min</span>
+            <button onClick={() => adjustMinutes(5)}
+              className="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center">
+              <Plus className="w-4 h-4 text-on-surface-variant" />
+            </button>
+          </div>
+        )}
 
         <div className="relative w-72 h-72 mb-12">
           <svg className="w-72 h-72 -rotate-90" viewBox="0 0 300 300">

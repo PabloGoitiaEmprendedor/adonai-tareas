@@ -3,12 +3,13 @@ import { useTasks } from '@/hooks/useTasks';
 import { useGoals } from '@/hooks/useGoals';
 import { useProfile } from '@/hooks/useProfile';
 import { format, addDays } from 'date-fns';
-import { Check, Flag, Plus, Clock, GripVertical } from 'lucide-react';
+import { Check, Flag, Plus, Clock, GripVertical, Play } from 'lucide-react';
 import { motion } from 'framer-motion';
 import BottomNav from '@/components/BottomNav';
 import FAB from '@/components/FAB';
 import TaskCaptureModal from '@/components/TaskCaptureModal';
 import TaskDetailModal from '@/components/TaskDetailModal';
+import FullscreenTimer from '@/components/FullscreenTimer';
 
 const DailyPage = () => {
   const today = format(new Date(), 'yyyy-MM-dd');
@@ -21,6 +22,7 @@ const DailyPage = () => {
   const { profile } = useProfile();
   const [captureOpen, setCaptureOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<any>(null);
+  const [timerTask, setTimerTask] = useState<any>(null);
   const [orderedTasks, setOrderedTasks] = useState<any[]>([]);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
 
@@ -101,10 +103,9 @@ const DailyPage = () => {
     setTouchIdx(null);
   };
 
-  const getTaskLabel = (task: any, idx: number) => {
-    if (task.status === 'done') return null;
-    const pendingBefore = orderedTasks.slice(0, idx).filter(t => t.status !== 'done').length;
-    return `T${pendingBefore + 1}`;
+  const handleStartTimer = (task: any, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setTimerTask(task);
   };
 
   return (
@@ -161,7 +162,6 @@ const DailyPage = () => {
           <div className="space-y-1.5">
             {orderedTasks.map((task, idx) => {
               const isDone = task.status === 'done';
-              const label = getTaskLabel(task, idx);
               return (
                 <motion.div
                   key={task.id}
@@ -199,7 +199,12 @@ const DailyPage = () => {
                       </div>
                     )}
                   </div>
-                  {label && <span className="text-[10px] font-bold text-on-surface-variant/50 flex-shrink-0">{label}</span>}
+                  {!isDone && (
+                    <button onClick={(e) => handleStartTimer(task, e)}
+                      className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center hover:bg-primary/20 flex-shrink-0 transition-colors">
+                      <Play className="w-3.5 h-3.5 text-primary" />
+                    </button>
+                  )}
                 </motion.div>
               );
             })}
@@ -211,6 +216,7 @@ const DailyPage = () => {
       <BottomNav />
       <TaskCaptureModal open={captureOpen} onClose={() => setCaptureOpen(false)} />
       <TaskDetailModal task={selectedTask} open={!!selectedTask} onClose={() => setSelectedTask(null)} />
+      <FullscreenTimer task={timerTask} open={!!timerTask} onClose={() => setTimerTask(null)} />
     </div>
   );
 };
