@@ -128,7 +128,7 @@ const TaskCaptureModal = ({ open, onClose }: TaskCaptureModalProps) => {
         importance: cls.importance,
         source_type: sourceType,
         context_id: cls.context_id,
-        goal_id: cls.goal_id,
+        goal_id: null, // Never auto-assign goals, user must do it manually
         estimated_minutes: cls.estimated_minutes || defaults.estimated_minutes,
         due_date: date || format(new Date(), 'yyyy-MM-dd'),
       });

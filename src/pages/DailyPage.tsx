@@ -136,15 +136,10 @@ const DailyPage = () => {
         </div>
 
         {totalCount > 0 && (
-          <div>
-            <div className="flex justify-between mb-2">
-              <p className="text-sm font-medium text-foreground">{getMotivationalMessage()}</p>
-              {activeTab === 'today' && <p className="text-xs font-bold text-primary">{progress}%</p>}
-            </div>
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-on-surface-variant">{getMotivationalMessage()}</p>
             {activeTab === 'today' && (
-              <div className="h-1.5 w-full bg-surface-container-high rounded-full overflow-hidden">
-                <div className="h-full primary-gradient rounded-full" style={{ width: `${progress}%` }} />
-              </div>
+              <span className="text-xs font-bold text-primary">{completedCount}/{totalCount}</span>
             )}
           </div>
         )}
