@@ -167,14 +167,9 @@ const DashboardPage = () => {
 
         {/* Progress */}
         {totalToday > 0 && (
-          <div>
-            <div className="flex justify-between items-end mb-2">
-              <p className="text-sm font-medium text-foreground">{getMotivationalMessage()}</p>
-              <p className="text-xs font-bold text-primary">{progress}%</p>
-            </div>
-            <div className="h-1.5 w-full bg-surface-container-high rounded-full overflow-hidden">
-              <motion.div className="h-full primary-gradient rounded-full" initial={{ width: 0 }} animate={{ width: `${progress}%` }} transition={{ duration: 0.5 }} />
-            </div>
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-on-surface-variant">{getMotivationalMessage()}</p>
+            <span className="text-xs font-bold text-primary">{completedToday}/{totalToday}</span>
           </div>
         )}
 
