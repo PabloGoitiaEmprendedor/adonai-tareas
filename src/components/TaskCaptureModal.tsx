@@ -16,8 +16,6 @@ interface TaskCaptureModalProps {
   onClose: () => void;
 }
 
-type CapturePhase = 'input' | 'date' | 'classifying' | 'saving';
-
 const TaskCaptureModal = ({ open, onClose }: TaskCaptureModalProps) => {
   const { profile } = useProfile();
   const { user } = useAuth();
@@ -25,7 +23,7 @@ const TaskCaptureModal = ({ open, onClose }: TaskCaptureModalProps) => {
   const { createTask } = useTasks();
   const { classifyTask } = useTaskClassifier();
 
-  const [phase, setPhase] = useState<CapturePhase>('input');
+  const [phase, setPhase] = useState<'input' | 'date' | 'saving'>('input');
   const [title, setTitle] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [sourceType, setSourceType] = useState<'voice' | 'text'>('text');
@@ -88,9 +86,11 @@ const TaskCaptureModal = ({ open, onClose }: TaskCaptureModalProps) => {
   };
 
   const runClassificationAndSave = async (taskTitle: string, date: string) => {
-    setPhase('classifying');
-    
+    setPhase('saving');
+
     const defaults = {
+      refined_title: taskTitle,
+      description: '',
       importance: false,
       urgency: false,
       priority: 'medium' as const,
@@ -99,20 +99,21 @@ const TaskCaptureModal = ({ open, onClose }: TaskCaptureModalProps) => {
       goal_id: null,
     };
 
-    // Start classification in background but save immediately
     const classificationPromise = classifyTask(taskTitle, date);
-    
+
     try {
-      // Wait briefly for fast classification, otherwise use defaults
       const result = await Promise.race([
         classificationPromise,
-        new Promise<null>((resolve) => setTimeout(() => resolve(null), 3000)),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000)),
       ]);
 
       const cls = result || defaults;
+      const finalTitle = cls.refined_title || taskTitle;
+      const finalDescription = cls.description || '';
 
       const task = await createTask.mutateAsync({
-        title: taskTitle,
+        title: finalTitle,
+        description: finalDescription || undefined,
         priority: cls.priority,
         urgency: cls.urgency,
         importance: cls.importance,
@@ -184,7 +185,7 @@ const TaskCaptureModal = ({ open, onClose }: TaskCaptureModalProps) => {
                         ) : null}
                       </div>
                       <p className="text-[11px] text-on-surface-variant/60 text-center">
-                        💡 Solo di la tarea y la fecha. La IA se encarga del resto.
+                        💡 Di lo que necesitas. La IA lo analiza y crea la tarea con un nombre claro.
                       </p>
                       <div className="flex gap-3">
                         {!showTextInput && (
@@ -231,25 +232,14 @@ const TaskCaptureModal = ({ open, onClose }: TaskCaptureModalProps) => {
                     </motion.div>
                   )}
 
-                  {phase === 'classifying' && (
-                    <motion.div key="classifying" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="py-8 text-center space-y-4">
+                  {phase === 'saving' && (
+                    <motion.div key="saving" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="py-8 text-center space-y-4">
                       <div className="w-12 h-12 mx-auto relative">
-                        <motion.div
-                          animate={{ rotate: 360 }}
-                          transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
-                          className="w-12 h-12 border-2 border-primary/30 border-t-primary rounded-full"
-                        />
+                        <motion.div animate={{ rotate: 360 }} transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
+                          className="w-12 h-12 border-2 border-primary/30 border-t-primary rounded-full" />
                         <Sparkles className="w-5 h-5 text-primary absolute inset-0 m-auto" />
                       </div>
-                      <p className="text-foreground font-medium">Creando tarea...</p>
-                      <p className="text-on-surface-variant text-xs">La IA está clasificando automáticamente</p>
-                    </motion.div>
-                  )}
-
-                  {phase === 'saving' && (
-                    <motion.div key="saving" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="py-8 text-center">
-                      <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
-                      <p className="text-on-surface-variant mt-4">Guardando...</p>
+                      <p className="text-foreground font-medium">Analizando y creando tarea...</p>
                     </motion.div>
                   )}
                 </AnimatePresence>

@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useTasks, useEisenhowerSort } from '@/hooks/useTasks';
+import { useTasks } from '@/hooks/useTasks';
 import { useGoals } from '@/hooks/useGoals';
 import { useProfile } from '@/hooks/useProfile';
-import { format } from 'date-fns';
+import { format, addDays } from 'date-fns';
 import { Check, Flag, Plus, Clock, GripVertical } from 'lucide-react';
 import { motion } from 'framer-motion';
 import BottomNav from '@/components/BottomNav';
@@ -12,7 +12,11 @@ import TaskDetailModal from '@/components/TaskDetailModal';
 
 const DailyPage = () => {
   const today = format(new Date(), 'yyyy-MM-dd');
-  const { tasks, updateTask } = useTasks({ date: today });
+  const tomorrow = format(addDays(new Date(), 1), 'yyyy-MM-dd');
+  const [activeTab, setActiveTab] = useState<'today' | 'tomorrow'>('today');
+  const currentDate = activeTab === 'today' ? today : tomorrow;
+
+  const { tasks, updateTask } = useTasks({ date: currentDate });
   const { goals } = useGoals();
   const { profile } = useProfile();
   const [captureOpen, setCaptureOpen] = useState(false);
@@ -38,6 +42,7 @@ const DailyPage = () => {
   const progress = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
 
   const getMotivationalMessage = () => {
+    if (activeTab === 'tomorrow') return `${totalCount} tarea${totalCount !== 1 ? 's' : ''} planificada${totalCount !== 1 ? 's' : ''} para mañana`;
     if (completedCount === 0) return 'Empieza tu día con la primera tarea.';
     if (progress < 50) return `Llevas ${completedCount} de ${totalCount}. ¡Sigue!`;
     if (progress < 100) return `Ya vas por el ${progress}%. ¡Cierra el día fuerte!`;
@@ -113,26 +118,41 @@ const DailyPage = () => {
           {mainGoal && (
             <div className="bg-surface-container-low p-4 rounded-lg">
               <h2 className="text-xl font-bold tracking-tight text-foreground">{mainGoal.title}</h2>
-              <p className="text-on-surface-variant text-sm mt-1">{progress}% completado hoy</p>
             </div>
           )}
+        </div>
+
+        {/* Tab switcher */}
+        <div className="flex bg-surface-container-low rounded-lg p-0.5">
+          <button onClick={() => setActiveTab('today')}
+            className={`flex-1 py-2 rounded-md text-sm font-bold transition-all ${activeTab === 'today' ? 'bg-primary text-primary-foreground' : 'text-on-surface-variant'}`}>
+            Hoy
+          </button>
+          <button onClick={() => setActiveTab('tomorrow')}
+            className={`flex-1 py-2 rounded-md text-sm font-bold transition-all ${activeTab === 'tomorrow' ? 'bg-primary text-primary-foreground' : 'text-on-surface-variant'}`}>
+            Mañana
+          </button>
         </div>
 
         {totalCount > 0 && (
           <div>
             <div className="flex justify-between mb-2">
               <p className="text-sm font-medium text-foreground">{getMotivationalMessage()}</p>
-              <p className="text-xs font-bold text-primary">{progress}%</p>
+              {activeTab === 'today' && <p className="text-xs font-bold text-primary">{progress}%</p>}
             </div>
-            <div className="h-1.5 w-full bg-surface-container-high rounded-full overflow-hidden">
-              <div className="h-full primary-gradient rounded-full" style={{ width: `${progress}%` }} />
-            </div>
+            {activeTab === 'today' && (
+              <div className="h-1.5 w-full bg-surface-container-high rounded-full overflow-hidden">
+                <div className="h-full primary-gradient rounded-full" style={{ width: `${progress}%` }} />
+              </div>
+            )}
           </div>
         )}
 
         {orderedTasks.length === 0 ? (
           <div className="bg-surface-container-low p-6 rounded-lg text-center space-y-3">
-            <p className="text-on-surface-variant">Tu día está despejado. ¿Qué quieres lograr?</p>
+            <p className="text-on-surface-variant">
+              {activeTab === 'today' ? 'Tu día está despejado. ¿Qué quieres lograr?' : 'Planifica tu mañana. Añade tareas para estar listo.'}
+            </p>
             <button onClick={() => setCaptureOpen(true)} className="inline-flex items-center gap-2 px-4 py-2 rounded-full primary-gradient text-primary-foreground text-sm font-semibold">
               <Plus className="w-4 h-4" /> Añadir tarea
             </button>
