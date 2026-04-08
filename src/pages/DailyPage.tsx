@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useTasks, useEisenhowerSort } from '@/hooks/useTasks';
 import { useGoals } from '@/hooks/useGoals';
 import { useProfile } from '@/hooks/useProfile';
 import { format } from 'date-fns';
-import { Check, ChevronDown, ChevronRight, Flag, Plus, Clock } from 'lucide-react';
+import { Check, Flag, Plus, Clock, GripVertical } from 'lucide-react';
 import { motion } from 'framer-motion';
 import BottomNav from '@/components/BottomNav';
 import FAB from '@/components/FAB';
@@ -17,21 +17,23 @@ const DailyPage = () => {
   const { profile } = useProfile();
   const [captureOpen, setCaptureOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<any>(null);
-  const [showSkipped, setShowSkipped] = useState(false);
-  const [showCompleted, setShowCompleted] = useState(false);
+  const [orderedTasks, setOrderedTasks] = useState<any[]>([]);
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
 
-  const pending = tasks.filter((t) => t.status === 'pending');
-  const sorted = useEisenhowerSort(pending);
-  const skipped = tasks.filter((t) => t.status === 'skipped');
-  const completed = tasks.filter((t) => t.status === 'done');
-
-  const q1 = sorted.filter((t) => t.urgency && t.importance);
-  const q2 = sorted.filter((t) => !t.urgency && t.importance);
-  const q3 = sorted.filter((t) => t.urgency && !t.importance);
-  const q4 = sorted.filter((t) => !t.urgency && !t.importance);
+  useEffect(() => {
+    const allTasks = [...tasks].sort((a, b) => {
+      const orderA = a.sort_order || 0;
+      const orderB = b.sort_order || 0;
+      if (orderA !== orderB) return orderA - orderB;
+      const scoreA = (a.urgency ? 2 : 0) + (a.importance ? 1 : 0);
+      const scoreB = (b.urgency ? 2 : 0) + (b.importance ? 1 : 0);
+      return scoreB - scoreA;
+    });
+    setOrderedTasks(allTasks);
+  }, [tasks]);
 
   const mainGoal = goals.find((g) => g.id === profile?.main_goal_id);
-  const completedCount = completed.length;
+  const completedCount = tasks.filter((t) => t.status === 'done').length;
   const totalCount = tasks.length;
   const progress = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
 
@@ -47,22 +49,58 @@ const DailyPage = () => {
     updateTask.mutate({ id, status: 'done', completed_at: new Date().toISOString() });
   };
 
-  const TaskRow = ({ task, accent }: { task: any; accent?: boolean }) => (
-    <div onClick={() => setSelectedTask(task)}
-      className={`p-3.5 rounded-lg flex items-center gap-3 cursor-pointer transition-colors ${accent ? 'bg-surface-container-low border-l-2 border-primary' : 'bg-surface-container-low'} hover:bg-surface-container-high`}>
-      <button onClick={(e) => handleComplete(task.id, e)}
-        className="w-5 h-5 rounded border-2 border-outline-variant flex items-center justify-center hover:border-primary flex-shrink-0" />
-      <div className="flex-1 min-w-0">
-        <h4 className="text-foreground font-bold text-sm truncate">{task.title}</h4>
-        <div className="flex items-center gap-2 mt-0.5">
-          {task.contexts && <span className="text-[10px] text-on-surface-variant">{(task.contexts as any).name}</span>}
-          {task.estimated_minutes && (
-            <span className="text-[10px] text-on-surface-variant flex items-center gap-0.5"><Clock className="w-2.5 h-2.5" />{task.estimated_minutes}m</span>
-          )}
-        </div>
-      </div>
-    </div>
-  );
+  const handleDragStart = (idx: number) => setDragIdx(idx);
+  const handleDragOver = (e: React.DragEvent, idx: number) => {
+    e.preventDefault();
+    if (dragIdx === null || dragIdx === idx) return;
+    const newOrder = [...orderedTasks];
+    const [moved] = newOrder.splice(dragIdx, 1);
+    newOrder.splice(idx, 0, moved);
+    setOrderedTasks(newOrder);
+    setDragIdx(idx);
+  };
+  const handleDragEnd = () => {
+    setDragIdx(null);
+    orderedTasks.forEach((task, idx) => {
+      if ((task.sort_order || 0) !== idx) {
+        updateTask.mutate({ id: task.id, sort_order: idx });
+      }
+    });
+  };
+
+  const [touchIdx, setTouchIdx] = useState<number | null>(null);
+  const [touchY, setTouchY] = useState(0);
+  const handleTouchStart = (idx: number, e: React.TouchEvent) => { setTouchIdx(idx); setTouchY(e.touches[0].clientY); };
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (touchIdx === null) return;
+    const diff = e.touches[0].clientY - touchY;
+    const steps = Math.round(diff / 56);
+    if (steps !== 0) {
+      const newIdx = Math.max(0, Math.min(orderedTasks.length - 1, touchIdx + steps));
+      if (newIdx !== touchIdx) {
+        const newOrder = [...orderedTasks];
+        const [moved] = newOrder.splice(touchIdx, 1);
+        newOrder.splice(newIdx, 0, moved);
+        setOrderedTasks(newOrder);
+        setTouchIdx(newIdx);
+        setTouchY(e.touches[0].clientY);
+      }
+    }
+  }, [touchIdx, touchY, orderedTasks]);
+  const handleTouchEnd = () => {
+    if (touchIdx !== null) {
+      orderedTasks.forEach((task, idx) => {
+        if ((task.sort_order || 0) !== idx) updateTask.mutate({ id: task.id, sort_order: idx });
+      });
+    }
+    setTouchIdx(null);
+  };
+
+  const getTaskLabel = (task: any, idx: number) => {
+    if (task.status === 'done') return null;
+    const pendingBefore = orderedTasks.slice(0, idx).filter(t => t.status !== 'done').length;
+    return `T${pendingBefore + 1}`;
+  };
 
   return (
     <div className="min-h-screen bg-background pb-24">
@@ -92,8 +130,7 @@ const DailyPage = () => {
           </div>
         )}
 
-        {/* Eisenhower groups */}
-        {pending.length === 0 ? (
+        {orderedTasks.length === 0 ? (
           <div className="bg-surface-container-low p-6 rounded-lg text-center space-y-3">
             <p className="text-on-surface-variant">Tu día está despejado. ¿Qué quieres lograr?</p>
             <button onClick={() => setCaptureOpen(true)} className="inline-flex items-center gap-2 px-4 py-2 rounded-full primary-gradient text-primary-foreground text-sm font-semibold">
@@ -101,54 +138,52 @@ const DailyPage = () => {
             </button>
           </div>
         ) : (
-          <div className="space-y-4">
-            {q1.length > 0 && (
-              <section className="space-y-2">
-                <h3 className="text-xs font-bold text-error uppercase tracking-wider">🔴 Urgente e Importante</h3>
-                {q1.map((t) => <TaskRow key={t.id} task={t} accent />)}
-              </section>
-            )}
-            {q2.length > 0 && (
-              <section className="space-y-2">
-                <h3 className="text-xs font-bold text-primary uppercase tracking-wider">🟢 Importante</h3>
-                {q2.map((t) => <TaskRow key={t.id} task={t} />)}
-              </section>
-            )}
-            {q3.length > 0 && (
-              <section className="space-y-2">
-                <h3 className="text-xs font-bold text-tertiary uppercase tracking-wider">🟡 Urgente</h3>
-                {q3.map((t) => <TaskRow key={t.id} task={t} />)}
-              </section>
-            )}
-            {q4.length > 0 && (
-              <section className="space-y-2">
-                <h3 className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">⚪ Otras tareas</h3>
-                {q4.map((t) => <TaskRow key={t.id} task={t} />)}
-              </section>
-            )}
+          <div className="space-y-1.5">
+            {orderedTasks.map((task, idx) => {
+              const isDone = task.status === 'done';
+              const label = getTaskLabel(task, idx);
+              return (
+                <motion.div
+                  key={task.id}
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  draggable={!isDone}
+                  onDragStart={() => handleDragStart(idx)}
+                  onDragOver={(e) => handleDragOver(e, idx)}
+                  onDragEnd={handleDragEnd}
+                  onTouchStart={(e) => !isDone && handleTouchStart(idx, e)}
+                  onTouchMove={handleTouchMove}
+                  onTouchEnd={handleTouchEnd}
+                  onClick={() => setSelectedTask(task)}
+                  className={`p-3.5 rounded-lg flex items-center gap-3 cursor-pointer transition-all ${
+                    isDone ? 'opacity-50' : dragIdx === idx || touchIdx === idx ? 'bg-surface-container-high scale-[1.02] shadow-lg' : 'bg-surface-container-low hover:bg-surface-container-high'
+                  }`}
+                >
+                  {!isDone && <GripVertical className="w-4 h-4 text-on-surface-variant/30 flex-shrink-0 cursor-grab" />}
+                  {isDone ? (
+                    <div className="w-5 h-5 rounded bg-primary flex items-center justify-center flex-shrink-0">
+                      <Check className="w-3 h-3 text-primary-foreground" />
+                    </div>
+                  ) : (
+                    <button onClick={(e) => handleComplete(task.id, e)}
+                      className="w-5 h-5 rounded border-2 border-outline-variant flex items-center justify-center hover:border-primary flex-shrink-0" />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <h4 className={`text-sm font-semibold truncate ${isDone ? 'text-on-surface-variant line-through' : 'text-foreground'}`}>{task.title}</h4>
+                    {!isDone && (
+                      <div className="flex items-center gap-2 mt-0.5">
+                        {task.contexts && <span className="text-[10px] text-on-surface-variant">{(task.contexts as any).name}</span>}
+                        {task.estimated_minutes && (
+                          <span className="text-[10px] text-on-surface-variant flex items-center gap-0.5"><Clock className="w-2.5 h-2.5" />{task.estimated_minutes}m</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  {label && <span className="text-[10px] font-bold text-on-surface-variant/50 flex-shrink-0">{label}</span>}
+                </motion.div>
+              );
+            })}
           </div>
-        )}
-
-        {/* Collapsible sections */}
-        {skipped.length > 0 && (
-          <CollapsibleSection title="Tareas pospuestas" count={skipped.length} open={showSkipped} onToggle={() => setShowSkipped(!showSkipped)}>
-            {skipped.map((t) => (
-              <div key={t.id} onClick={() => setSelectedTask(t)} className="flex items-center gap-3 p-2 opacity-60 cursor-pointer">
-                <span className="text-foreground text-sm line-through">{t.title}</span>
-              </div>
-            ))}
-          </CollapsibleSection>
-        )}
-
-        {completed.length > 0 && (
-          <CollapsibleSection title="Completadas" count={completed.length} open={showCompleted} onToggle={() => setShowCompleted(!showCompleted)}>
-            {completed.map((t) => (
-              <div key={t.id} onClick={() => setSelectedTask(t)} className="flex items-center gap-3 p-2 cursor-pointer">
-                <div className="w-5 h-5 rounded bg-primary flex items-center justify-center"><Check className="w-3 h-3 text-primary-foreground" /></div>
-                <span className="text-on-surface-variant text-sm line-through">{t.title}</span>
-              </div>
-            ))}
-          </CollapsibleSection>
         )}
       </div>
 
@@ -159,24 +194,5 @@ const DailyPage = () => {
     </div>
   );
 };
-
-const CollapsibleSection = ({ title, count, open, onToggle, children }: {
-  title: string; count: number; open: boolean; onToggle: () => void; children: React.ReactNode;
-}) => (
-  <div>
-    <button onClick={onToggle} className="w-full flex items-center justify-between p-3 bg-surface-container-low rounded-lg">
-      <div className="flex items-center gap-2">
-        {open ? <ChevronDown className="w-4 h-4 text-on-surface-variant" /> : <ChevronRight className="w-4 h-4 text-on-surface-variant" />}
-        <span className="font-bold tracking-tight text-sm">{title}</span>
-        <span className="text-xs text-on-surface-variant/60">{count}</span>
-      </div>
-    </button>
-    {open && (
-      <motion.div initial={{ height: 0 }} animate={{ height: 'auto' }} className="overflow-hidden bg-surface-container-low/50 rounded-b-lg p-3 -mt-1 space-y-1">
-        {children}
-      </motion.div>
-    )}
-  </div>
-);
 
 export default DailyPage;

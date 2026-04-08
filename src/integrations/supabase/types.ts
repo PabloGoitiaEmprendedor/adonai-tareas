@@ -274,6 +274,7 @@ export type Database = {
           id: string
           importance: boolean | null
           priority: string | null
+          sort_order: number | null
           source_type: string | null
           status: string | null
           title: string
@@ -291,6 +292,7 @@ export type Database = {
           id?: string
           importance?: boolean | null
           priority?: string | null
+          sort_order?: number | null
           source_type?: string | null
           status?: string | null
           title: string
@@ -308,6 +310,7 @@ export type Database = {
           id?: string
           importance?: boolean | null
           priority?: string | null
+          sort_order?: number | null
           source_type?: string | null
           status?: string | null
           title?: string
