@@ -13,7 +13,7 @@ import DailyPage from "./pages/DailyPage";
 import WeeklyPage from "./pages/WeeklyPage";
 import GoalsPage from "./pages/GoalsPage";
 import ProfilePage from "./pages/ProfilePage";
-import CalendarPage from "./pages/CalendarPage";
+
 import PrivacyPolicyPage from "./pages/PrivacyPolicyPage";
 import TermsOfServicePage from "./pages/TermsOfServicePage";
 import NotFound from "./pages/NotFound";

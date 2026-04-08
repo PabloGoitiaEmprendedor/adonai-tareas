@@ -3,7 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
+import { lovable } from '@/integrations/lovable/index';
 
 const GoogleIcon = () => (
   <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none">
@@ -47,20 +47,20 @@ const AuthPage = () => {
   const handleGoogleSignIn = async () => {
     setGoogleLoading(true);
     try {
-      // Use custom Google auth flow that requests Calendar permissions
-      const { data, error } = await supabase.functions.invoke('google-auth', {
-        body: {
-          action: 'get-url',
-          redirect_uri: `${window.location.origin}/auth/callback`,
-        },
+      const result = await lovable.auth.signInWithOAuth("google", {
+        redirect_uri: window.location.origin,
       });
 
-      if (error) throw error;
-      if (data?.url) {
-        window.location.href = data.url;
+      if (result.error) {
+        throw result.error;
+      }
+
+      if (result.redirected) {
         return;
       }
-      throw new Error('No se pudo obtener la URL de Google');
+
+      // Session set — navigate
+      navigate('/');
     } catch (err: any) {
       toast.error('Error al conectar con Google');
       console.error(err);
