@@ -16,19 +16,18 @@ interface TaskCaptureModalProps {
   onClose: () => void;
 }
 
-type CapturePhase = 'input' | 'date' | 'classifying' | 'review' | 'saving';
+type CapturePhase = 'input' | 'date' | 'classifying' | 'saving';
 
 const TaskCaptureModal = ({ open, onClose }: TaskCaptureModalProps) => {
   const { profile } = useProfile();
   const { user } = useAuth();
   const { isRecording, transcript, confidence, voiceFallback, isSupported, startRecording, stopRecording, resetTranscript } = useVoiceCapture();
   const { createTask } = useTasks();
-  const { classifyTask, isClassifying } = useTaskClassifier();
+  const { classifyTask } = useTaskClassifier();
 
   const [phase, setPhase] = useState<CapturePhase>('input');
   const [title, setTitle] = useState('');
   const [dueDate, setDueDate] = useState('');
-  const [classification, setClassification] = useState<any>(null);
   const [sourceType, setSourceType] = useState<'voice' | 'text'>('text');
   const [showTextInput, setShowTextInput] = useState(false);
 
@@ -39,7 +38,6 @@ const TaskCaptureModal = ({ open, onClose }: TaskCaptureModalProps) => {
       setPhase('input');
       setTitle('');
       setDueDate(format(new Date(), 'yyyy-MM-dd'));
-      setClassification(null);
       resetTranscript();
       setShowTextInput(false);
       if (preferVoice && isSupported && !voiceFallback) {
@@ -65,7 +63,6 @@ const TaskCaptureModal = ({ open, onClose }: TaskCaptureModalProps) => {
     let parsedTitle = rawTitle;
     let parsedDate = dueDate;
 
-    // Parse voice for date extraction
     if (sourceType === 'voice') {
       const parsed = parseVoiceTranscript(rawTitle);
       parsedTitle = parsed.title;
@@ -75,7 +72,6 @@ const TaskCaptureModal = ({ open, onClose }: TaskCaptureModalProps) => {
     setTitle(parsedTitle);
     setDueDate(parsedDate);
 
-    // If no date was found in voice, ask for it
     if (sourceType === 'voice') {
       const parsed = parseVoiceTranscript(rawTitle);
       if (!parsed.dueDate) {
@@ -84,38 +80,37 @@ const TaskCaptureModal = ({ open, onClose }: TaskCaptureModalProps) => {
       }
     }
 
-    // Go straight to AI classification
-    await runClassification(parsedTitle, parsedDate);
+    await runClassificationAndSave(parsedTitle, parsedDate);
   };
 
   const handleDateDone = async () => {
-    await runClassification(title, dueDate);
+    await runClassificationAndSave(title, dueDate);
   };
 
-  const runClassification = async (taskTitle: string, date: string) => {
+  const runClassificationAndSave = async (taskTitle: string, date: string) => {
     setPhase('classifying');
-    const result = await classifyTask(taskTitle, date);
+    
+    const defaults = {
+      importance: false,
+      urgency: false,
+      priority: 'medium' as const,
+      estimated_minutes: 30,
+      context_id: null,
+      goal_id: null,
+    };
 
-    if (result) {
-      setClassification(result);
-      setPhase('review');
-    } else {
-      // Fallback: save with defaults if AI fails
-      await saveTask(taskTitle, date, {
-        importance: false,
-        urgency: false,
-        priority: 'medium' as const,
-        estimated_minutes: 30,
-        context_id: null,
-        goal_id: null,
-        reasoning: '',
-      });
-    }
-  };
-
-  const saveTask = async (taskTitle: string, date: string, cls: any) => {
-    setPhase('saving');
+    // Start classification in background but save immediately
+    const classificationPromise = classifyTask(taskTitle, date);
+    
     try {
+      // Wait briefly for fast classification, otherwise use defaults
+      const result = await Promise.race([
+        classificationPromise,
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 3000)),
+      ]);
+
+      const cls = result || defaults;
+
       const task = await createTask.mutateAsync({
         title: taskTitle,
         priority: cls.priority,
@@ -142,10 +137,6 @@ const TaskCaptureModal = ({ open, onClose }: TaskCaptureModalProps) => {
       toast.error('Error al crear tarea');
       setPhase('input');
     }
-  };
-
-  const handleConfirmClassification = () => {
-    saveTask(title, dueDate, classification);
   };
 
   if (!open) return null;
@@ -213,7 +204,7 @@ const TaskCaptureModal = ({ open, onClose }: TaskCaptureModalProps) => {
                               </button>
                             )}
                             {(title || showTextInput) && (
-                              <button onClick={handleTitleDone} className="px-6 py-3 rounded-full primary-gradient text-primary-foreground font-bold text-sm">Continuar</button>
+                              <button onClick={handleTitleDone} className="px-6 py-3 rounded-full primary-gradient text-primary-foreground font-bold text-sm">Crear</button>
                             )}
                           </>
                         )}
@@ -250,60 +241,8 @@ const TaskCaptureModal = ({ open, onClose }: TaskCaptureModalProps) => {
                         />
                         <Sparkles className="w-5 h-5 text-primary absolute inset-0 m-auto" />
                       </div>
-                      <p className="text-foreground font-medium">Analizando tu tarea...</p>
-                      <p className="text-on-surface-variant text-xs">La IA está clasificando según tu contexto</p>
-                    </motion.div>
-                  )}
-
-                  {phase === 'review' && classification && (
-                    <motion.div key="review" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="w-full space-y-5">
-                      <div className="text-center">
-                        <Sparkles className="w-5 h-5 text-primary mx-auto mb-2" />
-                        <h2 className="text-lg font-bold text-foreground">"{title}"</h2>
-                        <p className="text-xs text-on-surface-variant mt-1">{dueDate}</p>
-                      </div>
-
-                      <div className="bg-surface-container-low rounded-lg p-4 space-y-3">
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm text-on-surface-variant">Prioridad</span>
-                          <span className={`text-sm font-bold px-2 py-0.5 rounded-full ${
-                            classification.priority === 'high' ? 'bg-error/10 text-error' :
-                            classification.priority === 'medium' ? 'bg-tertiary/10 text-tertiary' :
-                            'bg-surface-container-high text-on-surface-variant'
-                          }`}>
-                            {classification.priority === 'high' ? 'Alta' : classification.priority === 'medium' ? 'Media' : 'Baja'}
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm text-on-surface-variant">Importante</span>
-                          <span className="text-sm font-medium text-foreground">{classification.importance ? 'Sí' : 'No'}</span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm text-on-surface-variant">Urgente</span>
-                          <span className="text-sm font-medium text-foreground">{classification.urgency ? 'Sí' : 'No'}</span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm text-on-surface-variant">Tiempo estimado</span>
-                          <span className="text-sm font-medium text-foreground">{classification.estimated_minutes} min</span>
-                        </div>
-                      </div>
-
-                      {classification.reasoning && (
-                        <p className="text-xs text-on-surface-variant/80 text-center italic">
-                          "{classification.reasoning}"
-                        </p>
-                      )}
-
-                      <div className="flex gap-3">
-                        <button onClick={() => setPhase('input')}
-                          className="flex-1 py-3 rounded-lg bg-surface-container-high text-foreground font-semibold text-sm">
-                          Ajustar
-                        </button>
-                        <button onClick={handleConfirmClassification}
-                          className="flex-1 py-3 rounded-lg primary-gradient text-primary-foreground font-bold text-sm">
-                          Confirmar ✓
-                        </button>
-                      </div>
+                      <p className="text-foreground font-medium">Creando tarea...</p>
+                      <p className="text-on-surface-variant text-xs">La IA está clasificando automáticamente</p>
                     </motion.div>
                   )}
 
