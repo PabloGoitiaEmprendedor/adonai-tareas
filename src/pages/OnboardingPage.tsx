@@ -27,6 +27,13 @@ const OnboardingPage = () => {
   const [workStyle, setWorkStyle] = useState('');
   const [energyPatterns, setEnergyPatterns] = useState('');
   const [importedContext, setImportedContext] = useState('');
+  const [gender, setGender] = useState('');
+  const [ageRange, setAgeRange] = useState('');
+  const [familyStatus, setFamilyStatus] = useState('');
+  const [location, setLocation] = useState('');
+  const [hobbies, setHobbies] = useState('');
+  const [stressLevel, setStressLevel] = useState('');
+  const [biggestChallenge, setBiggestChallenge] = useState('');
 
   const { updateProfile } = useProfile();
   const { createGoal } = useGoals();
