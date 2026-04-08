@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mic, MicOff, X, Square, Calendar } from 'lucide-react';
+import { Mic, X, Square, Sparkles } from 'lucide-react';
 import { useVoiceCapture } from '@/hooks/useVoiceCapture';
 import { parseVoiceTranscript } from '@/hooks/useVoiceParser';
 import { useTasks } from '@/hooks/useTasks';
-import { useContexts } from '@/hooks/useContexts';
+import { useTaskClassifier } from '@/hooks/useTaskClassifier';
 import { useProfile } from '@/hooks/useProfile';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -16,22 +16,19 @@ interface TaskCaptureModalProps {
   onClose: () => void;
 }
 
-type CapturePhase = 'input' | 'date' | 'q1' | 'q2' | 'q3' | 'saving';
+type CapturePhase = 'input' | 'date' | 'classifying' | 'review' | 'saving';
 
 const TaskCaptureModal = ({ open, onClose }: TaskCaptureModalProps) => {
   const { profile } = useProfile();
   const { user } = useAuth();
   const { isRecording, transcript, confidence, voiceFallback, isSupported, startRecording, stopRecording, resetTranscript } = useVoiceCapture();
   const { createTask } = useTasks();
-  const { contexts } = useContexts();
+  const { classifyTask, isClassifying } = useTaskClassifier();
 
   const [phase, setPhase] = useState<CapturePhase>('input');
   const [title, setTitle] = useState('');
   const [dueDate, setDueDate] = useState('');
-  const [estimatedMinutes, setEstimatedMinutes] = useState<number | null>(null);
-  const [isImportant, setIsImportant] = useState<boolean | null>(null);
-  const [isUrgent, setIsUrgent] = useState<boolean | null>(null);
-  const [contextId, setContextId] = useState<string | null>(null);
+  const [classification, setClassification] = useState<any>(null);
   const [sourceType, setSourceType] = useState<'voice' | 'text'>('text');
   const [showTextInput, setShowTextInput] = useState(false);
 
@@ -42,10 +39,7 @@ const TaskCaptureModal = ({ open, onClose }: TaskCaptureModalProps) => {
       setPhase('input');
       setTitle('');
       setDueDate(format(new Date(), 'yyyy-MM-dd'));
-      setEstimatedMinutes(null);
-      setIsImportant(null);
-      setIsUrgent(null);
-      setContextId(null);
+      setClassification(null);
       resetTranscript();
       setShowTextInput(false);
       if (preferVoice && isSupported && !voiceFallback) {
@@ -64,66 +58,73 @@ const TaskCaptureModal = ({ open, onClose }: TaskCaptureModalProps) => {
     }
   }, [transcript, isRecording, sourceType]);
 
-  const handleTitleDone = () => {
+  const handleTitleDone = async () => {
     const rawTitle = title.trim();
     if (!rawTitle) { toast.error('Escribe o dicta una tarea'); return; }
 
+    let parsedTitle = rawTitle;
+    let parsedDate = dueDate;
+
+    // Parse voice for date extraction
     if (sourceType === 'voice') {
       const parsed = parseVoiceTranscript(rawTitle);
-      setTitle(parsed.title);
-      if (parsed.dueDate) setDueDate(parsed.dueDate);
-      if (parsed.importance !== null) setIsImportant(parsed.importance);
-      if (parsed.urgency !== null) setIsUrgent(parsed.urgency);
-      if (parsed.estimatedMinutes !== null) setEstimatedMinutes(parsed.estimatedMinutes);
+      parsedTitle = parsed.title;
+      if (parsed.dueDate) parsedDate = parsed.dueDate;
+    }
 
-      // Determine what questions to skip
-      if (!parsed.dueDate) { setPhase('date'); return; }
-      if (parsed.importance === null) { setPhase('q1'); return; }
-      if (parsed.urgency === null) { setPhase('q2'); return; }
-      setPhase('q3');
+    setTitle(parsedTitle);
+    setDueDate(parsedDate);
+
+    // If no date was found in voice, ask for it
+    if (sourceType === 'voice') {
+      const parsed = parseVoiceTranscript(rawTitle);
+      if (!parsed.dueDate) {
+        setPhase('date');
+        return;
+      }
+    }
+
+    // Go straight to AI classification
+    await runClassification(parsedTitle, parsedDate);
+  };
+
+  const handleDateDone = async () => {
+    await runClassification(title, dueDate);
+  };
+
+  const runClassification = async (taskTitle: string, date: string) => {
+    setPhase('classifying');
+    const result = await classifyTask(taskTitle, date);
+
+    if (result) {
+      setClassification(result);
+      setPhase('review');
     } else {
-      setPhase('date');
+      // Fallback: save with defaults if AI fails
+      await saveTask(taskTitle, date, {
+        importance: false,
+        urgency: false,
+        priority: 'medium' as const,
+        estimated_minutes: 30,
+        context_id: null,
+        goal_id: null,
+        reasoning: '',
+      });
     }
   };
 
-  const handleDateDone = () => {
-    if (isImportant === null) { setPhase('q1'); return; }
-    if (isUrgent === null) { setPhase('q2'); return; }
-    setPhase('q3');
-  };
-
-  const handleQ1 = (answer: boolean | null) => {
-    setIsImportant(answer);
-    if (isUrgent === null) { setPhase('q2'); return; }
-    setPhase('q3');
-  };
-
-  const handleQ2 = (answer: boolean | null) => {
-    setIsUrgent(answer);
-    setPhase('q3');
-  };
-
-  const handleQ3 = async (ctxId: string | null) => {
-    setContextId(ctxId);
+  const saveTask = async (taskTitle: string, date: string, cls: any) => {
     setPhase('saving');
-
-    const importance = isImportant ?? false;
-    const urgency = isUrgent ?? false;
-    let priority: 'high' | 'medium' | 'low' = 'medium';
-    if (importance && urgency) priority = 'high';
-    else if (importance) priority = 'high';
-    else if (urgency) priority = 'medium';
-    else if (!importance && !urgency && isImportant !== null) priority = 'low';
-
     try {
       const task = await createTask.mutateAsync({
-        title: title.trim(),
-        priority,
-        urgency,
-        importance,
+        title: taskTitle,
+        priority: cls.priority,
+        urgency: cls.urgency,
+        importance: cls.importance,
         source_type: sourceType,
-        context_id: ctxId,
-        due_date: dueDate || format(new Date(), 'yyyy-MM-dd'),
+        context_id: cls.context_id,
+        goal_id: cls.goal_id,
+        due_date: date || format(new Date(), 'yyyy-MM-dd'),
       });
 
       if (sourceType === 'voice' && user) {
@@ -141,6 +142,10 @@ const TaskCaptureModal = ({ open, onClose }: TaskCaptureModalProps) => {
       toast.error('Error al crear tarea');
       setPhase('input');
     }
+  };
+
+  const handleConfirmClassification = () => {
+    saveTask(title, dueDate, classification);
   };
 
   if (!open) return null;
@@ -188,7 +193,7 @@ const TaskCaptureModal = ({ open, onClose }: TaskCaptureModalProps) => {
                         ) : null}
                       </div>
                       <p className="text-[11px] text-on-surface-variant/60 text-center">
-                        💡 Di la fecha, importancia y urgencia en la misma nota de voz
+                        💡 Solo di la tarea y la fecha. La IA se encarga del resto.
                       </p>
                       <div className="flex gap-3">
                         {!showTextInput && (
@@ -235,56 +240,68 @@ const TaskCaptureModal = ({ open, onClose }: TaskCaptureModalProps) => {
                     </motion.div>
                   )}
 
-                  {phase === 'q1' && (
-                    <motion.div key="q1" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} className="w-full space-y-6">
-                      <div className="text-center">
-                        <span className="text-xs uppercase tracking-[0.2em] font-bold text-on-surface-variant">Priorización</span>
-                        <h2 className="text-lg font-medium text-foreground mt-1">¿Es importante para tu meta?</h2>
+                  {phase === 'classifying' && (
+                    <motion.div key="classifying" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="py-8 text-center space-y-4">
+                      <div className="w-12 h-12 mx-auto relative">
+                        <motion.div
+                          animate={{ rotate: 360 }}
+                          transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
+                          className="w-12 h-12 border-2 border-primary/30 border-t-primary rounded-full"
+                        />
+                        <Sparkles className="w-5 h-5 text-primary absolute inset-0 m-auto" />
                       </div>
-                      <div className="flex gap-3">
-                        {[{ label: 'Sí', val: true }, { label: 'No', val: false }, { label: 'No sé', val: null }].map((opt) => (
-                          <button key={opt.label} onClick={() => handleQ1(opt.val)}
-                            className="flex-1 py-4 px-4 rounded-lg bg-surface-container-high text-foreground font-semibold hover:bg-surface-container-highest transition-all active:scale-95">
-                            {opt.label}
-                          </button>
-                        ))}
-                      </div>
+                      <p className="text-foreground font-medium">Analizando tu tarea...</p>
+                      <p className="text-on-surface-variant text-xs">La IA está clasificando según tu contexto</p>
                     </motion.div>
                   )}
 
-                  {phase === 'q2' && (
-                    <motion.div key="q2" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} className="w-full space-y-6">
+                  {phase === 'review' && classification && (
+                    <motion.div key="review" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="w-full space-y-5">
                       <div className="text-center">
-                        <span className="text-xs uppercase tracking-[0.2em] font-bold text-on-surface-variant">Priorización</span>
-                        <h2 className="text-lg font-medium text-foreground mt-1">¿Es urgente?</h2>
+                        <Sparkles className="w-5 h-5 text-primary mx-auto mb-2" />
+                        <h2 className="text-lg font-bold text-foreground">"{title}"</h2>
+                        <p className="text-xs text-on-surface-variant mt-1">{dueDate}</p>
                       </div>
-                      <div className="flex gap-3">
-                        {[{ label: 'Sí', val: true }, { label: 'No', val: false }, { label: 'Después', val: null }].map((opt) => (
-                          <button key={opt.label} onClick={() => handleQ2(opt.val)}
-                            className="flex-1 py-4 px-4 rounded-lg bg-surface-container-high text-foreground font-semibold hover:bg-surface-container-highest transition-all active:scale-95">
-                            {opt.label}
-                          </button>
-                        ))}
-                      </div>
-                    </motion.div>
-                  )}
 
-                  {phase === 'q3' && (
-                    <motion.div key="q3" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} className="w-full space-y-6">
-                      <div className="text-center">
-                        <span className="text-xs uppercase tracking-[0.2em] font-bold text-on-surface-variant">Contexto</span>
-                        <h2 className="text-lg font-medium text-foreground mt-1">¿A qué se conecta?</h2>
+                      <div className="bg-surface-container-low rounded-lg p-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-on-surface-variant">Prioridad</span>
+                          <span className={`text-sm font-bold px-2 py-0.5 rounded-full ${
+                            classification.priority === 'high' ? 'bg-error/10 text-error' :
+                            classification.priority === 'medium' ? 'bg-tertiary/10 text-tertiary' :
+                            'bg-surface-container-high text-on-surface-variant'
+                          }`}>
+                            {classification.priority === 'high' ? 'Alta' : classification.priority === 'medium' ? 'Media' : 'Baja'}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-on-surface-variant">Importante</span>
+                          <span className="text-sm font-medium text-foreground">{classification.importance ? 'Sí' : 'No'}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-on-surface-variant">Urgente</span>
+                          <span className="text-sm font-medium text-foreground">{classification.urgency ? 'Sí' : 'No'}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-on-surface-variant">Tiempo estimado</span>
+                          <span className="text-sm font-medium text-foreground">{classification.estimated_minutes} min</span>
+                        </div>
                       </div>
-                      <div className="flex flex-wrap gap-2 justify-center">
-                        {contexts.map((ctx) => (
-                          <button key={ctx.id} onClick={() => handleQ3(ctx.id)}
-                            className="px-4 py-2 rounded-full bg-surface-container-high text-foreground text-sm font-medium hover:bg-surface-container-highest transition-all">
-                            {ctx.name}
-                          </button>
-                        ))}
-                        <button onClick={() => handleQ3(null)}
-                          className="px-4 py-2 rounded-full bg-surface-container-low text-on-surface-variant text-sm font-medium hover:bg-surface-container transition-all">
-                          Sin contexto
+
+                      {classification.reasoning && (
+                        <p className="text-xs text-on-surface-variant/80 text-center italic">
+                          "{classification.reasoning}"
+                        </p>
+                      )}
+
+                      <div className="flex gap-3">
+                        <button onClick={() => setPhase('input')}
+                          className="flex-1 py-3 rounded-lg bg-surface-container-high text-foreground font-semibold text-sm">
+                          Ajustar
+                        </button>
+                        <button onClick={handleConfirmClassification}
+                          className="flex-1 py-3 rounded-lg primary-gradient text-primary-foreground font-bold text-sm">
+                          Confirmar ✓
                         </button>
                       </div>
                     </motion.div>

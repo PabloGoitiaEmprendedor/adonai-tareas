@@ -322,6 +322,60 @@ export type Database = {
         }
         Relationships: []
       }
+      user_context: {
+        Row: {
+          ai_learned_patterns: Json | null
+          created_at: string
+          energy_patterns: string | null
+          id: string
+          imported_context: string | null
+          industry: string | null
+          life_areas: Json | null
+          occupation: string | null
+          personal_goals: string | null
+          priorities_summary: string | null
+          recurring_commitments: string | null
+          updated_at: string
+          user_id: string
+          work_hours: string | null
+          work_style: string | null
+        }
+        Insert: {
+          ai_learned_patterns?: Json | null
+          created_at?: string
+          energy_patterns?: string | null
+          id?: string
+          imported_context?: string | null
+          industry?: string | null
+          life_areas?: Json | null
+          occupation?: string | null
+          personal_goals?: string | null
+          priorities_summary?: string | null
+          recurring_commitments?: string | null
+          updated_at?: string
+          user_id: string
+          work_hours?: string | null
+          work_style?: string | null
+        }
+        Update: {
+          ai_learned_patterns?: Json | null
+          created_at?: string
+          energy_patterns?: string | null
+          id?: string
+          imported_context?: string | null
+          industry?: string | null
+          life_areas?: Json | null
+          occupation?: string | null
+          personal_goals?: string | null
+          priorities_summary?: string | null
+          recurring_commitments?: string | null
+          updated_at?: string
+          user_id?: string
+          work_hours?: string | null
+          work_style?: string | null
+        }
+        Relationships: []
+      }
       voice_inputs: {
         Row: {
           confidence: number | null
