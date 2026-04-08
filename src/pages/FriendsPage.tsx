@@ -10,14 +10,15 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 const FriendsPage = () => {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const { friends, pendingReceived, pendingSent, sendRequest, respondRequest } = useFriendships();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [searching, setSearching] = useState(false);
   const [selectedFriend, setSelectedFriend] = useState<string | null>(null);
   const [tab, setTab] = useState<'friends' | 'requests'>('friends');
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
 
-  // Get profiles for friend IDs
   const friendUserIds = friends.map((f) => f.requester_id === user?.id ? f.addressee_id : f.requester_id);
   const { data: friendProfiles = [] } = useQuery({
     queryKey: ['friend-profiles', friendUserIds],
@@ -29,7 +30,6 @@ const FriendsPage = () => {
     enabled: friendUserIds.length > 0,
   });
 
-  // Get profiles for pending requests
   const pendingUserIds = pendingReceived.map((f) => f.requester_id);
   const { data: pendingProfiles = [] } = useQuery({
     queryKey: ['pending-profiles', pendingUserIds],
@@ -41,7 +41,6 @@ const FriendsPage = () => {
     enabled: pendingUserIds.length > 0,
   });
 
-  // Get public folders for selected friend
   const { data: friendFolders = [] } = useQuery({
     queryKey: ['friend-folders', selectedFriend],
     queryFn: async () => {
@@ -52,17 +51,48 @@ const FriendsPage = () => {
     enabled: !!selectedFriend,
   });
 
-  // Get tasks for friend's public folders
   const folderIds = friendFolders.map((f: any) => f.id);
   const { data: friendTasks = [] } = useQuery({
     queryKey: ['friend-tasks', folderIds],
     queryFn: async () => {
       if (folderIds.length === 0) return [];
-      const { data } = await supabase.from('tasks').select('*').in('folder_id', folderIds);
+      const { data } = await supabase.from('tasks').select('*').in('folder_id', folderIds).order('sort_order', { ascending: true });
       return data || [];
     },
     enabled: folderIds.length > 0,
   });
+
+  const updateFriendTask = useMutation({
+    mutationFn: async (updates: { id: string; [key: string]: any }) => {
+      const { id, ...rest } = updates;
+      const { error } = await supabase.from('tasks').update(rest).eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['friend-tasks'] });
+      toast.success('Tarea actualizada');
+    },
+    onError: () => toast.error('Error al actualizar tarea'),
+  });
+
+  const toggleFolder = (folderId: string) => {
+    setExpandedFolders(prev => {
+      const next = new Set(prev);
+      if (next.has(folderId)) next.delete(folderId);
+      else next.add(folderId);
+      return next;
+    });
+  };
+
+  const handleToggleTask = (task: any, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const newStatus = task.status === 'done' ? 'pending' : 'done';
+    updateFriendTask.mutate({
+      id: task.id,
+      status: newStatus,
+      completed_at: newStatus === 'done' ? new Date().toISOString() : null,
+    });
+  };
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
