@@ -63,7 +63,7 @@ const FriendsPage = () => {
   });
 
   const updateFriendTask = useMutation({
-    mutationFn: async (updates: { id: string; [key: string]: any }) => {
+    mutationFn: async (updates: { id: string; status?: string; completed_at?: string | null }) => {
       const { id, ...rest } = updates;
       const { error } = await supabase.from('tasks').update(rest).eq('id', id);
       if (error) throw error;
