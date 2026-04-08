@@ -18,7 +18,6 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Get user from token
     let userId: string | null = null;
     if (authHeader) {
       const token = authHeader.replace("Bearer ", "");
@@ -35,7 +34,6 @@ serve(async (req) => {
 
     const { taskTitle, dueDate } = await req.json();
 
-    // Fetch user context, profile, existing tasks, goals, contexts
     const [contextRes, profileRes, tasksRes, goalsRes, contextsRes] = await Promise.all([
       supabase.from("user_context").select("*").eq("user_id", userId).single(),
       supabase.from("profiles").select("*").eq("user_id", userId).single(),
@@ -51,44 +49,38 @@ serve(async (req) => {
     const contexts = contextsRes.data || [];
 
     const contextList = contexts.map((c: any) => `${c.name} (id: ${c.id})`).join(", ");
-    const goalsList = goals.map((g: any) => `${g.title} (${g.horizon})`).join(", ");
+    const goalsList = goals.map((g: any) => `${g.title} [id: ${g.id}] (${g.horizon})`).join(", ");
 
-    const systemPrompt = `Eres Adonai, un asistente de productividad experto. Conoces al usuario y clasificas sus tareas automáticamente.
+    const systemPrompt = `Eres Adonai, un asistente de productividad experto. Tu trabajo es:
+1. Analizar lo que el usuario dice (puede ser una transcripción de voz larga y desordenada) y extraer la TAREA real.
+2. Crear un título claro, conciso y accionable para la tarea (máximo 60 caracteres).
+3. Si hay detalles adicionales, crear una descripción breve.
+4. Clasificar la tarea automáticamente.
 
-METODOLOGÍAS QUE APLICAS:
-- Matriz de Eisenhower (urgente/importante)
-- "Eat the Frog" de Brian Tracy (tareas difíciles primero)
-- Regla del 80/20 de Pareto
-- Time-blocking
-- Getting Things Done (GTD) de David Allen
+IMPORTANTE: El usuario puede dictar algo largo como "oye mira necesito que mañana me acuerde de ir al banco a sacar la tarjeta nueva porque la otra se me venció". Tú debes convertir eso en:
+- Título: "Ir al banco por tarjeta nueva"
+- Descripción: "La tarjeta anterior está vencida"
+
+METODOLOGÍAS: Eisenhower, Eat the Frog, 80/20, GTD.
 
 CONTEXTO DEL USUARIO:
 - Nombre: ${profile?.name || "Usuario"}
 - Ocupación: ${userContext?.occupation || "No especificada"}
 - Industria: ${userContext?.industry || "No especificada"}
-- Horario de trabajo: ${userContext?.work_hours || "9:00-17:00"}
-- Metas personales: ${userContext?.personal_goals || "No definidas"}
-- Estilo de trabajo: ${userContext?.work_style || "No definido"}
-- Patrones de energía: ${userContext?.energy_patterns || "No definidos"}
-- Compromisos recurrentes: ${userContext?.recurring_commitments || "No definidos"}
+- Horario: ${userContext?.work_hours || "9:00-17:00"}
+- Metas: ${userContext?.personal_goals || "No definidas"}
+- Estilo: ${userContext?.work_style || "No definido"}
+- Energía: ${userContext?.energy_patterns || "No definidos"}
+- Compromisos: ${userContext?.recurring_commitments || "No definidos"}
 - Prioridades: ${userContext?.priorities_summary || "No definidas"}
-- Áreas de vida: ${JSON.stringify(userContext?.life_areas || [])}
-- Patrones aprendidos: ${JSON.stringify(userContext?.ai_learned_patterns || [])}
+- Áreas: ${JSON.stringify(userContext?.life_areas || [])}
+- Patrones: ${JSON.stringify(userContext?.ai_learned_patterns || [])}
 
 METAS ACTIVAS: ${goalsList || "Ninguna"}
-CONTEXTOS DISPONIBLES: ${contextList || "Ninguno"}
+CONTEXTOS: ${contextList || "Ninguno"}
 
-TAREAS PENDIENTES ACTUALES (para entender la carga):
-${existingTasks.map((t: any) => `- ${t.title} (prioridad: ${t.priority}, urgente: ${t.urgency}, importante: ${t.importance}, fecha: ${t.due_date})`).join("\n") || "Ninguna"}
-
-INSTRUCCIONES:
-Analiza la tarea que el usuario quiere crear y devuelve la clasificación usando la función classify_task.
-- Determina si es urgente e importante basándote en el contexto del usuario, sus metas, y la fecha.
-- Estima el tiempo en minutos de forma realista.
-- Sugiere el contexto más apropiado de los disponibles.
-- Asigna la prioridad: high (urgente+importante o importante), medium (urgente o sin datos), low (ni urgente ni importante).
-- Si la tarea está relacionada con una meta activa, vincúlala.
-- Considera la carga actual del usuario al clasificar.`;
+TAREAS PENDIENTES:
+${existingTasks.map((t: any) => `- ${t.title} (${t.priority}, fecha: ${t.due_date})`).join("\n") || "Ninguna"}`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -100,26 +92,28 @@ Analiza la tarea que el usuario quiere crear y devuelve la clasificación usando
         model: "google/gemini-3-flash-preview",
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: `Clasifica esta tarea: "${taskTitle}"${dueDate ? ` (fecha: ${dueDate})` : ""}` },
+          { role: "user", content: `Analiza y clasifica esto: "${taskTitle}"${dueDate ? ` (fecha sugerida: ${dueDate})` : ""}` },
         ],
         tools: [
           {
             type: "function",
             function: {
               name: "classify_task",
-              description: "Clasifica una tarea con prioridad, urgencia, importancia, tiempo estimado y contexto",
+              description: "Analiza la entrada del usuario, genera un título limpio y descripción, y clasifica la tarea",
               parameters: {
                 type: "object",
                 properties: {
-                  importance: { type: "boolean", description: "¿Es importante para las metas del usuario?" },
-                  urgency: { type: "boolean", description: "¿Es urgente?" },
+                  refined_title: { type: "string", description: "Título claro y conciso de la tarea (máx 60 chars). NO es una transcripción, es un título procesado y mejorado." },
+                  description: { type: "string", description: "Descripción breve con detalles adicionales extraídos de lo que dijo el usuario. Vacío si no hay detalles extra." },
+                  importance: { type: "boolean" },
+                  urgency: { type: "boolean" },
                   priority: { type: "string", enum: ["high", "medium", "low"] },
-                  estimated_minutes: { type: "number", description: "Tiempo estimado en minutos" },
+                  estimated_minutes: { type: "number" },
                   context_id: { type: "string", description: "ID del contexto más apropiado, o null" },
                   goal_id: { type: "string", description: "ID de la meta relacionada, o null" },
-                  reasoning: { type: "string", description: "Breve explicación de por qué se clasificó así (1 oración en español)" },
+                  reasoning: { type: "string", description: "1 oración explicando la clasificación" },
                 },
-                required: ["importance", "urgency", "priority", "estimated_minutes", "reasoning"],
+                required: ["refined_title", "description", "importance", "urgency", "priority", "estimated_minutes", "reasoning"],
                 additionalProperties: false,
               },
             },
@@ -131,7 +125,7 @@ Analiza la tarea que el usuario quiere crear y devuelve la clasificación usando
 
     if (!response.ok) {
       if (response.status === 429) {
-        return new Response(JSON.stringify({ error: "Demasiadas solicitudes, intenta en unos segundos" }), {
+        return new Response(JSON.stringify({ error: "Rate limit" }), {
           status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
@@ -141,7 +135,7 @@ Analiza la tarea que el usuario quiere crear y devuelve la clasificación usando
         });
       }
       const t = await response.text();
-      console.error("AI gateway error:", response.status, t);
+      console.error("AI error:", response.status, t);
       throw new Error("AI classification failed");
     }
 
@@ -151,24 +145,22 @@ Analiza la tarea que el usuario quiere crear y devuelve la clasificación usando
 
     const classification = JSON.parse(toolCall.function.arguments);
 
-    // Validate context_id and goal_id exist
     if (classification.context_id) {
-      const validCtx = contexts.find((c: any) => c.id === classification.context_id);
-      if (!validCtx) classification.context_id = null;
+      const valid = contexts.find((c: any) => c.id === classification.context_id);
+      if (!valid) classification.context_id = null;
     }
     if (classification.goal_id) {
-      const validGoal = goals.find((g: any) => g.id === classification.goal_id);
-      if (!validGoal) classification.goal_id = null;
+      const valid = goals.find((g: any) => g.id === classification.goal_id);
+      if (!valid) classification.goal_id = null;
     }
 
-    // Learn from this interaction - update ai_learned_patterns
+    // Learn pattern
     const patterns = userContext?.ai_learned_patterns || [];
     const newPattern = {
-      task: taskTitle,
+      task: classification.refined_title,
       classification: { priority: classification.priority, urgency: classification.urgency, importance: classification.importance },
       timestamp: new Date().toISOString(),
     };
-    // Keep last 50 patterns
     const updatedPatterns = [...patterns.slice(-49), newPattern];
     await supabase.from("user_context").update({ ai_learned_patterns: updatedPatterns, updated_at: new Date().toISOString() }).eq("user_id", userId);
 

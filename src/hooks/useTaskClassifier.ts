@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 interface ClassificationResult {
+  refined_title: string;
+  description: string;
   importance: boolean;
   urgency: boolean;
   priority: 'high' | 'medium' | 'low';
