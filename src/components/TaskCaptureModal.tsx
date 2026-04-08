@@ -151,6 +151,9 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
       estimated_minutes: fallbackEstimatedMinutes || 30,
       context_id: null,
       goal_id: null,
+      folder_id: null,
+      recurrence_id: null,
+      created_new_folder: null,
     };
 
     const classificationPromise = classifyTask(classificationInput, date);
