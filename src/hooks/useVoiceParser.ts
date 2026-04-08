@@ -100,6 +100,7 @@ export const parseVoiceTranscript = (transcript: string): ParsedVoiceData => {
     .replace(/^\s*(?:quiero|necesito|tengo que|debo)\s+/i, '')
     .replace(/^\s*(?:agendar|agrega(?:r)?|anota(?:r)?|programa(?:r)?|pon(?:er)?)\s+(?:una|un)?\s*(?:tarea|evento|recordatorio)\s*(?:para\s+)?/i, '')
     .replace(/^\s*(?:que|lo que necesito(?: hacer)? es)\s+/i, '')
+    .replace(/^\s*(?:quiero|necesito|tengo que|debo)\s+/i, '')
     .replace(/\s+/g, ' ')
     .replace(/^[,.\s]+|[,.\s]+$/g, '')
     .trim();

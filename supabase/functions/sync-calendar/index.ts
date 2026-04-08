@@ -46,6 +46,24 @@ async function fetchCalendarEvents(accessToken: string, calendarId: string, time
   return items;
 }
 
+async function fetchVisibleCalendarIds(accessToken: string, fallbackCalendarId: string) {
+  const response = await fetch("https://www.googleapis.com/calendar/v3/users/me/calendarList", {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+
+  if (!response.ok) {
+    return [fallbackCalendarId];
+  }
+
+  const data = await response.json();
+  const ids = (data.items || [])
+    .filter((calendar: any) => calendar?.selected !== false && calendar?.accessRole !== "freeBusyReader")
+    .map((calendar: any) => calendar.id)
+    .filter(Boolean);
+
+  return ids.length > 0 ? ids : [fallbackCalendarId];
+}
+
 async function refreshAccessToken(refreshToken: string): Promise<string | null> {
   const res = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
@@ -105,8 +123,20 @@ Deno.serve(async (req) => {
     }
 
     const { timeMin, timeMax } = await req.json();
-    const calendarId = tokenData.calendar_id || "primary";
-    const calendarItems = await fetchCalendarEvents(accessToken, calendarId, timeMin, timeMax);
+    const fallbackCalendarId = tokenData.calendar_id || "primary";
+    const calendarIds = await fetchVisibleCalendarIds(accessToken, fallbackCalendarId);
+    const calendarResults = await Promise.all(
+      calendarIds.map((calendarId) => fetchCalendarEvents(accessToken, calendarId, timeMin, timeMax).catch(() => []))
+    );
+
+    const calendarItems = Array.from(
+      new Map(calendarResults.flat().map((event: any) => [event.id, event])).values()
+    ).sort((a: any, b: any) => {
+      const aStart = new Date(a.start?.dateTime || a.start?.date || 0).getTime();
+      const bStart = new Date(b.start?.dateTime || b.start?.date || 0).getTime();
+      return aStart - bStart;
+    });
+
     const events = calendarItems.map((e: any) => ({
       id: e.id,
       title: e.summary || "(Sin título)",
