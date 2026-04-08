@@ -62,6 +62,13 @@ const OnboardingPage = () => {
         work_style: workStyle,
         energy_patterns: energyPatterns,
         imported_context: importedContext,
+        gender,
+        age_range: ageRange,
+        family_status: familyStatus,
+        location,
+        hobbies,
+        stress_level: stressLevel,
+        biggest_challenge: biggestChallenge,
         life_areas: ['Trabajo', 'Personal', 'Salud', 'Aprendizaje'],
       });
       if (user) {
