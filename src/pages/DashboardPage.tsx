@@ -58,7 +58,7 @@ const DashboardPage = () => {
   }, [tasks]);
 
   const mainGoal = goals.find((g) => g.id === profile?.main_goal_id);
-  const completedToday = tasks.filter((t) => t.status === 'done').length;
+  
   const hasTooMany = pendingTasks.length > 7;
 
   useEffect(() => { trackDayActive.mutate(); }, []);
