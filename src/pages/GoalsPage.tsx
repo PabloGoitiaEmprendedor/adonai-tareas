@@ -1,12 +1,13 @@
-import { useState } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useGoals } from '@/hooks/useGoals';
 import { useTasks } from '@/hooks/useTasks';
 import { useProfile } from '@/hooks/useProfile';
+import { useGlobalVoiceCapture } from '@/hooks/useGlobalVoiceCapture';
 import { Flag, Plus, ChevronRight, Check, Trophy } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import BottomNav from '@/components/BottomNav';
 import FAB from '@/components/FAB';
-import TaskCaptureModal from '@/components/TaskCaptureModal';
+import TaskCaptureModal, { type TaskCaptureModalHandle } from '@/components/TaskCaptureModal';
 import { toast } from 'sonner';
 
 const horizonLabels: Record<string, string> = {
@@ -28,6 +29,16 @@ const GoalsPage = () => {
   const [selectedGoalId, setSelectedGoalId] = useState<string | null>(null);
   const [completedGoalId, setCompletedGoalId] = useState<string | null>(null);
   const [nextGoalTitle, setNextGoalTitle] = useState('');
+  const captureModalRef = useRef<TaskCaptureModalHandle>(null);
+
+  const openCapture = useCallback(() => setCaptureOpen(true), []);
+  const openCaptureInVoiceMode = useCallback(() => {
+    setCaptureOpen(true);
+    window.requestAnimationFrame(() => {
+      captureModalRef.current?.openInVoiceMode();
+    });
+  }, []);
+  useGlobalVoiceCapture(captureModalRef, openCapture);
 
   const horizons = ['daily', 'weekly', 'monthly', 'quarterly', 'annual'];
   const activeGoals = goals.filter((g) => g.active);
@@ -59,7 +70,6 @@ const GoalsPage = () => {
   const handleCompleteGoal = async (goalId: string) => {
     try {
       await updateGoal.mutateAsync({ id: goalId, active: false });
-      // If this was the main goal, clear it
       if (profile?.main_goal_id === goalId) {
         updateProfile.mutate({ main_goal_id: null });
       }
@@ -101,7 +111,6 @@ const GoalsPage = () => {
           <p className="text-on-surface-variant text-sm">Organiza tus objetivos en horizontes temporales.</p>
         </div>
 
-        {/* Next goal prompt after completion */}
         <AnimatePresence>
           {completedGoalId && (
             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}
@@ -183,7 +192,6 @@ const GoalsPage = () => {
                         </div>
                       )}
                     </button>
-                    {/* Complete goal button */}
                     <div className="px-4 pb-3">
                       <button onClick={() => handleCompleteGoal(goal.id)}
                         className="w-full py-2 rounded-lg bg-primary/10 text-primary text-xs font-bold flex items-center justify-center gap-1.5 hover:bg-primary/20 transition-colors">
@@ -209,7 +217,6 @@ const GoalsPage = () => {
           </section>
         )}
 
-        {/* Completed goals */}
         {completedGoals.length > 0 && (
           <section className="space-y-2">
             <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Logradas</span>
@@ -229,9 +236,9 @@ const GoalsPage = () => {
         )}
       </div>
 
-      <FAB onClick={() => setCaptureOpen(true)} />
+      <FAB onClick={openCaptureInVoiceMode} />
       <BottomNav />
-      <TaskCaptureModal open={captureOpen} onClose={() => setCaptureOpen(false)} />
+      <TaskCaptureModal ref={captureModalRef} open={captureOpen} onClose={() => setCaptureOpen(false)} />
     </div>
   );
 };

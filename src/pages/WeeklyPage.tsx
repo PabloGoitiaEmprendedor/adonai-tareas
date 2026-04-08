@@ -1,14 +1,15 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useTasks } from '@/hooks/useTasks';
 import { useGoals } from '@/hooks/useGoals';
 import { useProfile } from '@/hooks/useProfile';
+import { useGlobalVoiceCapture } from '@/hooks/useGlobalVoiceCapture';
 import { format, startOfWeek, addDays, isSameDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { TrendingUp, Calendar, Check, GripVertical, Timer } from 'lucide-react';
 import { motion } from 'framer-motion';
 import BottomNav from '@/components/BottomNav';
 import FAB from '@/components/FAB';
-import TaskCaptureModal from '@/components/TaskCaptureModal';
+import TaskCaptureModal, { type TaskCaptureModalHandle } from '@/components/TaskCaptureModal';
 import TaskDetailModal from '@/components/TaskDetailModal';
 import FullscreenTimer from '@/components/FullscreenTimer';
 
@@ -20,6 +21,16 @@ const WeeklyPage = () => {
   const [selectedDay, setSelectedDay] = useState<Date>(new Date());
   const [selectedTask, setSelectedTask] = useState<any>(null);
   const [timerTask, setTimerTask] = useState<any>(null);
+  const captureModalRef = useRef<TaskCaptureModalHandle>(null);
+
+  const openCapture = useCallback(() => setCaptureOpen(true), []);
+  const openCaptureInVoiceMode = useCallback(() => {
+    setCaptureOpen(true);
+    window.requestAnimationFrame(() => {
+      captureModalRef.current?.openInVoiceMode();
+    });
+  }, []);
+  useGlobalVoiceCapture(captureModalRef, openCapture);
 
   const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
@@ -45,7 +56,6 @@ const WeeklyPage = () => {
 
   const weekRange = `${format(weekStart, 'd')} — ${format(addDays(weekStart, 6), 'd MMMM', { locale: es })}`;
 
-  // Ordered tasks for selected day with drag support
   const selectedDayTasks = getTasksForDay(selectedDay);
   const [orderedTasks, setOrderedTasks] = useState<any[]>([]);
 
@@ -132,7 +142,6 @@ const WeeklyPage = () => {
           </div>
         </div>
 
-        {/* 7 day grid */}
         <div className="grid grid-cols-7 gap-1.5">
           {days.map((day, i) => {
             const isToday = isSameDay(day, today);
@@ -152,7 +161,6 @@ const WeeklyPage = () => {
           })}
         </div>
 
-        {/* Selected day tasks with drag */}
         <section className="space-y-3">
           <div className="flex justify-between items-center">
             <h2 className="text-base font-bold tracking-tight capitalize">
@@ -164,7 +172,7 @@ const WeeklyPage = () => {
           {orderedTasks.length === 0 ? (
             <div className="bg-surface-container-low p-5 rounded-lg text-center space-y-3">
               <p className="text-on-surface-variant text-sm">Sin tareas para este día.</p>
-              <button onClick={() => setCaptureOpen(true)} className="text-primary text-sm font-semibold">+ Añadir tarea</button>
+              <button onClick={openCapture} className="text-primary text-sm font-semibold">+ Añadir tarea</button>
             </div>
           ) : (
             <div className="space-y-1.5">
@@ -208,7 +216,6 @@ const WeeklyPage = () => {
           )}
         </section>
 
-        {/* Goal progress */}
         {mainGoal && (
           <div className="bg-surface-container-low rounded-lg p-5 space-y-4">
             <div className="flex justify-between items-start">
@@ -224,7 +231,6 @@ const WeeklyPage = () => {
           </div>
         )}
 
-        {/* Trend */}
         <div className="bg-surface-container-low rounded-lg p-5">
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Tendencia</h3>
@@ -239,9 +245,9 @@ const WeeklyPage = () => {
         </div>
       </div>
 
-      <FAB onClick={() => setCaptureOpen(true)} />
+      <FAB onClick={openCaptureInVoiceMode} />
       <BottomNav />
-      <TaskCaptureModal open={captureOpen} onClose={() => setCaptureOpen(false)} />
+      <TaskCaptureModal ref={captureModalRef} open={captureOpen} onClose={() => setCaptureOpen(false)} />
       <TaskDetailModal task={selectedTask} open={!!selectedTask} onClose={() => setSelectedTask(null)} />
       <FullscreenTimer task={timerTask} open={!!timerTask} onClose={() => setTimerTask(null)} />
     </div>
