@@ -4,7 +4,7 @@ import { Calendar, CalendarDays, Trophy, User, CalendarCheck } from 'lucide-reac
 const tabs = [
   { path: '/', label: 'Hoy', icon: Calendar },
   { path: '/week', label: 'Semana', icon: CalendarDays },
-  { path: '/calendar', label: 'Agenda', icon: CalendarCheck },
+  { path: '/calendar', label: 'Calendario', icon: CalendarCheck },
   { path: '/goals', label: 'Metas', icon: Trophy },
   { path: '/profile', label: 'Perfil', icon: User },
 ];
