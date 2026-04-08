@@ -1,13 +1,12 @@
 import { useState } from 'react';
 import { useFriendships } from '@/hooks/useFriendships';
-import { useFolders } from '@/hooks/useFolders';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Users, Search, UserPlus, Check, X, FolderOpen, Globe, ChevronRight } from 'lucide-react';
+import { Users, Search, UserPlus, Check, X, FolderOpen, ChevronRight, ChevronDown, Clock, Calendar } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import BottomNav from '@/components/BottomNav';
 import { toast } from 'sonner';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 const FriendsPage = () => {
   const { user } = useAuth();
