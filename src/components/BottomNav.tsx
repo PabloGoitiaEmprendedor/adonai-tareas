@@ -14,8 +14,8 @@ const BottomNav = () => {
   const navigate = useNavigate();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 glass-sheet pb-safe">
-      <div className="flex justify-around items-center h-16 max-w-[430px] mx-auto">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 glass-sheet pb-safe lg:top-0 lg:bottom-0 lg:left-0 lg:right-auto lg:w-20 lg:pb-0">
+      <div className="flex justify-around items-center h-16 max-w-[430px] mx-auto lg:max-w-none lg:flex-col lg:h-full lg:justify-center lg:gap-6 lg:w-20">
         {tabs.map((tab) => {
           const active = location.pathname === tab.path;
           const Icon = tab.icon;

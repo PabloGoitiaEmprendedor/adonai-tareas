@@ -4,12 +4,13 @@ import { useTasks, useEisenhowerSort } from '@/hooks/useTasks';
 import { useGoals } from '@/hooks/useGoals';
 import { useStreaks } from '@/hooks/useStreaks';
 import { format } from 'date-fns';
-import { Check, Target, Plus, Clock, GripVertical } from 'lucide-react';
+import { Check, Target, Plus, GripVertical, Timer } from 'lucide-react';
 import { motion } from 'framer-motion';
 import BottomNav from '@/components/BottomNav';
 import FAB from '@/components/FAB';
 import TaskCaptureModal from '@/components/TaskCaptureModal';
 import TaskDetailModal from '@/components/TaskDetailModal';
+import FullscreenTimer from '@/components/FullscreenTimer';
 
 const getGreeting = () => {
   const h = new Date().getHours();
@@ -26,6 +27,7 @@ const DashboardPage = () => {
   const { tasks, updateTask } = useTasks({ date: today });
   const [captureOpen, setCaptureOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<any>(null);
+  const [timerTask, setTimerTask] = useState<any>(null);
   const [orderedTasks, setOrderedTasks] = useState<any[]>([]);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
 
@@ -130,15 +132,14 @@ const DashboardPage = () => {
     setTouchIdx(null);
   };
 
-  const getTaskLabel = (task: any, idx: number) => {
-    if (task.status === 'done') return null;
-    const pendingBefore = orderedTasks.slice(0, idx).filter(t => t.status !== 'done').length;
-    return `T${pendingBefore + 1}`;
+  const handleStartTimer = (task: any, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setTimerTask(task);
   };
 
   return (
-    <div className="min-h-screen bg-background pb-24">
-      <div className="max-w-[430px] mx-auto px-5 pt-6 space-y-5">
+    <div className="min-h-screen bg-background pb-24 lg:pl-20 lg:pb-6">
+      <div className="max-w-[430px] lg:max-w-[800px] mx-auto px-5 pt-6 space-y-5">
         {/* Header */}
         <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="space-y-1">
           <span className="text-on-surface-variant text-xs font-medium uppercase tracking-widest">Dashboard</span>
@@ -189,7 +190,6 @@ const DashboardPage = () => {
           <div className="space-y-1.5">
             {orderedTasks.map((task, idx) => {
               const isDone = task.status === 'done';
-              const label = getTaskLabel(task, idx);
               return (
                 <motion.div
                   key={task.id}
@@ -224,17 +224,12 @@ const DashboardPage = () => {
                     <h4 className={`text-sm font-semibold truncate ${isDone ? 'text-on-surface-variant line-through' : 'text-foreground'}`}>
                       {task.title}
                     </h4>
-                    {!isDone && (
-                      <div className="flex items-center gap-2 mt-0.5">
-                        {task.contexts && <span className="text-[10px] text-on-surface-variant">{(task.contexts as any).name}</span>}
-                        {task.estimated_minutes && (
-                          <span className="text-[10px] text-on-surface-variant flex items-center gap-0.5"><Clock className="w-2.5 h-2.5" />{task.estimated_minutes}m</span>
-                        )}
-                      </div>
-                    )}
                   </div>
-                  {label && (
-                    <span className="text-[10px] font-bold text-on-surface-variant/50 flex-shrink-0">{label}</span>
+                  {!isDone && (
+                    <button onClick={(e) => handleStartTimer(task, e)}
+                      className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center hover:bg-primary/20 flex-shrink-0 transition-colors">
+                      <Timer className="w-3.5 h-3.5 text-primary" />
+                    </button>
                   )}
                 </motion.div>
               );
@@ -247,6 +242,7 @@ const DashboardPage = () => {
       <BottomNav />
       <TaskCaptureModal open={captureOpen} onClose={() => setCaptureOpen(false)} />
       <TaskDetailModal task={selectedTask} open={!!selectedTask} onClose={() => setSelectedTask(null)} />
+      <FullscreenTimer task={timerTask} open={!!timerTask} onClose={() => setTimerTask(null)} />
     </div>
   );
 };

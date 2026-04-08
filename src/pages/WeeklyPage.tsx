@@ -4,7 +4,7 @@ import { useGoals } from '@/hooks/useGoals';
 import { useProfile } from '@/hooks/useProfile';
 import { format, startOfWeek, addDays, isSameDay } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { TrendingUp, Calendar, Check, Clock, GripVertical, Play } from 'lucide-react';
+import { TrendingUp, Calendar, Check, GripVertical, Timer } from 'lucide-react';
 import { motion } from 'framer-motion';
 import BottomNav from '@/components/BottomNav';
 import FAB from '@/components/FAB';
@@ -119,8 +119,8 @@ const WeeklyPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-24">
-      <div className="max-w-[430px] mx-auto px-5 pt-6 space-y-6">
+    <div className="min-h-screen bg-background pb-24 lg:pl-20 lg:pb-6">
+      <div className="max-w-[430px] lg:max-w-[800px] mx-auto px-5 pt-6 space-y-6">
         <div className="flex justify-between items-end">
           <div>
             <span className="text-[10px] uppercase tracking-widest text-on-surface-variant font-bold">Resumen Semanal</span>
@@ -194,19 +194,11 @@ const WeeklyPage = () => {
                     )}
                     <div className="flex-1 min-w-0">
                       <h4 className={`text-sm font-semibold truncate ${isDone ? 'text-on-surface-variant line-through' : 'text-foreground'}`}>{task.title}</h4>
-                      {!isDone && (
-                        <div className="flex items-center gap-2 mt-0.5">
-                          {task.contexts && <span className="text-[10px] text-on-surface-variant">{(task.contexts as any).name}</span>}
-                          {task.estimated_minutes && (
-                            <span className="text-[10px] text-on-surface-variant flex items-center gap-0.5"><Clock className="w-2.5 h-2.5" />{task.estimated_minutes}m</span>
-                          )}
-                        </div>
-                      )}
                     </div>
                     {!isDone && (
                       <button onClick={(e) => handleStartTimer(task, e)}
                         className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center hover:bg-primary/20 flex-shrink-0 transition-colors">
-                        <Play className="w-3.5 h-3.5 text-primary" />
+                        <Timer className="w-3.5 h-3.5 text-primary" />
                       </button>
                     )}
                   </motion.div>
