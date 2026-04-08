@@ -1,13 +1,14 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useTasks } from '@/hooks/useTasks';
 import { useGoals } from '@/hooks/useGoals';
 import { useProfile } from '@/hooks/useProfile';
+import { useGlobalVoiceCapture } from '@/hooks/useGlobalVoiceCapture';
 import { format, addDays } from 'date-fns';
-import { Check, Flag, Plus, Clock, GripVertical, Timer } from 'lucide-react';
+import { Check, Flag, Plus, GripVertical, Timer } from 'lucide-react';
 import { motion } from 'framer-motion';
 import BottomNav from '@/components/BottomNav';
 import FAB from '@/components/FAB';
-import TaskCaptureModal from '@/components/TaskCaptureModal';
+import TaskCaptureModal, { type TaskCaptureModalHandle } from '@/components/TaskCaptureModal';
 import TaskDetailModal from '@/components/TaskDetailModal';
 import FullscreenTimer from '@/components/FullscreenTimer';
 
@@ -25,6 +26,16 @@ const DailyPage = () => {
   const [timerTask, setTimerTask] = useState<any>(null);
   const [orderedTasks, setOrderedTasks] = useState<any[]>([]);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const captureModalRef = useRef<TaskCaptureModalHandle>(null);
+
+  const openCapture = useCallback(() => setCaptureOpen(true), []);
+  const openCaptureInVoiceMode = useCallback(() => {
+    setCaptureOpen(true);
+    window.requestAnimationFrame(() => {
+      captureModalRef.current?.openInVoiceMode();
+    });
+  }, []);
+  useGlobalVoiceCapture(captureModalRef, openCapture);
 
   useEffect(() => {
     const allTasks = [...tasks].sort((a, b) => {
@@ -123,7 +134,6 @@ const DailyPage = () => {
           )}
         </div>
 
-        {/* Tab switcher */}
         <div className="flex bg-surface-container-low rounded-lg p-0.5">
           <button onClick={() => setActiveTab('today')}
             className={`flex-1 py-2 rounded-md text-sm font-bold transition-all ${activeTab === 'today' ? 'bg-primary text-primary-foreground' : 'text-on-surface-variant'}`}>
@@ -149,7 +159,7 @@ const DailyPage = () => {
             <p className="text-on-surface-variant">
               {activeTab === 'today' ? 'Tu día está despejado. ¿Qué quieres lograr?' : 'Planifica tu mañana. Añade tareas para estar listo.'}
             </p>
-            <button onClick={() => setCaptureOpen(true)} className="inline-flex items-center gap-2 px-4 py-2 rounded-full primary-gradient text-primary-foreground text-sm font-semibold">
+            <button onClick={openCapture} className="inline-flex items-center gap-2 px-4 py-2 rounded-full primary-gradient text-primary-foreground text-sm font-semibold">
               <Plus className="w-4 h-4" /> Añadir tarea
             </button>
           </div>
@@ -199,9 +209,9 @@ const DailyPage = () => {
         )}
       </div>
 
-      <FAB onClick={() => setCaptureOpen(true)} />
+      <FAB onClick={openCaptureInVoiceMode} />
       <BottomNav />
-      <TaskCaptureModal open={captureOpen} onClose={() => setCaptureOpen(false)} />
+      <TaskCaptureModal ref={captureModalRef} open={captureOpen} onClose={() => setCaptureOpen(false)} />
       <TaskDetailModal task={selectedTask} open={!!selectedTask} onClose={() => setSelectedTask(null)} />
       <FullscreenTimer task={timerTask} open={!!timerTask} onClose={() => setTimerTask(null)} />
     </div>

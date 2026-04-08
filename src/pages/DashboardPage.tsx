@@ -1,14 +1,15 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useProfile } from '@/hooks/useProfile';
 import { useTasks, useEisenhowerSort } from '@/hooks/useTasks';
 import { useGoals } from '@/hooks/useGoals';
 import { useStreaks } from '@/hooks/useStreaks';
+import { useGlobalVoiceCapture } from '@/hooks/useGlobalVoiceCapture';
 import { format } from 'date-fns';
 import { Check, Target, Plus, GripVertical, Timer } from 'lucide-react';
 import { motion } from 'framer-motion';
 import BottomNav from '@/components/BottomNav';
 import FAB from '@/components/FAB';
-import TaskCaptureModal from '@/components/TaskCaptureModal';
+import TaskCaptureModal, { type TaskCaptureModalHandle } from '@/components/TaskCaptureModal';
 import TaskDetailModal from '@/components/TaskDetailModal';
 import FullscreenTimer from '@/components/FullscreenTimer';
 
@@ -30,19 +31,25 @@ const DashboardPage = () => {
   const [timerTask, setTimerTask] = useState<any>(null);
   const [orderedTasks, setOrderedTasks] = useState<any[]>([]);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const captureModalRef = useRef<TaskCaptureModalHandle>(null);
+
+  const openCapture = useCallback(() => setCaptureOpen(true), []);
+  const openCaptureInVoiceMode = useCallback(() => {
+    setCaptureOpen(true);
+    window.requestAnimationFrame(() => {
+      captureModalRef.current?.openInVoiceMode();
+    });
+  }, []);
+  useGlobalVoiceCapture(captureModalRef, openCapture);
 
   const pendingTasks = tasks.filter((t) => t.status === 'pending');
   const sorted = useEisenhowerSort(pendingTasks);
 
-  // Build unified ordered list: pending (sorted) interspersed with completed in-place
   useEffect(() => {
-    // Merge all tasks, sorted by sort_order then Eisenhower priority
     const allTasks = [...tasks].sort((a, b) => {
-      // Completed tasks keep their position
       const orderA = a.sort_order || 0;
       const orderB = b.sort_order || 0;
       if (orderA !== orderB) return orderA - orderB;
-      // Fall back to Eisenhower
       const scoreA = (a.urgency ? 2 : 0) + (a.importance ? 1 : 0);
       const scoreB = (b.urgency ? 2 : 0) + (b.importance ? 1 : 0);
       return scoreB - scoreA;
@@ -70,7 +77,6 @@ const DashboardPage = () => {
     return '¡Día completado! 🎉';
   };
 
-  // Drag and drop handlers
   const handleDragStart = (idx: number) => setDragIdx(idx);
 
   const handleDragOver = (e: React.DragEvent, idx: number) => {
@@ -85,7 +91,6 @@ const DashboardPage = () => {
 
   const handleDragEnd = () => {
     setDragIdx(null);
-    // Persist new order
     orderedTasks.forEach((task, idx) => {
       if ((task.sort_order || 0) !== idx) {
         updateTask.mutate({ id: task.id, sort_order: idx });
@@ -93,7 +98,6 @@ const DashboardPage = () => {
     });
   };
 
-  // Touch drag support
   const [touchIdx, setTouchIdx] = useState<number | null>(null);
   const [touchY, setTouchY] = useState(0);
 
@@ -140,7 +144,6 @@ const DashboardPage = () => {
   return (
     <div className="min-h-screen bg-background pb-24 lg:pl-20 lg:pb-6">
       <div className="max-w-[430px] lg:max-w-[800px] mx-auto px-5 pt-6 space-y-5">
-        {/* Header */}
         <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="space-y-1">
           <span className="text-on-surface-variant text-xs font-medium uppercase tracking-widest">Dashboard</span>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">
@@ -148,7 +151,6 @@ const DashboardPage = () => {
           </h1>
         </motion.div>
 
-        {/* Active Goal */}
         {mainGoal && (
           <div className="bg-surface-container-low p-4 rounded-lg flex items-center justify-between">
             <div className="space-y-0.5">
@@ -165,7 +167,6 @@ const DashboardPage = () => {
           </div>
         )}
 
-        {/* Progress */}
         {totalToday > 0 && (
           <div className="flex items-center justify-between">
             <p className="text-sm text-on-surface-variant">{getMotivationalMessage()}</p>
@@ -173,11 +174,10 @@ const DashboardPage = () => {
           </div>
         )}
 
-        {/* Unified Task List */}
         {orderedTasks.length === 0 ? (
           <div className="bg-surface-container-low p-6 rounded-lg text-center space-y-3">
             <p className="text-on-surface-variant">Tu día está despejado. ¿Qué quieres lograr?</p>
-            <button onClick={() => setCaptureOpen(true)} className="inline-flex items-center gap-2 px-4 py-2 rounded-full primary-gradient text-primary-foreground text-sm font-semibold">
+            <button onClick={openCapture} className="inline-flex items-center gap-2 px-4 py-2 rounded-full primary-gradient text-primary-foreground text-sm font-semibold">
               <Plus className="w-4 h-4" /> Añadir tarea
             </button>
           </div>
@@ -233,9 +233,9 @@ const DashboardPage = () => {
         )}
       </div>
 
-      <FAB onClick={() => setCaptureOpen(true)} />
+      <FAB onClick={openCaptureInVoiceMode} />
       <BottomNav />
-      <TaskCaptureModal open={captureOpen} onClose={() => setCaptureOpen(false)} />
+      <TaskCaptureModal ref={captureModalRef} open={captureOpen} onClose={() => setCaptureOpen(false)} />
       <TaskDetailModal task={selectedTask} open={!!selectedTask} onClose={() => setSelectedTask(null)} />
       <FullscreenTimer task={timerTask} open={!!timerTask} onClose={() => setTimerTask(null)} />
     </div>

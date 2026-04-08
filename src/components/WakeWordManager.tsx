@@ -37,7 +37,6 @@ const WakeWordManager = () => {
         activate();
       }
     } catch {
-      // Ignore unsupported permissions API states
     }
   }, [user, isSupported, isListening, activate]);
 

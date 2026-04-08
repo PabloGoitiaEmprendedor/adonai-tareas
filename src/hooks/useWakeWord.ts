@@ -28,7 +28,6 @@ export const useWakeWord = ({ onWake, enabled }: UseWakeWordOptions) => {
     recognition.onresult = (event: any) => {
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const transcript = event.results[i][0].transcript.toLowerCase().trim();
-        // Match variations: "hey adonai", "oye adonai", "hola adonai"
         if (
           transcript.includes('hey adonai') ||
           transcript.includes('oye adonai') ||
@@ -36,7 +35,6 @@ export const useWakeWord = ({ onWake, enabled }: UseWakeWordOptions) => {
           transcript.includes('ei adonai') ||
           transcript.includes('ey adonai')
         ) {
-          // Stop listening temporarily while the capture modal is open
           shouldRestartRef.current = false;
           recognition.stop();
           onWakeRef.current();
@@ -46,28 +44,26 @@ export const useWakeWord = ({ onWake, enabled }: UseWakeWordOptions) => {
     };
 
     recognition.onend = () => {
-      if (shouldRestartRef.current) {
-        // Auto-restart to keep listening
+      if (!shouldRestartRef.current) {
+        setIsListening(false);
+        return;
+      }
+
+      window.setTimeout(() => {
+        if (!shouldRestartRef.current || !recognitionRef.current) return;
         try {
-          setTimeout(() => {
-            if (shouldRestartRef.current && recognitionRef.current) {
-              recognitionRef.current.start();
-            }
-          }, 300);
+          recognitionRef.current.start();
+          setIsListening(true);
         } catch {
           setIsListening(false);
         }
-      } else {
-        setIsListening(false);
-      }
+      }, 250);
     };
 
     recognition.onerror = (e: any) => {
-      if (e.error === 'no-speech') {
-        // Normal — just no speech detected, will auto-restart
+      if (e.error === 'no-speech' || e.error === 'aborted') {
         return;
       }
-      if (e.error === 'aborted') return;
       console.error('Wake word error:', e.error);
       if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
         shouldRestartRef.current = false;
@@ -79,9 +75,8 @@ export const useWakeWord = ({ onWake, enabled }: UseWakeWordOptions) => {
     return recognition;
   }, []);
 
-  // Activate background listening — MUST be called from a user gesture
   const activate = useCallback(() => {
-    if (!isSupported) return;
+    if (!enabled || !isSupported || isListening) return;
     const recognition = createRecognition();
     if (!recognition) return;
 
@@ -95,26 +90,20 @@ export const useWakeWord = ({ onWake, enabled }: UseWakeWordOptions) => {
     } catch (err) {
       console.error('Wake word start failed:', err);
     }
-  }, [isSupported, createRecognition]);
+  }, [enabled, isSupported, isListening, createRecognition]);
 
-  // Resume after capture modal closes
   const resume = useCallback(() => {
-    if (!permissionGranted || !isSupported) return;
-    
-    // Small delay to avoid conflict with task capture recognition
-    setTimeout(() => {
-      const recognition = createRecognition();
-      if (!recognition) return;
-      recognitionRef.current = recognition;
-      shouldRestartRef.current = true;
-      try {
-        recognition.start();
-        setIsListening(true);
-      } catch {
-        // Might already be running
-      }
-    }, 1000);
-  }, [permissionGranted, isSupported, createRecognition]);
+    if (!enabled || !permissionGranted || !isSupported || isListening) return;
+    const recognition = createRecognition();
+    if (!recognition) return;
+    recognitionRef.current = recognition;
+    shouldRestartRef.current = true;
+    try {
+      recognition.start();
+      setIsListening(true);
+    } catch {
+    }
+  }, [enabled, permissionGranted, isSupported, isListening, createRecognition]);
 
   const deactivate = useCallback(() => {
     shouldRestartRef.current = false;
@@ -123,7 +112,12 @@ export const useWakeWord = ({ onWake, enabled }: UseWakeWordOptions) => {
     setIsListening(false);
   }, []);
 
-  // Cleanup on unmount
+  useEffect(() => {
+    if (!enabled) {
+      deactivate();
+    }
+  }, [enabled, deactivate]);
+
   useEffect(() => {
     return () => {
       shouldRestartRef.current = false;
