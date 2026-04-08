@@ -58,9 +58,7 @@ const DashboardPage = () => {
   }, [tasks]);
 
   const mainGoal = goals.find((g) => g.id === profile?.main_goal_id);
-  const completedToday = tasks.filter((t) => t.status === 'done').length;
-  const totalToday = tasks.length;
-  const progress = totalToday > 0 ? Math.round((completedToday / totalToday) * 100) : 0;
+  
   const hasTooMany = pendingTasks.length > 7;
 
   useEffect(() => { trackDayActive.mutate(); }, []);
@@ -70,12 +68,6 @@ const DashboardPage = () => {
     updateTask.mutate({ id: taskId, status: 'done', completed_at: new Date().toISOString() });
   };
 
-  const getMotivationalMessage = () => {
-    if (completedToday === 0) return '¡Empecemos el día!';
-    if (progress < 50) return `Ya llevas ${completedToday}. ¡Sigue así!`;
-    if (progress < 100) return `Ya vas por el ${progress}%. ¡Cierra el día fuerte!`;
-    return '¡Día completado! 🎉';
-  };
 
   const handleDragStart = (idx: number) => setDragIdx(idx);
 
@@ -167,12 +159,7 @@ const DashboardPage = () => {
           </div>
         )}
 
-        {totalToday > 0 && (
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-on-surface-variant">{getMotivationalMessage()}</p>
-            <span className="text-xs font-bold text-primary">{completedToday}/{totalToday}</span>
-          </div>
-        )}
+        {/* Motivational message and progress removed */}
 
         {orderedTasks.length === 0 ? (
           <div className="bg-surface-container-low p-6 rounded-lg text-center space-y-3">
