@@ -4,11 +4,12 @@ import { useTasks, useEisenhowerSort } from '@/hooks/useTasks';
 import { useGoals } from '@/hooks/useGoals';
 import { useStreaks } from '@/hooks/useStreaks';
 import { format } from 'date-fns';
-import { Check, ChevronRight, Target, Plus } from 'lucide-react';
+import { Check, Target, Plus, Clock } from 'lucide-react';
 import { motion } from 'framer-motion';
 import BottomNav from '@/components/BottomNav';
 import FAB from '@/components/FAB';
 import TaskCaptureModal from '@/components/TaskCaptureModal';
+import TaskDetailModal from '@/components/TaskDetailModal';
 
 const getGreeting = () => {
   const h = new Date().getHours();
@@ -23,32 +24,30 @@ const DashboardPage = () => {
   const { metrics, trackDayActive } = useStreaks();
   const today = format(new Date(), 'yyyy-MM-dd');
   const { tasks, updateTask } = useTasks({ date: today });
-  const allTasks = useTasks();
   const [captureOpen, setCaptureOpen] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<any>(null);
 
   const pendingTasks = tasks.filter((t) => t.status === 'pending');
   const sorted = useEisenhowerSort(pendingTasks);
-  const top3 = sorted.slice(0, 3);
-  const lowPriority = sorted.filter((t) => !t.urgency && !t.importance);
-  const nextAction = sorted[0];
+  const completedTasks = tasks.filter((t) => t.status === 'done');
+
+  // Eisenhower quadrants
+  const q1 = sorted.filter((t) => t.urgency && t.importance);
+  const q2 = sorted.filter((t) => !t.urgency && t.importance);
+  const q3 = sorted.filter((t) => t.urgency && !t.importance);
+  const q4 = sorted.filter((t) => !t.urgency && !t.importance);
 
   const mainGoal = goals.find((g) => g.id === profile?.main_goal_id);
-  const completedToday = tasks.filter((t) => t.status === 'done').length;
+  const completedToday = completedTasks.length;
   const totalToday = tasks.length;
   const progress = totalToday > 0 ? Math.round((completedToday / totalToday) * 100) : 0;
-
   const hasTooMany = pendingTasks.length > 7;
 
-  useEffect(() => {
-    trackDayActive.mutate();
-  }, []);
+  useEffect(() => { trackDayActive.mutate(); }, []);
 
-  const handleComplete = (taskId: string) => {
+  const handleComplete = (taskId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
     updateTask.mutate({ id: taskId, status: 'done', completed_at: new Date().toISOString() });
-  };
-
-  const handleSkip = (taskId: string) => {
-    updateTask.mutate({ id: taskId, status: 'skipped' });
   };
 
   const getMotivationalMessage = () => {
@@ -58,9 +57,41 @@ const DashboardPage = () => {
     return '¡Día completado! 🎉';
   };
 
+  const TaskItem = ({ task, accent }: { task: any; accent?: boolean }) => (
+    <motion.div
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      onClick={() => setSelectedTask(task)}
+      className={`p-3.5 rounded-lg flex items-center gap-3 cursor-pointer transition-colors ${accent ? 'bg-surface-container border-l-2 border-primary' : 'bg-surface-container-low'} hover:bg-surface-container-high`}
+    >
+      <button
+        onClick={(e) => handleComplete(task.id, e)}
+        className="w-5 h-5 rounded border-2 border-outline-variant flex items-center justify-center hover:border-primary flex-shrink-0"
+      />
+      <div className="flex-1 min-w-0">
+        <h4 className="text-foreground font-semibold text-sm truncate">{task.title}</h4>
+        <div className="flex items-center gap-2 mt-0.5">
+          {task.contexts && <span className="text-[10px] text-on-surface-variant">{(task.contexts as any).name}</span>}
+          {task.estimated_minutes && (
+            <span className="text-[10px] text-on-surface-variant flex items-center gap-0.5"><Clock className="w-2.5 h-2.5" />{task.estimated_minutes}m</span>
+          )}
+        </div>
+      </div>
+      {task.urgency && task.importance && (
+        <span className="bg-error/10 text-error text-[9px] px-1.5 py-0.5 rounded-full font-bold">P1</span>
+      )}
+      {task.importance && !task.urgency && (
+        <span className="bg-primary/10 text-primary text-[9px] px-1.5 py-0.5 rounded-full font-bold">P2</span>
+      )}
+      {task.urgency && !task.importance && (
+        <span className="bg-tertiary/10 text-tertiary text-[9px] px-1.5 py-0.5 rounded-full font-bold">P3</span>
+      )}
+    </motion.div>
+  );
+
   return (
     <div className="min-h-screen bg-background pb-24">
-      <div className="max-w-[430px] mx-auto px-5 pt-6 space-y-6">
+      <div className="max-w-[430px] mx-auto px-5 pt-6 space-y-5">
         {/* Header */}
         <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="space-y-1">
           <span className="text-on-surface-variant text-xs font-medium uppercase tracking-widest">Dashboard</span>
@@ -80,7 +111,6 @@ const DashboardPage = () => {
           </div>
         )}
 
-        {/* Too many tasks banner */}
         {hasTooMany && (
           <div className="bg-error-container/20 p-3 rounded-lg">
             <p className="text-sm text-tertiary">Tienes muchas tareas. ¿Quieres simplificar tu día?</p>
@@ -95,100 +125,60 @@ const DashboardPage = () => {
               <p className="text-xs font-bold text-primary">{progress}%</p>
             </div>
             <div className="h-1.5 w-full bg-surface-container-high rounded-full overflow-hidden">
-              <motion.div
-                className="h-full primary-gradient rounded-full"
-                initial={{ width: 0 }}
-                animate={{ width: `${progress}%` }}
-                transition={{ duration: 0.5 }}
-              />
+              <motion.div className="h-full primary-gradient rounded-full" initial={{ width: 0 }} animate={{ width: `${progress}%` }} transition={{ duration: 0.5 }} />
             </div>
           </div>
         )}
 
-        {/* Top 3 Priorities */}
-        <section className="space-y-3">
-          <h2 className="text-base font-bold tracking-tight text-foreground flex items-center gap-2">
-            Tus 3 prioridades de hoy
-            <span className="h-1 w-1 rounded-full bg-primary" />
-          </h2>
-          {top3.length === 0 ? (
-            <div className="bg-surface-container-low p-6 rounded-lg text-center space-y-3">
-              <p className="text-on-surface-variant">Tu día está despejado. ¿Qué quieres lograr?</p>
-              <button
-                onClick={() => setCaptureOpen(true)}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-full primary-gradient text-primary-foreground text-sm font-semibold"
-              >
-                <Plus className="w-4 h-4" /> Añadir tarea
-              </button>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {top3.map((task, i) => (
-                <motion.div
-                  key={task.id}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.1 }}
-                  className="bg-surface-container p-4 rounded-lg flex items-center gap-3 group hover:bg-surface-container-high transition-colors"
-                >
-                  <button
-                    onClick={() => handleComplete(task.id)}
-                    className="w-6 h-6 rounded-md border-2 border-outline-variant flex items-center justify-center hover:border-primary hover:bg-primary/10 transition-all flex-shrink-0"
-                  >
-                    {task.status === 'done' && <Check className="w-4 h-4 text-primary" />}
-                  </button>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-foreground font-semibold text-sm truncate">{task.title}</h3>
-                    {task.contexts && <p className="text-on-surface-variant text-xs">{(task.contexts as any).name}</p>}
-                  </div>
-                  {task.urgency && (
-                    <span className="bg-error/10 text-error text-[10px] px-2 py-0.5 rounded-full font-bold uppercase">Urgente</span>
-                  )}
-                </motion.div>
-              ))}
-            </div>
-          )}
-        </section>
-
-        {/* Next best action */}
-        {nextAction && (
-          <section className="space-y-3">
-            <h2 className="text-base font-bold tracking-tight text-foreground">Siguiente mejor acción</h2>
-            <div className="relative overflow-hidden primary-gradient p-6 rounded-lg">
-              <div className="relative z-10 space-y-4">
-                <div className="space-y-1">
-                  <h3 className="text-primary-foreground text-xl font-extrabold leading-tight">{nextAction.title}</h3>
-                </div>
-                <button
-                  onClick={() => handleComplete(nextAction.id)}
-                  className="bg-primary-foreground text-primary px-5 py-2.5 rounded-full font-bold text-sm flex items-center gap-2 hover:scale-105 transition-transform"
-                >
-                  Hacer esto ahora
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-              </div>
-              <div className="absolute -right-8 -bottom-8 w-32 h-32 bg-foreground/5 rounded-full blur-2xl" />
-            </div>
-          </section>
+        {/* Tasks by Eisenhower */}
+        {pendingTasks.length === 0 ? (
+          <div className="bg-surface-container-low p-6 rounded-lg text-center space-y-3">
+            <p className="text-on-surface-variant">Tu día está despejado. ¿Qué quieres lograr?</p>
+            <button onClick={() => setCaptureOpen(true)} className="inline-flex items-center gap-2 px-4 py-2 rounded-full primary-gradient text-primary-foreground text-sm font-semibold">
+              <Plus className="w-4 h-4" /> Añadir tarea
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {q1.length > 0 && (
+              <section className="space-y-2">
+                <h2 className="text-xs font-bold text-error uppercase tracking-wider">🔴 Urgente e Importante</h2>
+                {q1.map((t) => <TaskItem key={t.id} task={t} accent />)}
+              </section>
+            )}
+            {q2.length > 0 && (
+              <section className="space-y-2">
+                <h2 className="text-xs font-bold text-primary uppercase tracking-wider">🟢 Importante</h2>
+                {q2.map((t) => <TaskItem key={t.id} task={t} />)}
+              </section>
+            )}
+            {q3.length > 0 && (
+              <section className="space-y-2">
+                <h2 className="text-xs font-bold text-tertiary uppercase tracking-wider">🟡 Urgente</h2>
+                {q3.map((t) => <TaskItem key={t.id} task={t} />)}
+              </section>
+            )}
+            {q4.length > 0 && (
+              <section className="space-y-2">
+                <h2 className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">⚪ Otras tareas</h2>
+                {q4.map((t) => <TaskItem key={t.id} task={t} />)}
+              </section>
+            )}
+          </div>
         )}
 
-        {/* Low priority */}
-        {lowPriority.length > 0 && (
-          <section className="space-y-3">
-            <h2 className="text-base font-bold tracking-tight text-on-surface-variant">Puedes mover esto</h2>
-            <div className="space-y-1">
-              {lowPriority.slice(0, 3).map((task) => (
-                <div key={task.id} className="flex items-center justify-between p-3 bg-surface-container-low/50 rounded-lg">
-                  <span className="text-on-surface-variant text-sm">{task.title}</span>
-                  <button
-                    onClick={() => handleSkip(task.id)}
-                    className="text-xs text-on-surface-variant/50 hover:text-foreground"
-                  >
-                    Posponer
-                  </button>
+        {/* Completed */}
+        {completedTasks.length > 0 && (
+          <section className="space-y-2 opacity-60">
+            <h2 className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">✅ Completadas ({completedTasks.length})</h2>
+            {completedTasks.map((t) => (
+              <div key={t.id} onClick={() => setSelectedTask(t)} className="p-3 rounded-lg bg-surface-container-low flex items-center gap-3 cursor-pointer">
+                <div className="w-5 h-5 rounded bg-primary flex items-center justify-center flex-shrink-0">
+                  <Check className="w-3 h-3 text-primary-foreground" />
                 </div>
-              ))}
-            </div>
+                <span className="text-on-surface-variant text-sm line-through truncate">{t.title}</span>
+              </div>
+            ))}
           </section>
         )}
       </div>
@@ -196,6 +186,7 @@ const DashboardPage = () => {
       <FAB onClick={() => setCaptureOpen(true)} />
       <BottomNav />
       <TaskCaptureModal open={captureOpen} onClose={() => setCaptureOpen(false)} />
+      <TaskDetailModal task={selectedTask} open={!!selectedTask} onClose={() => setSelectedTask(null)} />
     </div>
   );
 };

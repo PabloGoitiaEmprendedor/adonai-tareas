@@ -5,8 +5,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useStreaks } from '@/hooks/useStreaks';
 import { useTasks } from '@/hooks/useTasks';
 import { useNavigate } from 'react-router-dom';
-import { Flame, CalendarDays, CheckCircle2, LogOut, Mic, Bell, Moon, Settings } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { Flame, CalendarDays, CheckCircle2, LogOut, Mic, Bell, Moon, Settings, ChevronDown } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import BottomNav from '@/components/BottomNav';
 import { toast } from 'sonner';
 
@@ -17,9 +17,11 @@ const ProfilePage = () => {
   const { metrics } = useStreaks();
   const { tasks } = useTasks();
   const navigate = useNavigate();
-  const [showProgress, setShowProgress] = useState(false);
 
   const completedTotal = tasks.filter((t) => t.status === 'done').length;
+
+  // Editing states
+  const [editingField, setEditingField] = useState<string | null>(null);
 
   const handleLogout = async () => {
     try {
@@ -31,8 +33,45 @@ const ProfilePage = () => {
     }
   };
 
+  const inputOptions = [
+    { value: 'voice', label: 'Voz' },
+    { value: 'text', label: 'Texto' },
+    { value: 'both', label: 'Ambos' },
+  ];
+
+  const styleOptions = [
+    { value: 'simple', label: 'Simple' },
+    { value: 'intermediate', label: 'Intermedio' },
+    { value: 'guided', label: 'Guiado' },
+  ];
+
+  const themeOptions = [
+    { value: 'dark', label: 'Oscuro' },
+    { value: 'light', label: 'Claro' },
+  ];
+
   const inputLabels: Record<string, string> = { voice: 'Voz', text: 'Texto', both: 'Ambos' };
   const styleLabels: Record<string, string> = { simple: 'Simple', intermediate: 'Intermedio', guided: 'Guiado' };
+  const themeLabels: Record<string, string> = { dark: 'Oscuro', light: 'Claro' };
+
+  const OptionSelector = ({ field, options, currentValue, onSelect }: {
+    field: string; options: { value: string; label: string }[]; currentValue: string; onSelect: (v: string) => void;
+  }) => (
+    <AnimatePresence>
+      {editingField === field && (
+        <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+          <div className="px-4 pb-3 flex gap-2">
+            {options.map((opt) => (
+              <button key={opt.value} onClick={() => { onSelect(opt.value); setEditingField(null); }}
+                className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${currentValue === opt.value ? 'bg-primary text-primary-foreground' : 'bg-surface-container-highest text-on-surface-variant'}`}>
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
 
   return (
     <div className="min-h-screen bg-background pb-24">
@@ -77,38 +116,74 @@ const ProfilePage = () => {
         <section className="space-y-1">
           <h3 className="text-xs font-bold text-on-surface-variant uppercase tracking-[0.2em] px-1 mb-2">Configuración</h3>
           <div className="bg-surface-container-low rounded-lg overflow-hidden divide-y divide-outline-variant/10">
-            <SettingRow icon={<Moon className="w-5 h-5" />} label="Tema" value="Oscuro" />
-            <SettingRow icon={<Mic className="w-5 h-5" />} label="Modo de Entrada" value={inputLabels[profile?.preferred_input || 'both']} />
-            <SettingRow icon={<Settings className="w-5 h-5" />} label="Estilo" value={styleLabels[profile?.organization_style || 'simple']} />
+            {/* Theme */}
+            <div>
+              <button onClick={() => setEditingField(editingField === 'theme' ? null : 'theme')} className="w-full flex items-center justify-between p-4 hover:bg-surface-container-high transition-colors">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-surface-container-highest flex items-center justify-center"><Moon className="w-5 h-5 text-foreground" /></div>
+                  <span className="font-semibold text-foreground text-sm">Tema</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="text-sm text-primary font-medium">{themeLabels[profile?.theme || 'dark']}</span>
+                  <ChevronDown className={`w-4 h-4 text-on-surface-variant transition-transform ${editingField === 'theme' ? 'rotate-180' : ''}`} />
+                </div>
+              </button>
+              <OptionSelector field="theme" options={themeOptions} currentValue={profile?.theme || 'dark'}
+                onSelect={(v) => updateProfile.mutate({ theme: v })} />
+            </div>
+
+            {/* Input mode */}
+            <div>
+              <button onClick={() => setEditingField(editingField === 'input' ? null : 'input')} className="w-full flex items-center justify-between p-4 hover:bg-surface-container-high transition-colors">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-surface-container-highest flex items-center justify-center"><Mic className="w-5 h-5 text-foreground" /></div>
+                  <span className="font-semibold text-foreground text-sm">Modo de Entrada</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="text-sm text-primary font-medium">{inputLabels[profile?.preferred_input || 'both']}</span>
+                  <ChevronDown className={`w-4 h-4 text-on-surface-variant transition-transform ${editingField === 'input' ? 'rotate-180' : ''}`} />
+                </div>
+              </button>
+              <OptionSelector field="input" options={inputOptions} currentValue={profile?.preferred_input || 'both'}
+                onSelect={(v) => updateProfile.mutate({ preferred_input: v })} />
+            </div>
+
+            {/* Style */}
+            <div>
+              <button onClick={() => setEditingField(editingField === 'style' ? null : 'style')} className="w-full flex items-center justify-between p-4 hover:bg-surface-container-high transition-colors">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-surface-container-highest flex items-center justify-center"><Settings className="w-5 h-5 text-foreground" /></div>
+                  <span className="font-semibold text-foreground text-sm">Estilo</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="text-sm text-primary font-medium">{styleLabels[profile?.organization_style || 'simple']}</span>
+                  <ChevronDown className={`w-4 h-4 text-on-surface-variant transition-transform ${editingField === 'style' ? 'rotate-180' : ''}`} />
+                </div>
+              </button>
+              <OptionSelector field="style" options={styleOptions} currentValue={profile?.organization_style || 'simple'}
+                onSelect={(v) => updateProfile.mutate({ organization_style: v })} />
+            </div>
+
+            {/* Notifications toggle */}
             <div className="flex items-center justify-between p-4">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-surface-container-highest flex items-center justify-center">
-                  <Bell className="w-5 h-5 text-foreground" />
-                </div>
+                <div className="w-9 h-9 rounded-lg bg-surface-container-highest flex items-center justify-center"><Bell className="w-5 h-5 text-foreground" /></div>
                 <span className="font-semibold text-foreground text-sm">Notificaciones</span>
               </div>
-              <button
-                onClick={() => updateSettings.mutate({ notifications_enabled: !settings?.notifications_enabled })}
-                className={`w-10 h-6 rounded-full transition-colors flex items-center ${
-                  settings?.notifications_enabled ? 'bg-primary justify-end' : 'bg-surface-container-highest justify-start'
-                }`}
-              >
-                <div className="w-4.5 h-4.5 bg-foreground rounded-full mx-0.5 w-[18px] h-[18px]" />
+              <button onClick={() => updateSettings.mutate({ notifications_enabled: !settings?.notifications_enabled })}
+                className={`w-10 h-6 rounded-full transition-colors flex items-center ${settings?.notifications_enabled ? 'bg-primary justify-end' : 'bg-surface-container-highest justify-start'}`}>
+                <div className="w-[18px] h-[18px] bg-foreground rounded-full mx-0.5" />
               </button>
             </div>
+
+            {/* Voice toggle */}
             <div className="flex items-center justify-between p-4">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-surface-container-highest flex items-center justify-center">
-                  <Mic className="w-5 h-5 text-foreground" />
-                </div>
+                <div className="w-9 h-9 rounded-lg bg-surface-container-highest flex items-center justify-center"><Mic className="w-5 h-5 text-foreground" /></div>
                 <span className="font-semibold text-foreground text-sm">Voz</span>
               </div>
-              <button
-                onClick={() => updateSettings.mutate({ voice_enabled: !settings?.voice_enabled })}
-                className={`w-10 h-6 rounded-full transition-colors flex items-center ${
-                  settings?.voice_enabled ? 'bg-primary justify-end' : 'bg-surface-container-highest justify-start'
-                }`}
-              >
+              <button onClick={() => updateSettings.mutate({ voice_enabled: !settings?.voice_enabled })}
+                className={`w-10 h-6 rounded-full transition-colors flex items-center ${settings?.voice_enabled ? 'bg-primary justify-end' : 'bg-surface-container-highest justify-start'}`}>
                 <div className="w-[18px] h-[18px] bg-foreground rounded-full mx-0.5" />
               </button>
             </div>
@@ -116,30 +191,14 @@ const ProfilePage = () => {
         </section>
 
         {/* Logout */}
-        <button
-          onClick={handleLogout}
-          className="w-full py-4 rounded-lg bg-tertiary-container/10 text-tertiary font-bold text-sm uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-tertiary-container/20 transition-all"
-        >
-          <LogOut className="w-4 h-4" />
-          Cerrar sesión
+        <button onClick={handleLogout}
+          className="w-full py-4 rounded-lg bg-tertiary-container/10 text-tertiary font-bold text-sm uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-tertiary-container/20 transition-all">
+          <LogOut className="w-4 h-4" /> Cerrar sesión
         </button>
       </div>
-
       <BottomNav />
     </div>
   );
 };
-
-const SettingRow = ({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) => (
-  <div className="flex items-center justify-between p-4 hover:bg-surface-container-high transition-colors">
-    <div className="flex items-center gap-3">
-      <div className="w-9 h-9 rounded-lg bg-surface-container-highest flex items-center justify-center text-foreground">
-        {icon}
-      </div>
-      <span className="font-semibold text-foreground text-sm">{label}</span>
-    </div>
-    <span className="text-sm text-primary font-medium">{value}</span>
-  </div>
-);
 
 export default ProfilePage;
