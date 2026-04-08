@@ -4,7 +4,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { useProfile } from "@/hooks/useProfile";
-import WakeWordManager from "@/components/WakeWordManager";
+
 import AuthPage from "./pages/AuthPage";
 
 import OnboardingPage from "./pages/OnboardingPage";
@@ -52,7 +52,7 @@ const AppRoutes = () => {
 
   return (
     <>
-      <WakeWordManager key="wake-word-v2" />
+      
       <Routes>
         <Route path="/auth" element={user ? <Navigate to="/" replace /> : <AuthPage />} />
         
