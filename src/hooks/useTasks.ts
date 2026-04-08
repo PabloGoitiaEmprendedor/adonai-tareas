@@ -31,6 +31,7 @@ export const useTasks = (filters?: { date?: string; status?: string }) => {
       priority?: string;
       urgency?: boolean;
       importance?: boolean;
+      estimated_minutes?: number;
       due_date?: string;
       source_type?: string;
       context_id?: string | null;

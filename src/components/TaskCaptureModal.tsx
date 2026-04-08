@@ -28,6 +28,8 @@ const TaskCaptureModal = ({ open, onClose }: TaskCaptureModalProps) => {
   const [dueDate, setDueDate] = useState('');
   const [sourceType, setSourceType] = useState<'voice' | 'text'>('text');
   const [showTextInput, setShowTextInput] = useState(false);
+  const [classificationSource, setClassificationSource] = useState('');
+  const [fallbackEstimatedMinutes, setFallbackEstimatedMinutes] = useState<number | null>(null);
 
   const preferVoice = profile?.preferred_input === 'voice' || profile?.preferred_input === 'both';
 
@@ -36,6 +38,8 @@ const TaskCaptureModal = ({ open, onClose }: TaskCaptureModalProps) => {
       setPhase('input');
       setTitle('');
       setDueDate(format(new Date(), 'yyyy-MM-dd'));
+      setClassificationSource('');
+      setFallbackEstimatedMinutes(null);
       resetTranscript();
       setShowTextInput(false);
       if (preferVoice && isSupported && !voiceFallback) {
@@ -60,15 +64,20 @@ const TaskCaptureModal = ({ open, onClose }: TaskCaptureModalProps) => {
 
     let parsedTitle = rawTitle;
     let parsedDate = dueDate;
+    let parsedEstimatedMinutes: number | null = null;
+    let sourceForClassification = rawTitle;
 
     if (sourceType === 'voice') {
       const parsed = parseVoiceTranscript(rawTitle);
       parsedTitle = parsed.title;
       if (parsed.dueDate) parsedDate = parsed.dueDate;
+      parsedEstimatedMinutes = parsed.estimatedMinutes;
     }
 
     setTitle(parsedTitle);
     setDueDate(parsedDate);
+    setClassificationSource(sourceForClassification);
+    setFallbackEstimatedMinutes(parsedEstimatedMinutes);
 
     if (sourceType === 'voice') {
       const parsed = parseVoiceTranscript(rawTitle);
@@ -78,14 +87,14 @@ const TaskCaptureModal = ({ open, onClose }: TaskCaptureModalProps) => {
       }
     }
 
-    await runClassificationAndSave(parsedTitle, parsedDate);
+    await runClassificationAndSave(parsedTitle, parsedDate, sourceForClassification || parsedTitle, rawTitle);
   };
 
   const handleDateDone = async () => {
-    await runClassificationAndSave(title, dueDate);
+    await runClassificationAndSave(title, dueDate, classificationSource || title, classificationSource || title);
   };
 
-  const runClassificationAndSave = async (taskTitle: string, date: string) => {
+  const runClassificationAndSave = async (taskTitle: string, date: string, classificationInput: string, originalTranscript: string) => {
     setPhase('saving');
 
     const defaults = {
@@ -94,17 +103,17 @@ const TaskCaptureModal = ({ open, onClose }: TaskCaptureModalProps) => {
       importance: false,
       urgency: false,
       priority: 'medium' as const,
-      estimated_minutes: 30,
+      estimated_minutes: fallbackEstimatedMinutes || 30,
       context_id: null,
       goal_id: null,
     };
 
-    const classificationPromise = classifyTask(taskTitle, date);
+    const classificationPromise = classifyTask(classificationInput, date);
 
     try {
       const result = await Promise.race([
         classificationPromise,
-        new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000)),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 7000)),
       ]);
 
       const cls = result || defaults;
@@ -120,13 +129,14 @@ const TaskCaptureModal = ({ open, onClose }: TaskCaptureModalProps) => {
         source_type: sourceType,
         context_id: cls.context_id,
         goal_id: cls.goal_id,
+        estimated_minutes: cls.estimated_minutes || defaults.estimated_minutes,
         due_date: date || format(new Date(), 'yyyy-MM-dd'),
       });
 
       if (sourceType === 'voice' && user) {
         await supabase.from('voice_inputs').insert({
           user_id: user.id,
-          transcript: title,
+          transcript: originalTranscript,
           parsed_task_id: task.id,
           confidence,
         });
