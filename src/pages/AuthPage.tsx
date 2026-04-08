@@ -3,7 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
+import { lovable } from '@/integrations/lovable/index';
 
 const GoogleIcon = () => (
   <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none">
@@ -47,17 +47,23 @@ const AuthPage = () => {
   const handleGoogleSignIn = async () => {
     setGoogleLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('google-auth', {
-        body: {
-          action: 'get-url',
-          redirect_uri: `${window.location.origin}/auth/callback`,
-        },
+      const result = await lovable.auth.signInWithOAuth("google", {
+        redirect_uri: window.location.origin,
       });
 
-      if (error) throw error;
-      if (data?.url) {
-        window.location.href = data.url;
+      if (result.error) {
+        toast.error('Error al conectar con Google');
+        console.error(result.error);
+        setGoogleLoading(false);
+        return;
       }
+
+      if (result.redirected) {
+        return;
+      }
+
+      // Session set, redirect
+      navigate('/');
     } catch (err: any) {
       toast.error('Error al conectar con Google');
       console.error(err);
@@ -99,7 +105,7 @@ const AuthPage = () => {
         </button>
 
         <p className="text-center text-xs text-on-surface-variant/60">
-          Al usar Google, conectas tu calendario automáticamente
+          Inicio de sesión seguro con tu cuenta de Google
         </p>
 
         <div className="flex items-center gap-4">
