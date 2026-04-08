@@ -113,6 +113,66 @@ export type Database = {
         }
         Relationships: []
       }
+      folders: {
+        Row: {
+          color: string | null
+          created_at: string
+          icon: string | null
+          id: string
+          is_public: boolean | null
+          name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          icon?: string | null
+          id?: string
+          is_public?: boolean | null
+          name: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          icon?: string | null
+          id?: string
+          is_public?: boolean | null
+          name?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      friendships: {
+        Row: {
+          addressee_id: string
+          created_at: string
+          id: string
+          requester_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          addressee_id: string
+          created_at?: string
+          id?: string
+          requester_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          addressee_id?: string
+          created_at?: string
+          id?: string
+          requester_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       goals: {
         Row: {
           active: boolean | null
@@ -229,6 +289,45 @@ export type Database = {
           },
         ]
       }
+      recurrence_rules: {
+        Row: {
+          created_at: string
+          day_of_month: number | null
+          days_of_week: number[] | null
+          end_date: string | null
+          frequency: string
+          id: string
+          interval: number
+          month_of_year: number | null
+          start_date: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          day_of_month?: number | null
+          days_of_week?: number[] | null
+          end_date?: string | null
+          frequency?: string
+          id?: string
+          interval?: number
+          month_of_year?: number | null
+          start_date?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          day_of_month?: number | null
+          days_of_week?: number[] | null
+          end_date?: string | null
+          frequency?: string
+          id?: string
+          interval?: number
+          month_of_year?: number | null
+          start_date?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       settings: {
         Row: {
           calendar_connected: boolean | null
@@ -270,10 +369,12 @@ export type Database = {
           description: string | null
           due_date: string | null
           estimated_minutes: number | null
+          folder_id: string | null
           goal_id: string | null
           id: string
           importance: boolean | null
           priority: string | null
+          recurrence_id: string | null
           sort_order: number | null
           source_type: string | null
           status: string | null
@@ -288,10 +389,12 @@ export type Database = {
           description?: string | null
           due_date?: string | null
           estimated_minutes?: number | null
+          folder_id?: string | null
           goal_id?: string | null
           id?: string
           importance?: boolean | null
           priority?: string | null
+          recurrence_id?: string | null
           sort_order?: number | null
           source_type?: string | null
           status?: string | null
@@ -306,10 +409,12 @@ export type Database = {
           description?: string | null
           due_date?: string | null
           estimated_minutes?: number | null
+          folder_id?: string | null
           goal_id?: string | null
           id?: string
           importance?: boolean | null
           priority?: string | null
+          recurrence_id?: string | null
           sort_order?: number | null
           source_type?: string | null
           status?: string | null
@@ -326,10 +431,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "tasks_folder_id_fkey"
+            columns: ["folder_id"]
+            isOneToOne: false
+            referencedRelation: "folders"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "tasks_goal_id_fkey"
             columns: ["goal_id"]
             isOneToOne: false
             referencedRelation: "goals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_recurrence_id_fkey"
+            columns: ["recurrence_id"]
+            isOneToOne: false
+            referencedRelation: "recurrence_rules"
             referencedColumns: ["id"]
           },
         ]
