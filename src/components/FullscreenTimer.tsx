@@ -62,7 +62,8 @@ const FullscreenTimer = ({ task, open, onClose }: FullscreenTimerProps) => {
 
   const adjustMinutes = (delta: number) => {
     if (running) return;
-    setCustomMinutes((m) => Math.max(1, Math.min(480, m + delta)));
+    const newMinutes = Math.max(1, Math.min(480, customMinutes + delta));
+    setCustomMinutes(newMinutes);
     setElapsed(0);
   };
 
@@ -83,8 +84,8 @@ const FullscreenTimer = ({ task, open, onClose }: FullscreenTimerProps) => {
         <p className="text-on-surface-variant text-xs font-bold uppercase tracking-widest mb-2">Enfocado en</p>
         <h2 className="text-xl font-bold text-foreground text-center mb-8 max-w-xs">{task.title}</h2>
 
-        {/* Time adjuster (only when paused) */}
-        {!running && elapsed === 0 && (
+        {/* Time adjuster (when paused) */}
+        {!running && (
           <div className="flex items-center gap-4 mb-6">
             <button onClick={() => adjustMinutes(-5)}
               className="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center">
@@ -106,8 +107,11 @@ const FullscreenTimer = ({ task, open, onClose }: FullscreenTimerProps) => {
               className="transition-all duration-1000" />
           </svg>
           <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <span className="text-5xl font-bold text-foreground font-mono tracking-wider">{formatTime(remaining)}</span>
-            <span className="text-xs text-on-surface-variant mt-2">{formatTime(elapsed)} transcurrido</span>
+            <button onClick={() => { if (running) { setRunning(false); } }}
+              className="text-5xl font-bold text-foreground font-mono tracking-wider cursor-pointer hover:text-primary transition-colors">
+              {formatTime(remaining)}
+            </button>
+            
           </div>
         </div>
 

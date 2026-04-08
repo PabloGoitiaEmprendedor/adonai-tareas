@@ -3,7 +3,7 @@ import { useTasks } from '@/hooks/useTasks';
 import { useGoals } from '@/hooks/useGoals';
 import { useProfile } from '@/hooks/useProfile';
 import { format, addDays } from 'date-fns';
-import { Check, Flag, Plus, Clock, GripVertical, Play } from 'lucide-react';
+import { Check, Flag, Plus, Clock, GripVertical, Timer } from 'lucide-react';
 import { motion } from 'framer-motion';
 import BottomNav from '@/components/BottomNav';
 import FAB from '@/components/FAB';
@@ -190,19 +190,11 @@ const DailyPage = () => {
                   )}
                   <div className="flex-1 min-w-0">
                     <h4 className={`text-sm font-semibold truncate ${isDone ? 'text-on-surface-variant line-through' : 'text-foreground'}`}>{task.title}</h4>
-                    {!isDone && (
-                      <div className="flex items-center gap-2 mt-0.5">
-                        {task.contexts && <span className="text-[10px] text-on-surface-variant">{(task.contexts as any).name}</span>}
-                        {task.estimated_minutes && (
-                          <span className="text-[10px] text-on-surface-variant flex items-center gap-0.5"><Clock className="w-2.5 h-2.5" />{task.estimated_minutes}m</span>
-                        )}
-                      </div>
-                    )}
                   </div>
                   {!isDone && (
                     <button onClick={(e) => handleStartTimer(task, e)}
                       className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center hover:bg-primary/20 flex-shrink-0 transition-colors">
-                      <Play className="w-3.5 h-3.5 text-primary" />
+                      <Timer className="w-3.5 h-3.5 text-primary" />
                     </button>
                   )}
                 </motion.div>
