@@ -6,6 +6,12 @@ interface ParsedVoiceData {
   importance: boolean | null;
   urgency: boolean | null;
   estimatedMinutes: number | null;
+  recurrence: {
+    frequency: 'daily' | 'weekly' | 'monthly' | 'yearly';
+    interval: number;
+    days_of_week?: number[];
+    day_of_month?: number;
+  } | null;
 }
 
 const dayMap: Record<string, (d: Date) => Date> = {
@@ -27,6 +33,7 @@ export const parseVoiceTranscript = (transcript: string): ParsedVoiceData => {
   let importance: boolean | null = null;
   let urgency: boolean | null = null;
   let estimatedMinutes: number | null = null;
+  let recurrence: ParsedVoiceData['recurrence'] = null;
   let title = transcript.trim();
 
   // Parse date
@@ -88,7 +95,50 @@ export const parseVoiceTranscript = (transcript: string): ParsedVoiceData => {
     estimatedMinutes = parseInt(hourMatch[1]) * 60;
   }
 
-  // Clean title - preserve the actual action instead of leaving a raw transcript
+  // Parse recurrence
+  if (/\btodos los días\b/i.test(lower) || /\bcada día\b/i.test(lower) || /\bdiariamente\b/i.test(lower)) {
+    recurrence = { frequency: 'daily', interval: 1 };
+  } else if (/\bde lunes a viernes\b/i.test(lower)) {
+    recurrence = { frequency: 'weekly', interval: 1, days_of_week: [1, 2, 3, 4, 5] };
+  } else {
+    const weeklyMatch = lower.match(/\bcada (\d+) semanas?\b/);
+    if (weeklyMatch) {
+      recurrence = { frequency: 'weekly', interval: parseInt(weeklyMatch[1]) };
+    }
+    const monthlyMatch = lower.match(/\bcada (\d+) meses?\b/) || lower.match(/\bcada mes\b/);
+    if (monthlyMatch) {
+      recurrence = { frequency: 'monthly', interval: monthlyMatch[1] ? parseInt(monthlyMatch[1]) : 1 };
+      const dayMatch = lower.match(/\bel (?:día )?(\d{1,2})\b/);
+      if (dayMatch) recurrence.day_of_month = parseInt(dayMatch[1]);
+    }
+    const yearlyMatch = lower.match(/\bcada (\d+) años?\b/) || lower.match(/\bcada año\b/);
+    if (yearlyMatch) {
+      recurrence = { frequency: 'yearly', interval: yearlyMatch[1] ? parseInt(yearlyMatch[1]) : 1 };
+    }
+    // "todos los lunes", "cada lunes y miércoles"
+    const dayNameToNum: Record<string, number> = { domingo: 0, lunes: 1, martes: 2, miércoles: 3, miercoles: 3, jueves: 4, viernes: 5, sábado: 6, sabado: 6 };
+    const everyDayMatch = lower.match(/\b(?:todos los|cada) ((?:(?:lunes|martes|miércoles|miercoles|jueves|viernes|sábado|sabado|domingo)(?:\s*(?:y|,)\s*)?)+)\b/i);
+    if (everyDayMatch && !recurrence) {
+      const dayStr = everyDayMatch[1];
+      const daysFound: number[] = [];
+      for (const [name, num] of Object.entries(dayNameToNum)) {
+        if (dayStr.includes(name)) daysFound.push(num);
+      }
+      if (daysFound.length > 0) {
+        recurrence = { frequency: 'weekly', interval: 1, days_of_week: daysFound.sort() };
+      }
+    }
+  }
+
+  // Clean recurrence text from title
+  title = title
+    .replace(/\b(?:todos los días|cada día|diariamente)\b/gi, '')
+    .replace(/\bde lunes a viernes\b/gi, '')
+    .replace(/\bcada \d+ (?:semanas?|meses?|años?|días?)\b/gi, '')
+    .replace(/\bcada (?:semana|mes|año)\b/gi, '')
+    .replace(/\btodos los (?:lunes|martes|miércoles|miercoles|jueves|viernes|sábado|sabado|domingo)(?:\s*(?:y|,)\s*(?:lunes|martes|miércoles|miercoles|jueves|viernes|sábado|sabado|domingo))*/gi, '')
+    .replace(/\bcada (?:lunes|martes|miércoles|miercoles|jueves|viernes|sábado|sabado|domingo)(?:\s*(?:y|,)\s*(?:lunes|martes|miércoles|miercoles|jueves|viernes|sábado|sabado|domingo))*/gi, '');
+
   title = title
     .replace(/^\s*(?:oye|ey|eh+|hola|mira|adonai|por favor|porfa)\b[\s,:-]*/i, '')
     .replace(/\b(?:para hoy|para mañana|hoy|mañana|pasado mañana)\b/gi, '')
@@ -110,5 +160,5 @@ export const parseVoiceTranscript = (transcript: string): ParsedVoiceData => {
     title = title.charAt(0).toUpperCase() + title.slice(1);
   }
 
-  return { title: title || transcript.trim(), dueDate, importance, urgency, estimatedMinutes };
+  return { title: title || transcript.trim(), dueDate, importance, urgency, estimatedMinutes, recurrence };
 };

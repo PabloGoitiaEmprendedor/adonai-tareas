@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Play, Clock, Calendar, Flag, Tag } from 'lucide-react';
+import { X, Play, Clock, Calendar, Flag, Tag, FolderOpen } from 'lucide-react';
 import { useTasks } from '@/hooks/useTasks';
 import { useContexts } from '@/hooks/useContexts';
+import { useFolders } from '@/hooks/useFolders';
 import { toast } from 'sonner';
 import FullscreenTimer from './FullscreenTimer';
 
@@ -15,6 +16,7 @@ interface TaskDetailModalProps {
 const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
   const { updateTask } = useTasks();
   const { contexts } = useContexts();
+  const { folders } = useFolders();
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -23,6 +25,7 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
   const [importance, setImportance] = useState(false);
   const [urgency, setUrgency] = useState(false);
   const [contextId, setContextId] = useState<string | null>(null);
+  const [folderId, setFolderId] = useState<string | null>(null);
   const [status, setStatus] = useState('pending');
   const [timerOpen, setTimerOpen] = useState(false);
 
@@ -35,6 +38,7 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
       setImportance(task.importance || false);
       setUrgency(task.urgency || false);
       setContextId(task.context_id || null);
+      setFolderId(task.folder_id || null);
       setStatus(task.status || 'pending');
     }
   }, [task, open]);
@@ -56,6 +60,7 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
       urgency,
       priority,
       context_id: contextId,
+      folder_id: folderId,
       status,
       ...(status === 'done' ? { completed_at: new Date().toISOString() } : {}),
     });
@@ -133,6 +138,23 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
                         <button key={ctx.id} onClick={() => setContextId(ctx.id === contextId ? null : ctx.id)}
                           className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${contextId === ctx.id ? 'bg-primary/20 text-primary ring-1 ring-primary/30' : 'bg-surface-container-high text-on-surface-variant'}`}>
                           {ctx.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider flex items-center gap-1"><FolderOpen className="w-3 h-3" /> Carpeta</label>
+                    <div className="flex flex-wrap gap-2">
+                      <button onClick={() => setFolderId(null)}
+                        className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${!folderId ? 'bg-primary/20 text-primary ring-1 ring-primary/30' : 'bg-surface-container-high text-on-surface-variant'}`}>
+                        Sin carpeta
+                      </button>
+                      {folders.map((folder) => (
+                        <button key={folder.id} onClick={() => setFolderId(folder.id === folderId ? null : folder.id)}
+                          className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${folderId === folder.id ? 'ring-1 ring-primary/30' : 'bg-surface-container-high text-on-surface-variant'}`}
+                          style={folderId === folder.id ? { backgroundColor: (folder.color || '#4BE277') + '30', color: folder.color || '#4BE277' } : undefined}>
+                          {folder.name}
                         </button>
                       ))}
                     </div>

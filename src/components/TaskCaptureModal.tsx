@@ -151,6 +151,9 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
       estimated_minutes: fallbackEstimatedMinutes || 30,
       context_id: null,
       goal_id: null,
+      folder_id: null,
+      recurrence_id: null,
+      created_new_folder: null,
     };
 
     const classificationPromise = classifyTask(classificationInput, date);
@@ -174,9 +177,15 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
         source_type: sourceType,
         context_id: cls.context_id,
         goal_id: null,
+        folder_id: cls.folder_id || null,
+        recurrence_id: cls.recurrence_id || null,
         estimated_minutes: cls.estimated_minutes || defaults.estimated_minutes,
         due_date: date || format(new Date(), 'yyyy-MM-dd'),
       });
+
+      if (cls.created_new_folder) {
+        toast.info(`📁 Carpeta "${cls.created_new_folder}" creada`);
+      }
 
       if (sourceType === 'voice' && user) {
         await supabase.from('voice_inputs').insert({
