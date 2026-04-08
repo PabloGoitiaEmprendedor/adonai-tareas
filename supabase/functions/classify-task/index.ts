@@ -34,12 +34,13 @@ serve(async (req) => {
 
     const { taskTitle, dueDate } = await req.json();
 
-    const [contextRes, profileRes, tasksRes, goalsRes, contextsRes] = await Promise.all([
+    const [contextRes, profileRes, tasksRes, goalsRes, contextsRes, foldersRes] = await Promise.all([
       supabase.from("user_context").select("*").eq("user_id", userId).single(),
       supabase.from("profiles").select("*").eq("user_id", userId).single(),
-      supabase.from("tasks").select("id, title, priority, urgency, importance, status, due_date, context_id, estimated_minutes").eq("user_id", userId).eq("status", "pending").limit(20),
+      supabase.from("tasks").select("id, title, priority, urgency, importance, status, due_date, context_id, estimated_minutes, folder_id").eq("user_id", userId).eq("status", "pending").limit(20),
       supabase.from("goals").select("id, title, horizon, active").eq("user_id", userId).eq("active", true),
       supabase.from("contexts").select("id, name").eq("user_id", userId),
+      supabase.from("folders").select("id, name").eq("user_id", userId),
     ]);
 
     const userContext = contextRes.data;
@@ -47,21 +48,33 @@ serve(async (req) => {
     const existingTasks = tasksRes.data || [];
     const goals = goalsRes.data || [];
     const contexts = contextsRes.data || [];
+    const folders = foldersRes.data || [];
 
     const contextList = contexts.map((c: any) => `${c.name} (id: ${c.id})`).join(", ");
     const goalsList = goals.map((g: any) => `${g.title} [id: ${g.id}] (${g.horizon})`).join(", ");
+    const foldersList = folders.map((f: any) => `${f.name} (id: ${f.id})`).join(", ");
 
     const systemPrompt = `Eres Adonai, un asistente de productividad experto. Tu trabajo es:
 1. Analizar lo que el usuario dice (puede ser una transcripción de voz larga y desordenada) y extraer la TAREA real.
 2. Crear un título claro, conciso y accionable para la tarea (máximo 60 caracteres).
 3. Si hay detalles adicionales, crear una descripción breve.
 4. Clasificar la tarea automáticamente.
+5. ASIGNAR A UNA CARPETA: Analiza el contenido de la tarea y asígnala a la carpeta más apropiada. Si ninguna carpeta existente es adecuada, sugiere crear una nueva con suggest_new_folder_name.
+6. DETECTAR RECURRENCIA: Si el usuario menciona patrones recurrentes (todos los días, cada lunes, cada mes, etc.), extrae la regla de recurrencia.
 
 IMPORTANTE: El usuario puede dictar algo largo como "oye mira necesito que mañana me acuerde de ir al banco a sacar la tarjeta nueva porque la otra se me venció". Tú debes convertir eso en:
 - Título: "Ir al banco por tarjeta nueva"
 - Descripción: "La tarjeta anterior está vencida"
+- Carpeta: "Personal" (si existe)
 
-METODOLOGÍAS: Eisenhower, Eat the Frog, 80/20, GTD.
+PATRONES DE RECURRENCIA a detectar:
+- "todos los días" → frequency: daily, interval: 1
+- "cada lunes y miércoles" → frequency: weekly, interval: 1, days_of_week: [1, 3]
+- "cada 2 semanas" → frequency: weekly, interval: 2
+- "cada mes" → frequency: monthly, interval: 1
+- "el 15 de cada mes" → frequency: monthly, interval: 1, day_of_month: 15
+- "cada año" → frequency: yearly, interval: 1
+- "de lunes a viernes" → frequency: weekly, interval: 1, days_of_week: [1, 2, 3, 4, 5]
 
 CONTEXTO DEL USUARIO:
 - Nombre: ${profile?.name || "Usuario"}
@@ -78,9 +91,10 @@ CONTEXTO DEL USUARIO:
 
 METAS ACTIVAS: ${goalsList || "Ninguna"}
 CONTEXTOS: ${contextList || "Ninguno"}
+CARPETAS: ${foldersList || "Ninguna"}
 
 TAREAS PENDIENTES:
-${existingTasks.map((t: any) => `- ${t.title} (${t.priority}, fecha: ${t.due_date})`).join("\n") || "Ninguna"}`;
+${existingTasks.map((t: any) => `- ${t.title} (${t.priority}, fecha: ${t.due_date}, carpeta: ${t.folder_id || 'sin carpeta'})`).join("\n") || "Ninguna"}`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -99,18 +113,31 @@ ${existingTasks.map((t: any) => `- ${t.title} (${t.priority}, fecha: ${t.due_dat
             type: "function",
             function: {
               name: "classify_task",
-              description: "Analiza la entrada del usuario, genera un título limpio y descripción, y clasifica la tarea",
+              description: "Analiza la entrada del usuario, genera un título limpio y descripción, clasifica la tarea, asigna carpeta y detecta recurrencia",
               parameters: {
                 type: "object",
                 properties: {
-                  refined_title: { type: "string", description: "Título claro y conciso de la tarea (máx 60 chars). NO es una transcripción, es un título procesado y mejorado." },
-                  description: { type: "string", description: "Descripción breve con detalles adicionales extraídos de lo que dijo el usuario. Vacío si no hay detalles extra." },
+                  refined_title: { type: "string", description: "Título claro y conciso de la tarea (máx 60 chars)" },
+                  description: { type: "string", description: "Descripción breve con detalles adicionales. Vacío si no hay detalles extra." },
                   importance: { type: "boolean" },
                   urgency: { type: "boolean" },
                   priority: { type: "string", enum: ["high", "medium", "low"] },
                   estimated_minutes: { type: "number" },
                   context_id: { type: "string", description: "ID del contexto más apropiado, o null" },
                   goal_id: { type: "string", description: "ID de la meta relacionada, o null" },
+                  folder_id: { type: "string", description: "ID de la carpeta existente más apropiada, o null si ninguna aplica" },
+                  suggest_new_folder_name: { type: "string", description: "Si no hay carpeta adecuada, sugiere un nombre para crear una nueva. Vacío si ya hay carpeta." },
+                  recurrence: {
+                    type: "object",
+                    description: "Regla de recurrencia si el usuario menciona un patrón recurrente. Null si no es recurrente.",
+                    properties: {
+                      frequency: { type: "string", enum: ["daily", "weekly", "monthly", "yearly"] },
+                      interval: { type: "number", description: "Cada cuántas unidades (1 = cada, 2 = cada 2, etc.)" },
+                      days_of_week: { type: "array", items: { type: "number" }, description: "0=Dom, 1=Lun, ..., 6=Sáb" },
+                      day_of_month: { type: "number", description: "Día del mes (1-31)" },
+                    },
+                    required: ["frequency", "interval"],
+                  },
                   reasoning: { type: "string", description: "1 oración explicando la clasificación" },
                 },
                 required: ["refined_title", "description", "importance", "urgency", "priority", "estimated_minutes", "reasoning"],
@@ -145,13 +172,53 @@ ${existingTasks.map((t: any) => `- ${t.title} (${t.priority}, fecha: ${t.due_dat
 
     const classification = JSON.parse(toolCall.function.arguments);
 
+    // Validate context_id
     if (classification.context_id) {
       const valid = contexts.find((c: any) => c.id === classification.context_id);
       if (!valid) classification.context_id = null;
     }
+    // Validate goal_id
     if (classification.goal_id) {
       const valid = goals.find((g: any) => g.id === classification.goal_id);
       if (!valid) classification.goal_id = null;
+    }
+    // Validate folder_id
+    if (classification.folder_id) {
+      const valid = folders.find((f: any) => f.id === classification.folder_id);
+      if (!valid) classification.folder_id = null;
+    }
+
+    // Auto-create suggested folder if no existing folder matched
+    if (!classification.folder_id && classification.suggest_new_folder_name) {
+      const { data: newFolder } = await supabase
+        .from("folders")
+        .insert({ user_id: userId, name: classification.suggest_new_folder_name })
+        .select()
+        .single();
+      if (newFolder) {
+        classification.folder_id = newFolder.id;
+        classification.created_new_folder = classification.suggest_new_folder_name;
+      }
+    }
+
+    // Create recurrence rule if detected
+    if (classification.recurrence) {
+      const rec = classification.recurrence;
+      const { data: rule } = await supabase
+        .from("recurrence_rules")
+        .insert({
+          user_id: userId,
+          frequency: rec.frequency,
+          interval: rec.interval || 1,
+          days_of_week: rec.days_of_week || [],
+          day_of_month: rec.day_of_month || null,
+          start_date: dueDate || new Date().toISOString().split("T")[0],
+        })
+        .select()
+        .single();
+      if (rule) {
+        classification.recurrence_id = rule.id;
+      }
     }
 
     // Learn pattern

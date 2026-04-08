@@ -6,14 +6,14 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { useProfile } from "@/hooks/useProfile";
 
 import AuthPage from "./pages/AuthPage";
-
 import OnboardingPage from "./pages/OnboardingPage";
 import DashboardPage from "./pages/DashboardPage";
 import DailyPage from "./pages/DailyPage";
 import WeeklyPage from "./pages/WeeklyPage";
 import GoalsPage from "./pages/GoalsPage";
 import ProfilePage from "./pages/ProfilePage";
-
+import FoldersPage from "./pages/FoldersPage";
+import FriendsPage from "./pages/FriendsPage";
 import PrivacyPolicyPage from "./pages/PrivacyPolicyPage";
 import TermsOfServicePage from "./pages/TermsOfServicePage";
 import NotFound from "./pages/NotFound";
@@ -53,23 +53,20 @@ const AppRoutes = () => {
   }
 
   return (
-    <>
-      
-      <Routes>
-        <Route path="/auth" element={user ? <Navigate to="/" replace /> : <AuthPage />} />
-        
-        <Route path="/onboarding" element={user ? <OnboardingPage /> : <Navigate to="/auth" replace />} />
-        <Route path="/" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
-        <Route path="/today" element={<ProtectedRoute><DailyPage /></ProtectedRoute>} />
-        <Route path="/week" element={<ProtectedRoute><WeeklyPage /></ProtectedRoute>} />
-        <Route path="/goals" element={<ProtectedRoute><GoalsPage /></ProtectedRoute>} />
-        
-        <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
-        <Route path="/privacy" element={<PrivacyPolicyPage />} />
-        <Route path="/terms" element={<TermsOfServicePage />} />
-        <Route path="*" element={<NotFound />} />
-      </Routes>
-    </>
+    <Routes>
+      <Route path="/auth" element={user ? <Navigate to="/" replace /> : <AuthPage />} />
+      <Route path="/onboarding" element={user ? <OnboardingPage /> : <Navigate to="/auth" replace />} />
+      <Route path="/" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
+      <Route path="/today" element={<ProtectedRoute><DailyPage /></ProtectedRoute>} />
+      <Route path="/week" element={<ProtectedRoute><WeeklyPage /></ProtectedRoute>} />
+      <Route path="/goals" element={<ProtectedRoute><GoalsPage /></ProtectedRoute>} />
+      <Route path="/folders" element={<ProtectedRoute><FoldersPage /></ProtectedRoute>} />
+      <Route path="/friends" element={<ProtectedRoute><FriendsPage /></ProtectedRoute>} />
+      <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+      <Route path="/privacy" element={<PrivacyPolicyPage />} />
+      <Route path="/terms" element={<TermsOfServicePage />} />
+      <Route path="*" element={<NotFound />} />
+    </Routes>
   );
 };
 
