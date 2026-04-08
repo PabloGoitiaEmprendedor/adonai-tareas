@@ -161,6 +161,39 @@ const OnboardingPage = () => {
 
               <div className="space-y-4 max-h-[50vh] overflow-y-auto pr-1">
                 <div className="space-y-1.5">
+                  <label className="block text-xs uppercase tracking-[0.2em] font-bold text-on-surface-variant ml-1">Género</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[{ value: 'male', label: 'Hombre' }, { value: 'female', label: 'Mujer' }, { value: 'other', label: 'Otro' }].map((opt) => (
+                      <button key={opt.value} onClick={() => setGender(opt.value)}
+                        className={`p-2.5 rounded-lg text-center text-sm font-medium transition-all ${
+                          gender === opt.value ? 'bg-surface-container-high ring-1 ring-primary/30 text-foreground' : 'bg-surface-container-low text-on-surface-variant hover:bg-surface-container'
+                        }`}>{opt.label}</button>
+                    ))}
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="block text-xs uppercase tracking-[0.2em] font-bold text-on-surface-variant ml-1">Rango de edad</label>
+                  <div className="grid grid-cols-4 gap-2">
+                    {['18-24', '25-34', '35-44', '45+'].map((r) => (
+                      <button key={r} onClick={() => setAgeRange(r)}
+                        className={`p-2.5 rounded-lg text-center text-sm font-medium transition-all ${
+                          ageRange === r ? 'bg-surface-container-high ring-1 ring-primary/30 text-foreground' : 'bg-surface-container-low text-on-surface-variant hover:bg-surface-container'
+                        }`}>{r}</button>
+                    ))}
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="block text-xs uppercase tracking-[0.2em] font-bold text-on-surface-variant ml-1">Situación familiar</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[{ value: 'single', label: 'Soltero/a' }, { value: 'couple', label: 'En pareja' }, { value: 'married', label: 'Casado/a' }, { value: 'parent', label: 'Con hijos' }].map((opt) => (
+                      <button key={opt.value} onClick={() => setFamilyStatus(opt.value)}
+                        className={`p-2.5 rounded-lg text-center text-sm font-medium transition-all ${
+                          familyStatus === opt.value ? 'bg-surface-container-high ring-1 ring-primary/30 text-foreground' : 'bg-surface-container-low text-on-surface-variant hover:bg-surface-container'
+                        }`}>{opt.label}</button>
+                    ))}
+                  </div>
+                </div>
+                <div className="space-y-1.5">
                   <label className="block text-xs uppercase tracking-[0.2em] font-bold text-on-surface-variant ml-1">¿A qué te dedicas?</label>
                   <input value={occupation} onChange={(e) => setOccupation(e.target.value)} placeholder="Ej: Emprendedor, diseñador, ingeniero..."
                     className="w-full h-12 px-4 bg-surface-container-lowest rounded-lg text-foreground placeholder:text-on-surface-variant/40 focus:outline-none focus:ring-1 focus:ring-primary/20 border-none text-sm" />
@@ -168,6 +201,11 @@ const OnboardingPage = () => {
                 <div className="space-y-1.5">
                   <label className="block text-xs uppercase tracking-[0.2em] font-bold text-on-surface-variant ml-1">Industria o área</label>
                   <input value={industry} onChange={(e) => setIndustry(e.target.value)} placeholder="Ej: Tecnología, marketing, educación..."
+                    className="w-full h-12 px-4 bg-surface-container-lowest rounded-lg text-foreground placeholder:text-on-surface-variant/40 focus:outline-none focus:ring-1 focus:ring-primary/20 border-none text-sm" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="block text-xs uppercase tracking-[0.2em] font-bold text-on-surface-variant ml-1">¿Dónde vives?</label>
+                  <input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Ej: Ciudad de México, Madrid..."
                     className="w-full h-12 px-4 bg-surface-container-lowest rounded-lg text-foreground placeholder:text-on-surface-variant/40 focus:outline-none focus:ring-1 focus:ring-primary/20 border-none text-sm" />
                 </div>
                 <div className="space-y-1.5">
@@ -190,10 +228,31 @@ const OnboardingPage = () => {
                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  <label className="block text-xs uppercase tracking-[0.2em] font-bold text-on-surface-variant ml-1">Metas personales (opcional)</label>
+                  <label className="block text-xs uppercase tracking-[0.2em] font-bold text-on-surface-variant ml-1">Nivel de estrés actual</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[{ value: 'low', label: '😌 Bajo' }, { value: 'medium', label: '😐 Medio' }, { value: 'high', label: '😰 Alto' }].map((opt) => (
+                      <button key={opt.value} onClick={() => setStressLevel(opt.value)}
+                        className={`p-2.5 rounded-lg text-center text-sm font-medium transition-all ${
+                          stressLevel === opt.value ? 'bg-surface-container-high ring-1 ring-primary/30 text-foreground' : 'bg-surface-container-low text-on-surface-variant hover:bg-surface-container'
+                        }`}>{opt.label}</button>
+                    ))}
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="block text-xs uppercase tracking-[0.2em] font-bold text-on-surface-variant ml-1">Pasatiempos e intereses</label>
+                  <input value={hobbies} onChange={(e) => setHobbies(e.target.value)} placeholder="Ej: Leer, gym, cocinar, videojuegos..."
+                    className="w-full h-12 px-4 bg-surface-container-lowest rounded-lg text-foreground placeholder:text-on-surface-variant/40 focus:outline-none focus:ring-1 focus:ring-primary/20 border-none text-sm" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="block text-xs uppercase tracking-[0.2em] font-bold text-on-surface-variant ml-1">Metas personales</label>
                   <textarea value={personalGoals} onChange={(e) => setPersonalGoals(e.target.value)}
                     placeholder="Ej: Hacer ejercicio 3 veces/semana, leer 1 libro/mes..." rows={2}
                     className="w-full px-4 py-3 bg-surface-container-lowest rounded-lg text-foreground placeholder:text-on-surface-variant/40 focus:outline-none focus:ring-1 focus:ring-primary/20 resize-none border-none text-sm" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="block text-xs uppercase tracking-[0.2em] font-bold text-on-surface-variant ml-1">¿Cuál es tu mayor reto ahora mismo?</label>
+                  <input value={biggestChallenge} onChange={(e) => setBiggestChallenge(e.target.value)} placeholder="Ej: Organizar mi tiempo, delegar, encontrar balance..."
+                    className="w-full h-12 px-4 bg-surface-container-lowest rounded-lg text-foreground placeholder:text-on-surface-variant/40 focus:outline-none focus:ring-1 focus:ring-primary/20 border-none text-sm" />
                 </div>
                 <div className="space-y-1.5">
                   <label className="block text-xs uppercase tracking-[0.2em] font-bold text-on-surface-variant ml-1">📋 Importar contexto de otra IA (opcional)</label>
@@ -203,7 +262,7 @@ const OnboardingPage = () => {
                 </div>
               </div>
 
-              <button onClick={next} disabled={!occupation}
+              <button onClick={next} disabled={!occupation || !gender}
                 className="primary-gradient w-full h-14 rounded-lg text-primary-foreground font-bold text-lg flex items-center justify-center gap-2 hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-40">
                 Continuar <ArrowRight className="w-5 h-5" />
               </button>
