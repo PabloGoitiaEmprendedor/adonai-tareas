@@ -70,12 +70,6 @@ const DashboardPage = () => {
     updateTask.mutate({ id: taskId, status: 'done', completed_at: new Date().toISOString() });
   };
 
-  const getMotivationalMessage = () => {
-    if (completedToday === 0) return '¡Empecemos el día!';
-    if (progress < 50) return `Ya llevas ${completedToday}. ¡Sigue así!`;
-    if (progress < 100) return `Ya vas por el ${progress}%. ¡Cierra el día fuerte!`;
-    return '¡Día completado! 🎉';
-  };
 
   const handleDragStart = (idx: number) => setDragIdx(idx);
 
