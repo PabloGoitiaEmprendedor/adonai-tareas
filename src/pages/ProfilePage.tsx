@@ -151,8 +151,8 @@ const ProfilePage = () => {
   );
 
   return (
-    <div className="min-h-screen bg-background pb-24">
-      <div className="max-w-[430px] mx-auto px-5 pt-6 space-y-6">
+    <div className="min-h-screen bg-background pb-24 lg:pl-20 lg:pb-6">
+      <div className="max-w-[430px] lg:max-w-[800px] mx-auto px-5 pt-6 space-y-6">
         {/* Profile hero */}
         <motion.section initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center gap-4">
           <div className="w-16 h-16 rounded-xl bg-surface-container-high flex items-center justify-center">
