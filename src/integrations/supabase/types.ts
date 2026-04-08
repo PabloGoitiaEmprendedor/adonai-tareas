@@ -360,51 +360,75 @@ export type Database = {
       }
       user_context: {
         Row: {
+          age_range: string | null
           ai_learned_patterns: Json | null
+          biggest_challenge: string | null
           created_at: string
+          daily_routine_summary: string | null
           energy_patterns: string | null
+          family_status: string | null
+          gender: string | null
+          hobbies: string | null
           id: string
           imported_context: string | null
           industry: string | null
           life_areas: Json | null
+          location: string | null
           occupation: string | null
           personal_goals: string | null
           priorities_summary: string | null
           recurring_commitments: string | null
+          stress_level: string | null
           updated_at: string
           user_id: string
           work_hours: string | null
           work_style: string | null
         }
         Insert: {
+          age_range?: string | null
           ai_learned_patterns?: Json | null
+          biggest_challenge?: string | null
           created_at?: string
+          daily_routine_summary?: string | null
           energy_patterns?: string | null
+          family_status?: string | null
+          gender?: string | null
+          hobbies?: string | null
           id?: string
           imported_context?: string | null
           industry?: string | null
           life_areas?: Json | null
+          location?: string | null
           occupation?: string | null
           personal_goals?: string | null
           priorities_summary?: string | null
           recurring_commitments?: string | null
+          stress_level?: string | null
           updated_at?: string
           user_id: string
           work_hours?: string | null
           work_style?: string | null
         }
         Update: {
+          age_range?: string | null
           ai_learned_patterns?: Json | null
+          biggest_challenge?: string | null
           created_at?: string
+          daily_routine_summary?: string | null
           energy_patterns?: string | null
+          family_status?: string | null
+          gender?: string | null
+          hobbies?: string | null
           id?: string
           imported_context?: string | null
           industry?: string | null
           life_areas?: Json | null
+          location?: string | null
           occupation?: string | null
           personal_goals?: string | null
           priorities_summary?: string | null
           recurring_commitments?: string | null
+          stress_level?: string | null
           updated_at?: string
           user_id?: string
           work_hours?: string | null
