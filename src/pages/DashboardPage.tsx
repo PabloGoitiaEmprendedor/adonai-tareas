@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useProfile } from '@/hooks/useProfile';
 import { useTasks, useEisenhowerSort } from '@/hooks/useTasks';
 import { useGoals } from '@/hooks/useGoals';
 import { useStreaks } from '@/hooks/useStreaks';
 import { format } from 'date-fns';
-import { Check, Target, Plus, Clock } from 'lucide-react';
+import { Check, Target, Plus, Clock, GripVertical } from 'lucide-react';
 import { motion } from 'framer-motion';
 import BottomNav from '@/components/BottomNav';
 import FAB from '@/components/FAB';
@@ -26,19 +26,30 @@ const DashboardPage = () => {
   const { tasks, updateTask } = useTasks({ date: today });
   const [captureOpen, setCaptureOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<any>(null);
+  const [orderedTasks, setOrderedTasks] = useState<any[]>([]);
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
 
   const pendingTasks = tasks.filter((t) => t.status === 'pending');
   const sorted = useEisenhowerSort(pendingTasks);
-  const completedTasks = tasks.filter((t) => t.status === 'done');
 
-  // Eisenhower quadrants
-  const q1 = sorted.filter((t) => t.urgency && t.importance);
-  const q2 = sorted.filter((t) => !t.urgency && t.importance);
-  const q3 = sorted.filter((t) => t.urgency && !t.importance);
-  const q4 = sorted.filter((t) => !t.urgency && !t.importance);
+  // Build unified ordered list: pending (sorted) interspersed with completed in-place
+  useEffect(() => {
+    // Merge all tasks, sorted by sort_order then Eisenhower priority
+    const allTasks = [...tasks].sort((a, b) => {
+      // Completed tasks keep their position
+      const orderA = a.sort_order || 0;
+      const orderB = b.sort_order || 0;
+      if (orderA !== orderB) return orderA - orderB;
+      // Fall back to Eisenhower
+      const scoreA = (a.urgency ? 2 : 0) + (a.importance ? 1 : 0);
+      const scoreB = (b.urgency ? 2 : 0) + (b.importance ? 1 : 0);
+      return scoreB - scoreA;
+    });
+    setOrderedTasks(allTasks);
+  }, [tasks]);
 
   const mainGoal = goals.find((g) => g.id === profile?.main_goal_id);
-  const completedToday = completedTasks.length;
+  const completedToday = tasks.filter((t) => t.status === 'done').length;
   const totalToday = tasks.length;
   const progress = totalToday > 0 ? Math.round((completedToday / totalToday) * 100) : 0;
   const hasTooMany = pendingTasks.length > 7;
@@ -57,37 +68,73 @@ const DashboardPage = () => {
     return '¡Día completado! 🎉';
   };
 
-  const TaskItem = ({ task, accent }: { task: any; accent?: boolean }) => (
-    <motion.div
-      initial={{ opacity: 0, y: 6 }}
-      animate={{ opacity: 1, y: 0 }}
-      onClick={() => setSelectedTask(task)}
-      className={`p-3.5 rounded-lg flex items-center gap-3 cursor-pointer transition-colors ${accent ? 'bg-surface-container border-l-2 border-primary' : 'bg-surface-container-low'} hover:bg-surface-container-high`}
-    >
-      <button
-        onClick={(e) => handleComplete(task.id, e)}
-        className="w-5 h-5 rounded border-2 border-outline-variant flex items-center justify-center hover:border-primary flex-shrink-0"
-      />
-      <div className="flex-1 min-w-0">
-        <h4 className="text-foreground font-semibold text-sm truncate">{task.title}</h4>
-        <div className="flex items-center gap-2 mt-0.5">
-          {task.contexts && <span className="text-[10px] text-on-surface-variant">{(task.contexts as any).name}</span>}
-          {task.estimated_minutes && (
-            <span className="text-[10px] text-on-surface-variant flex items-center gap-0.5"><Clock className="w-2.5 h-2.5" />{task.estimated_minutes}m</span>
-          )}
-        </div>
-      </div>
-      {task.urgency && task.importance && (
-        <span className="bg-error/10 text-error text-[9px] px-1.5 py-0.5 rounded-full font-bold">P1</span>
-      )}
-      {task.importance && !task.urgency && (
-        <span className="bg-primary/10 text-primary text-[9px] px-1.5 py-0.5 rounded-full font-bold">P2</span>
-      )}
-      {task.urgency && !task.importance && (
-        <span className="bg-tertiary/10 text-tertiary text-[9px] px-1.5 py-0.5 rounded-full font-bold">P3</span>
-      )}
-    </motion.div>
-  );
+  // Drag and drop handlers
+  const handleDragStart = (idx: number) => setDragIdx(idx);
+
+  const handleDragOver = (e: React.DragEvent, idx: number) => {
+    e.preventDefault();
+    if (dragIdx === null || dragIdx === idx) return;
+    const newOrder = [...orderedTasks];
+    const [moved] = newOrder.splice(dragIdx, 1);
+    newOrder.splice(idx, 0, moved);
+    setOrderedTasks(newOrder);
+    setDragIdx(idx);
+  };
+
+  const handleDragEnd = () => {
+    setDragIdx(null);
+    // Persist new order
+    orderedTasks.forEach((task, idx) => {
+      if ((task.sort_order || 0) !== idx) {
+        updateTask.mutate({ id: task.id, sort_order: idx });
+      }
+    });
+  };
+
+  // Touch drag support
+  const [touchIdx, setTouchIdx] = useState<number | null>(null);
+  const [touchY, setTouchY] = useState(0);
+
+  const handleTouchStart = (idx: number, e: React.TouchEvent) => {
+    setTouchIdx(idx);
+    setTouchY(e.touches[0].clientY);
+  };
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (touchIdx === null) return;
+    const currentY = e.touches[0].clientY;
+    const diff = currentY - touchY;
+    const itemHeight = 56;
+    const steps = Math.round(diff / itemHeight);
+    if (steps !== 0) {
+      const newIdx = Math.max(0, Math.min(orderedTasks.length - 1, touchIdx + steps));
+      if (newIdx !== touchIdx) {
+        const newOrder = [...orderedTasks];
+        const [moved] = newOrder.splice(touchIdx, 1);
+        newOrder.splice(newIdx, 0, moved);
+        setOrderedTasks(newOrder);
+        setTouchIdx(newIdx);
+        setTouchY(currentY);
+      }
+    }
+  }, [touchIdx, touchY, orderedTasks]);
+
+  const handleTouchEnd = () => {
+    if (touchIdx !== null) {
+      orderedTasks.forEach((task, idx) => {
+        if ((task.sort_order || 0) !== idx) {
+          updateTask.mutate({ id: task.id, sort_order: idx });
+        }
+      });
+    }
+    setTouchIdx(null);
+  };
+
+  const getTaskLabel = (task: any, idx: number) => {
+    if (task.status === 'done') return null;
+    const pendingBefore = orderedTasks.slice(0, idx).filter(t => t.status !== 'done').length;
+    return `T${pendingBefore + 1}`;
+  };
 
   return (
     <div className="min-h-screen bg-background pb-24">
@@ -130,8 +177,8 @@ const DashboardPage = () => {
           </div>
         )}
 
-        {/* Tasks by Eisenhower */}
-        {pendingTasks.length === 0 ? (
+        {/* Unified Task List */}
+        {orderedTasks.length === 0 ? (
           <div className="bg-surface-container-low p-6 rounded-lg text-center space-y-3">
             <p className="text-on-surface-variant">Tu día está despejado. ¿Qué quieres lograr?</p>
             <button onClick={() => setCaptureOpen(true)} className="inline-flex items-center gap-2 px-4 py-2 rounded-full primary-gradient text-primary-foreground text-sm font-semibold">
@@ -139,47 +186,60 @@ const DashboardPage = () => {
             </button>
           </div>
         ) : (
-          <div className="space-y-4">
-            {q1.length > 0 && (
-              <section className="space-y-2">
-                <h2 className="text-xs font-bold text-error uppercase tracking-wider">🔴 Urgente e Importante</h2>
-                {q1.map((t) => <TaskItem key={t.id} task={t} accent />)}
-              </section>
-            )}
-            {q2.length > 0 && (
-              <section className="space-y-2">
-                <h2 className="text-xs font-bold text-primary uppercase tracking-wider">🟢 Importante</h2>
-                {q2.map((t) => <TaskItem key={t.id} task={t} />)}
-              </section>
-            )}
-            {q3.length > 0 && (
-              <section className="space-y-2">
-                <h2 className="text-xs font-bold text-tertiary uppercase tracking-wider">🟡 Urgente</h2>
-                {q3.map((t) => <TaskItem key={t.id} task={t} />)}
-              </section>
-            )}
-            {q4.length > 0 && (
-              <section className="space-y-2">
-                <h2 className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">⚪ Otras tareas</h2>
-                {q4.map((t) => <TaskItem key={t.id} task={t} />)}
-              </section>
-            )}
+          <div className="space-y-1.5">
+            {orderedTasks.map((task, idx) => {
+              const isDone = task.status === 'done';
+              const label = getTaskLabel(task, idx);
+              return (
+                <motion.div
+                  key={task.id}
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  draggable={!isDone}
+                  onDragStart={() => handleDragStart(idx)}
+                  onDragOver={(e) => handleDragOver(e, idx)}
+                  onDragEnd={handleDragEnd}
+                  onTouchStart={(e) => !isDone && handleTouchStart(idx, e)}
+                  onTouchMove={handleTouchMove}
+                  onTouchEnd={handleTouchEnd}
+                  onClick={() => setSelectedTask(task)}
+                  className={`p-3.5 rounded-lg flex items-center gap-3 cursor-pointer transition-all ${
+                    isDone ? 'opacity-50' : dragIdx === idx || touchIdx === idx ? 'bg-surface-container-high scale-[1.02] shadow-lg' : 'bg-surface-container-low hover:bg-surface-container-high'
+                  }`}
+                >
+                  {!isDone && (
+                    <GripVertical className="w-4 h-4 text-on-surface-variant/30 flex-shrink-0 cursor-grab active:cursor-grabbing" />
+                  )}
+                  {isDone ? (
+                    <div className="w-5 h-5 rounded bg-primary flex items-center justify-center flex-shrink-0">
+                      <Check className="w-3 h-3 text-primary-foreground" />
+                    </div>
+                  ) : (
+                    <button
+                      onClick={(e) => handleComplete(task.id, e)}
+                      className="w-5 h-5 rounded border-2 border-outline-variant flex items-center justify-center hover:border-primary flex-shrink-0"
+                    />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <h4 className={`text-sm font-semibold truncate ${isDone ? 'text-on-surface-variant line-through' : 'text-foreground'}`}>
+                      {task.title}
+                    </h4>
+                    {!isDone && (
+                      <div className="flex items-center gap-2 mt-0.5">
+                        {task.contexts && <span className="text-[10px] text-on-surface-variant">{(task.contexts as any).name}</span>}
+                        {task.estimated_minutes && (
+                          <span className="text-[10px] text-on-surface-variant flex items-center gap-0.5"><Clock className="w-2.5 h-2.5" />{task.estimated_minutes}m</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  {label && (
+                    <span className="text-[10px] font-bold text-on-surface-variant/50 flex-shrink-0">{label}</span>
+                  )}
+                </motion.div>
+              );
+            })}
           </div>
-        )}
-
-        {/* Completed */}
-        {completedTasks.length > 0 && (
-          <section className="space-y-2 opacity-60">
-            <h2 className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">✅ Completadas ({completedTasks.length})</h2>
-            {completedTasks.map((t) => (
-              <div key={t.id} onClick={() => setSelectedTask(t)} className="p-3 rounded-lg bg-surface-container-low flex items-center gap-3 cursor-pointer">
-                <div className="w-5 h-5 rounded bg-primary flex items-center justify-center flex-shrink-0">
-                  <Check className="w-3 h-3 text-primary-foreground" />
-                </div>
-                <span className="text-on-surface-variant text-sm line-through truncate">{t.title}</span>
-              </div>
-            ))}
-          </section>
         )}
       </div>
 

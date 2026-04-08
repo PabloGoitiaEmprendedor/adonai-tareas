@@ -1,9 +1,10 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Calendar, CalendarDays, Trophy, User } from 'lucide-react';
+import { Calendar, CalendarDays, Trophy, User, CalendarCheck } from 'lucide-react';
 
 const tabs = [
   { path: '/', label: 'Hoy', icon: Calendar },
   { path: '/week', label: 'Semana', icon: CalendarDays },
+  { path: '/calendar', label: 'Agenda', icon: CalendarCheck },
   { path: '/goals', label: 'Metas', icon: Trophy },
   { path: '/profile', label: 'Perfil', icon: User },
 ];
