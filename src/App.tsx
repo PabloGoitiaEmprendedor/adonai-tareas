@@ -58,6 +58,7 @@ const AppRoutes = () => {
       <Route path="/today" element={<ProtectedRoute><DailyPage /></ProtectedRoute>} />
       <Route path="/week" element={<ProtectedRoute><WeeklyPage /></ProtectedRoute>} />
       <Route path="/goals" element={<ProtectedRoute><GoalsPage /></ProtectedRoute>} />
+      <Route path="/calendar" element={<ProtectedRoute><CalendarPage /></ProtectedRoute>} />
       <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
       <Route path="*" element={<NotFound />} />
     </Routes>
