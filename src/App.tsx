@@ -52,7 +52,7 @@ const AppRoutes = () => {
 
   return (
     <>
-      <WakeWordManager />
+      <WakeWordManager key="wake-word-v2" />
       <Routes>
         <Route path="/auth" element={user ? <Navigate to="/" replace /> : <AuthPage />} />
         
