@@ -10,6 +10,9 @@ interface ClassificationResult {
   estimated_minutes: number;
   context_id: string | null;
   goal_id: string | null;
+  folder_id: string | null;
+  recurrence_id: string | null;
+  created_new_folder: string | null;
   reasoning: string;
 }
 
