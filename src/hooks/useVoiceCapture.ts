@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
+import { dispatchMicPermissionGranted } from '@/lib/voiceEvents';
 
 export const useVoiceCapture = () => {
   const [isRecording, setIsRecording] = useState(false);
@@ -7,17 +8,16 @@ export const useVoiceCapture = () => {
   const [voiceFallback, setVoiceFallback] = useState(false);
   const recognitionRef = useRef<any>(null);
 
-  const isSupported = typeof window !== 'undefined' && 
+  const isSupported = typeof window !== 'undefined' &&
     !!((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
 
-  const startRecording = useCallback(() => {
+  const startRecording = useCallback((): boolean => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) {
       setVoiceFallback(true);
-      return;
+      return false;
     }
 
-    // Create a fresh instance each time (required by some browsers)
     const recognition = new SpeechRecognition();
     recognition.lang = 'es-ES';
     recognition.continuous = false;
@@ -47,15 +47,16 @@ export const useVoiceCapture = () => {
 
     recognitionRef.current = recognition;
 
-    // CRITICAL: Call start() synchronously within the user gesture
-    // Do NOT await anything before this call — desktop browsers require it
     try {
       recognition.start();
       setIsRecording(true);
       setTranscript('');
+      dispatchMicPermissionGranted();
+      return true;
     } catch (err) {
       console.error('Failed to start recognition:', err);
       setVoiceFallback(true);
+      return false;
     }
   }, []);
 

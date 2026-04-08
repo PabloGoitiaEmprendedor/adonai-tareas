@@ -1,9 +1,10 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mic } from 'lucide-react';
 
 interface WakeWordOverlayProps {
   visible: boolean;
 }
+
+const edgeClass = 'absolute bg-primary/30 blur-2xl';
 
 const WakeWordOverlay = ({ visible }: WakeWordOverlayProps) => {
   return (
@@ -13,44 +14,44 @@ const WakeWordOverlay = ({ visible }: WakeWordOverlayProps) => {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.4 }}
-          className="fixed inset-0 z-[80] flex items-center justify-center pointer-events-none"
+          transition={{ duration: 0.25 }}
+          className="fixed inset-0 z-[80] pointer-events-none overflow-hidden"
         >
-          {/* Ripple rings */}
-          {[0, 1, 2].map((i) => (
-            <motion.div
-              key={i}
-              initial={{ scale: 0.5, opacity: 0.6 }}
-              animate={{ scale: 2.5, opacity: 0 }}
-              transition={{
-                duration: 1.5,
-                delay: i * 0.3,
-                ease: 'easeOut',
-              }}
-              className="absolute w-32 h-32 rounded-full border-2 border-primary/40"
-            />
-          ))}
-
-          {/* Center glow */}
           <motion.div
-            initial={{ scale: 0, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0.5, opacity: 0 }}
-            transition={{ type: 'spring', damping: 15, stiffness: 200 }}
-            className="relative"
-          >
-            <div className="w-20 h-20 rounded-full primary-gradient flex items-center justify-center shadow-[0_0_60px_rgba(75,226,119,0.4)]">
-              <Mic className="w-8 h-8 text-primary-foreground" />
-            </div>
-            <motion.p
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
-              className="absolute -bottom-10 left-1/2 -translate-x-1/2 whitespace-nowrap text-sm font-bold text-primary"
+            initial={{ scaleX: 0.2, opacity: 0 }}
+            animate={{ scaleX: 1, opacity: 1 }}
+            exit={{ scaleX: 0.2, opacity: 0 }}
+            className={`${edgeClass} inset-x-0 top-0 h-3 origin-center`}
+          />
+          <motion.div
+            initial={{ scaleX: 0.2, opacity: 0 }}
+            animate={{ scaleX: 1, opacity: 1 }}
+            exit={{ scaleX: 0.2, opacity: 0 }}
+            className={`${edgeClass} inset-x-0 bottom-0 h-3 origin-center`}
+          />
+          <motion.div
+            initial={{ scaleY: 0.2, opacity: 0 }}
+            animate={{ scaleY: 1, opacity: 1 }}
+            exit={{ scaleY: 0.2, opacity: 0 }}
+            className={`${edgeClass} inset-y-0 left-0 w-3 origin-center`}
+          />
+          <motion.div
+            initial={{ scaleY: 0.2, opacity: 0 }}
+            animate={{ scaleY: 1, opacity: 1 }}
+            exit={{ scaleY: 0.2, opacity: 0 }}
+            className={`${edgeClass} inset-y-0 right-0 w-3 origin-center`}
+          />
+
+          <div className="absolute inset-0 flex items-center justify-center">
+            <motion.div
+              initial={{ scale: 0.85, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="px-5 py-2.5 rounded-full bg-surface-container-high/80 backdrop-blur-md border border-primary/20"
             >
-              ¡Te escucho!
-            </motion.p>
-          </motion.div>
+              <p className="text-sm font-bold text-primary tracking-wide">Hey Adonai</p>
+            </motion.div>
+          </div>
         </motion.div>
       )}
     </AnimatePresence>

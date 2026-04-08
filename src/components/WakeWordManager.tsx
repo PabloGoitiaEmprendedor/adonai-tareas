@@ -2,70 +2,85 @@ import { useState, useEffect, useCallback } from 'react';
 import { useWakeWord } from '@/hooks/useWakeWord';
 import { useAuth } from '@/contexts/AuthContext';
 import WakeWordOverlay from '@/components/WakeWordOverlay';
-import TaskCaptureModal from '@/components/TaskCaptureModal';
-import { Mic, MicOff } from 'lucide-react';
-import { toast } from 'sonner';
+import {
+  dispatchOpenVoiceCapture,
+  dispatchWakeWordTriggered,
+  MIC_PERMISSION_GRANTED_EVENT,
+  VOICE_CAPTURE_CLOSED_EVENT,
+  VOICE_CAPTURE_OPENED_EVENT,
+} from '@/lib/voiceEvents';
 
 const WakeWordManager = () => {
   const { user } = useAuth();
-  const [captureOpen, setCaptureOpen] = useState(false);
   const [showOverlay, setShowOverlay] = useState(false);
 
   const handleWake = useCallback(() => {
-    // Show cool animation first
+    dispatchWakeWordTriggered();
     setShowOverlay(true);
-    setTimeout(() => {
+    window.setTimeout(() => {
       setShowOverlay(false);
-      setCaptureOpen(true);
-    }, 1200);
+      dispatchOpenVoiceCapture();
+    }, 650);
   }, []);
 
-  const { isListening, isSupported, permissionGranted, activate, resume, deactivate } = useWakeWord({
+  const { isListening, isSupported, activate, resume, deactivate } = useWakeWord({
     onWake: handleWake,
     enabled: !!user,
   });
 
-  const handleCloseCaptureModal = useCallback(() => {
-    setCaptureOpen(false);
-    // Resume wake word listening after modal closes
-    setTimeout(() => resume(), 500);
-  }, [resume]);
+  const tryAutoEnable = useCallback(async () => {
+    if (!user || !isSupported || isListening || !navigator.permissions?.query) return;
 
-  const handleToggle = useCallback(() => {
-    if (isListening) {
-      deactivate();
-      toast.info('Modo voz desactivado');
-    } else {
-      activate();
-      toast.success('Di "Hey Adonai" para crear tareas por voz');
+    try {
+      const status = await navigator.permissions.query({ name: 'microphone' as PermissionName });
+      if (status.state === 'granted') {
+        activate();
+      }
+    } catch {
+      // Ignore unsupported permissions API states
     }
-  }, [isListening, activate, deactivate]);
+  }, [user, isSupported, isListening, activate]);
+
+  useEffect(() => {
+    void tryAutoEnable();
+  }, [tryAutoEnable]);
+
+  useEffect(() => {
+    if (!user || !isSupported) return;
+
+    const handlePermissionGranted = () => {
+      void tryAutoEnable();
+    };
+
+    const handleCaptureOpened = () => {
+      deactivate();
+    };
+
+    const handleCaptureClosed = () => {
+      resume();
+      void tryAutoEnable();
+    };
+
+    const handleFocus = () => {
+      void tryAutoEnable();
+    };
+
+    window.addEventListener(MIC_PERMISSION_GRANTED_EVENT, handlePermissionGranted);
+    window.addEventListener(VOICE_CAPTURE_OPENED_EVENT, handleCaptureOpened);
+    window.addEventListener(VOICE_CAPTURE_CLOSED_EVENT, handleCaptureClosed);
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      window.removeEventListener(MIC_PERMISSION_GRANTED_EVENT, handlePermissionGranted);
+      window.removeEventListener(VOICE_CAPTURE_OPENED_EVENT, handleCaptureOpened);
+      window.removeEventListener(VOICE_CAPTURE_CLOSED_EVENT, handleCaptureClosed);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [user, isSupported, deactivate, resume, tryAutoEnable]);
 
   if (!user || !isSupported) return null;
 
-  return (
-    <>
-      {/* Wake word indicator button */}
-      <button
-        onClick={handleToggle}
-        className={`fixed top-4 right-4 z-50 w-9 h-9 rounded-full flex items-center justify-center transition-all ${
-          isListening
-            ? 'bg-primary/20 text-primary shadow-[0_0_12px_rgba(75,226,119,0.3)]'
-            : 'bg-surface-container-high text-on-surface-variant'
-        }`}
-      >
-        {isListening ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
-      </button>
-
-      {/* Listening pulse indicator */}
-      {isListening && (
-        <div className="fixed top-4 right-4 z-40 w-9 h-9 rounded-full bg-primary/20 animate-ping" />
-      )}
-
-      <WakeWordOverlay visible={showOverlay} />
-      <TaskCaptureModal open={captureOpen} onClose={handleCloseCaptureModal} />
-    </>
-  );
+  return <WakeWordOverlay visible={showOverlay} />;
 };
 
 export default WakeWordManager;
