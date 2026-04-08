@@ -354,6 +354,13 @@ const ProfilePage = () => {
           className="w-full py-4 rounded-lg bg-tertiary-container/10 text-tertiary font-bold text-sm uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-tertiary-container/20 transition-all">
           <LogOut className="w-4 h-4" /> Cerrar sesión
         </button>
+
+        {/* Legal links - subtle */}
+        <div className="flex justify-center gap-3 pt-2 pb-4">
+          <a href="/privacy" className="text-[10px] text-on-surface-variant/40 hover:text-on-surface-variant/60 transition-colors">Privacidad</a>
+          <span className="text-[10px] text-on-surface-variant/20">·</span>
+          <a href="/terms" className="text-[10px] text-on-surface-variant/40 hover:text-on-surface-variant/60 transition-colors">Términos</a>
+        </div>
       </div>
       <BottomNav />
     </div>
