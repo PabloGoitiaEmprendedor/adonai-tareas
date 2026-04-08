@@ -109,8 +109,8 @@ const DailyPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-24">
-      <div className="max-w-[430px] mx-auto px-5 pt-6 space-y-6">
+    <div className="min-h-screen bg-background pb-24 lg:pl-20 lg:pb-6">
+      <div className="max-w-[430px] lg:max-w-[800px] mx-auto px-5 pt-6 space-y-6">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <Flag className="w-3.5 h-3.5 text-primary" />

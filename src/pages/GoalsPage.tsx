@@ -91,8 +91,8 @@ const GoalsPage = () => {
   const selectedGoalTasks = selectedGoalId ? tasks.filter((t) => t.goal_id === selectedGoalId) : [];
 
   return (
-    <div className="min-h-screen bg-background pb-24">
-      <div className="max-w-[430px] mx-auto px-5 pt-6 space-y-6">
+    <div className="min-h-screen bg-background pb-24 lg:pl-20 lg:pb-6">
+      <div className="max-w-[430px] lg:max-w-[800px] mx-auto px-5 pt-6 space-y-6">
         <div className="space-y-1">
           <span className="text-primary font-medium tracking-wider uppercase text-xs">Gestión de Metas</span>
           <h1 className="text-2xl font-bold tracking-tight">

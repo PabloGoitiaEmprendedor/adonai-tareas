@@ -35,8 +35,8 @@ const CalendarPage = () => {
   const goMonth = (dir: number) => setSelectedDate(addMonths(selectedDate, dir));
 
   return (
-    <div className="min-h-screen bg-background pb-24">
-      <div className="max-w-[430px] mx-auto px-5 pt-6 space-y-5">
+    <div className="min-h-screen bg-background pb-24 lg:pl-20 lg:pb-6">
+      <div className="max-w-[430px] lg:max-w-[800px] mx-auto px-5 pt-6 space-y-5">
         <div className="flex items-center justify-between">
           <div className="space-y-1">
             <span className="text-on-surface-variant text-xs font-medium uppercase tracking-widest">Calendario</span>

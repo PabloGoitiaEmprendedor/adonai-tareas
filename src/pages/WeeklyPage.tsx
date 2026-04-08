@@ -119,8 +119,8 @@ const WeeklyPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-24">
-      <div className="max-w-[430px] mx-auto px-5 pt-6 space-y-6">
+    <div className="min-h-screen bg-background pb-24 lg:pl-20 lg:pb-6">
+      <div className="max-w-[430px] lg:max-w-[800px] mx-auto px-5 pt-6 space-y-6">
         <div className="flex justify-between items-end">
           <div>
             <span className="text-[10px] uppercase tracking-widest text-on-surface-variant font-bold">Resumen Semanal</span>

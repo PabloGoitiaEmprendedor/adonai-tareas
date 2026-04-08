@@ -138,7 +138,7 @@ const DashboardPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-24">
+    <div className="min-h-screen bg-background pb-24 lg:pl-20 lg:pb-6">
       <div className="max-w-[430px] lg:max-w-[800px] mx-auto px-5 pt-6 space-y-5">
         {/* Header */}
         <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="space-y-1">
