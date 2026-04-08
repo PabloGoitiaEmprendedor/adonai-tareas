@@ -131,6 +131,13 @@ export const parseVoiceTranscript = (transcript: string): ParsedVoiceData => {
   }
 
   // Clean recurrence text from title
+  title = title
+    .replace(/\b(?:todos los días|cada día|diariamente)\b/gi, '')
+    .replace(/\bde lunes a viernes\b/gi, '')
+    .replace(/\bcada \d+ (?:semanas?|meses?|años?|días?)\b/gi, '')
+    .replace(/\bcada (?:semana|mes|año)\b/gi, '')
+    .replace(/\btodos los (?:lunes|martes|miércoles|miercoles|jueves|viernes|sábado|sabado|domingo)(?:\s*(?:y|,)\s*(?:lunes|martes|miércoles|miercoles|jueves|viernes|sábado|sabado|domingo))*/gi, '')
+    .replace(/\bcada (?:lunes|martes|miércoles|miercoles|jueves|viernes|sábado|sabado|domingo)(?:\s*(?:y|,)\s*(?:lunes|martes|miércoles|miercoles|jueves|viernes|sábado|sabado|domingo))*/gi, '');
 
   title = title
     .replace(/^\s*(?:oye|ey|eh+|hola|mira|adonai|por favor|porfa)\b[\s,:-]*/i, '')
