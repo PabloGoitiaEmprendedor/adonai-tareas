@@ -88,21 +88,21 @@ export const parseVoiceTranscript = (transcript: string): ParsedVoiceData => {
     estimatedMinutes = parseInt(hourMatch[1]) * 60;
   }
 
-  // Clean title - remove parsed metadata from the title
-  const removePatterns = [
-    /\b(para hoy|para mañana|pasado mañana)\b/gi,
-    /\b(para el |el )?(lunes|martes|miércoles|miercoles|jueves|viernes|sábado|sabado|domingo)\b/gi,
-    /\b(?:para )?el \d{1,2} de \w+\b/gi,
-    /\b(es |muy |no |no es |poco )?(importante|urgente)\b/gi,
-    /\b(sin urgencia)\b/gi,
-    /\b\d+\s*(minutos?|horas?)\b/gi,
-    /\b(quiero |necesito |tengo que |debo |agendar |agregar |crear )?(una tarea |tarea )?(para |de )?\b/gi,
-  ];
-
-  for (const pattern of removePatterns) {
-    title = title.replace(pattern, '');
-  }
-  title = title.replace(/\s+/g, ' ').replace(/^[,.\s]+|[,.\s]+$/g, '').trim();
+  // Clean title - preserve the actual action instead of leaving a raw transcript
+  title = title
+    .replace(/^\s*(?:oye|ey|eh+|hola|mira|adonai|por favor|porfa)\b[\s,:-]*/i, '')
+    .replace(/\b(?:para hoy|para mañana|hoy|mañana|pasado mañana)\b/gi, '')
+    .replace(/\b(para el |el )?(lunes|martes|miércoles|miercoles|jueves|viernes|sábado|sabado|domingo)\b/gi, '')
+    .replace(/\b(?:para )?el \d{1,2} de \w+\b/gi, '')
+    .replace(/\b(es |muy |no |no es |poco )?(importante|urgente)\b/gi, '')
+    .replace(/\b(sin urgencia)\b/gi, '')
+    .replace(/\b\d+\s*(minutos?|horas?)\b/gi, '')
+    .replace(/^\s*(?:quiero|necesito|tengo que|debo)\s+/i, '')
+    .replace(/^\s*(?:agendar|agrega(?:r)?|anota(?:r)?|programa(?:r)?|pon(?:er)?)\s+(?:una|un)?\s*(?:tarea|evento|recordatorio)\s*(?:para\s+)?/i, '')
+    .replace(/^\s*(?:que|lo que necesito(?: hacer)? es)\s+/i, '')
+    .replace(/\s+/g, ' ')
+    .replace(/^[,.\s]+|[,.\s]+$/g, '')
+    .trim();
   
   // Capitalize first letter
   if (title.length > 0) {
