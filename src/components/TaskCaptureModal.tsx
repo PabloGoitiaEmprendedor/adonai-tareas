@@ -1,23 +1,26 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, forwardRef, useImperativeHandle, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Mic, X, Square, Sparkles } from 'lucide-react';
 import { useVoiceCapture } from '@/hooks/useVoiceCapture';
 import { parseVoiceTranscript } from '@/hooks/useVoiceParser';
 import { useTasks } from '@/hooks/useTasks';
 import { useTaskClassifier } from '@/hooks/useTaskClassifier';
-import { useProfile } from '@/hooks/useProfile';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
+import { dispatchVoiceCaptureClosed, dispatchVoiceCaptureOpened } from '@/lib/voiceEvents';
 
 interface TaskCaptureModalProps {
   open: boolean;
   onClose: () => void;
 }
 
-const TaskCaptureModal = ({ open, onClose }: TaskCaptureModalProps) => {
-  const { profile } = useProfile();
+export interface TaskCaptureModalHandle {
+  openInVoiceMode: () => boolean;
+}
+
+const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProps>(({ open, onClose }, ref) => {
   const { user } = useAuth();
   const { isRecording, transcript, confidence, voiceFallback, isSupported, startRecording, stopRecording, resetTranscript } = useVoiceCapture();
   const { createTask } = useTasks();
@@ -27,36 +30,78 @@ const TaskCaptureModal = ({ open, onClose }: TaskCaptureModalProps) => {
   const [title, setTitle] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [sourceType, setSourceType] = useState<'voice' | 'text'>('text');
-  const [showTextInput, setShowTextInput] = useState(false);
+  const [showTextInput, setShowTextInput] = useState(true);
   const [classificationSource, setClassificationSource] = useState('');
   const [fallbackEstimatedMinutes, setFallbackEstimatedMinutes] = useState<number | null>(null);
+  const requestedVoiceOpenRef = useRef(false);
+  const mountedRef = useRef(false);
 
-  const preferVoice = profile?.preferred_input === 'voice' || profile?.preferred_input === 'both';
-
-  useEffect(() => {
-    if (open) {
+  useImperativeHandle(ref, () => ({
+    openInVoiceMode: () => {
+      requestedVoiceOpenRef.current = true;
       setPhase('input');
       setTitle('');
       setDueDate(format(new Date(), 'yyyy-MM-dd'));
       setClassificationSource('');
       setFallbackEstimatedMinutes(null);
-      resetTranscript();
-      setShowTextInput(false);
-      if (preferVoice && isSupported && !voiceFallback) {
+      const started = startRecording();
+      if (started) {
         setSourceType('voice');
-        setTimeout(() => startRecording(), 300);
+        setShowTextInput(false);
       } else {
-        setShowTextInput(true);
+        resetTranscript();
         setSourceType('text');
+        setShowTextInput(true);
       }
+      return started;
+    },
+  }), [resetTranscript, startRecording]);
+
+  useEffect(() => {
+    if (!mountedRef.current) {
+      mountedRef.current = true;
+      return;
     }
+
+    if (open) {
+      dispatchVoiceCaptureOpened();
+      return;
+    }
+
+    dispatchVoiceCaptureClosed();
   }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    setPhase('input');
+    setDueDate(format(new Date(), 'yyyy-MM-dd'));
+    setClassificationSource('');
+    setFallbackEstimatedMinutes(null);
+
+    if (requestedVoiceOpenRef.current) {
+      requestedVoiceOpenRef.current = false;
+      return;
+    }
+
+    setTitle('');
+    resetTranscript();
+    setShowTextInput(true);
+    setSourceType('text');
+  }, [open, resetTranscript]);
 
   useEffect(() => {
     if (transcript && !isRecording && sourceType === 'voice') {
       setTitle(transcript);
     }
   }, [transcript, isRecording, sourceType]);
+
+  const handleClose = () => {
+    if (isRecording) {
+      stopRecording();
+    }
+    onClose();
+  };
 
   const handleTitleDone = async () => {
     const rawTitle = title.trim();
@@ -65,7 +110,7 @@ const TaskCaptureModal = ({ open, onClose }: TaskCaptureModalProps) => {
     let parsedTitle = rawTitle;
     let parsedDate = dueDate;
     let parsedEstimatedMinutes: number | null = null;
-    let sourceForClassification = rawTitle;
+    const sourceForClassification = rawTitle;
 
     if (sourceType === 'voice') {
       const parsed = parseVoiceTranscript(rawTitle);
@@ -128,7 +173,7 @@ const TaskCaptureModal = ({ open, onClose }: TaskCaptureModalProps) => {
         importance: cls.importance,
         source_type: sourceType,
         context_id: cls.context_id,
-        goal_id: null, // Never auto-assign goals, user must do it manually
+        goal_id: null,
         estimated_minutes: cls.estimated_minutes || defaults.estimated_minutes,
         due_date: date || format(new Date(), 'yyyy-MM-dd'),
       });
@@ -143,7 +188,7 @@ const TaskCaptureModal = ({ open, onClose }: TaskCaptureModalProps) => {
       }
 
       toast.success('Tarea creada');
-      onClose();
+      handleClose();
     } catch {
       toast.error('Error al crear tarea');
       setPhase('input');
@@ -158,7 +203,7 @@ const TaskCaptureModal = ({ open, onClose }: TaskCaptureModalProps) => {
     <AnimatePresence>
       {open && (
         <>
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/60 z-[60]" onClick={onClose} />
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/60 z-[60]" onClick={handleClose} />
           <motion.div
             initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
@@ -169,7 +214,7 @@ const TaskCaptureModal = ({ open, onClose }: TaskCaptureModalProps) => {
                 <div className="w-12 h-1.5 bg-on-surface-variant/20 rounded-full" />
               </div>
               <div className="p-6 flex flex-col items-center gap-6">
-                <button onClick={onClose} className="absolute top-4 right-4 text-on-surface-variant"><X className="w-5 h-5" /></button>
+                <button onClick={handleClose} className="absolute top-4 right-4 text-on-surface-variant"><X className="w-5 h-5" /></button>
 
                 <AnimatePresence mode="wait">
                   {phase === 'input' && (
@@ -210,7 +255,7 @@ const TaskCaptureModal = ({ open, onClose }: TaskCaptureModalProps) => {
                         ) : (
                           <>
                             {isSupported && !voiceFallback && (
-                              <button onClick={() => { setSourceType('voice'); startRecording(); }} className="w-14 h-14 rounded-full bg-surface-container-high flex items-center justify-center">
+                              <button onClick={() => { setSourceType('voice'); setShowTextInput(false); startRecording(); }} className="w-14 h-14 rounded-full bg-surface-container-high flex items-center justify-center">
                                 <Mic className="w-6 h-6 text-foreground" />
                               </button>
                             )}
@@ -260,6 +305,8 @@ const TaskCaptureModal = ({ open, onClose }: TaskCaptureModalProps) => {
       )}
     </AnimatePresence>
   );
-};
+});
+
+TaskCaptureModal.displayName = 'TaskCaptureModal';
 
 export default TaskCaptureModal;
