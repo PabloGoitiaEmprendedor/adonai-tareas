@@ -2,6 +2,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { format } from 'date-fns';
+import type { Database } from '@/integrations/supabase/types';
+
+type TaskUpdate = Database['public']['Tables']['tasks']['Update'];
 
 export const useTasks = (filters?: { date?: string; status?: string }) => {
   const { user } = useAuth();
@@ -45,7 +48,6 @@ export const useTasks = (filters?: { date?: string; status?: string }) => {
         .single();
       if (error) throw error;
 
-      // Log usage event
       await supabase.from('usage_events').insert({
         user_id: user.id,
         event_type: task.source_type === 'voice' ? 'task_created_voice' : 'task_created_text',
@@ -59,7 +61,7 @@ export const useTasks = (filters?: { date?: string; status?: string }) => {
   });
 
   const updateTask = useMutation({
-    mutationFn: async ({ id, ...updates }: { id: string } & Record<string, unknown>) => {
+    mutationFn: async ({ id, ...updates }: { id: string } & TaskUpdate) => {
       if (!user) throw new Error('No user');
       const { error } = await supabase.from('tasks').update(updates).eq('id', id).eq('user_id', user.id);
       if (error) throw error;

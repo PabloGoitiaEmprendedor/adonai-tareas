@@ -1,6 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import type { Database } from '@/integrations/supabase/types';
+
+type SettingsUpdate = Database['public']['Tables']['settings']['Update'];
 
 export const useSettings = () => {
   const { user } = useAuth();
@@ -22,7 +25,7 @@ export const useSettings = () => {
   });
 
   const updateSettings = useMutation({
-    mutationFn: async (updates: Record<string, unknown>) => {
+    mutationFn: async (updates: SettingsUpdate) => {
       if (!user) throw new Error('No user');
       const { error } = await supabase
         .from('settings')

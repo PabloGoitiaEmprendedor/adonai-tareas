@@ -2,6 +2,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { format, subDays } from 'date-fns';
+import type { Database } from '@/integrations/supabase/types';
+
+type MetricsUpdate = Database['public']['Tables']['experiment_metrics']['Update'];
 
 export const useStreaks = () => {
   const { user } = useAuth();
@@ -28,7 +31,6 @@ export const useStreaks = () => {
       const today = format(new Date(), 'yyyy-MM-dd');
       const yesterday = format(subDays(new Date(), 1), 'yyyy-MM-dd');
 
-      // Log day_active event
       await supabase.from('usage_events').insert({
         user_id: user.id,
         event_type: 'day_active',
@@ -37,12 +39,11 @@ export const useStreaks = () => {
 
       if (!metrics) return;
 
-      const updates: Record<string, unknown> = {
+      const updates: MetricsUpdate = {
         last_active_date: today,
         updated_at: new Date().toISOString(),
       };
 
-      // Track day usage
       if (!metrics.day_1_used) {
         updates.day_1_used = true;
       } else if (!metrics.day_2_used && metrics.last_active_date === yesterday) {
@@ -56,18 +57,11 @@ export const useStreaks = () => {
         updates.user_retained = true;
       }
 
-      // Streak logic
       if (metrics.last_active_date === yesterday) {
         const newStreak = (metrics.streak_current || 0) + 1;
         updates.streak_current = newStreak;
         if (newStreak > (metrics.streak_max || 0)) {
           updates.streak_max = newStreak;
-        }
-        if (newStreak >= 2) {
-          await supabase.from('usage_events').insert({
-            user_id: user.id,
-            event_type: `streak_${newStreak}` as string,
-          });
         }
       } else if (metrics.last_active_date !== today) {
         updates.streak_current = 1;

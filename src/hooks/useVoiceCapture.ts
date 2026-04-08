@@ -1,13 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
 
-interface SpeechRecognitionEvent {
-  results: SpeechRecognitionResultList;
-}
-
-interface SpeechRecognitionErrorEvent {
-  error: string;
-}
-
 export const useVoiceCapture = () => {
   const [isRecording, setIsRecording] = useState(false);
   const [transcript, setTranscript] = useState('');
@@ -16,7 +8,7 @@ export const useVoiceCapture = () => {
   const recognitionRef = useRef<any>(null);
 
   const isSupported = typeof window !== 'undefined' && 
-    !!(window.SpeechRecognition || (window as any).webkitSpeechRecognition);
+    !!((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
 
   const startRecording = useCallback(() => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -30,13 +22,13 @@ export const useVoiceCapture = () => {
     recognition.continuous = false;
     recognition.interimResults = true;
 
-    recognition.onresult = (event: SpeechRecognitionEvent) => {
+    recognition.onresult = (event: any) => {
       const results = Array.from(event.results);
       const text = results.map((r: any) => r[0].transcript).join('');
       setTranscript(text);
-      const lastResult = results[results.length - 1];
-      if (lastResult && (lastResult as any).isFinal) {
-        setConfidence((lastResult as any)[0].confidence || 0);
+      const lastResult = results[results.length - 1] as any;
+      if (lastResult && lastResult.isFinal) {
+        setConfidence(lastResult[0].confidence || 0);
       }
     };
 
@@ -44,7 +36,7 @@ export const useVoiceCapture = () => {
       setIsRecording(false);
     };
 
-    recognition.onerror = (_e: SpeechRecognitionErrorEvent) => {
+    recognition.onerror = () => {
       setVoiceFallback(true);
       setIsRecording(false);
     };
