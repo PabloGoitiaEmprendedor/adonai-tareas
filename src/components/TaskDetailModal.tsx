@@ -144,6 +144,23 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
                   </div>
 
                   <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider flex items-center gap-1"><FolderOpen className="w-3 h-3" /> Carpeta</label>
+                    <div className="flex flex-wrap gap-2">
+                      <button onClick={() => setFolderId(null)}
+                        className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${!folderId ? 'bg-primary/20 text-primary ring-1 ring-primary/30' : 'bg-surface-container-high text-on-surface-variant'}`}>
+                        Sin carpeta
+                      </button>
+                      {folders.map((folder) => (
+                        <button key={folder.id} onClick={() => setFolderId(folder.id === folderId ? null : folder.id)}
+                          className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${folderId === folder.id ? 'ring-1 ring-primary/30' : 'bg-surface-container-high text-on-surface-variant'}`}
+                          style={folderId === folder.id ? { backgroundColor: (folder.color || '#4BE277') + '30', color: folder.color || '#4BE277' } : undefined}>
+                          {folder.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
                     <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Estado</label>
                     <div className="flex gap-2">
                       {['pending', 'done', 'skipped'].map((s) => (
