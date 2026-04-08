@@ -143,27 +143,66 @@ const FriendsPage = () => {
             <div className="space-y-2">
               {friendFolders.map((folder: any) => {
                 const fTasks = friendTasks.filter((t: any) => t.folder_id === folder.id);
+                const doneTasks = fTasks.filter((t: any) => t.status === 'done').length;
+                const isExpanded = expandedFolders.has(folder.id);
                 return (
-                  <div key={folder.id} className="bg-surface-container-low rounded-xl p-4 space-y-3">
-                    <div className="flex items-center gap-3">
+                  <div key={folder.id} className="bg-surface-container-low rounded-xl overflow-hidden">
+                    <button onClick={() => toggleFolder(folder.id)}
+                      className="w-full p-4 flex items-center gap-3 hover:bg-surface-container-high transition-colors">
                       <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ backgroundColor: (folder.color || '#4BE277') + '20' }}>
                         <FolderOpen className="w-4 h-4" style={{ color: folder.color || '#4BE277' }} />
                       </div>
-                      <div>
+                      <div className="flex-1 text-left">
                         <h3 className="text-sm font-bold text-foreground">{folder.name}</h3>
-                        <p className="text-[10px] text-on-surface-variant">{fTasks.length} tareas</p>
+                        <p className="text-[10px] text-on-surface-variant">{doneTasks}/{fTasks.length} completadas</p>
                       </div>
-                    </div>
-                    {fTasks.length > 0 && (
-                      <div className="space-y-1 pl-12">
-                        {fTasks.map((task: any) => (
-                          <div key={task.id} className="flex items-center gap-2 py-1">
-                            <div className={`w-3 h-3 rounded-sm flex-shrink-0 ${task.status === 'done' ? 'bg-primary' : 'border border-outline-variant'}`} />
-                            <span className={`text-xs ${task.status === 'done' ? 'text-on-surface-variant line-through' : 'text-foreground'}`}>{task.title}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                      <ChevronDown className={`w-4 h-4 text-on-surface-variant transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                    </button>
+
+                    <AnimatePresence>
+                      {isExpanded && (
+                        <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
+                          className="overflow-hidden">
+                          {fTasks.length === 0 ? (
+                            <p className="px-4 pb-4 text-xs text-on-surface-variant">No hay tareas en esta carpeta.</p>
+                          ) : (
+                            <div className="px-4 pb-4 space-y-1">
+                              {fTasks.map((task: any) => {
+                                const isDone = task.status === 'done';
+                                return (
+                                  <div key={task.id} className="flex items-start gap-3 p-2.5 rounded-lg hover:bg-surface-container-high transition-colors">
+                                    <button onClick={(e) => handleToggleTask(task, e)}
+                                      className={`mt-0.5 w-5 h-5 rounded flex-shrink-0 flex items-center justify-center transition-all ${isDone ? 'bg-primary' : 'border-2 border-outline-variant hover:border-primary'}`}>
+                                      {isDone && <Check className="w-3 h-3 text-primary-foreground" />}
+                                    </button>
+                                    <div className="flex-1 min-w-0">
+                                      <p className={`text-sm font-medium ${isDone ? 'text-on-surface-variant line-through' : 'text-foreground'}`}>{task.title}</p>
+                                      {task.description && (
+                                        <p className="text-xs text-on-surface-variant mt-0.5 line-clamp-2">{task.description}</p>
+                                      )}
+                                      <div className="flex items-center gap-3 mt-1">
+                                        {task.due_date && (
+                                          <span className="flex items-center gap-1 text-[10px] text-on-surface-variant">
+                                            <Calendar className="w-3 h-3" /> {task.due_date}
+                                          </span>
+                                        )}
+                                        {task.estimated_minutes && (
+                                          <span className="flex items-center gap-1 text-[10px] text-on-surface-variant">
+                                            <Clock className="w-3 h-3" /> {task.estimated_minutes}min
+                                          </span>
+                                        )}
+                                        {task.urgency && <span className="text-[10px] px-1.5 py-0.5 rounded bg-error/10 text-error font-bold">Urgente</span>}
+                                        {task.importance && <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-bold">Importante</span>}
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
                 );
               })}
