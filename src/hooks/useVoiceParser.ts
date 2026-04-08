@@ -153,5 +153,5 @@ export const parseVoiceTranscript = (transcript: string): ParsedVoiceData => {
     title = title.charAt(0).toUpperCase() + title.slice(1);
   }
 
-  return { title: title || transcript.trim(), dueDate, importance, urgency, estimatedMinutes };
+  return { title: title || transcript.trim(), dueDate, importance, urgency, estimatedMinutes, recurrence };
 };
