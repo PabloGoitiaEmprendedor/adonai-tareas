@@ -59,7 +59,7 @@ const DashboardPage = () => {
 
   const mainGoal = goals.find((g) => g.id === profile?.main_goal_id);
   
-  const hasTooMany = pendingTasks.length > 7;
+  
 
   useEffect(() => { trackDayActive.mutate(); }, []);
 
@@ -153,13 +153,6 @@ const DashboardPage = () => {
           </div>
         )}
 
-        {hasTooMany && (
-          <div className="bg-error-container/20 p-3 rounded-lg">
-            <p className="text-sm text-tertiary">Tienes muchas tareas. ¿Quieres simplificar tu día?</p>
-          </div>
-        )}
-
-        {/* Motivational message and progress removed */}
 
         {orderedTasks.length === 0 ? (
           <div className="bg-surface-container-low p-6 rounded-lg text-center space-y-3">
