@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { useProfile } from "@/hooks/useProfile";
 import AuthPage from "./pages/AuthPage";
+import AuthCallbackPage from "./pages/AuthCallbackPage";
 import OnboardingPage from "./pages/OnboardingPage";
 import DashboardPage from "./pages/DashboardPage";
 import DailyPage from "./pages/DailyPage";
@@ -50,6 +51,7 @@ const AppRoutes = () => {
   return (
     <Routes>
       <Route path="/auth" element={user ? <Navigate to="/" replace /> : <AuthPage />} />
+      <Route path="/auth/callback" element={<AuthCallbackPage />} />
       <Route path="/onboarding" element={user ? <OnboardingPage /> : <Navigate to="/auth" replace />} />
       <Route path="/" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
       <Route path="/today" element={<ProtectedRoute><DailyPage /></ProtectedRoute>} />
