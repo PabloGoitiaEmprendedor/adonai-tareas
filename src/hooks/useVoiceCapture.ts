@@ -1,6 +1,50 @@
 import { useState, useCallback, useRef } from 'react';
 import { dispatchMicPermissionGranted } from '@/lib/voiceEvents';
 
+type RecognitionAlternativeLike = {
+  transcript?: string;
+  confidence?: number;
+};
+
+type RecognitionResultLike = {
+  isFinal: boolean;
+  0?: RecognitionAlternativeLike;
+};
+
+type RecognitionResultsLike = ArrayLike<RecognitionResultLike>;
+
+export const buildTranscriptFromRecognitionResults = (results: RecognitionResultsLike) => {
+  const finalSegments: string[] = [];
+  let latestInterimSegment = '';
+  let latestFinalConfidence = 0;
+
+  for (let i = 0; i < results.length; i += 1) {
+    const result = results[i];
+    const transcript = result?.[0]?.transcript?.trim();
+
+    if (!transcript) {
+      continue;
+    }
+
+    if (result.isFinal) {
+      finalSegments.push(transcript);
+      latestFinalConfidence = result[0]?.confidence || latestFinalConfidence;
+      continue;
+    }
+
+    latestInterimSegment = transcript;
+  }
+
+  return {
+    transcript: [...finalSegments, latestInterimSegment]
+      .filter(Boolean)
+      .join(' ')
+      .replace(/\s+/g, ' ')
+      .trim(),
+    confidence: latestFinalConfidence,
+  };
+};
+
 export const useVoiceCapture = () => {
   const [isRecording, setIsRecording] = useState(false);
   const [transcript, setTranscript] = useState('');
@@ -8,7 +52,6 @@ export const useVoiceCapture = () => {
   const [voiceFallback, setVoiceFallback] = useState(false);
   const recognitionRef = useRef<any>(null);
   const isRecordingRef = useRef(false);
-  const finalSegmentsRef = useRef<Record<number, string>>({});
   const sessionRef = useRef(0);
 
   const isSupported = typeof window !== 'undefined' &&
@@ -44,40 +87,12 @@ export const useVoiceCapture = () => {
     recognition.onresult = (event: any) => {
       if (sessionRef.current !== sessionId) return;
 
-      const interimSegments: string[] = [];
-      
-      for (let i = event.resultIndex; i < event.results.length; ++i) {
-        const facet = event.results[i][0].transcript.trim();
-        if (!facet) continue;
+      const nextTranscript = buildTranscriptFromRecognitionResults(event.results);
 
-        if (event.results[i].isFinal) {
-          finalSegmentsRef.current[i] = facet;
-        } else {
-          delete finalSegmentsRef.current[i];
-          interimSegments.push(facet);
-        }
-      }
+      setTranscript(nextTranscript.transcript);
 
-      const finalTranscript = Object.keys(finalSegmentsRef.current)
-        .map(Number)
-        .sort((a, b) => a - b)
-        .map((index) => finalSegmentsRef.current[index])
-        .join(' ')
-        .trim();
-
-      const interimTranscript = interimSegments.join(' ').trim();
-      
-      const fullTranscriptResult = [finalTranscript, interimTranscript]
-        .filter(Boolean)
-        .join(' ')
-        .replace(/\s+/g, ' ')
-        .trim();
-
-      setTranscript(fullTranscriptResult);
-      
-      const lastResult = event.results[event.results.length - 1];
-      if (lastResult.isFinal) {
-        setConfidence(lastResult[0].confidence || 0);
+      if (nextTranscript.confidence > 0) {
+        setConfidence(nextTranscript.confidence);
       }
 
     };
@@ -110,7 +125,6 @@ export const useVoiceCapture = () => {
     recognitionRef.current = recognition;
 
     try {
-      finalSegmentsRef.current = {};
       setTranscript('');
       setConfidence(0);
       recognition.start();
@@ -135,7 +149,6 @@ export const useVoiceCapture = () => {
   }, []);
 
   const resetTranscript = useCallback(() => {
-    finalSegmentsRef.current = {};
     setTranscript('');
     setConfidence(0);
   }, []);
