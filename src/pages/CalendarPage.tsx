@@ -1,8 +1,11 @@
 import { useState } from 'react';
 import { useCalendarEvents } from '@/hooks/useCalendarEvents';
+import { useTasks } from '@/hooks/useTasks';
+
 import { format, addDays, addMonths, startOfWeek, startOfMonth, endOfMonth, isSameDay, isSameMonth, parseISO, eachDayOfInterval } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, MapPin, ExternalLink, CalendarX } from 'lucide-react';
+import { ChevronLeft, ChevronRight, MapPin, ExternalLink, CalendarX, RotateCcw } from 'lucide-react';
+
 import { motion } from 'framer-motion';
 import BottomNav from '@/components/BottomNav';
 
@@ -15,9 +18,16 @@ const CalendarPage = () => {
   const rangeEnd = endOfMonth(addMonths(selectedDate, 1));
   const timeMin = rangeStart.toISOString();
   const timeMax = rangeEnd.toISOString();
-  const { events, connected, isLoading } = useCalendarEvents(timeMin, timeMax);
+  const { events, connected, isLoading: isCalendarLoading } = useCalendarEvents(timeMin, timeMax);
+  const { tasks: adonaiTasks, isLoading: isTasksLoading } = useTasks({ 
+    startDate: format(rangeStart, 'yyyy-MM-dd'), 
+    endDate: format(rangeEnd, 'yyyy-MM-dd') 
+  });
+
+  const isLoading = isCalendarLoading || isTasksLoading;
 
   const weekStart = startOfWeek(selectedDate, { weekStartsOn: 1 });
+
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
   const monthStart = startOfMonth(selectedDate);
@@ -31,7 +41,12 @@ const CalendarPage = () => {
     return isSameDay(eventDate, selectedDate);
   });
 
+  const adonaiTasksForDay = adonaiTasks.filter((t: any) => {
+    return t.due_date === format(selectedDate, 'yyyy-MM-dd');
+  });
+
   const goWeek = (dir: number) => setSelectedDate(addDays(selectedDate, dir * 7));
+
   const goMonth = (dir: number) => setSelectedDate(addMonths(selectedDate, dir));
 
   return (
@@ -109,59 +124,63 @@ const CalendarPage = () => {
           </div>
         )}
 
-        {/* Events */}
-        <div className="space-y-1">
-          <h2 className="text-sm font-bold text-on-surface-variant">
-            {isSameDay(selectedDate, new Date()) ? 'Hoy' : format(selectedDate, "EEEE d", { locale: es })}
-            {dayEvents.length > 0 && ` · ${dayEvents.length} evento${dayEvents.length > 1 ? 's' : ''}`}
-          </h2>
-        </div>
+        {/* Combined Lists */}
+        {(dayEvents.length > 0 || adonaiTasksForDay.length > 0) ? (
+          <div className="space-y-4">
+            {/* Adonai Tasks Section */}
+            {adonaiTasksForDay.length > 0 && (
+              <div className="space-y-2">
+                <h3 className="text-[10px] font-black uppercase tracking-widest text-primary px-1">Tareas Adonai</h3>
+                {adonaiTasksForDay.map((task: any) => (
+                  <motion.div key={task.id} initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }}
+                    className="bg-surface-container-low p-4 rounded-xl border border-outline-variant/5 flex items-center gap-3">
+                    <div className={`w-2 h-2 rounded-full ${task.status === 'done' ? 'bg-primary' : 'bg-outline-variant'}`} />
+                    <div className="flex-1 min-w-0">
+                      <h4 className={`text-sm font-bold ${task.status === 'done' ? 'line-through opacity-50' : ''}`}>{task.title}</h4>
+                      <p className="text-[10px] text-on-surface-variant/60 flex items-center gap-1">
+                        {task.recurrence_id && <RotateCcw className="w-2.5 h-2.5" />}
+                        {task.isVirtual ? 'Recurrente' : 'Planificada'}
+                      </p>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            )}
 
-        {!connected ? (
-          <div className="bg-surface-container-low p-6 rounded-lg text-center space-y-3">
-            <CalendarX className="w-8 h-8 text-on-surface-variant mx-auto" />
-            <p className="text-on-surface-variant text-sm">Calendario no conectado</p>
-            <p className="text-on-surface-variant/60 text-xs">Inicia sesión con Google para ver tus eventos</p>
-          </div>
-        ) : isLoading ? (
-          <div className="flex justify-center py-12">
-            <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-          </div>
-        ) : dayEvents.length === 0 ? (
-          <div className="bg-surface-container-low p-6 rounded-lg text-center">
-            <p className="text-on-surface-variant text-sm">Sin eventos para este día</p>
+            {/* Google Calendar Events Section */}
+            {dayEvents.length > 0 && (
+              <div className="space-y-2">
+                <h3 className="text-[10px] font-black uppercase tracking-widest text-secondary px-1">Eventos Google</h3>
+                {dayEvents.map((event) => (
+                  <motion.div key={event.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+                    className="bg-surface-container-low p-4 rounded-xl space-y-1">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <h3 className="text-sm font-bold text-foreground truncate">{event.title}</h3>
+                        <p className="text-xs text-on-surface-variant mt-0.5">
+                          {event.allDay ? 'Todo el día' : `${format(parseISO(event.start), 'HH:mm')} - ${format(parseISO(event.end), 'HH:mm')}`}
+                        </p>
+                      </div>
+                      {event.htmlLink && (
+                        <a href={event.htmlLink} target="_blank" rel="noopener noreferrer" className="text-on-surface-variant hover:text-primary flex-shrink-0">
+                          <ExternalLink className="w-3.5 h-3.5" />
+                        </a>
+                      )}
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            )}
           </div>
         ) : (
-          <div className="space-y-2">
-            {dayEvents.map((event) => (
-              <motion.div key={event.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
-                className="bg-surface-container-low p-4 rounded-lg space-y-1">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0 flex-1">
-                    <h3 className="text-sm font-bold text-foreground truncate">{event.title}</h3>
-                    <p className="text-xs text-on-surface-variant mt-0.5">
-                      {event.allDay ? 'Todo el día' : `${format(parseISO(event.start), 'HH:mm')} - ${format(parseISO(event.end), 'HH:mm')}`}
-                    </p>
-                  </div>
-                  {event.htmlLink && (
-                    <a href={event.htmlLink} target="_blank" rel="noopener noreferrer" className="text-on-surface-variant hover:text-primary flex-shrink-0">
-                      <ExternalLink className="w-3.5 h-3.5" />
-                    </a>
-                  )}
-                </div>
-                {event.location && (
-                  <div className="flex items-center gap-1 text-on-surface-variant">
-                    <MapPin className="w-3 h-3" />
-                    <span className="text-[11px] truncate">{event.location}</span>
-                  </div>
-                )}
-                {event.description && (
-                  <p className="text-[11px] text-on-surface-variant/70 line-clamp-2">{event.description}</p>
-                )}
-              </motion.div>
-            ))}
+          <div className="bg-surface-container-low p-10 rounded-2xl text-center space-y-3">
+            <div className="w-16 h-16 bg-surface-container-high rounded-full flex items-center justify-center mx-auto opacity-40">
+               <CalendarX className="w-8 h-8 text-on-surface-variant" />
+            </div>
+            <p className="text-on-surface-variant text-sm font-medium">Sin planes para este día</p>
           </div>
         )}
+
       </div>
       <BottomNav />
     </div>

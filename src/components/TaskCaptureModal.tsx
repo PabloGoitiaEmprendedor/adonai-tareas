@@ -244,12 +244,17 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
                         </div>
                       )}
                       <div className="w-full text-center min-h-[60px]">
-                        {isRecording || transcript ? (
+                        {isRecording ? (
                           <p className="text-2xl font-semibold text-foreground leading-relaxed tracking-tight">
                             {transcript || title}
-                            {isRecording && <span className="text-primary inline-block w-0.5 h-6 ml-1 align-middle animate-pulse-soft">|</span>}
+                            <span className="text-primary inline-block w-0.5 h-6 ml-1 align-middle animate-pulse-soft">|</span>
+                          </p>
+                        ) : title || transcript ? (
+                          <p className="text-2xl font-semibold text-foreground leading-relaxed tracking-tight">
+                            {title || transcript}
                           </p>
                         ) : showTextInput ? (
+
                           <input autoFocus value={title} onChange={(e) => setTitle(e.target.value)}
                             placeholder="¿Qué necesitas hacer?"
                             className="w-full text-xl text-center bg-transparent text-foreground placeholder:text-on-surface-variant/40 focus:outline-none border-none"

@@ -7,14 +7,18 @@ export const useVoiceCapture = () => {
   const [confidence, setConfidence] = useState(0);
   const [voiceFallback, setVoiceFallback] = useState(false);
   const recognitionRef = useRef<any>(null);
-  const finalTranscriptRef = useRef('');
   const isRecordingRef = useRef(false);
 
   const isSupported = typeof window !== 'undefined' &&
     !!((window as any).webkitSpeechRecognition || (window as any).SpeechRecognition);
 
   const startRecording = useCallback((): boolean => {
-    const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
+    if (recognitionRef.current) {
+       try { recognitionRef.current.stop(); } catch(e) {}
+    }
+
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
     if (!SpeechRecognition) {
       setVoiceFallback(true);
       return false;
@@ -24,37 +28,30 @@ export const useVoiceCapture = () => {
       return true;
     }
 
-    if (recognitionRef.current) {
-      try {
-        recognitionRef.current.stop();
-      } catch {
-        // noop
-      }
-      recognitionRef.current = null;
-    }
-
     const recognition = new SpeechRecognition();
     recognition.lang = 'es-ES';
     recognition.continuous = true;
     recognition.interimResults = true;
-    finalTranscriptRef.current = '';
 
     recognition.onresult = (event: any) => {
+      let finalTranscript = '';
       let interimTranscript = '';
-
-      for (let i = event.resultIndex; i < event.results.length; ++i) {
-        const segment = String(event.results[i][0].transcript || '').trim();
-        if (!segment) continue;
-
+      
+      for (let i = 0; i < event.results.length; ++i) {
         if (event.results[i].isFinal) {
-          finalTranscriptRef.current = `${finalTranscriptRef.current} ${segment}`.trim();
-          setConfidence(event.results[i][0].confidence || 0);
+          finalTranscript += event.results[i][0].transcript;
         } else {
-          interimTranscript = `${interimTranscript} ${segment}`.trim();
+          interimTranscript += event.results[i][0].transcript;
         }
       }
-
-      setTranscript([finalTranscriptRef.current, interimTranscript].filter(Boolean).join(' ').trim());
+      
+      const fullTranscript = (finalTranscript + interimTranscript).trim();
+      setTranscript(fullTranscript);
+      
+      const lastResult = event.results[event.results.length - 1];
+      if (lastResult.isFinal) {
+        setConfidence(lastResult[0].confidence || 0);
+      }
     };
 
     recognition.onstart = () => {
@@ -103,7 +100,6 @@ export const useVoiceCapture = () => {
   }, []);
 
   const resetTranscript = useCallback(() => {
-    finalTranscriptRef.current = '';
     setTranscript('');
     setConfidence(0);
   }, []);

@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 
 const TrashPage = () => {
   const navigate = useNavigate();
-  const { tasks, updateTask, deleteTask } = useTasks({ status: 'deleted' });
+  const { tasks, updateTask, hardDeleteTask } = useTasks({ status: 'deleted' });
   const [isEmptying, setIsEmptying] = useState(false);
 
   const handleRestore = (id: string) => {
@@ -18,7 +18,7 @@ const TrashPage = () => {
 
   const handlePermanentDelete = (id: string) => {
     if (window.confirm('¿Eliminar permanentemente?')) {
-      deleteTask.mutate(id);
+      hardDeleteTask.mutate(id);
       toast.success('Tarea eliminada para siempre');
     }
   };
@@ -26,11 +26,12 @@ const TrashPage = () => {
   const emptyTrash = () => {
     if (window.confirm('¿Vaciar papelera? Esta acción no se puede deshacer.')) {
       setIsEmptying(true);
-      tasks.forEach(task => deleteTask.mutate(task.id));
+      tasks.forEach(task => hardDeleteTask.mutate(task.id));
       toast.success('Papelera vaciada');
       setIsEmptying(false);
     }
   };
+
 
   return (
     <div className="min-h-screen bg-background text-foreground">

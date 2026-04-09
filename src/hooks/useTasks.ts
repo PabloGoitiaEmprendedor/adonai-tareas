@@ -1,33 +1,126 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { format } from 'date-fns';
+import { format, isSameDay, parseISO, addDays, eachDayOfInterval } from 'date-fns';
+
 import type { Database } from '@/integrations/supabase/types';
 
 type TaskUpdate = Database['public']['Tables']['tasks']['Update'];
 
-export const useTasks = (filters?: { date?: string; status?: string }) => {
+export const useTasks = (filters?: { date?: string; startDate?: string; endDate?: string; status?: string }) => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
-  const { data: tasks = [], isLoading } = useQuery({
+  const { data: allData, isLoading } = useQuery({
     queryKey: ['tasks', user?.id, filters],
     queryFn: async () => {
-      if (!user) return [];
+      if (!user) return { tasks: [], rules: [], templates: [] };
+      
+      // 1. Fetch real tasks
       let query = supabase.from('tasks').select('*, contexts(*)').eq('user_id', user.id);
-      if (filters?.date) query = query.eq('due_date', filters.date);
+      
+      if (filters?.date) {
+        query = query.eq('due_date', filters.date);
+      } else if (filters?.startDate && filters?.endDate) {
+        query = query.gte('due_date', filters.startDate).lte('due_date', filters.endDate);
+      }
+
       if (filters?.status) {
         query = query.eq('status', filters.status);
       } else {
         query = query.neq('status', 'deleted');
       }
-      const { data, error } = await query.order('created_at', { ascending: false });
 
-      if (error) throw error;
-      return data;
+      const { data: realTasks, error: tasksError } = await query.order('due_date', { ascending: true });
+      if (tasksError) throw tasksError;
+
+      // 2. Fetch recurrence rules
+      const { data: rules, error: rulesError } = await supabase
+        .from('recurrence_rules')
+        .select('*')
+        .eq('user_id', user.id);
+      if (rulesError) throw rulesError;
+
+      // 3. Fetch template tasks for those rules
+      const ruleIds = rules.map(r => r.id);
+      const { data: templates, error: templatesError } = await supabase
+        .from('tasks')
+        .select('*')
+        .in('recurrence_id', ruleIds)
+        .order('created_at', { ascending: true });
+
+      return { tasks: realTasks, rules, templates: templates || [] };
     },
     enabled: !!user,
   });
+
+  const tasks = (() => {
+    if (!allData) return [];
+    const { tasks: realTasks, rules, templates } = allData;
+    
+    let start, end;
+    if (filters?.date) {
+      start = parseISO(filters.date);
+      end = start;
+    } else if (filters?.startDate && filters?.endDate) {
+      start = parseISO(filters.startDate);
+      end = parseISO(filters.endDate);
+    } else {
+      return realTasks;
+    }
+
+    const interval = eachDayOfInterval({ start, end });
+    const virtualTasks: any[] = [];
+
+    interval.forEach(day => {
+      const dateStr = format(day, 'yyyy-MM-dd');
+      
+      rules.forEach(rule => {
+        const startDate = parseISO(rule.start_date);
+        const template = templates.find(t => t.recurrence_id === rule.id);
+        if (!template || day < startDate) return;
+
+        const diffDays = Math.floor((day.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+        
+        let shouldShow = false;
+        if (rule.frequency === 'daily') {
+          shouldShow = diffDays % (rule.interval || 1) === 0;
+        } else if (rule.frequency === 'weekly') {
+          const dayOfWeek = day.getDay(); 
+          const adjustedDay = dayOfWeek === 0 ? 6 : dayOfWeek - 1; 
+          const isCorrectDay = rule.days_of_week?.includes(adjustedDay) || false;
+          
+          if (isCorrectDay) {
+            const weekDiff = Math.floor(diffDays / 7);
+            shouldShow = weekDiff % (rule.interval || 1) === 0;
+          }
+        } else if (rule.frequency === 'monthly') {
+          const isCorrectDay = day.getDate() === rule.day_of_month;
+          if (isCorrectDay) {
+            const monthDiff = (day.getFullYear() - startDate.getFullYear()) * 12 + (day.getMonth() - startDate.getMonth());
+            shouldShow = monthDiff % (rule.interval || 1) === 0;
+          }
+        }
+
+
+        if (shouldShow) {
+          const existing = realTasks.find(t => t.recurrence_id === rule.id && t.due_date === dateStr);
+          if (!existing) {
+            virtualTasks.push({
+              ...template,
+              id: `virtual-${rule.id}-${dateStr}`,
+              due_date: dateStr,
+              status: 'pending',
+              isVirtual: true
+            });
+          }
+        }
+      });
+    });
+
+    return [...realTasks, ...virtualTasks];
+  })();
+
 
   const createTask = useMutation({
     mutationFn: async (task: {
@@ -71,8 +164,38 @@ export const useTasks = (filters?: { date?: string; status?: string }) => {
   const updateTask = useMutation({
     mutationFn: async ({ id, ...updates }: { id: string } & TaskUpdate) => {
       if (!user) throw new Error('No user');
-      const { error } = await supabase.from('tasks').update(updates).eq('id', id).eq('user_id', user.id);
-      if (error) throw error;
+      
+      // If it's a virtual task, we first materialize it
+      let targetId = id;
+      if (id.startsWith('virtual-')) {
+        const parts = id.split('-');
+        const recurrenceId = parts[1];
+        const dueDate = parts.slice(2).join('-');
+        
+        const { tasks: _, templates } = allData!;
+        const template = templates.find(t => t.recurrence_id === recurrenceId);
+        
+        const { data, error } = await supabase
+          .from('tasks')
+          .insert({
+            ...template,
+            id: undefined, // Let DB generate ID
+            due_date: dueDate,
+            recurrence_id: recurrenceId,
+            status: updates.status || 'pending',
+            created_at: undefined,
+            user_id: user.id,
+            ...updates
+          })
+          .select()
+          .single();
+          
+        if (error) throw error;
+        targetId = data.id;
+      } else {
+        const { error } = await supabase.from('tasks').update(updates).eq('id', id).eq('user_id', user.id);
+        if (error) throw error;
+      }
 
       if (updates.status === 'done') {
         await supabase.from('usage_events').insert({
@@ -89,6 +212,20 @@ export const useTasks = (filters?: { date?: string; status?: string }) => {
   const deleteTask = useMutation({
     mutationFn: async (id: string) => {
       if (!user) throw new Error('No user');
+      if (id.startsWith('virtual-')) return;
+      
+      const { error } = await supabase.from('tasks').update({ status: 'deleted' }).eq('id', id).eq('user_id', user.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+    },
+  });
+
+
+  const hardDeleteTask = useMutation({
+    mutationFn: async (id: string) => {
+      if (!user) throw new Error('No user');
       const { error } = await supabase.from('tasks').delete().eq('id', id).eq('user_id', user.id);
       if (error) throw error;
     },
@@ -97,10 +234,9 @@ export const useTasks = (filters?: { date?: string; status?: string }) => {
     },
   });
 
-  return { tasks, isLoading, createTask, updateTask, deleteTask };
-
-
+  return { tasks, isLoading, createTask, updateTask, deleteTask, hardDeleteTask };
 };
+
 
 export const useTodayTasks = () => {
   const today = format(new Date(), 'yyyy-MM-dd');

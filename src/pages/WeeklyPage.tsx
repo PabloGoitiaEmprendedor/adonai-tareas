@@ -16,7 +16,13 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/co
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 
 const WeeklyPage = () => {
-  const { tasks, updateTask } = useTasks();
+  const weekStart = startOfWeek(viewDate, { weekStartsOn: 1 });
+  const weekEnd = addDays(weekStart, 6);
+  const startDate = format(weekStart, 'yyyy-MM-dd');
+  const endDate = format(weekEnd, 'yyyy-MM-dd');
+
+  const { tasks, updateTask } = useTasks({ startDate, endDate });
+
   const { goals } = useGoals();
   const { profile } = useProfile();
   const [captureOpen, setCaptureOpen] = useState(false);
