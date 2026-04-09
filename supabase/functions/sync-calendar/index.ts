@@ -126,7 +126,7 @@ Deno.serve(async (req) => {
     const fallbackCalendarId = tokenData.calendar_id || "primary";
     const calendarIds = await fetchVisibleCalendarIds(accessToken, fallbackCalendarId);
     const calendarResults = await Promise.all(
-      calendarIds.map((calendarId) => fetchCalendarEvents(accessToken, calendarId, timeMin, timeMax).catch(() => []))
+      calendarIds.map((calendarId: string) => fetchCalendarEvents(accessToken, calendarId, timeMin, timeMax).catch(() => []))
     );
 
     const calendarItems = Array.from(
@@ -154,7 +154,7 @@ Deno.serve(async (req) => {
     });
   } catch (error) {
     console.error("Sync calendar error:", error);
-    return new Response(JSON.stringify({ error: error.message }), {
+    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

@@ -1,4 +1,4 @@
-import { useState, useEffect, forwardRef, useImperativeHandle, useRef } from 'react';
+import { useState, useEffect, forwardRef, useImperativeHandle, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Mic, X, Square, Sparkles } from 'lucide-react';
 import { useVoiceCapture } from '@/hooks/useVoiceCapture';
@@ -39,6 +39,19 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
   const requestedVoiceOpenRef = useRef(false);
   const mountedRef = useRef(false);
 
+  const beginVoiceCapture = useCallback(() => {
+    const started = startRecording();
+    if (started) {
+      setSourceType('voice');
+      setShowTextInput(false);
+    } else {
+      resetTranscript();
+      setSourceType('text');
+      setShowTextInput(true);
+    }
+    return started;
+  }, [resetTranscript, startRecording]);
+
   useImperativeHandle(ref, () => ({
     openInVoiceMode: () => {
       requestedVoiceOpenRef.current = true;
@@ -47,18 +60,9 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
       setDueDate(format(new Date(), 'yyyy-MM-dd'));
       setClassificationSource('');
       setFallbackEstimatedMinutes(null);
-      const started = startRecording();
-      if (started) {
-        setSourceType('voice');
-        setShowTextInput(false);
-      } else {
-        resetTranscript();
-        setSourceType('text');
-        setShowTextInput(true);
-      }
-      return started;
+      return beginVoiceCapture();
     },
-  }), [resetTranscript, startRecording]);
+  }), [beginVoiceCapture]);
 
   useEffect(() => {
     if (!mountedRef.current) {
@@ -268,7 +272,7 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
                         ) : (
                           <>
                             {isSupported && !voiceFallback && (
-                              <button onClick={() => { setSourceType('voice'); setShowTextInput(false); startRecording(); }} className="w-14 h-14 rounded-full bg-surface-container-high flex items-center justify-center">
+                              <button onClick={beginVoiceCapture} className="w-14 h-14 rounded-full bg-surface-container-high flex items-center justify-center">
                                 <Mic className="w-6 h-6 text-foreground" />
                               </button>
                             )}
