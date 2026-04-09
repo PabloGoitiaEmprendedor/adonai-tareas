@@ -8,7 +8,7 @@ export const useVoiceCapture = () => {
   const [voiceFallback, setVoiceFallback] = useState(false);
   const recognitionRef = useRef<any>(null);
   const isRecordingRef = useRef(false);
-  const finalTranscriptRef = useRef('');
+  const finalSegmentsRef = useRef<Record<number, string>>({});
   const sessionRef = useRef(0);
 
   const isSupported = typeof window !== 'undefined' &&
@@ -38,26 +38,41 @@ export const useVoiceCapture = () => {
     recognition.lang = 'es-ES';
     recognition.continuous = true;
     recognition.interimResults = true;
+    recognition.maxAlternatives = 1;
 
 
     recognition.onresult = (event: any) => {
       if (sessionRef.current !== sessionId) return;
 
-      let finalTranscript = finalTranscriptRef.current;
-      let interimTranscript = '';
+      const interimSegments: string[] = [];
       
       for (let i = event.resultIndex; i < event.results.length; ++i) {
-        const facet = event.results[i][0].transcript;
+        const facet = event.results[i][0].transcript.trim();
+        if (!facet) continue;
+
         if (event.results[i].isFinal) {
-          finalTranscript += facet;
+          finalSegmentsRef.current[i] = facet;
         } else {
-          interimTranscript += facet;
+          delete finalSegmentsRef.current[i];
+          interimSegments.push(facet);
         }
       }
 
-      finalTranscriptRef.current = finalTranscript;
+      const finalTranscript = Object.keys(finalSegmentsRef.current)
+        .map(Number)
+        .sort((a, b) => a - b)
+        .map((index) => finalSegmentsRef.current[index])
+        .join(' ')
+        .trim();
+
+      const interimTranscript = interimSegments.join(' ').trim();
       
-      const fullTranscriptResult = (finalTranscript + interimTranscript).trim();
+      const fullTranscriptResult = [finalTranscript, interimTranscript]
+        .filter(Boolean)
+        .join(' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+
       setTranscript(fullTranscriptResult);
       
       const lastResult = event.results[event.results.length - 1];
@@ -95,7 +110,7 @@ export const useVoiceCapture = () => {
     recognitionRef.current = recognition;
 
     try {
-      finalTranscriptRef.current = '';
+      finalSegmentsRef.current = {};
       setTranscript('');
       setConfidence(0);
       recognition.start();
@@ -120,7 +135,7 @@ export const useVoiceCapture = () => {
   }, []);
 
   const resetTranscript = useCallback(() => {
-    finalTranscriptRef.current = '';
+    finalSegmentsRef.current = {};
     setTranscript('');
     setConfidence(0);
   }, []);
