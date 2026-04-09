@@ -8,7 +8,6 @@ import { useProfile } from "@/hooks/useProfile";
 
 import AuthPage from "./pages/AuthPage";
 import OnboardingPage from "./pages/OnboardingPage";
-import DashboardPage from "./pages/DashboardPage";
 import DailyPage from "./pages/DailyPage";
 import WeeklyPage from "./pages/WeeklyPage";
 import GoalsPage from "./pages/GoalsPage";
@@ -19,7 +18,6 @@ import PrivacyPolicyPage from "./pages/PrivacyPolicyPage";
 import TermsOfServicePage from "./pages/TermsOfServicePage";
 import TrashPage from "./pages/TrashPage";
 import NotFound from "./pages/NotFound";
-
 
 const queryClient = new QueryClient();
 
@@ -47,7 +45,6 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     );
   }
 
-
   if (!user) return <Navigate to="/auth" replace />;
 
   if (profile && !profile.onboarding_completed && !localStorage.getItem('adonai_onboarding_done')) {
@@ -60,7 +57,6 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     </NavigationWrapper>
   );
 };
-
 
 const AppRoutes = () => {
   const { user, loading } = useAuth();
@@ -77,8 +73,8 @@ const AppRoutes = () => {
     <Routes>
       <Route path="/auth" element={user ? <Navigate to="/" replace /> : <AuthPage />} />
       <Route path="/onboarding" element={user ? <OnboardingPage /> : <Navigate to="/auth" replace />} />
-      <Route path="/" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
-      <Route path="/today" element={<ProtectedRoute><DailyPage /></ProtectedRoute>} />
+      <Route path="/" element={<ProtectedRoute><DailyPage /></ProtectedRoute>} />
+      <Route path="/today" element={<Navigate to="/" replace />} />
       <Route path="/week" element={<ProtectedRoute><WeeklyPage /></ProtectedRoute>} />
       <Route path="/goals" element={<ProtectedRoute><GoalsPage /></ProtectedRoute>} />
       <Route path="/folders" element={<ProtectedRoute><FoldersPage /></ProtectedRoute>} />
@@ -86,7 +82,6 @@ const AppRoutes = () => {
       <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
       <Route path="/trash" element={<ProtectedRoute><TrashPage /></ProtectedRoute>} />
       <Route path="/privacy" element={<PrivacyPolicyPage />} />
-
       <Route path="/terms" element={<TermsOfServicePage />} />
       <Route path="*" element={<NotFound />} />
     </Routes>

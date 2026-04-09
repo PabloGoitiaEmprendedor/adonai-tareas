@@ -47,7 +47,6 @@ const SidebarContent = ({ user, menuItems, location, handleNavigate, signOut, is
             <span className="text-sm tracking-wide">{item.label}</span>
           </Button>
         ))}
-        {/* Trash option */}
         <Button
           variant="ghost"
           onClick={() => handleNavigate('/trash')}
@@ -97,9 +96,10 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
   const navigate = useNavigate();
   const location = useLocation();
 
+  const isHome = location.pathname === '/';
+
   const menuItems = [
-    { label: 'Inicio', icon: Home, path: '/' },
-    { label: 'Hoy', icon: Calendar, path: '/today' },
+    { label: 'Hoy', icon: Home, path: '/' },
     { label: 'Semana', icon: Calendar, path: '/week' },
     { label: 'Amigos', icon: Users, path: '/friends' },
     { label: 'Perfil', icon: User, path: '/profile' },
@@ -112,8 +112,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
 
   const getPageTitle = (path: string) => {
     switch (path) {
-      case '/': return 'Inicio';
-      case '/today': return 'Hoy';
+      case '/': return '';
       case '/week': return 'Semana';
       case '/goals': return 'Metas';
       case '/folders': return 'Carpetas';
@@ -124,28 +123,28 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
     }
   };
 
+  const pageTitle = getPageTitle(location.pathname);
+
   return (
     <div className="min-h-screen bg-background">
-      {/* Sidebar / Sheet for Menu */}
       <Sheet open={open} onOpenChange={setOpen}>
-        <header className="sticky top-0 inset-x-0 h-16 glass-sheet border-b border-outline-variant/10 z-[55] lg:hidden flex items-center justify-between px-4">
-          <div className="w-12 flex justify-start">
+        <header className={`sticky top-0 inset-x-0 h-14 glass-sheet border-b border-outline-variant/10 z-[55] lg:hidden flex items-center justify-between px-4 ${isHome ? 'border-b-0 bg-transparent backdrop-blur-none' : ''}`}>
+          <div className="w-10 flex justify-start">
             <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="w-10 h-10 rounded-xl text-on-surface-variant hover:text-primary transition-all duration-300">
+              <Button variant="ghost" size="icon" className="w-9 h-9 rounded-xl text-on-surface-variant hover:text-primary transition-all duration-300">
                 <Menu className="w-5 h-5" />
               </Button>
             </SheetTrigger>
           </div>
-          <div className="flex-1 flex justify-center">
-            <span className="text-xs font-black uppercase tracking-[0.3em] primary-gradient-text">
-              {getPageTitle(location.pathname)}
-            </span>
-          </div>
-          <div className="w-12 flex justify-end">
-            <Button variant="ghost" size="icon" onClick={() => navigate('/profile')} className="w-10 h-10 rounded-xl text-on-surface-variant">
-              <User className="w-5 h-5" />
-            </Button>
-          </div>
+          {!isHome && pageTitle && (
+            <div className="flex-1 flex justify-center">
+              <span className="text-xs font-black uppercase tracking-[0.3em] primary-gradient-text">
+                {pageTitle}
+              </span>
+            </div>
+          )}
+          {isHome && <div className="flex-1" />}
+          <div className="w-10" />
         </header>
 
         <SheetContent side="left" className="w-[280px] glass-sheet border-r-outline-variant/20 p-0">
@@ -153,7 +152,6 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
         </SheetContent>
       </Sheet>
 
-      {/* Desktop Sidebar */}
       <aside className="hidden lg:flex fixed left-0 top-0 bottom-0 w-64 glass-sheet border-r border-outline-variant/10 z-[50] flex-col">
         <SidebarContent user={user} menuItems={menuItems} location={location} handleNavigate={handleNavigate} signOut={signOut} />
       </aside>

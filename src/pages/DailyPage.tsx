@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useTasks } from '@/hooks/useTasks';
 import { useGoals } from '@/hooks/useGoals';
 import { useProfile } from '@/hooks/useProfile';
+import { useStreaks } from '@/hooks/useStreaks';
 import { useGlobalVoiceCapture } from '@/hooks/useGlobalVoiceCapture';
 import { format, addDays } from 'date-fns';
 import { Check, Flag, Plus, GripVertical, Timer } from 'lucide-react';
@@ -10,6 +11,82 @@ import FAB from '@/components/FAB';
 import TaskCaptureModal, { type TaskCaptureModalHandle } from '@/components/TaskCaptureModal';
 import TaskDetailModal from '@/components/TaskDetailModal';
 import FullscreenTimer from '@/components/FullscreenTimer';
+
+const getDynamicGreeting = (
+  name: string,
+  completedCount: number,
+  totalCount: number,
+  mainGoalTitle?: string,
+) => {
+  const h = new Date().getHours();
+  const progress = totalCount > 0 ? completedCount / totalCount : 0;
+  const greetings: string[] = [];
+
+  if (h < 6) {
+    greetings.push(
+      `Madrugando, ${name}. El silencio es tuyo.`,
+      `Noche productiva, ${name}?`,
+      `El mundo duerme, tú avanzas.`,
+    );
+  } else if (h < 12) {
+    if (totalCount === 0) {
+      greetings.push(
+        `Buenos días, ${name}. Día en blanco, todo es posible.`,
+        `Nuevo día, nuevas victorias, ${name}.`,
+      );
+    } else if (completedCount === 0) {
+      greetings.push(
+        `Buenos días, ${name}. ${totalCount} tarea${totalCount > 1 ? 's' : ''} te esperan.`,
+        `Arranca fuerte, ${name}.`,
+      );
+    } else {
+      greetings.push(
+        `Buen ritmo, ${name}. Ya llevas ${completedCount}.`,
+        `Sigue así, ${name}. Vas por buen camino.`,
+      );
+    }
+  } else if (h < 18) {
+    if (progress >= 1) {
+      greetings.push(
+        `Todo listo, ${name}. Tarde libre merecida.`,
+        `Misión cumplida hoy, ${name}. 🎉`,
+      );
+    } else if (progress > 0.5) {
+      greetings.push(
+        `Más de la mitad hecho, ${name}. Cierra fuerte.`,
+        `La tarde es tuya, ${name}. Quedan pocas.`,
+      );
+    } else {
+      greetings.push(
+        `Buenas tardes, ${name}. Aún hay tiempo.`,
+        `La tarde empieza, ${name}. Tú decides el ritmo.`,
+      );
+    }
+  } else {
+    if (progress >= 1) {
+      greetings.push(
+        `Día redondo, ${name}. Descansa bien.`,
+        `Todo hecho. Buenas noches, ${name}.`,
+      );
+    } else if (totalCount > 0) {
+      greetings.push(
+        `Buenas noches, ${name}. ¿Un último empujón?`,
+        `La noche es joven, ${name}. Quedan ${totalCount - completedCount}.`,
+      );
+    } else {
+      greetings.push(
+        `Buenas noches, ${name}. Mañana será un gran día.`,
+      );
+    }
+  }
+
+  if (mainGoalTitle && Math.random() > 0.5) {
+    greetings.push(`Cada tarea te acerca a "${mainGoalTitle}", ${name}.`);
+  }
+
+  const seed = new Date().getDate() + h;
+  return greetings[seed % greetings.length];
+};
 
 const DailyPage = () => {
   const today = format(new Date(), 'yyyy-MM-dd');
@@ -20,6 +97,7 @@ const DailyPage = () => {
   const { tasks, updateTask } = useTasks({ date: currentDate });
   const { goals } = useGoals();
   const { profile } = useProfile();
+  const { trackDayActive } = useStreaks();
   const [captureOpen, setCaptureOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<any>(null);
   const [timerTask, setTimerTask] = useState<any>(null);
@@ -36,6 +114,8 @@ const DailyPage = () => {
   }, []);
   useGlobalVoiceCapture(captureModalRef, openCapture);
 
+  useEffect(() => { trackDayActive.mutate(); }, []);
+
   useEffect(() => {
     const allTasks = [...tasks].sort((a, b) => {
       const orderA = a.sort_order || 0;
@@ -51,15 +131,11 @@ const DailyPage = () => {
   const mainGoal = goals.find((g) => g.id === profile?.main_goal_id);
   const completedCount = tasks.filter((t) => t.status === 'done').length;
   const totalCount = tasks.length;
-  const progress = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
 
-  const getMotivationalMessage = () => {
-    if (activeTab === 'tomorrow') return `${totalCount} tarea${totalCount !== 1 ? 's' : ''} planificada${totalCount !== 1 ? 's' : ''} para mañana`;
-    if (completedCount === 0) return 'Empieza tu día con la primera tarea.';
-    if (progress < 50) return `Llevas ${completedCount} de ${totalCount}. ¡Sigue!`;
-    if (progress < 100) return `Ya vas por el ${progress}%. ¡Cierra el día fuerte!`;
-    return '¡Todas las tareas completadas! 🎉';
-  };
+  const greeting = useMemo(
+    () => getDynamicGreeting(profile?.name || 'Emprendedor', completedCount, totalCount, mainGoal?.title),
+    [profile?.name, completedCount, totalCount, mainGoal?.title]
+  );
 
   const handleComplete = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -120,16 +196,12 @@ const DailyPage = () => {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <div className="max-w-[430px] lg:max-w-4xl mx-auto px-6 pt-4 pb-24 space-y-6">
+      <div className="max-w-[430px] lg:max-w-4xl mx-auto px-6 pt-2 pb-24 space-y-5">
 
-        {mainGoal && (
-          <div className="bg-surface-container-low p-4 rounded-[20px] border border-outline-variant/10">
-            <p className="text-[10px] font-black uppercase tracking-widest text-primary mb-1">Meta Principal</p>
-            <h2 className="text-lg font-bold tracking-tight text-foreground">{mainGoal.title}</h2>
-          </div>
-        )}
+        {/* Dynamic greeting - centered, single line */}
+        <p className="text-center text-sm text-on-surface-variant py-3">{greeting}</p>
 
-
+        {/* Today / Tomorrow tabs */}
         <div className="flex bg-surface-container-low rounded-lg p-0.5">
           <button onClick={() => setActiveTab('today')}
             className={`flex-1 py-2 rounded-md text-sm font-bold transition-all ${activeTab === 'today' ? 'bg-primary text-primary-foreground' : 'text-on-surface-variant'}`}>
@@ -141,19 +213,16 @@ const DailyPage = () => {
           </button>
         </div>
 
-        {totalCount > 0 && (
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-on-surface-variant">{getMotivationalMessage()}</p>
-            {activeTab === 'today' && (
-              <span className="text-xs font-bold text-primary">{completedCount}/{totalCount}</span>
-            )}
+        {totalCount > 0 && activeTab === 'today' && (
+          <div className="flex items-center justify-end">
+            <span className="text-xs font-bold text-primary">{completedCount}/{totalCount}</span>
           </div>
         )}
 
         {orderedTasks.length === 0 ? (
           <div className="bg-surface-container-low p-6 rounded-lg text-center space-y-3">
             <p className="text-on-surface-variant">
-              {activeTab === 'today' ? 'Tu día está despejado. ¿Qué quieres lograr?' : 'Planifica tu mañana. Añade tareas para estar listo.'}
+              {activeTab === 'today' ? 'Tu día está despejado. ¿Qué quieres lograr?' : 'Planifica tu mañana.'}
             </p>
             <button onClick={openCapture} className="inline-flex items-center gap-2 px-4 py-2 rounded-full primary-gradient text-primary-foreground text-sm font-semibold">
               <Plus className="w-4 h-4" /> Añadir tarea
