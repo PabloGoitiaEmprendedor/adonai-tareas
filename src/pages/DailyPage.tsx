@@ -98,7 +98,6 @@ const DailyPage = () => {
   const [captureOpen, setCaptureOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<any>(null);
   const [timerTask, setTimerTask] = useState<any>(null);
-  const [orderedTasks, setOrderedTasks] = useState<any[]>([]);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const captureModalRef = useRef<TaskCaptureModalHandle>(null);
 
@@ -111,8 +110,8 @@ const DailyPage = () => {
 
   useEffect(() => { trackDayActive.mutate(); }, []);
 
-  useEffect(() => {
-    const allTasks = [...tasks].sort((a, b) => {
+  const orderedTasks = useMemo(() => {
+    return [...tasks].sort((a, b) => {
       const orderA = a.sort_order || 0;
       const orderB = b.sort_order || 0;
       if (orderA !== orderB) return orderA - orderB;
@@ -120,7 +119,6 @@ const DailyPage = () => {
       const scoreB = (b.urgency ? 2 : 0) + (b.importance ? 1 : 0);
       return scoreB - scoreA;
     });
-    setOrderedTasks(allTasks);
   }, [tasks]);
 
   const mainGoal = goals.find((g) => g.id === profile?.main_goal_id);
