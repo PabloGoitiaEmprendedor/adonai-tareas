@@ -16,21 +16,21 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/co
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 
 const WeeklyPage = () => {
-  const weekStart = startOfWeek(viewDate, { weekStartsOn: 1 });
-  const weekEnd = addDays(weekStart, 6);
-  const startDate = format(weekStart, 'yyyy-MM-dd');
-  const endDate = format(weekEnd, 'yyyy-MM-dd');
-
-  const { tasks, updateTask } = useTasks({ startDate, endDate });
-
-  const { goals } = useGoals();
-  const { profile } = useProfile();
   const [captureOpen, setCaptureOpen] = useState(false);
   const [viewDate, setViewDate] = useState<Date>(new Date());
   const [selectedDay, setSelectedDay] = useState<Date>(new Date());
   const [selectedTask, setSelectedTask] = useState<any>(null);
   const [timerTask, setTimerTask] = useState<any>(null);
   const captureModalRef = useRef<TaskCaptureModalHandle>(null);
+
+  const weekStart = startOfWeek(viewDate, { weekStartsOn: 1 });
+  const weekEnd = addDays(weekStart, 6);
+  const startDate = format(weekStart, 'yyyy-MM-dd');
+  const endDate = format(weekEnd, 'yyyy-MM-dd');
+
+  const { tasks, updateTask } = useTasks({ startDate, endDate });
+  const { goals } = useGoals();
+  const { profile } = useProfile();
 
   const openCapture = useCallback(() => setCaptureOpen(true), []);
   const openCaptureInVoiceMode = useCallback(() => {
@@ -39,7 +39,6 @@ const WeeklyPage = () => {
   }, []);
   useGlobalVoiceCapture(captureModalRef, openCapture);
 
-  const weekStart = startOfWeek(viewDate, { weekStartsOn: 1 });
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
   const today = new Date();
 
