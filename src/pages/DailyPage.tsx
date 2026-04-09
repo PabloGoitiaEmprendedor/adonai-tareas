@@ -104,10 +104,8 @@ const DailyPage = () => {
 
   const openCapture = useCallback(() => setCaptureOpen(true), []);
   const openCaptureInVoiceMode = useCallback(() => {
+    captureModalRef.current?.openInVoiceMode();
     setCaptureOpen(true);
-    window.requestAnimationFrame(() => {
-      captureModalRef.current?.openInVoiceMode();
-    });
   }, []);
   useGlobalVoiceCapture(captureModalRef, openCapture);
 
