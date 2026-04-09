@@ -11,16 +11,24 @@ interface NavigationWrapperProps {
   children: React.ReactNode;
 }
 
-const SidebarContent = ({ user, menuItems, location, handleNavigate, signOut }: any) => (
+const SidebarContent = ({ user, menuItems, location, handleNavigate, signOut, isSheet = false }: any) => (
   <div className="flex flex-col h-full">
-    <SheetHeader className="p-6 border-b border-outline-variant/10">
-      <SheetTitle className="text-left text-2xl font-black primary-gradient-text tracking-tighter">
-        Adonai
-      </SheetTitle>
+    <div className="p-6 border-b border-outline-variant/10">
+      {isSheet ? (
+        <SheetHeader>
+          <SheetTitle className="text-left text-2xl font-black primary-gradient-text tracking-tighter">
+            Adonai
+          </SheetTitle>
+        </SheetHeader>
+      ) : (
+        <h2 className="text-left text-2xl font-black primary-gradient-text tracking-tighter">
+          Adonai
+        </h2>
+      )}
       {user?.email && (
         <p className="text-[10px] text-on-surface-variant/60 truncate italic mt-1">{user.email}</p>
       )}
-    </SheetHeader>
+    </div>
 
     <div className="flex-1 overflow-y-auto py-4">
       <div className="px-3 space-y-1">
