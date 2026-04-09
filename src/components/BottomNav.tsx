@@ -1,13 +1,13 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Calendar, FolderOpen, Target } from 'lucide-react';
+import { Calendar, FolderOpen, Sun } from 'lucide-react';
 
 const BottomNav = () => {
   const location = useLocation();
 
   const navItems = [
+    { icon: Sun, label: 'Hoy', path: '/' },
     { icon: Calendar, label: 'Semana', path: '/week' },
     { icon: FolderOpen, label: 'Carpetas', path: '/folders' },
-    { icon: Target, label: 'Metas', path: '/goals' },
   ];
 
   return (

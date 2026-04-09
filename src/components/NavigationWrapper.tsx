@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { FolderOpen, Users, User, Calendar, LogOut, Settings, Bell, HelpCircle, Menu, Trash2, Home } from 'lucide-react';
+import { FolderOpen, Users, User, Calendar, LogOut, Settings, Bell, HelpCircle, Menu, Trash2, Home, Target } from 'lucide-react';
 
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { useAuth } from '@/contexts/AuthContext';
@@ -101,6 +101,8 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
   const menuItems = [
     { label: 'Hoy', icon: Home, path: '/' },
     { label: 'Semana', icon: Calendar, path: '/week' },
+    { label: 'Carpetas', icon: FolderOpen, path: '/folders' },
+    { label: 'Metas', icon: Target, path: '/goals' },
     { label: 'Amigos', icon: Users, path: '/friends' },
     { label: 'Perfil', icon: User, path: '/profile' },
   ];

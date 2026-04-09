@@ -4,8 +4,8 @@ import { useGoals } from '@/hooks/useGoals';
 import { useProfile } from '@/hooks/useProfile';
 import { useStreaks } from '@/hooks/useStreaks';
 import { useGlobalVoiceCapture } from '@/hooks/useGlobalVoiceCapture';
-import { format, addDays } from 'date-fns';
-import { Check, Flag, Plus, GripVertical, Timer } from 'lucide-react';
+import { format } from 'date-fns';
+import { Check, Plus, GripVertical, Timer } from 'lucide-react';
 import { motion } from 'framer-motion';
 import FAB from '@/components/FAB';
 import TaskCaptureModal, { type TaskCaptureModalHandle } from '@/components/TaskCaptureModal';
@@ -90,11 +90,8 @@ const getDynamicGreeting = (
 
 const DailyPage = () => {
   const today = format(new Date(), 'yyyy-MM-dd');
-  const tomorrow = format(addDays(new Date(), 1), 'yyyy-MM-dd');
-  const [activeTab, setActiveTab] = useState<'today' | 'tomorrow'>('today');
-  const currentDate = activeTab === 'today' ? today : tomorrow;
 
-  const { tasks, updateTask } = useTasks({ date: currentDate });
+  const { tasks, updateTask } = useTasks({ date: today });
   const { goals } = useGoals();
   const { profile } = useProfile();
   const { trackDayActive } = useStreaks();
@@ -201,29 +198,9 @@ const DailyPage = () => {
         {/* Dynamic greeting - centered, single line */}
         <p className="text-center text-sm text-on-surface-variant py-3">{greeting}</p>
 
-        {/* Today / Tomorrow tabs */}
-        <div className="flex bg-surface-container-low rounded-lg p-0.5">
-          <button onClick={() => setActiveTab('today')}
-            className={`flex-1 py-2 rounded-md text-sm font-bold transition-all ${activeTab === 'today' ? 'bg-primary text-primary-foreground' : 'text-on-surface-variant'}`}>
-            Hoy
-          </button>
-          <button onClick={() => setActiveTab('tomorrow')}
-            className={`flex-1 py-2 rounded-md text-sm font-bold transition-all ${activeTab === 'tomorrow' ? 'bg-primary text-primary-foreground' : 'text-on-surface-variant'}`}>
-            Mañana
-          </button>
-        </div>
-
-        {totalCount > 0 && activeTab === 'today' && (
-          <div className="flex items-center justify-end">
-            <span className="text-xs font-bold text-primary">{completedCount}/{totalCount}</span>
-          </div>
-        )}
-
         {orderedTasks.length === 0 ? (
           <div className="bg-surface-container-low p-6 rounded-lg text-center space-y-3">
-            <p className="text-on-surface-variant">
-              {activeTab === 'today' ? 'Tu día está despejado. ¿Qué quieres lograr?' : 'Planifica tu mañana.'}
-            </p>
+            <p className="text-on-surface-variant">Tu día está despejado. ¿Qué quieres lograr?</p>
             <button onClick={openCapture} className="inline-flex items-center gap-2 px-4 py-2 rounded-full primary-gradient text-primary-foreground text-sm font-semibold">
               <Plus className="w-4 h-4" /> Añadir tarea
             </button>
@@ -245,21 +222,21 @@ const DailyPage = () => {
                   onTouchMove={handleTouchMove}
                   onTouchEnd={handleTouchEnd}
                   onClick={() => setSelectedTask(task)}
-                  className={`p-3.5 rounded-lg flex items-center gap-3 cursor-pointer transition-all ${
+                  className={`p-3.5 rounded-lg flex items-start gap-3 cursor-pointer transition-all ${
                     isDone ? 'opacity-50' : dragIdx === idx || touchIdx === idx ? 'bg-surface-container-high scale-[1.02] shadow-lg' : 'bg-surface-container-low hover:bg-surface-container-high'
                   }`}
                 >
-                  {!isDone && <GripVertical className="w-4 h-4 text-on-surface-variant/30 flex-shrink-0 cursor-grab" />}
+                  {!isDone && <GripVertical className="w-4 h-4 text-on-surface-variant/30 flex-shrink-0 cursor-grab mt-0.5" />}
                   {isDone ? (
-                    <div className="w-5 h-5 rounded bg-primary flex items-center justify-center flex-shrink-0">
+                    <div className="w-5 h-5 rounded bg-primary flex items-center justify-center flex-shrink-0 mt-0.5">
                       <Check className="w-3 h-3 text-primary-foreground" />
                     </div>
                   ) : (
                     <button onClick={(e) => handleComplete(task.id, e)}
-                      className="w-5 h-5 rounded border-2 border-outline-variant flex items-center justify-center hover:border-primary flex-shrink-0" />
+                      className="w-5 h-5 rounded border-2 border-outline-variant flex items-center justify-center hover:border-primary flex-shrink-0 mt-0.5" />
                   )}
                   <div className="flex-1 min-w-0">
-                    <h4 className={`text-sm font-semibold truncate ${isDone ? 'text-on-surface-variant line-through' : 'text-foreground'}`}>{task.title}</h4>
+                    <h4 className={`text-sm font-semibold break-words ${isDone ? 'text-on-surface-variant line-through' : 'text-foreground'}`}>{task.title}</h4>
                   </div>
                   {!isDone && (
                     <button onClick={(e) => handleStartTimer(task, e)}
