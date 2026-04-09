@@ -226,7 +226,7 @@ const WeeklyPage = () => {
                     onTouchMove={handleTouchMove}
                     onTouchEnd={handleTouchEnd}
                     onClick={() => setSelectedTask(task)}
-                    className={`p-3.5 rounded-lg flex items-center gap-3 cursor-pointer transition-all ${
+                    className={`p-3.5 rounded-lg flex items-start gap-3 cursor-pointer transition-all ${
                       isDone ? 'opacity-50' : dragIdx === idx || touchIdx === idx ? 'bg-surface-container-high scale-[1.02] shadow-lg' : 'bg-surface-container-low hover:bg-surface-container-high'
                     }`}>
                     {!isDone && <GripVertical className="w-4 h-4 text-on-surface-variant/30 flex-shrink-0 cursor-grab" />}
@@ -239,7 +239,7 @@ const WeeklyPage = () => {
                         className="w-5 h-5 rounded border-2 border-outline-variant flex items-center justify-center hover:border-primary flex-shrink-0" />
                     )}
                     <div className="flex-1 min-w-0">
-                      <h4 className={`text-sm font-semibold truncate ${isDone ? 'text-on-surface-variant line-through' : 'text-foreground'}`}>{task.title}</h4>
+                      <h4 className={`text-sm font-semibold break-words ${isDone ? 'text-on-surface-variant line-through' : 'text-foreground'}`}>{task.title}</h4>
                     </div>
                     {!isDone && (
                       <button onClick={(e) => handleStartTimer(task, e)}
