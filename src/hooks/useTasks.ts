@@ -7,6 +7,18 @@ import type { Database } from '@/integrations/supabase/types';
 
 type TaskUpdate = Database['public']['Tables']['tasks']['Update'];
 
+const VIRTUAL_TASK_ID_REGEX = /^virtual-(.+)-(\d{4}-\d{2}-\d{2})$/;
+
+const parseVirtualTaskId = (id: string) => {
+  const match = id.match(VIRTUAL_TASK_ID_REGEX);
+  if (!match) return null;
+
+  return {
+    recurrenceId: match[1],
+    dueDate: match[2],
+  };
+};
+
 export const useTasks = (filters?: { date?: string; startDate?: string; endDate?: string; status?: string }) => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -43,11 +55,18 @@ export const useTasks = (filters?: { date?: string; startDate?: string; endDate?
 
       // 3. Fetch template tasks for those rules
       const ruleIds = rules.map(r => r.id);
-      const { data: templates, error: templatesError } = await supabase
-        .from('tasks')
-        .select('*')
-        .in('recurrence_id', ruleIds)
-        .order('created_at', { ascending: true });
+      let templates: Database['public']['Tables']['tasks']['Row'][] = [];
+
+      if (ruleIds.length > 0) {
+        const { data: templateRows, error: templatesError } = await supabase
+          .from('tasks')
+          .select('*')
+          .in('recurrence_id', ruleIds)
+          .order('created_at', { ascending: true });
+
+        if (templatesError) throw templatesError;
+        templates = templateRows || [];
+      }
 
       return { tasks: realTasks, rules, templates: templates || [] };
     },
@@ -168,12 +187,14 @@ export const useTasks = (filters?: { date?: string; startDate?: string; endDate?
       // If it's a virtual task, we first materialize it
       let targetId = id;
       if (id.startsWith('virtual-')) {
-        const parts = id.split('-');
-        const recurrenceId = parts[1];
-        const dueDate = parts.slice(2).join('-');
+        const parsedVirtualTask = parseVirtualTaskId(id);
+        if (!parsedVirtualTask) throw new Error('Invalid virtual task id');
+
+        const { recurrenceId, dueDate } = parsedVirtualTask;
         
-        const { tasks: _, templates } = allData!;
+        const { tasks: _, templates } = allData || { tasks: [], templates: [] };
         const template = templates.find(t => t.recurrence_id === recurrenceId);
+        if (!template) throw new Error('Recurring task template not found');
         
         const { data, error } = await supabase
           .from('tasks')
