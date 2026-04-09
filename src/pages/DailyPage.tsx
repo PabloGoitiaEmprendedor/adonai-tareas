@@ -111,8 +111,8 @@ const DailyPage = () => {
 
   useEffect(() => { trackDayActive.mutate(); }, []);
 
-  useEffect(() => {
-    const allTasks = [...tasks].sort((a, b) => {
+  const sortedTasks = useMemo(() => {
+    return [...tasks].sort((a: any, b: any) => {
       const orderA = a.sort_order || 0;
       const orderB = b.sort_order || 0;
       if (orderA !== orderB) return orderA - orderB;
@@ -120,8 +120,16 @@ const DailyPage = () => {
       const scoreB = (b.urgency ? 2 : 0) + (b.importance ? 1 : 0);
       return scoreB - scoreA;
     });
-    setOrderedTasks(allTasks);
   }, [tasks]);
+
+  useEffect(() => {
+    setOrderedTasks(prev => {
+      const ids = sortedTasks.map((t: any) => t.id).join(',');
+      const prevIds = prev.map((t: any) => t.id).join(',');
+      if (ids === prevIds && prev.length > 0) return prev;
+      return sortedTasks;
+    });
+  }, [sortedTasks]);
 
   const mainGoal = goals.find((g) => g.id === profile?.main_goal_id);
   const completedCount = tasks.filter((t) => t.status === 'done').length;
