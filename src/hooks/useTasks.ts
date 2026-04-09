@@ -212,7 +212,11 @@ export const useTasks = (filters?: { date?: string; startDate?: string; endDate?
   const deleteTask = useMutation({
     mutationFn: async (id: string) => {
       if (!user) throw new Error('No user');
-      if (id.startsWith('virtual-')) return;
+      
+      if (id.startsWith('virtual-')) {
+        // We reuse the updateTask logic to materialize the virtual task as 'deleted'
+        return updateTask.mutateAsync({ id, status: 'deleted' });
+      }
       
       const { error } = await supabase.from('tasks').update({ status: 'deleted' }).eq('id', id).eq('user_id', user.id);
       if (error) throw error;
@@ -221,6 +225,7 @@ export const useTasks = (filters?: { date?: string; startDate?: string; endDate?
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
     },
   });
+
 
 
   const hardDeleteTask = useMutation({

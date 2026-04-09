@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import { X, Play, Clock, Calendar, Flag, Tag, FolderOpen, Trash2, Repeat, Plus } from 'lucide-react';
+
 
 import { useTasks } from '@/hooks/useTasks';
 import { useContexts } from '@/hooks/useContexts';
@@ -131,13 +133,17 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
     onClose();
   };
 
+  const navigate = useNavigate();
+
   const handleDelete = () => {
     if (window.confirm('¿Mover a la papelera?')) {
       updateTask.mutate({ id: task.id, status: 'deleted' });
       toast.success('Tarea movida a la papelera');
       onClose();
+      navigate('/trash');
     }
   };
+
 
   if (!open || !task) return null;
 
