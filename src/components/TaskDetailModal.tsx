@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Play, Clock, Calendar, Flag, Tag, FolderOpen, Trash2, Repeat, ChevronRight, Plus } from 'lucide-react';
+import { X, Play, Clock, Calendar, Flag, Tag, FolderOpen, Trash2, Repeat, ChevronRight, Plus, Settings } from 'lucide-react';
 
 import { useTasks } from '@/hooks/useTasks';
 import { useContexts } from '@/hooks/useContexts';
@@ -76,9 +76,9 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
   };
 
   const handleDelete = () => {
-    if (window.confirm('¿Estás seguro de que quieres borrar esta tarea?')) {
-      deleteTask.mutate(task.id);
-      toast.success('Tarea eliminada');
+    if (window.confirm('¿Mover a la papelera?')) {
+      updateTask.mutate({ id: task.id, status: 'deleted' });
+      toast.success('Tarea movida a la papelera');
       onClose();
     }
   };
@@ -184,28 +184,62 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
 
                   <div className="space-y-1.5">
                     <button onClick={() => setShowRecurrence(!showRecurrence)}
-                      className={`w-full p-3 rounded-lg text-sm font-semibold flex items-center justify-between transition-all ${recurrenceFreq !== 'none' ? 'bg-primary/20 text-primary ring-1 ring-primary/30' : 'bg-surface-container-high text-on-surface-variant'}`}>
+                      className={`w-full p-3 rounded-xl text-sm font-bold flex items-center justify-between transition-all ${recurrenceFreq !== 'none' ? 'bg-primary/20 text-primary ring-1 ring-primary/30' : 'bg-surface-container-high text-on-surface-variant'}`}>
                       <div className="flex items-center gap-2">
                         <Repeat className="w-4 h-4" /> 
-                        <span>{recurrenceFreq === 'none' ? 'Sin recurrencia' : `Recurrencia: ${recurrenceFreq}`}</span>
+                        <span>
+                          {recurrenceFreq === 'none' ? 'Sin repetición' : 
+                           recurrenceFreq === 'daily' ? 'Diariamente' : 
+                           recurrenceFreq === 'weekly' ? 'Semanalmente' : 
+                           recurrenceFreq === 'monthly' ? 'Mensualmente' : 'Anualmente'}
+                        </span>
                       </div>
                       <ChevronRight className={`w-4 h-4 transition-transform ${showRecurrence ? 'rotate-90' : ''}`} />
                     </button>
+                    
                     <AnimatePresence>
                       {showRecurrence && (
-                        <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-                          <div className="flex bg-surface-container-highest rounded-lg p-1 mt-1 gap-1">
-                            {['none', 'daily', 'weekly', 'monthly'].map((f) => (
-                              <button key={f} onClick={() => setRecurrenceFreq(f as any)}
-                                className={`flex-1 py-1.5 rounded-md text-[10px] font-bold uppercase transition-all ${recurrenceFreq === f ? 'bg-primary text-primary-foreground' : 'text-on-surface-variant hover:bg-surface-container-low'}`}>
-                                {f === 'none' ? 'No' : f === 'daily' ? 'Día' : f === 'weekly' ? 'Sem' : 'Mes'}
+                        <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden space-y-3">
+                          <div className="grid grid-cols-5 gap-1.5 p-1 bg-surface-container-highest rounded-xl mt-1">
+                            {[
+                              { id: 'none', label: 'No' },
+                              { id: 'daily', label: 'Día' },
+                              { id: 'weekly', label: 'Sem' },
+                              { id: 'monthly', label: 'Mes' },
+                              { id: 'yearly', label: 'Año' }
+                            ].map((f) => (
+                              <button key={f.id} onClick={() => setRecurrenceFreq(f.id as any)}
+                                className={`py-2 rounded-lg text-[10px] font-black uppercase transition-all ${recurrenceFreq === f.id ? 'bg-primary text-primary-foreground shadow-lg' : 'text-on-surface-variant hover:bg-surface-container-low'}`}>
+                                {f.label}
                               </button>
                             ))}
                           </div>
+
+                          {recurrenceFreq === 'weekly' && (
+                            <div className="space-y-2 px-1">
+                              <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">Repetir los:</p>
+                              <div className="flex justify-between">
+                                {['L', 'M', 'X', 'J', 'V', 'S', 'D'].map((d, i) => (
+                                  <button key={i} className="w-8 h-8 rounded-full border border-outline-variant text-[10px] font-bold hover:bg-primary/10 hover:text-primary transition-colors">
+                                    {d}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {recurrenceFreq !== 'none' && (
+                            <div className="px-1 pt-1 pb-2">
+                              <button className="text-[11px] font-bold text-primary flex items-center gap-1 hover:underline">
+                                <Settings className="w-3 h-3" /> Configuración personalizada
+                              </button>
+                            </div>
+                          )}
                         </motion.div>
                       )}
                     </AnimatePresence>
                   </div>
+
 
                   <div className="space-y-3 pt-2">
                     <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Subtareas</label>

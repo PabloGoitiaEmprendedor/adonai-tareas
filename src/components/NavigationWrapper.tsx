@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { FolderOpen, Users, User, Calendar, LogOut, Settings, Bell, HelpCircle } from 'lucide-react';
+import { FolderOpen, Users, User, Calendar, LogOut, Settings, Bell, HelpCircle, Menu, Trash2 } from 'lucide-react';
+
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -32,6 +33,14 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
     <div className="min-h-screen bg-background">
       {/* Sidebar / Sheet for Menu */}
       <Sheet open={open} onOpenChange={setOpen}>
+        <div className="fixed top-6 left-5 z-[55] lg:hidden">
+          <SheetTrigger asChild>
+            <Button variant="ghost" size="icon" className="w-12 h-12 rounded-2xl glass-sheet shadow-lg border-outline-variant/10 text-on-surface-variant hover:text-primary transition-all duration-300">
+              <Menu className="w-6 h-6" />
+            </Button>
+          </SheetTrigger>
+        </div>
+
         <SheetContent side="left" className="w-[280px] glass-sheet border-r-outline-variant/20 p-0">
           <div className="flex flex-col h-full">
             <SheetHeader className="p-6 border-b border-outline-variant/10">
@@ -60,6 +69,19 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
                     <span className="text-sm tracking-wide">{item.label}</span>
                   </Button>
                 ))}
+                {/* Trash option */}
+                <Button
+                  variant="ghost"
+                  onClick={() => handleNavigate('/trash')}
+                  className={`w-full justify-start gap-4 h-12 rounded-xl transition-all duration-300 ${
+                    location.pathname === '/trash' 
+                      ? 'bg-primary/10 text-primary font-bold shadow-sm' 
+                      : 'text-on-surface-variant/80 hover:bg-surface-container-high'
+                  }`}
+                >
+                  <Trash2 className={`w-5 h-5 ${location.pathname === '/trash' ? 'text-primary' : ''}`} />
+                  <span className="text-sm tracking-wide">Papelera</span>
+                </Button>
               </div>
 
               <div className="mt-8 px-6">
@@ -68,7 +90,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
                    <Button variant="ghost" className="w-full justify-start gap-4 h-11 text-on-surface-variant/60 hover:text-foreground">
                     <Bell className="w-4 h-4" /> <span className="text-xs">Notificaciones</span>
                   </Button>
-                  <Button variant="ghost" className="w-full justify-start gap-4 h-11 text-on-surface-variant/60 hover:text-foreground">
+                  <Button onClick={() => handleNavigate('/profile')} variant="ghost" className="w-full justify-start gap-4 h-11 text-on-surface-variant/60 hover:text-foreground">
                     <Settings className="w-4 h-4" /> <span className="text-xs">Preferencias</span>
                   </Button>
                   <Button variant="ghost" className="w-full justify-start gap-4 h-11 text-on-surface-variant/60 hover:text-foreground">
@@ -96,8 +118,9 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
         {children}
       </main>
 
-      <BottomNav onMenuClick={() => setOpen(true)} />
+      <BottomNav />
     </div>
+
   );
 };
 

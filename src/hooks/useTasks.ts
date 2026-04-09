@@ -16,8 +16,13 @@ export const useTasks = (filters?: { date?: string; status?: string }) => {
       if (!user) return [];
       let query = supabase.from('tasks').select('*, contexts(*)').eq('user_id', user.id);
       if (filters?.date) query = query.eq('due_date', filters.date);
-      if (filters?.status) query = query.eq('status', filters.status);
+      if (filters?.status) {
+        query = query.eq('status', filters.status);
+      } else {
+        query = query.neq('status', 'deleted');
+      }
       const { data, error } = await query.order('created_at', { ascending: false });
+
       if (error) throw error;
       return data;
     },

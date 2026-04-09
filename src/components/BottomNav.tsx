@@ -1,51 +1,44 @@
-import { useLocation, useNavigate } from 'react-router-dom';
-import { Calendar, CalendarDays, FolderOpen, Target, Menu } from 'lucide-react';
+import { Link, useLocation } from 'react-router-dom';
+import { Calendar, FolderOpen, Target } from 'lucide-react';
 
-interface BottomNavProps {
-  onMenuClick?: () => void;
-}
-
-const tabs = [
-  { path: '/', label: 'Hoy', icon: Calendar },
-  { path: '/goals', label: 'Metas', icon: Target },
-  { path: '/week', label: 'Semana', icon: CalendarDays },
-  { path: '/folders', label: 'Carpetas', icon: FolderOpen },
-];
-
-const BottomNav = ({ onMenuClick }: BottomNavProps) => {
+const BottomNav = () => {
   const location = useLocation();
-  const navigate = useNavigate();
+
+  const navItems = [
+    { icon: Calendar, label: 'Hoy', path: '/dashboard' },
+    { icon: FolderOpen, label: 'Carpetas', path: '/folders' },
+    { icon: Target, label: 'Metas', path: '/goals' },
+  ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 glass-sheet pb-safe lg:top-0 lg:bottom-0 lg:left-0 lg:right-auto lg:w-20 lg:pb-0">
-      <div className="flex justify-around items-center h-16 max-w-[430px] mx-auto lg:max-w-none lg:flex-col lg:h-full lg:justify-center lg:gap-6 lg:w-20">
-        {tabs.map((tab) => {
-          const active = location.pathname === tab.path;
-          const Icon = tab.icon;
+    <nav className="fixed bottom-0 inset-x-0 h-20 glass-sheet border-t border-outline-variant/30 px-6 pb-6 pt-2 z-50 lg:hidden rounded-t-[32px] shadow-[0_-8px_30px_rgb(0,0,0,0.12)]">
+      <div className="flex items-center justify-around h-full max-w-md mx-auto">
+        {navItems.map((item) => {
+          const isActive = location.pathname === item.path;
           return (
-            <button
-              key={tab.path}
-              onClick={() => navigate(tab.path)}
-              className={`flex flex-col items-center justify-center gap-0.5 transition-all duration-200 ${
-                active ? 'text-primary scale-105' : 'text-on-surface-variant/60 hover:text-foreground'
+            <Link
+              key={item.path}
+              to={item.path}
+              className={`flex flex-col items-center gap-1 min-w-[64px] transition-all duration-300 ${
+                isActive ? 'text-primary' : 'text-on-surface-variant/60 hover:text-on-surface-variant'
               }`}
             >
-              <Icon className="w-5 h-5" strokeWidth={active ? 2.5 : 2} />
-              <span className="text-[10px] font-medium uppercase tracking-widest">{tab.label}</span>
-            </button>
+              <div
+                className={`p-2 rounded-2xl transition-all duration-300 ${
+                  isActive ? 'bg-primary/10 scale-110' : ''
+                }`}
+              >
+                <item.icon className="w-6 h-6" strokeWidth={isActive ? 2.5 : 2} />
+              </div>
+              <span className={`text-[10px] font-bold tracking-tight ${isActive ? 'opacity-100' : 'opacity-60'}`}>
+                {item.label}
+              </span>
+            </Link>
           );
         })}
-        <button
-          onClick={onMenuClick}
-          className="flex flex-col items-center justify-center gap-0.5 transition-all duration-200 text-on-surface-variant/60 hover:text-foreground"
-        >
-          <Menu className="w-5 h-5" />
-          <span className="text-[10px] font-medium uppercase tracking-widest">Menú</span>
-        </button>
       </div>
     </nav>
   );
 };
 
 export default BottomNav;
-

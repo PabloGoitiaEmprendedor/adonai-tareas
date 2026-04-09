@@ -3,20 +3,24 @@ import { useTasks } from '@/hooks/useTasks';
 import { useGoals } from '@/hooks/useGoals';
 import { useProfile } from '@/hooks/useProfile';
 import { useGlobalVoiceCapture } from '@/hooks/useGlobalVoiceCapture';
-import { format, startOfWeek, addDays, isSameDay } from 'date-fns';
+import { format, startOfWeek, addDays, isSameDay, addWeeks, subWeeks } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { TrendingUp, Calendar, Check, GripVertical, Timer } from 'lucide-react';
+import { TrendingUp, Calendar as CalendarIcon, Check, GripVertical, Timer, ChevronLeft, ChevronRight, Filter } from 'lucide-react';
 import { motion } from 'framer-motion';
 import FAB from '@/components/FAB';
 import TaskCaptureModal, { type TaskCaptureModalHandle } from '@/components/TaskCaptureModal';
 import TaskDetailModal from '@/components/TaskDetailModal';
 import FullscreenTimer from '@/components/FullscreenTimer';
+import { Button } from '@/components/ui/button';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 
 const WeeklyPage = () => {
   const { tasks, updateTask } = useTasks();
   const { goals } = useGoals();
   const { profile } = useProfile();
   const [captureOpen, setCaptureOpen] = useState(false);
+  const [viewDate, setViewDate] = useState<Date>(new Date());
   const [selectedDay, setSelectedDay] = useState<Date>(new Date());
   const [selectedTask, setSelectedTask] = useState<any>(null);
   const [timerTask, setTimerTask] = useState<any>(null);
@@ -31,9 +35,18 @@ const WeeklyPage = () => {
   }, []);
   useGlobalVoiceCapture(captureModalRef, openCapture);
 
-  const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
+  const weekStart = startOfWeek(viewDate, { weekStartsOn: 1 });
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
   const today = new Date();
+
+  const handlePrevWeek = () => setViewDate(subWeeks(viewDate, 1));
+  const handleNextWeek = () => setViewDate(addWeeks(viewDate, 1));
+  const handleSelectDate = (date: Date | undefined) => {
+    if (date) {
+      setViewDate(date);
+      setSelectedDay(date);
+    }
+  };
 
   const dayNames = ['LUN', 'MAR', 'MIE', 'JUE', 'VIE', 'SAB', 'DOM'];
 
@@ -130,14 +143,45 @@ const WeeklyPage = () => {
   return (
     <div className="min-h-screen bg-background">
       <div className="max-w-[430px] lg:max-w-[800px] mx-auto px-5 pt-6 space-y-6">
-        <div className="flex justify-between items-end">
-          <div>
-            <span className="text-[10px] uppercase tracking-widest text-on-surface-variant font-bold">Resumen Semanal</span>
-            <h1 className="text-2xl font-bold tracking-tight mt-1">Tu Progreso</h1>
+        <div className="flex justify-between items-start">
+          <div className="space-y-1">
+            <span className="text-[10px] uppercase tracking-[0.2em] text-on-surface-variant font-black">Planificación</span>
+            <h1 className="text-3xl font-black primary-gradient-text tracking-tighter">Semana</h1>
           </div>
-          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-surface-container-low rounded-full">
-            <Calendar className="w-3.5 h-3.5 text-primary" />
-            <span className="text-xs font-medium capitalize">{weekRange}</span>
+          <div className="flex items-center gap-1">
+            <Button variant="ghost" size="icon" onClick={handlePrevWeek} className="h-8 w-8 rounded-full">
+              <ChevronLeft className="w-4 h-4" />
+            </Button>
+            
+            <Sheet>
+               <SheetTrigger asChild>
+                  <Button variant="ghost" className="h-9 px-3 rounded-full bg-surface-container-high border border-outline-variant/10 gap-2">
+                    <CalendarIcon className="w-3.5 h-3.5 text-primary" />
+                    <span className="text-[11px] font-bold capitalize">{weekRange}</span>
+                  </Button>
+               </SheetTrigger>
+               <SheetContent side="bottom" className="rounded-t-[32px] p-6 glass-sheet h-auto">
+                  <div className="space-y-6">
+                    <div className="flex justify-between items-center">
+                      <h3 className="text-lg font-bold">Seleccionar fecha</h3>
+                      <Filter className="w-4 h-4 text-primary" />
+                    </div>
+                    <div className="flex justify-center bg-surface-container px-2 py-4 rounded-3xl">
+                      <CalendarComponent
+                        mode="single"
+                        selected={viewDate}
+                        onSelect={handleSelectDate}
+                        initialFocus
+                        locale={es}
+                      />
+                    </div>
+                  </div>
+               </SheetContent>
+            </Sheet>
+
+            <Button variant="ghost" size="icon" onClick={handleNextWeek} className="h-8 w-8 rounded-full">
+              <ChevronRight className="w-4 h-4" />
+            </Button>
           </div>
         </div>
 

@@ -16,7 +16,9 @@ import FoldersPage from "./pages/FoldersPage";
 import FriendsPage from "./pages/FriendsPage";
 import PrivacyPolicyPage from "./pages/PrivacyPolicyPage";
 import TermsOfServicePage from "./pages/TermsOfServicePage";
+import TrashPage from "./pages/TrashPage";
 import NotFound from "./pages/NotFound";
+
 
 const queryClient = new QueryClient();
 
@@ -26,6 +28,16 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
   const { profile, isLoading: profileLoading } = useProfile();
 
+  useEffect(() => {
+    if (profile?.theme) {
+      if (profile.theme === 'dark') {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+    }
+  }, [profile?.theme]);
+
   if (loading || profileLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -33,6 +45,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
       </div>
     );
   }
+
 
   if (!user) return <Navigate to="/auth" replace />;
 
@@ -70,7 +83,9 @@ const AppRoutes = () => {
       <Route path="/folders" element={<ProtectedRoute><FoldersPage /></ProtectedRoute>} />
       <Route path="/friends" element={<ProtectedRoute><FriendsPage /></ProtectedRoute>} />
       <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+      <Route path="/trash" element={<ProtectedRoute><TrashPage /></ProtectedRoute>} />
       <Route path="/privacy" element={<PrivacyPolicyPage />} />
+
       <Route path="/terms" element={<TermsOfServicePage />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
