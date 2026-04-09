@@ -8,13 +8,20 @@ export const useVoiceCapture = () => {
   const [voiceFallback, setVoiceFallback] = useState(false);
   const recognitionRef = useRef<any>(null);
   const isRecordingRef = useRef(false);
+  const finalTranscriptRef = useRef('');
+  const sessionRef = useRef(0);
 
   const isSupported = typeof window !== 'undefined' &&
     !!((window as any).webkitSpeechRecognition || (window as any).SpeechRecognition);
 
   const startRecording = useCallback((): boolean => {
+    if (isRecordingRef.current) {
+      return true;
+    }
+
     if (recognitionRef.current) {
        try { recognitionRef.current.stop(); } catch(e) {}
+       recognitionRef.current = null;
     }
 
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -24,21 +31,22 @@ export const useVoiceCapture = () => {
       return false;
     }
 
-    if (isRecordingRef.current) {
-      return true;
-    }
-
     const recognition = new SpeechRecognition();
+    const sessionId = sessionRef.current + 1;
+    sessionRef.current = sessionId;
+
     recognition.lang = 'es-ES';
     recognition.continuous = true;
     recognition.interimResults = true;
 
 
     recognition.onresult = (event: any) => {
-      let finalTranscript = '';
+      if (sessionRef.current !== sessionId) return;
+
+      let finalTranscript = finalTranscriptRef.current;
       let interimTranscript = '';
       
-      for (let i = 0; i < event.results.length; ++i) {
+      for (let i = event.resultIndex; i < event.results.length; ++i) {
         const facet = event.results[i][0].transcript;
         if (event.results[i].isFinal) {
           finalTranscript += facet;
@@ -46,6 +54,8 @@ export const useVoiceCapture = () => {
           interimTranscript += facet;
         }
       }
+
+      finalTranscriptRef.current = finalTranscript;
       
       const fullTranscriptResult = (finalTranscript + interimTranscript).trim();
       setTranscript(fullTranscriptResult);
@@ -58,28 +68,34 @@ export const useVoiceCapture = () => {
     };
 
     recognition.onstart = () => {
+      if (sessionRef.current !== sessionId) return;
       isRecordingRef.current = true;
       setIsRecording(true);
       setVoiceFallback(false);
     };
 
     recognition.onend = () => {
+      if (sessionRef.current !== sessionId) return;
       isRecordingRef.current = false;
       setIsRecording(false);
+      recognitionRef.current = null;
     };
 
     recognition.onerror = (e: any) => {
+      if (sessionRef.current !== sessionId) return;
       console.error('Speech recognition error:', e.error);
       if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
         setVoiceFallback(true);
       }
       isRecordingRef.current = false;
       setIsRecording(false);
+      recognitionRef.current = null;
     };
 
     recognitionRef.current = recognition;
 
     try {
+      finalTranscriptRef.current = '';
       setTranscript('');
       setConfidence(0);
       recognition.start();
@@ -90,6 +106,7 @@ export const useVoiceCapture = () => {
       isRecordingRef.current = false;
       setIsRecording(false);
       setVoiceFallback(true);
+      recognitionRef.current = null;
       return false;
     }
   }, []);
@@ -103,6 +120,7 @@ export const useVoiceCapture = () => {
   }, []);
 
   const resetTranscript = useCallback(() => {
+    finalTranscriptRef.current = '';
     setTranscript('');
     setConfidence(0);
   }, []);
