@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
 import { X, Play, Clock, Calendar, Flag, Tag, FolderOpen, Trash2, Repeat, Plus } from 'lucide-react';
 
 
@@ -22,7 +21,7 @@ interface TaskDetailModalProps {
 const MONTH_NAMES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 
 const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
-  const { updateTask } = useTasks();
+  const { updateTask, deleteTask } = useTasks();
   const { contexts } = useContexts();
   const { folders } = useFolders();
   const { createRule, deleteRule } = useRecurrenceRules();
@@ -133,14 +132,17 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
     onClose();
   };
 
-  const navigate = useNavigate();
-
   const handleDelete = () => {
     if (window.confirm('¿Mover a la papelera?')) {
-      updateTask.mutate({ id: task.id, status: 'deleted' });
-      toast.success('Tarea movida a la papelera');
-      onClose();
-      navigate('/trash');
+      deleteTask.mutate(task.id, {
+        onSuccess: () => {
+          toast.success('Tarea movida a la papelera');
+          onClose();
+        },
+        onError: () => {
+          toast.error('No se pudo mover la tarea a la papelera');
+        },
+      });
     }
   };
 
