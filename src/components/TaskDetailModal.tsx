@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Play, Clock, Calendar, Flag, Tag, FolderOpen, Trash2, Repeat, ChevronRight, Plus, Settings } from 'lucide-react';
+import { X, Play, Clock, Calendar, Flag, Tag, FolderOpen, Trash2, Repeat, Plus } from 'lucide-react';
 
 import { useTasks } from '@/hooks/useTasks';
 import { useContexts } from '@/hooks/useContexts';
 import { useFolders } from '@/hooks/useFolders';
+import { useRecurrenceRules } from '@/hooks/useRecurrenceRules';
 import { toast } from 'sonner';
 import FullscreenTimer from './FullscreenTimer';
+import { format } from 'date-fns';
 
 
 interface TaskDetailModalProps {
@@ -15,10 +17,13 @@ interface TaskDetailModalProps {
   onClose: () => void;
 }
 
+const MONTH_NAMES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+
 const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
-  const { updateTask, deleteTask } = useTasks();
+  const { updateTask } = useTasks();
   const { contexts } = useContexts();
   const { folders } = useFolders();
+  const { createRule, deleteRule } = useRecurrenceRules();
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -31,10 +36,13 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
   const [status, setStatus] = useState('pending');
   const [timerOpen, setTimerOpen] = useState(false);
   const [showRecurrence, setShowRecurrence] = useState(false);
-  const [recurrenceFreq, setRecurrenceFreq] = useState<'daily'|'weekly'|'monthly'|'none'>('none');
+  const [recurrenceFreq, setRecurrenceFreq] = useState<'daily' | 'weekly' | 'monthly' | 'yearly' | 'none'>('none');
+  const [selectedWeekDays, setSelectedWeekDays] = useState<number[]>([]);
+  const [selectedMonthDay, setSelectedMonthDay] = useState<number | null>(null);
+  const [selectedYearMonth, setSelectedYearMonth] = useState<number | null>(null);
+  const [selectedYearDay, setSelectedYearDay] = useState<number | null>(null);
   const [subtasks, setSubtasks] = useState<any[]>([]);
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
-
 
   useEffect(() => {
     if (task && open) {
@@ -47,15 +55,62 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
       setContextId(task.context_id || null);
       setFolderId(task.folder_id || null);
       setStatus(task.status || 'pending');
+      setRecurrenceFreq('none');
+      setSelectedWeekDays([]);
+      setSelectedMonthDay(null);
+      setSelectedYearMonth(null);
+      setSelectedYearDay(null);
+      setShowRecurrence(false);
     }
   }, [task, open]);
 
-  const handleSave = () => {
+  const toggleWeekDay = (day: number) => {
+    setSelectedWeekDays(prev =>
+      prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day].sort()
+    );
+  };
+
+  const handleSave = async () => {
     let priority: string = 'medium';
     if (importance && urgency) priority = 'high';
     else if (importance) priority = 'high';
     else if (urgency) priority = 'medium';
     else priority = 'low';
+
+    let recurrenceId: string | null = task.recurrence_id || null;
+
+    // Handle recurrence
+    if (recurrenceFreq !== 'none') {
+      // Delete old rule if exists
+      if (task.recurrence_id) {
+        try { await deleteRule.mutateAsync(task.recurrence_id); } catch {}
+      }
+
+      const ruleData: any = {
+        frequency: recurrenceFreq,
+        interval: 1,
+        start_date: dueDate || format(new Date(), 'yyyy-MM-dd'),
+        end_date: null,
+        days_of_week: recurrenceFreq === 'weekly' ? selectedWeekDays : [],
+        day_of_month: recurrenceFreq === 'monthly' ? selectedMonthDay : null,
+        month_of_year: recurrenceFreq === 'yearly' ? selectedYearMonth : null,
+      };
+
+      if (recurrenceFreq === 'yearly' && selectedYearDay) {
+        ruleData.day_of_month = selectedYearDay;
+      }
+
+      try {
+        const newRule = await createRule.mutateAsync(ruleData);
+        recurrenceId = newRule.id;
+      } catch {
+        toast.error('Error al crear la recurrencia');
+      }
+    } else if (task.recurrence_id) {
+      // Remove recurrence
+      try { await deleteRule.mutateAsync(task.recurrence_id); } catch {}
+      recurrenceId = null;
+    }
 
     updateTask.mutate({
       id: task.id,
@@ -69,6 +124,7 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
       context_id: contextId,
       folder_id: folderId,
       status,
+      recurrence_id: recurrenceId,
       ...(status === 'done' ? { completed_at: new Date().toISOString() } : {}),
     });
     toast.success('Tarea actualizada');
@@ -83,8 +139,23 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
     }
   };
 
-
   if (!open || !task) return null;
+
+  const weekDayLabels = [
+    { label: 'L', value: 1 },
+    { label: 'M', value: 2 },
+    { label: 'X', value: 3 },
+    { label: 'J', value: 4 },
+    { label: 'V', value: 5 },
+    { label: 'S', value: 6 },
+    { label: 'D', value: 0 },
+  ];
+
+  const recurrenceLabel = recurrenceFreq === 'none' ? 'Sin repetición' :
+    recurrenceFreq === 'daily' ? 'Todos los días' :
+    recurrenceFreq === 'weekly' ? `Cada semana${selectedWeekDays.length > 0 ? '' : ''}` :
+    recurrenceFreq === 'monthly' ? `Cada mes${selectedMonthDay ? ` el día ${selectedMonthDay}` : ''}` :
+    `Cada año`;
 
   return (
     <>
@@ -112,8 +183,6 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
                     </div>
                   </div>
 
-
-                  {/* Start Timer Button */}
                   {status === 'pending' && (
                     <button onClick={() => setTimerOpen(true)}
                       className="w-full py-3 rounded-xl primary-gradient text-primary-foreground font-bold text-sm flex items-center justify-center gap-2">
@@ -182,64 +251,124 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
                     </div>
                   </div>
 
-                  <div className="space-y-1.5">
+                  {/* Recurrence Section */}
+                  <div className="space-y-2">
                     <button onClick={() => setShowRecurrence(!showRecurrence)}
                       className={`w-full p-3 rounded-xl text-sm font-bold flex items-center justify-between transition-all ${recurrenceFreq !== 'none' ? 'bg-primary/20 text-primary ring-1 ring-primary/30' : 'bg-surface-container-high text-on-surface-variant'}`}>
                       <div className="flex items-center gap-2">
-                        <Repeat className="w-4 h-4" /> 
-                        <span>
-                          {recurrenceFreq === 'none' ? 'Sin repetición' : 
-                           recurrenceFreq === 'daily' ? 'Diariamente' : 
-                           recurrenceFreq === 'weekly' ? 'Semanalmente' : 
-                           recurrenceFreq === 'monthly' ? 'Mensualmente' : 'Anualmente'}
-                        </span>
+                        <Repeat className="w-4 h-4" />
+                        <span>{recurrenceLabel}</span>
                       </div>
-                      <ChevronRight className={`w-4 h-4 transition-transform ${showRecurrence ? 'rotate-90' : ''}`} />
+                      <span className={`text-xs transition-transform ${showRecurrence ? 'rotate-180' : ''}`}>▾</span>
                     </button>
-                    
+
                     <AnimatePresence>
                       {showRecurrence && (
-                        <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden space-y-3">
-                          <div className="grid grid-cols-5 gap-1.5 p-1 bg-surface-container-highest rounded-xl mt-1">
-                            {[
-                              { id: 'none', label: 'No' },
-                              { id: 'daily', label: 'Día' },
-                              { id: 'weekly', label: 'Sem' },
-                              { id: 'monthly', label: 'Mes' },
-                              { id: 'yearly', label: 'Año' }
-                            ].map((f) => (
-                              <button key={f.id} onClick={() => setRecurrenceFreq(f.id as any)}
-                                className={`py-2 rounded-lg text-[10px] font-black uppercase transition-all ${recurrenceFreq === f.id ? 'bg-primary text-primary-foreground shadow-lg' : 'text-on-surface-variant hover:bg-surface-container-low'}`}>
-                                {f.label}
-                              </button>
-                            ))}
-                          </div>
+                        <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+                          <div className="space-y-4 pt-2">
+                            {/* Frequency selector */}
+                            <div className="grid grid-cols-5 gap-1.5 p-1 bg-surface-container-highest rounded-xl">
+                              {[
+                                { id: 'none', label: 'No' },
+                                { id: 'daily', label: 'Día' },
+                                { id: 'weekly', label: 'Sem' },
+                                { id: 'monthly', label: 'Mes' },
+                                { id: 'yearly', label: 'Año' }
+                              ].map((f) => (
+                                <button key={f.id} onClick={() => {
+                                  setRecurrenceFreq(f.id as any);
+                                  if (f.id === 'monthly' && !selectedMonthDay) {
+                                    setSelectedMonthDay(new Date().getDate());
+                                  }
+                                  if (f.id === 'yearly') {
+                                    if (!selectedYearMonth) setSelectedYearMonth(new Date().getMonth());
+                                    if (!selectedYearDay) setSelectedYearDay(new Date().getDate());
+                                  }
+                                }}
+                                  className={`py-2 rounded-lg text-[10px] font-black uppercase transition-all ${recurrenceFreq === f.id ? 'bg-primary text-primary-foreground shadow-lg' : 'text-on-surface-variant hover:bg-surface-container-low'}`}>
+                                  {f.label}
+                                </button>
+                              ))}
+                            </div>
 
-                          {recurrenceFreq === 'weekly' && (
-                            <div className="space-y-2 px-1">
-                              <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">Repetir los:</p>
-                              <div className="flex justify-between">
-                                {['L', 'M', 'X', 'J', 'V', 'S', 'D'].map((d, i) => (
-                                  <button key={i} className="w-8 h-8 rounded-full border border-outline-variant text-[10px] font-bold hover:bg-primary/10 hover:text-primary transition-colors">
-                                    {d}
-                                  </button>
-                                ))}
+                            {/* Weekly: Day selection */}
+                            {recurrenceFreq === 'weekly' && (
+                              <div className="space-y-2">
+                                <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">Repetir los:</p>
+                                <div className="flex justify-between gap-1">
+                                  {weekDayLabels.map(({ label, value }) => (
+                                    <button key={value} onClick={() => toggleWeekDay(value)}
+                                      className={`w-9 h-9 rounded-full text-[11px] font-bold transition-all ${
+                                        selectedWeekDays.includes(value)
+                                          ? 'bg-primary text-primary-foreground shadow-md'
+                                          : 'bg-surface-container-high text-on-surface-variant hover:bg-primary/10'
+                                      }`}>
+                                      {label}
+                                    </button>
+                                  ))}
+                                </div>
                               </div>
-                            </div>
-                          )}
+                            )}
 
-                          {recurrenceFreq !== 'none' && (
-                            <div className="px-1 pt-1 pb-2">
-                              <button className="text-[11px] font-bold text-primary flex items-center gap-1 hover:underline">
-                                <Settings className="w-3 h-3" /> Configuración personalizada
-                              </button>
-                            </div>
-                          )}
+                            {/* Monthly: Day of month grid */}
+                            {recurrenceFreq === 'monthly' && (
+                              <div className="space-y-2">
+                                <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">Día del mes:</p>
+                                <div className="grid grid-cols-7 gap-1">
+                                  {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
+                                    <button key={day} onClick={() => setSelectedMonthDay(day)}
+                                      className={`py-1.5 rounded-lg text-[11px] font-bold transition-all ${
+                                        selectedMonthDay === day
+                                          ? 'bg-primary text-primary-foreground shadow-md'
+                                          : 'bg-surface-container-high text-on-surface-variant hover:bg-primary/10'
+                                      }`}>
+                                      {day}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Yearly: Month + Day selection */}
+                            {recurrenceFreq === 'yearly' && (
+                              <div className="space-y-3">
+                                <div className="space-y-2">
+                                  <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">Mes:</p>
+                                  <div className="grid grid-cols-4 gap-1">
+                                    {MONTH_NAMES.map((m, i) => (
+                                      <button key={i} onClick={() => setSelectedYearMonth(i)}
+                                        className={`py-1.5 rounded-lg text-[10px] font-bold transition-all ${
+                                          selectedYearMonth === i
+                                            ? 'bg-primary text-primary-foreground shadow-md'
+                                            : 'bg-surface-container-high text-on-surface-variant hover:bg-primary/10'
+                                        }`}>
+                                        {m}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                                <div className="space-y-2">
+                                  <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">Día:</p>
+                                  <div className="grid grid-cols-7 gap-1">
+                                    {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
+                                      <button key={day} onClick={() => setSelectedYearDay(day)}
+                                        className={`py-1.5 rounded-lg text-[11px] font-bold transition-all ${
+                                          selectedYearDay === day
+                                            ? 'bg-primary text-primary-foreground shadow-md'
+                                            : 'bg-surface-container-high text-on-surface-variant hover:bg-primary/10'
+                                        }`}>
+                                        {day}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
                         </motion.div>
                       )}
                     </AnimatePresence>
                   </div>
-
 
                   <div className="space-y-3 pt-2">
                     <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Subtareas</label>
@@ -283,7 +412,6 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
                       ))}
                     </div>
                   </div>
-
 
                   <button onClick={handleSave} className="w-full py-3.5 rounded-xl primary-gradient text-primary-foreground font-bold text-sm">
                     Guardar cambios
