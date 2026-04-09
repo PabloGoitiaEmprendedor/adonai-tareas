@@ -119,19 +119,16 @@ const DailyPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-[430px] lg:max-w-[800px] mx-auto px-5 pt-6 space-y-6">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <Flag className="w-3.5 h-3.5 text-primary" />
-            <span className="text-xs uppercase tracking-widest text-on-surface-variant font-bold">Vista Diaria</span>
+    <div className="min-h-screen bg-background text-foreground">
+      <div className="max-w-[430px] lg:max-w-4xl mx-auto px-6 pt-4 pb-24 space-y-6">
+
+        {mainGoal && (
+          <div className="bg-surface-container-low p-4 rounded-[20px] border border-outline-variant/10">
+            <p className="text-[10px] font-black uppercase tracking-widest text-primary mb-1">Meta Principal</p>
+            <h2 className="text-lg font-bold tracking-tight text-foreground">{mainGoal.title}</h2>
           </div>
-          {mainGoal && (
-            <div className="bg-surface-container-low p-4 rounded-lg">
-              <h2 className="text-xl font-bold tracking-tight text-foreground">{mainGoal.title}</h2>
-            </div>
-          )}
-        </div>
+        )}
+
 
         <div className="flex bg-surface-container-low rounded-lg p-0.5">
           <button onClick={() => setActiveTab('today')}

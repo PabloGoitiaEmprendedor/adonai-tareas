@@ -142,48 +142,43 @@ const WeeklyPage = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="max-w-[430px] lg:max-w-[800px] mx-auto px-5 pt-6 space-y-6">
-        <div className="flex justify-between items-start">
-          <div className="space-y-1">
-            <span className="text-[10px] uppercase tracking-[0.2em] text-on-surface-variant font-black">Planificación</span>
-            <h1 className="text-3xl font-black primary-gradient-text tracking-tighter">Semana</h1>
-          </div>
-          <div className="flex items-center gap-1">
-            <Button variant="ghost" size="icon" onClick={handlePrevWeek} className="h-8 w-8 rounded-full">
-              <ChevronLeft className="w-4 h-4" />
-            </Button>
-            
-            <Sheet>
-               <SheetTrigger asChild>
-                  <Button variant="ghost" className="h-9 px-3 rounded-full bg-surface-container-high border border-outline-variant/10 gap-2">
-                    <CalendarIcon className="w-3.5 h-3.5 text-primary" />
-                    <span className="text-[11px] font-bold capitalize">{weekRange}</span>
-                  </Button>
-               </SheetTrigger>
-               <SheetContent side="bottom" className="rounded-t-[32px] p-6 glass-sheet h-auto">
-                  <div className="space-y-6">
-                    <div className="flex justify-between items-center">
-                      <h3 className="text-lg font-bold">Seleccionar fecha</h3>
-                      <Filter className="w-4 h-4 text-primary" />
-                    </div>
-                    <div className="flex justify-center bg-surface-container px-2 py-4 rounded-3xl">
-                      <CalendarComponent
-                        mode="single"
-                        selected={viewDate}
-                        onSelect={handleSelectDate}
-                        initialFocus
-                        locale={es}
-                      />
-                    </div>
+      <div className="max-w-[430px] lg:max-w-4xl mx-auto px-6 pt-4 pb-24 space-y-6">
+        <div className="flex justify-between items-center bg-surface-container-low p-2 rounded-2xl border border-outline-variant/10">
+          <Button variant="ghost" size="icon" onClick={handlePrevWeek} className="h-9 w-9 rounded-xl">
+            <ChevronLeft className="w-5 h-5" />
+          </Button>
+          
+          <Sheet>
+             <SheetTrigger asChild>
+                <Button variant="ghost" className="h-9 px-4 rounded-xl gap-2 hover:bg-surface-container-high transition-all">
+                  <CalendarIcon className="w-4 h-4 text-primary" />
+                  <span className="text-xs font-bold capitalize">{weekRange}</span>
+                </Button>
+             </SheetTrigger>
+             <SheetContent side="bottom" className="rounded-t-[32px] p-6 glass-sheet h-auto">
+                <div className="space-y-6">
+                  <div className="flex justify-between items-center px-2">
+                    <h3 className="text-lg font-bold">Seleccionar fecha</h3>
+                    <Filter className="w-4 h-4 text-primary" />
                   </div>
-               </SheetContent>
-            </Sheet>
+                  <div className="flex justify-center bg-surface-container px-2 py-4 rounded-[28px]">
+                    <CalendarComponent
+                      mode="single"
+                      selected={viewDate}
+                      onSelect={handleSelectDate}
+                      initialFocus
+                      locale={es}
+                    />
+                  </div>
+                </div>
+             </SheetContent>
+          </Sheet>
 
-            <Button variant="ghost" size="icon" onClick={handleNextWeek} className="h-8 w-8 rounded-full">
-              <ChevronRight className="w-4 h-4" />
-            </Button>
-          </div>
+          <Button variant="ghost" size="icon" onClick={handleNextWeek} className="h-9 w-9 rounded-xl">
+            <ChevronRight className="w-5 h-5" />
+          </Button>
         </div>
+
 
         <div className="grid grid-cols-7 gap-1.5">
           {days.map((day, i) => {

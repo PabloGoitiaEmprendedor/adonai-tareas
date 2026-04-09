@@ -103,14 +103,12 @@ const GoalsPage = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="max-w-[430px] lg:max-w-[800px] mx-auto px-5 pt-6 space-y-6">
-        <div className="space-y-1">
-          <span className="text-primary font-medium tracking-wider uppercase text-xs">Gestión de Metas</span>
-          <h1 className="text-2xl font-bold tracking-tight">
-            Tu visión, <span className="text-primary">fragmentada.</span>
-          </h1>
-          <p className="text-on-surface-variant text-sm">Organiza tus objetivos en horizontes temporales.</p>
+      <div className="max-w-[430px] lg:max-w-4xl mx-auto px-6 pt-4 pb-24 space-y-6">
+        <div className="space-y-1 py-1">
+          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-primary">Tu Visión</p>
+          <h1 className="text-xl font-extrabold tracking-tight text-foreground">Fragmentada.</h1>
         </div>
+
 
         <AnimatePresence>
           {completedGoalId && (

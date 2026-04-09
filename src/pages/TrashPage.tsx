@@ -33,14 +33,12 @@ const TrashPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-[430px] lg:max-w-[800px] mx-auto px-5 pt-6 pb-24 space-y-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <button onClick={() => navigate(-1)} className="p-2 rounded-xl bg-surface-container-high text-on-surface-variant hover:text-primary transition-colors">
-              <ArrowLeft className="w-5 h-5" />
-            </button>
-            <h1 className="text-2xl font-black primary-gradient-text tracking-tighter">Papelera</h1>
+    <div className="min-h-screen bg-background text-foreground">
+      <div className="max-w-[430px] lg:max-w-4xl mx-auto px-6 pt-4 pb-24 space-y-6">
+        <div className="flex items-center justify-between py-1">
+          <div className="space-y-0.5">
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-error">Zona de Riesgo</p>
+            <h1 className="text-xl font-extrabold tracking-tight">Papelera</h1>
           </div>
           
           {tasks.length > 0 && (
@@ -48,12 +46,13 @@ const TrashPage = () => {
               variant="ghost" 
               onClick={emptyTrash}
               disabled={isEmptying}
-              className="text-error hover:text-error hover:bg-error/10 font-bold gap-2"
+              className="text-error hover:text-error hover:bg-error/10 font-black gap-2 h-10 px-4 rounded-xl"
             >
               <Trash className="w-4 h-4" /> Vaciar
             </Button>
           )}
         </div>
+
 
         <div className="space-y-3">
           {tasks.length === 0 ? (

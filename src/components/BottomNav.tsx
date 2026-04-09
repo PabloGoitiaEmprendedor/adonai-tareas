@@ -5,10 +5,12 @@ const BottomNav = () => {
   const location = useLocation();
 
   const navItems = [
-    { icon: Calendar, label: 'Hoy', path: '/dashboard' },
+    { icon: Calendar, label: 'Hoy', path: '/today' },
     { icon: FolderOpen, label: 'Carpetas', path: '/folders' },
     { icon: Target, label: 'Metas', path: '/goals' },
   ];
+
+
 
   return (
     <nav className="fixed bottom-0 inset-x-0 h-20 glass-sheet border-t border-outline-variant/30 px-6 pb-6 pt-2 z-50 lg:hidden rounded-t-[32px] shadow-[0_-8px_30px_rgb(0,0,0,0.12)]">

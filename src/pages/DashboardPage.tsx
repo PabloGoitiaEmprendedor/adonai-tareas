@@ -134,13 +134,16 @@ const DashboardPage = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="max-w-[430px] lg:max-w-[800px] mx-auto px-5 pt-6 space-y-5">
-        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="space-y-1">
-          <span className="text-on-surface-variant text-xs font-medium uppercase tracking-widest">Dashboard</span>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            {getGreeting()}, {profile?.name || 'Emprendedor'}
+      <div className="max-w-[430px] lg:max-w-4xl mx-auto px-6 pt-4 pb-24 space-y-6">
+
+        {/* Content starts below the global header */}
+        <div className="space-y-1 py-2">
+          <p className="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest">{getGreeting()}</p>
+          <h1 className="text-xl font-extrabold tracking-tight text-foreground">
+            {profile?.name || 'Emprendedor'}
           </h1>
-        </motion.div>
+        </div>
+
 
         {mainGoal && (
           <div className="bg-surface-container-low p-4 rounded-lg flex items-center justify-between">
