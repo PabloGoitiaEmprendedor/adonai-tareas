@@ -4,7 +4,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Users, Search, UserPlus, Check, X, FolderOpen, ChevronRight, ChevronDown, Clock, Calendar } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import BottomNav from '@/components/BottomNav';
 import { toast } from 'sonner';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
@@ -118,7 +117,7 @@ const FriendsPage = () => {
 
   if (selectedFriend && selectedFriendProfile) {
     return (
-      <div className="min-h-screen bg-background pb-24 lg:pl-20 lg:pb-6">
+      <div className="min-h-screen bg-background">
         <div className="max-w-[430px] lg:max-w-[800px] mx-auto px-5 pt-6 space-y-6">
           <div className="flex items-center gap-3">
             <button onClick={() => setSelectedFriend(null)} className="text-on-surface-variant hover:text-foreground">
@@ -209,13 +208,12 @@ const FriendsPage = () => {
             </div>
           )}
         </div>
-        <BottomNav />
-      </div>
+        </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background pb-24 lg:pl-20 lg:pb-6">
+    <div className="min-h-screen bg-background">
       <div className="max-w-[430px] lg:max-w-[800px] mx-auto px-5 pt-6 space-y-6">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
@@ -346,8 +344,7 @@ const FriendsPage = () => {
           )
         )}
       </div>
-      <BottomNav />
-    </div>
+      </div>
   );
 };
 

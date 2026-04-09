@@ -1,15 +1,18 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Calendar, CalendarDays, FolderOpen, Users, User } from 'lucide-react';
+import { Calendar, CalendarDays, FolderOpen, Target, Menu } from 'lucide-react';
+
+interface BottomNavProps {
+  onMenuClick?: () => void;
+}
 
 const tabs = [
   { path: '/', label: 'Hoy', icon: Calendar },
+  { path: '/goals', label: 'Metas', icon: Target },
   { path: '/week', label: 'Semana', icon: CalendarDays },
   { path: '/folders', label: 'Carpetas', icon: FolderOpen },
-  { path: '/friends', label: 'Amigos', icon: Users },
-  { path: '/profile', label: 'Perfil', icon: User },
 ];
 
-const BottomNav = () => {
+const BottomNav = ({ onMenuClick }: BottomNavProps) => {
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -32,9 +35,17 @@ const BottomNav = () => {
             </button>
           );
         })}
+        <button
+          onClick={onMenuClick}
+          className="flex flex-col items-center justify-center gap-0.5 transition-all duration-200 text-on-surface-variant/60 hover:text-foreground"
+        >
+          <Menu className="w-5 h-5" />
+          <span className="text-[10px] font-medium uppercase tracking-widest">Menú</span>
+        </button>
       </div>
     </nav>
   );
 };
 
 export default BottomNav;
+

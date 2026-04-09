@@ -101,6 +101,10 @@ export const parseVoiceTranscript = (transcript: string): ParsedVoiceData => {
   } else if (/\bde lunes a viernes\b/i.test(lower)) {
     recurrence = { frequency: 'weekly', interval: 1, days_of_week: [1, 2, 3, 4, 5] };
   } else {
+    const dailyIntervalMatch = lower.match(/\bcada (\d+) días\b/);
+    if (dailyIntervalMatch) {
+      recurrence = { frequency: 'daily', interval: parseInt(dailyIntervalMatch[1]) };
+    }
     const weeklyMatch = lower.match(/\bcada (\d+) semanas?\b/);
     if (weeklyMatch) {
       recurrence = { frequency: 'weekly', interval: parseInt(weeklyMatch[1]) };
@@ -129,6 +133,7 @@ export const parseVoiceTranscript = (transcript: string): ParsedVoiceData => {
       }
     }
   }
+
 
   // Clean recurrence text from title
   title = title

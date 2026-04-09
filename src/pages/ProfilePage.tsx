@@ -9,7 +9,6 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Flame, CalendarDays, CheckCircle2, LogOut, Mic, Bell, Moon, Settings, ChevronDown, Brain, Upload, FileText, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import BottomNav from '@/components/BottomNav';
 import { toast } from 'sonner';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
@@ -151,7 +150,7 @@ const ProfilePage = () => {
   );
 
   return (
-    <div className="min-h-screen bg-background pb-24 lg:pl-20 lg:pb-6">
+    <div className="min-h-screen bg-background">
       <div className="max-w-[430px] lg:max-w-[800px] mx-auto px-5 pt-6 space-y-6">
         {/* Profile hero */}
         <motion.section initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center gap-4">
@@ -362,8 +361,7 @@ const ProfilePage = () => {
           <a href="/terms" className="text-[10px] text-on-surface-variant/40 hover:text-on-surface-variant/60 transition-colors">Términos</a>
         </div>
       </div>
-      <BottomNav />
-    </div>
+      </div>
   );
 };
 

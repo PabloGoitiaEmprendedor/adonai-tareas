@@ -81,7 +81,20 @@ export const useTasks = (filters?: { date?: string; status?: string }) => {
     },
   });
 
-  return { tasks, isLoading, createTask, updateTask };
+  const deleteTask = useMutation({
+    mutationFn: async (id: string) => {
+      if (!user) throw new Error('No user');
+      const { error } = await supabase.from('tasks').delete().eq('id', id).eq('user_id', user.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+    },
+  });
+
+  return { tasks, isLoading, createTask, updateTask, deleteTask };
+
+
 };
 
 export const useTodayTasks = () => {

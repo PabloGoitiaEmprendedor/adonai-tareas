@@ -4,12 +4,12 @@ import { useTasks } from '@/hooks/useTasks';
 import { useGlobalVoiceCapture } from '@/hooks/useGlobalVoiceCapture';
 import { FolderOpen, Plus, ChevronRight, Lock, Globe, MoreVertical, Trash2, Edit3, Check, Timer } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import BottomNav from '@/components/BottomNav';
 import FAB from '@/components/FAB';
 import TaskCaptureModal, { type TaskCaptureModalHandle } from '@/components/TaskCaptureModal';
 import TaskDetailModal from '@/components/TaskDetailModal';
 import FullscreenTimer from '@/components/FullscreenTimer';
 import { toast } from 'sonner';
+
 
 const FOLDER_COLORS = ['#4BE277', '#4AE176', '#FF8B7C', '#C7C6C6', '#6B9FFF', '#FFB86C', '#FF79C6', '#BD93F9'];
 
@@ -67,7 +67,7 @@ const FoldersPage = () => {
 
   if (selectedFolder && currentFolder) {
     return (
-      <div className="min-h-screen bg-background pb-24 lg:pl-20 lg:pb-6">
+      <div className="min-h-screen bg-background">
         <div className="max-w-[430px] lg:max-w-[800px] mx-auto px-5 pt-6 space-y-6">
           <div className="flex items-center gap-3">
             <button onClick={() => setSelectedFolder(null)} className="text-on-surface-variant hover:text-foreground">
@@ -125,7 +125,6 @@ const FoldersPage = () => {
           )}
         </div>
         <FAB onClick={openCaptureInVoiceMode} />
-        <BottomNav />
         <TaskCaptureModal ref={captureModalRef} open={captureOpen} onClose={() => setCaptureOpen(false)} />
         <TaskDetailModal task={selectedTask} open={!!selectedTask} onClose={() => setSelectedTask(null)} />
         <FullscreenTimer task={timerTask} open={!!timerTask} onClose={() => setTimerTask(null)} />
@@ -134,7 +133,7 @@ const FoldersPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background pb-24 lg:pl-20 lg:pb-6">
+    <div className="min-h-screen bg-background">
       <div className="max-w-[430px] lg:max-w-[800px] mx-auto px-5 pt-6 space-y-6">
         <div className="flex items-center justify-between">
           <div className="space-y-1">
@@ -231,7 +230,6 @@ const FoldersPage = () => {
         )}
       </div>
       <FAB onClick={openCaptureInVoiceMode} />
-      <BottomNav />
       <TaskCaptureModal ref={captureModalRef} open={captureOpen} onClose={() => setCaptureOpen(false)} />
       <TaskDetailModal task={selectedTask} open={!!selectedTask} onClose={() => setSelectedTask(null)} />
       <FullscreenTimer task={timerTask} open={!!timerTask} onClose={() => setTimerTask(null)} />

@@ -5,7 +5,6 @@ import { useProfile } from '@/hooks/useProfile';
 import { useGlobalVoiceCapture } from '@/hooks/useGlobalVoiceCapture';
 import { Flag, Plus, ChevronRight, Check, Trophy } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import BottomNav from '@/components/BottomNav';
 import FAB from '@/components/FAB';
 import TaskCaptureModal, { type TaskCaptureModalHandle } from '@/components/TaskCaptureModal';
 import { toast } from 'sonner';
@@ -29,7 +28,9 @@ const GoalsPage = () => {
   const [selectedGoalId, setSelectedGoalId] = useState<string | null>(null);
   const [completedGoalId, setCompletedGoalId] = useState<string | null>(null);
   const [nextGoalTitle, setNextGoalTitle] = useState('');
+  const [targetGoalId, setTargetGoalId] = useState<string | null>(null);
   const captureModalRef = useRef<TaskCaptureModalHandle>(null);
+
 
   const openCapture = useCallback(() => setCaptureOpen(true), []);
   const openCaptureInVoiceMode = useCallback(() => {
@@ -101,7 +102,7 @@ const GoalsPage = () => {
   const selectedGoalTasks = selectedGoalId ? tasks.filter((t) => t.goal_id === selectedGoalId) : [];
 
   return (
-    <div className="min-h-screen bg-background pb-24 lg:pl-20 lg:pb-6">
+    <div className="min-h-screen bg-background">
       <div className="max-w-[430px] lg:max-w-[800px] mx-auto px-5 pt-6 space-y-6">
         <div className="space-y-1">
           <span className="text-primary font-medium tracking-wider uppercase text-xs">Gestión de Metas</span>
@@ -192,12 +193,17 @@ const GoalsPage = () => {
                         </div>
                       )}
                     </button>
-                    <div className="px-4 pb-3">
+                    <div className="px-4 pb-3 flex gap-2">
+                       <button onClick={() => { setTargetGoalId(goal.id); setCaptureOpen(true); }}
+                        className="flex-1 py-2 rounded-lg bg-surface-container-high text-foreground text-xs font-bold flex items-center justify-center gap-1.5 hover:bg-surface-container-highest transition-colors">
+                        <Plus className="w-3.5 h-3.5" /> Tarea
+                      </button>
                       <button onClick={() => handleCompleteGoal(goal.id)}
-                        className="w-full py-2 rounded-lg bg-primary/10 text-primary text-xs font-bold flex items-center justify-center gap-1.5 hover:bg-primary/20 transition-colors">
-                        <Check className="w-3.5 h-3.5" /> Marcar como lograda
+                        className="flex-1 py-2 rounded-lg bg-primary/10 text-primary text-xs font-bold flex items-center justify-center gap-1.5 hover:bg-primary/20 transition-colors">
+                        <Check className="w-3.5 h-3.5" /> Logrado
                       </button>
                     </div>
+
                   </div>
                 );
               })}
@@ -237,8 +243,13 @@ const GoalsPage = () => {
       </div>
 
       <FAB onClick={openCaptureInVoiceMode} />
-      <BottomNav />
-      <TaskCaptureModal ref={captureModalRef} open={captureOpen} onClose={() => setCaptureOpen(false)} />
+      <TaskCaptureModal 
+        ref={captureModalRef} 
+        open={captureOpen} 
+        onClose={() => { setCaptureOpen(false); setTargetGoalId(null); }} 
+        goalId={targetGoalId}
+      />
+
     </div>
   );
 };

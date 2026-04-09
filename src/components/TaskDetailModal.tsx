@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Play, Clock, Calendar, Flag, Tag, FolderOpen } from 'lucide-react';
+import { X, Play, Clock, Calendar, Flag, Tag, FolderOpen, Trash2, Repeat, ChevronRight, Plus } from 'lucide-react';
+
 import { useTasks } from '@/hooks/useTasks';
 import { useContexts } from '@/hooks/useContexts';
 import { useFolders } from '@/hooks/useFolders';
 import { toast } from 'sonner';
 import FullscreenTimer from './FullscreenTimer';
+
 
 interface TaskDetailModalProps {
   task: any;
@@ -14,7 +16,7 @@ interface TaskDetailModalProps {
 }
 
 const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
-  const { updateTask } = useTasks();
+  const { updateTask, deleteTask } = useTasks();
   const { contexts } = useContexts();
   const { folders } = useFolders();
 
@@ -28,6 +30,11 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
   const [folderId, setFolderId] = useState<string | null>(null);
   const [status, setStatus] = useState('pending');
   const [timerOpen, setTimerOpen] = useState(false);
+  const [showRecurrence, setShowRecurrence] = useState(false);
+  const [recurrenceFreq, setRecurrenceFreq] = useState<'daily'|'weekly'|'monthly'|'none'>('none');
+  const [subtasks, setSubtasks] = useState<any[]>([]);
+  const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
+
 
   useEffect(() => {
     if (task && open) {
@@ -68,6 +75,15 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
     onClose();
   };
 
+  const handleDelete = () => {
+    if (window.confirm('¿Estás seguro de que quieres borrar esta tarea?')) {
+      deleteTask.mutate(task.id);
+      toast.success('Tarea eliminada');
+      onClose();
+    }
+  };
+
+
   if (!open || !task) return null;
 
   return (
@@ -88,8 +104,14 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
                 <div className="p-6 space-y-5">
                   <div className="flex justify-between items-center">
                     <h2 className="text-lg font-bold text-foreground">Editar tarea</h2>
-                    <button onClick={onClose} className="text-on-surface-variant"><X className="w-5 h-5" /></button>
+                    <div className="flex items-center gap-3">
+                      <button onClick={handleDelete} className="text-on-surface-variant hover:text-error transition-colors">
+                        <Trash2 className="w-5 h-5" />
+                      </button>
+                      <button onClick={onClose} className="text-on-surface-variant"><X className="w-5 h-5" /></button>
+                    </div>
                   </div>
+
 
                   {/* Start Timer Button */}
                   {status === 'pending' && (
@@ -161,6 +183,62 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
                   </div>
 
                   <div className="space-y-1.5">
+                    <button onClick={() => setShowRecurrence(!showRecurrence)}
+                      className={`w-full p-3 rounded-lg text-sm font-semibold flex items-center justify-between transition-all ${recurrenceFreq !== 'none' ? 'bg-primary/20 text-primary ring-1 ring-primary/30' : 'bg-surface-container-high text-on-surface-variant'}`}>
+                      <div className="flex items-center gap-2">
+                        <Repeat className="w-4 h-4" /> 
+                        <span>{recurrenceFreq === 'none' ? 'Sin recurrencia' : `Recurrencia: ${recurrenceFreq}`}</span>
+                      </div>
+                      <ChevronRight className={`w-4 h-4 transition-transform ${showRecurrence ? 'rotate-90' : ''}`} />
+                    </button>
+                    <AnimatePresence>
+                      {showRecurrence && (
+                        <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+                          <div className="flex bg-surface-container-highest rounded-lg p-1 mt-1 gap-1">
+                            {['none', 'daily', 'weekly', 'monthly'].map((f) => (
+                              <button key={f} onClick={() => setRecurrenceFreq(f as any)}
+                                className={`flex-1 py-1.5 rounded-md text-[10px] font-bold uppercase transition-all ${recurrenceFreq === f ? 'bg-primary text-primary-foreground' : 'text-on-surface-variant hover:bg-surface-container-low'}`}>
+                                {f === 'none' ? 'No' : f === 'daily' ? 'Día' : f === 'weekly' ? 'Sem' : 'Mes'}
+                              </button>
+                            ))}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+
+                  <div className="space-y-3 pt-2">
+                    <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Subtareas</label>
+                    <div className="space-y-2">
+                      {subtasks.map((st, i) => (
+                        <div key={i} className="flex items-center gap-3 p-2 bg-surface-container-high rounded-lg">
+                          <div className="w-4 h-4 rounded border border-outline-variant" />
+                          <span className="text-sm text-foreground">{st.title}</span>
+                        </div>
+                      ))}
+                      <div className="flex gap-2">
+                        <input value={newSubtaskTitle} onChange={(e) => setNewSubtaskTitle(e.target.value)}
+                          placeholder="Añadir subtarea..."
+                          className="flex-1 bg-surface-container-high rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary border-none"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && newSubtaskTitle.trim()) {
+                              setSubtasks([...subtasks, { title: newSubtaskTitle.trim() }]);
+                              setNewSubtaskTitle('');
+                            }
+                          }} />
+                        <button onClick={() => {
+                          if (newSubtaskTitle.trim()) {
+                            setSubtasks([...subtasks, { title: newSubtaskTitle.trim() }]);
+                            setNewSubtaskTitle('');
+                          }
+                        }} className="p-2 rounded-lg bg-primary/10 text-primary">
+                          <Plus className="w-5 h-5 text-primary" strokeWidth={3} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
                     <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Estado</label>
                     <div className="flex gap-2">
                       {['pending', 'done', 'skipped'].map((s) => (
@@ -171,6 +249,7 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
                       ))}
                     </div>
                   </div>
+
 
                   <button onClick={handleSave} className="w-full py-3.5 rounded-xl primary-gradient text-primary-foreground font-bold text-sm">
                     Guardar cambios

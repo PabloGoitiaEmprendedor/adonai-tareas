@@ -6,7 +6,6 @@ import { useGlobalVoiceCapture } from '@/hooks/useGlobalVoiceCapture';
 import { format, addDays } from 'date-fns';
 import { Check, Flag, Plus, GripVertical, Timer } from 'lucide-react';
 import { motion } from 'framer-motion';
-import BottomNav from '@/components/BottomNav';
 import FAB from '@/components/FAB';
 import TaskCaptureModal, { type TaskCaptureModalHandle } from '@/components/TaskCaptureModal';
 import TaskDetailModal from '@/components/TaskDetailModal';
@@ -120,7 +119,7 @@ const DailyPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-24 lg:pl-20 lg:pb-6">
+    <div className="min-h-screen bg-background">
       <div className="max-w-[430px] lg:max-w-[800px] mx-auto px-5 pt-6 space-y-6">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
@@ -210,7 +209,6 @@ const DailyPage = () => {
       </div>
 
       <FAB onClick={openCaptureInVoiceMode} />
-      <BottomNav />
       <TaskCaptureModal ref={captureModalRef} open={captureOpen} onClose={() => setCaptureOpen(false)} />
       <TaskDetailModal task={selectedTask} open={!!selectedTask} onClose={() => setSelectedTask(null)} />
       <FullscreenTimer task={timerTask} open={!!timerTask} onClose={() => setTimerTask(null)} />

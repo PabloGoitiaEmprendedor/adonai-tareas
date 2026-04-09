@@ -20,6 +20,8 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
+import NavigationWrapper from "@/components/NavigationWrapper";
+
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
   const { profile, isLoading: profileLoading } = useProfile();
@@ -38,8 +40,13 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     return <Navigate to="/onboarding" replace />;
   }
 
-  return <>{children}</>;
+  return (
+    <NavigationWrapper>
+      {children}
+    </NavigationWrapper>
+  );
 };
+
 
 const AppRoutes = () => {
   const { user, loading } = useAuth();
