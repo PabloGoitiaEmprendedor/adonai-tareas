@@ -149,7 +149,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
         </header>
 
         <SheetContent side="left" className="w-[280px] glass-sheet border-r-outline-variant/20 p-0">
-          <SidebarContent user={user} menuItems={menuItems} location={location} handleNavigate={handleNavigate} signOut={signOut} />
+          <SidebarContent user={user} menuItems={menuItems} location={location} handleNavigate={handleNavigate} signOut={signOut} isSheet />
         </SheetContent>
       </Sheet>
 
