@@ -5,15 +5,13 @@ const BottomNav = () => {
   const location = useLocation();
 
   const navItems = [
-    { icon: Calendar, label: 'Hoy', path: '/today' },
+    { icon: Calendar, label: 'Semana', path: '/week' },
     { icon: FolderOpen, label: 'Carpetas', path: '/folders' },
     { icon: Target, label: 'Metas', path: '/goals' },
   ];
 
-
-
   return (
-    <nav className="fixed bottom-0 inset-x-0 h-20 glass-sheet border-t border-outline-variant/30 px-6 pb-6 pt-2 z-50 lg:hidden rounded-t-[32px] shadow-[0_-8px_30px_rgb(0,0,0,0.12)]">
+    <nav className="fixed bottom-0 inset-x-0 h-16 glass-sheet border-t border-outline-variant/30 px-6 pb-4 pt-1.5 z-50 lg:hidden rounded-t-2xl shadow-[0_-4px_20px_rgb(0,0,0,0.08)]">
       <div className="flex items-center justify-around h-full max-w-md mx-auto">
         {navItems.map((item) => {
           const isActive = location.pathname === item.path;
@@ -21,18 +19,18 @@ const BottomNav = () => {
             <Link
               key={item.path}
               to={item.path}
-              className={`flex flex-col items-center gap-1 min-w-[64px] transition-all duration-300 ${
+              className={`flex flex-col items-center gap-0.5 min-w-[56px] transition-all duration-300 ${
                 isActive ? 'text-primary' : 'text-on-surface-variant/60 hover:text-on-surface-variant'
               }`}
             >
               <div
-                className={`p-2 rounded-2xl transition-all duration-300 ${
+                className={`p-1.5 rounded-xl transition-all duration-300 ${
                   isActive ? 'bg-primary/10 scale-110' : ''
                 }`}
               >
-                <item.icon className="w-6 h-6" strokeWidth={isActive ? 2.5 : 2} />
+                <item.icon className="w-5 h-5" strokeWidth={isActive ? 2.5 : 2} />
               </div>
-              <span className={`text-[10px] font-bold tracking-tight ${isActive ? 'opacity-100' : 'opacity-60'}`}>
+              <span className={`text-[9px] font-bold tracking-tight ${isActive ? 'opacity-100' : 'opacity-60'}`}>
                 {item.label}
               </span>
             </Link>
