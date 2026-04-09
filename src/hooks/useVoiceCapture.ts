@@ -33,25 +33,28 @@ export const useVoiceCapture = () => {
     recognition.continuous = true;
     recognition.interimResults = true;
 
+
     recognition.onresult = (event: any) => {
       let finalTranscript = '';
       let interimTranscript = '';
       
       for (let i = 0; i < event.results.length; ++i) {
+        const facet = event.results[i][0].transcript;
         if (event.results[i].isFinal) {
-          finalTranscript += event.results[i][0].transcript;
+          finalTranscript += facet;
         } else {
-          interimTranscript += event.results[i][0].transcript;
+          interimTranscript += facet;
         }
       }
       
-      const fullTranscript = (finalTranscript + interimTranscript).trim();
-      setTranscript(fullTranscript);
+      const fullTranscriptResult = (finalTranscript + interimTranscript).trim();
+      setTranscript(fullTranscriptResult);
       
       const lastResult = event.results[event.results.length - 1];
       if (lastResult.isFinal) {
         setConfidence(lastResult[0].confidence || 0);
       }
+
     };
 
     recognition.onstart = () => {
