@@ -124,11 +124,13 @@ const ProfilePage = () => {
   const themeOptions = [
     { value: 'dark', label: 'Oscuro' },
     { value: 'light', label: 'Claro' },
+    { value: 'system', label: 'Sistema' },
   ];
 
   const inputLabels: Record<string, string> = { voice: 'Voz', text: 'Texto', both: 'Ambos' };
   const styleLabels: Record<string, string> = { simple: 'Simple', intermediate: 'Intermedio', guided: 'Guiado' };
-  const themeLabels: Record<string, string> = { dark: 'Oscuro', light: 'Claro' };
+  const themeLabels: Record<string, string> = { dark: 'Oscuro', light: 'Claro', system: 'Sistema' };
+
 
   const OptionSelector = ({ field, options, currentValue, onSelect }: {
     field: string; options: { value: string; label: string }[]; currentValue: string; onSelect: (v: string) => void;

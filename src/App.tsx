@@ -28,14 +28,27 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { profile, isLoading: profileLoading } = useProfile();
 
   useEffect(() => {
-    if (profile?.theme) {
-      if (profile.theme === 'dark') {
-        document.documentElement.classList.add('dark');
+    const applyTheme = (theme: string) => {
+      if (theme === 'system') {
+        const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        document.documentElement.classList.toggle('dark', isDark);
       } else {
-        document.documentElement.classList.remove('dark');
+        document.documentElement.classList.toggle('dark', theme === 'dark');
+      }
+    };
+
+    if (profile?.theme) {
+      applyTheme(profile.theme);
+      
+      if (profile.theme === 'system') {
+        const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+        const handleChange = () => applyTheme('system');
+        mediaQuery.addEventListener('change', handleChange);
+        return () => mediaQuery.removeEventListener('change', handleChange);
       }
     }
   }, [profile?.theme]);
+
 
   if (loading || profileLoading) {
     return (

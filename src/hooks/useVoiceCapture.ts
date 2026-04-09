@@ -20,18 +20,31 @@ export const useVoiceCapture = () => {
 
     const recognition = new SpeechRecognition();
     recognition.lang = 'es-ES';
-    recognition.continuous = false;
+    recognition.continuous = true;
     recognition.interimResults = true;
 
     recognition.onresult = (event: any) => {
-      const results = Array.from(event.results);
-      const text = results.map((r: any) => r[0].transcript).join('');
-      setTranscript(text);
-      const lastResult = results[results.length - 1] as any;
-      if (lastResult && lastResult.isFinal) {
-        setConfidence(lastResult[0].confidence || 0);
+      let finalTranscript = '';
+      let interimTranscript = '';
+
+      for (let i = event.resultIndex; i < event.results.length; ++i) {
+        if (event.results[i].isFinal) {
+          finalTranscript += event.results[i][0].transcript;
+          setConfidence(event.results[i][0].confidence || 0);
+        } else {
+          interimTranscript += event.results[i][0].transcript;
+        }
       }
+
+      setTranscript((prev) => {
+        // Simple logic to keep context or just overwrite with the full current results
+        const fullCurrent = Array.from(event.results)
+          .map((res: any) => res[0].transcript)
+          .join(' ');
+        return fullCurrent;
+      });
     };
+
 
     recognition.onend = () => {
       setIsRecording(false);
