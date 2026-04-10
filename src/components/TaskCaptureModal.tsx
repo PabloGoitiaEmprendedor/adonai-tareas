@@ -100,8 +100,11 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
   useEffect(() => {
     if (transcript && !isRecording && sourceType === 'voice') {
       setTitle(transcript);
+      if (phase === 'saving') {
+        handleTitleDone();
+      }
     }
-  }, [transcript, isRecording, sourceType]);
+  }, [transcript, isRecording, sourceType, phase]);
 
   const handleClose = () => {
     if (isRecording) {
@@ -110,7 +113,7 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
     onClose();
   };
 
-  const handleTitleDone = async () => {
+  const handleTitleDone = useCallback(async () => {
     const rawTitle = title.trim();
     if (!rawTitle) { toast.error('Escribe o dicta una tarea'); return; }
 
@@ -140,7 +143,7 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
     }
 
     await runClassificationAndSave(parsedTitle, parsedDate, sourceForClassification || parsedTitle, rawTitle);
-  };
+  }, [title, dueDate, sourceType]);
 
   const handleDateDone = async () => {
     await runClassificationAndSave(title, dueDate, classificationSource || title, classificationSource || title);
@@ -245,10 +248,7 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
                       )}
                       <div className="w-full text-center min-h-[60px]">
                         {isRecording ? (
-                          <p className="text-2xl font-semibold text-foreground leading-relaxed tracking-tight">
-                            {transcript || title}
-                            <span className="text-primary inline-block w-0.5 h-6 ml-1 align-middle animate-pulse-soft">|</span>
-                          </p>
+                          <p className="text-sm text-on-surface-variant/60 mt-2">Escuchando...</p>
                         ) : title || transcript ? (
                           <p className="text-2xl font-semibold text-foreground leading-relaxed tracking-tight">
                             {title || transcript}
@@ -271,7 +271,7 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
                       </div>
                       <div className="flex gap-4 items-center">
                         {isRecording ? (
-                          <button onClick={() => { stopRecording(); setTimeout(handleTitleDone, 500); }} className="w-16 h-16 rounded-full primary-gradient flex items-center justify-center shadow-lg shadow-primary/20">
+                          <button onClick={() => { stopRecording(); setPhase('saving'); }} className="w-16 h-16 rounded-full primary-gradient flex items-center justify-center shadow-lg shadow-primary/20">
                             <Square className="w-6 h-6 text-primary-foreground" fill="currentColor" />
                           </button>
                         ) : (
