@@ -1,10 +1,11 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { useFolders } from '@/hooks/useFolders';
 import { useTasks } from '@/hooks/useTasks';
 import { useFriendships } from '@/hooks/useFriendships';
 import { useFolderShares } from '@/hooks/useFolderShares';
 import { useAuth } from '@/contexts/AuthContext';
 import { useGlobalVoiceCapture } from '@/hooks/useGlobalVoiceCapture';
+import { supabase } from '@/integrations/supabase/client';
 import { FolderOpen, Plus, ChevronRight, Lock, Users, MoreVertical, Trash2, Check, Timer, UserPlus, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import FAB from '@/components/FAB';
@@ -19,8 +20,8 @@ const FoldersPage = () => {
   const { folders, createFolder, updateFolder, deleteFolder } = useFolders();
   const { tasks, updateTask } = useTasks();
   const { user } = useAuth();
-  const { friends: friendships, searchUsers } = useFriendships();
-  const [friendProfiles, setFriendProfiles] = useState<any[]>([]);
+  const { friends: acceptedFriendships } = useFriendships();
+  const [friendProfiles, setFriendProfiles] = useState<{ user_id: string; name: string | null; email: string | null }[]>([]);
   const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState('');
