@@ -165,6 +165,7 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
       folder_id: null,
       recurrence_id: null,
       created_new_folder: null,
+      due_date: null as string | null,
     };
 
     const classificationPromise = classifyTask(classificationInput, date);
@@ -178,6 +179,7 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
       const cls = result || defaults;
       const finalTitle = cls.refined_title || taskTitle;
       const finalDescription = cls.description || '';
+      const finalDate = (cls as any).due_date || date || format(new Date(), 'yyyy-MM-dd');
 
       const task = await createTask.mutateAsync({
         title: finalTitle,
@@ -191,8 +193,7 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
         folder_id: folderId || cls.folder_id || null,
         recurrence_id: cls.recurrence_id || null,
         estimated_minutes: cls.estimated_minutes || defaults.estimated_minutes,
-
-        due_date: date || format(new Date(), 'yyyy-MM-dd'),
+        due_date: finalDate,
       });
 
       if (cls.created_new_folder) {
