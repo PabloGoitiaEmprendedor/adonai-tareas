@@ -54,18 +54,21 @@ serve(async (req) => {
     const goalsList = goals.map((g: any) => `${g.title} [id: ${g.id}] (${g.horizon})`).join(", ");
     const foldersList = folders.map((f: any) => `${f.name} (id: ${f.id})`).join(", ");
 
-    const systemPrompt = `Eres Adonai, un asistente de productividad experto. Tu trabajo es:
-1. Analizar lo que el usuario dice (puede ser una transcripción de voz larga y desordenada) y extraer la TAREA real.
-2. Crear un título claro, conciso y accionable para la tarea (máximo 60 caracteres).
-3. Si hay detalles adicionales, crear una descripción breve.
-4. Clasificar la tarea automáticamente.
-5. ASIGNAR A UNA CARPETA: Analiza el contenido de la tarea y asígnala a la carpeta más apropiada. Si ninguna carpeta existente es adecuada, sugiere crear una nueva con suggest_new_folder_name.
-6. DETECTAR RECURRENCIA: Si el usuario menciona patrones recurrentes (todos los días, cada lunes, cada mes, etc.), extrae la regla de recurrencia.
+    const todayStr = new Date().toISOString().split("T")[0];
+    const systemPrompt = `Eres Adonai, un asistente de productividad experto. Hoy es ${todayStr}.
 
-IMPORTANTE: El usuario puede dictar algo largo como "oye mira necesito que mañana me acuerde de ir al banco a sacar la tarjeta nueva porque la otra se me venció". Tú debes convertir eso en:
-- Título: "Ir al banco por tarjeta nueva"
-- Descripción: "La tarjeta anterior está vencida"
-- Carpeta: "Personal" (si existe)
+Tu trabajo es:
+1. Analizar lo que el usuario dice (puede ser una transcripción de voz larga y desordenada) y extraer la TAREA real.
+2. Crear un título claro, conciso y accionable para la tarea (máximo 60 caracteres). El título NO debe incluir fechas ni información temporal.
+3. Si hay detalles adicionales, crear una descripción breve.
+4. EXTRAER LA FECHA: Analiza cuidadosamente cuándo el usuario quiere hacer la tarea. "hoy" = ${todayStr}, "mañana" = día siguiente, "el lunes" = próximo lunes, "el 15 de julio" = 2026-07-15, etc. Devuelve la fecha en formato YYYY-MM-DD en el campo due_date.
+5. Clasificar la tarea automáticamente.
+6. ASIGNAR A UNA CARPETA.
+
+EJEMPLO: El usuario dicta "oye mira necesito que mañana me acuerde de ir al banco a sacar la tarjeta nueva porque la otra se me venció". Resultado:
+- refined_title: "Ir al banco por tarjeta nueva"
+- description: "La tarjeta anterior está vencida"
+- due_date: (fecha de mañana en YYYY-MM-DD)
 
 PATRONES DE RECURRENCIA a detectar:
 - "todos los días" → frequency: daily, interval: 1
@@ -117,8 +120,9 @@ ${existingTasks.map((t: any) => `- ${t.title} (${t.priority}, fecha: ${t.due_dat
               parameters: {
                 type: "object",
                 properties: {
-                  refined_title: { type: "string", description: "Título claro y conciso de la tarea (máx 60 chars)" },
+                  refined_title: { type: "string", description: "Título claro y conciso de la tarea (máx 60 chars). NO incluir fechas, recurrencia ni contexto temporal." },
                   description: { type: "string", description: "Descripción breve con detalles adicionales. Vacío si no hay detalles extra." },
+                  due_date: { type: "string", description: "Fecha en formato YYYY-MM-DD. Analiza lo que dice el usuario: 'hoy', 'mañana', 'el lunes', 'el 15 de julio', etc. Si no menciona fecha, devuelve null." },
                   importance: { type: "boolean" },
                   urgency: { type: "boolean" },
                   priority: { type: "string", enum: ["high", "medium", "low"] },
@@ -133,7 +137,7 @@ ${existingTasks.map((t: any) => `- ${t.title} (${t.priority}, fecha: ${t.due_dat
                     properties: {
                       frequency: { type: "string", enum: ["daily", "weekly", "monthly", "yearly"] },
                       interval: { type: "number", description: "Cada cuántas unidades (1 = cada, 2 = cada 2, etc.)" },
-                      days_of_week: { type: "array", items: { type: "number" }, description: "0=Dom, 1=Lun, ..., 6=Sáb" },
+                      days_of_week: { type: "array", items: { type: "number" }, description: "Usa JS getDay(): 0=Domingo, 1=Lunes, 2=Martes, 3=Miércoles, 4=Jueves, 5=Viernes, 6=Sábado" },
                       day_of_month: { type: "number", description: "Día del mes (1-31)" },
                     },
                     required: ["frequency", "interval"],

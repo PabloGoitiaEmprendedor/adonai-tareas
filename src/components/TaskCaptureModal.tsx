@@ -142,6 +142,7 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
     if (transcript && !isRecording && sourceType === 'voice' && !voiceProcessedRef.current) {
       voiceProcessedRef.current = true;
       setTitle(transcript);
+      setPhase('saving');
       handleTitleDone(transcript);
     }
   }, [transcript, isRecording, sourceType, handleTitleDone]);
@@ -165,6 +166,7 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
       folder_id: null,
       recurrence_id: null,
       created_new_folder: null,
+      due_date: null as string | null,
     };
 
     const classificationPromise = classifyTask(classificationInput, date);
@@ -178,6 +180,7 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
       const cls = result || defaults;
       const finalTitle = cls.refined_title || taskTitle;
       const finalDescription = cls.description || '';
+      const finalDate = (cls as any).due_date || date || format(new Date(), 'yyyy-MM-dd');
 
       const task = await createTask.mutateAsync({
         title: finalTitle,
@@ -191,8 +194,7 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
         folder_id: folderId || cls.folder_id || null,
         recurrence_id: cls.recurrence_id || null,
         estimated_minutes: cls.estimated_minutes || defaults.estimated_minutes,
-
-        due_date: date || format(new Date(), 'yyyy-MM-dd'),
+        due_date: finalDate,
       });
 
       if (cls.created_new_folder) {
@@ -247,19 +249,19 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
                           ))}
                         </div>
                       )}
-                      <div className="w-full text-center min-h-[60px]">
-                        {isRecording ? null : title || transcript ? (
-                          <p className="text-2xl font-semibold text-foreground leading-relaxed tracking-tight">
-                            {title || transcript}
-                          </p>
-                        ) : showTextInput ? (
-
+                      {isRecording && transcript && (
+                        <p className="text-sm text-on-surface-variant/60 text-center animate-pulse max-w-[90%] truncate">
+                          {transcript}
+                        </p>
+                      )}
+                      {!isRecording && showTextInput && (
+                        <div className="w-full text-center min-h-[60px]">
                           <input autoFocus value={title} onChange={(e) => setTitle(e.target.value)}
                             placeholder="¿Qué necesitas hacer?"
                             className="w-full text-xl text-center bg-transparent text-foreground placeholder:text-on-surface-variant/40 focus:outline-none border-none"
-                            onKeyDown={(e) => e.key === 'Enter' && handleTitleDone()} />
-                        ) : null}
-                      </div>
+                            onKeyDown={(e) => { if (e.key === 'Enter') handleTitleDone(); }} />
+                        </div>
+                      )}
                       <p className="text-[11px] text-on-surface-variant/60 text-center">
                         💡 Di lo que necesitas. La IA lo analiza y crea la tarea con un nombre claro.
                       </p>
@@ -270,7 +272,7 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
                       </div>
                       <div className="flex gap-4 items-center">
                         {isRecording ? (
-                          <button onClick={() => { stopRecording(); setPhase('saving'); }} className="w-16 h-16 rounded-full primary-gradient flex items-center justify-center shadow-lg shadow-primary/20">
+                          <button onClick={() => stopRecording()} className="w-16 h-16 rounded-full primary-gradient flex items-center justify-center shadow-lg shadow-primary/20">
                             <Square className="w-6 h-6 text-primary-foreground" fill="currentColor" />
                           </button>
                         ) : (
@@ -281,7 +283,7 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
                               </button>
                             )}
                             {(title || showTextInput) && (
-                              <button onClick={handleTitleDone} className="px-6 py-3 rounded-full primary-gradient text-primary-foreground font-bold text-sm">Crear</button>
+                              <button onClick={() => handleTitleDone()} className="px-6 py-3 rounded-full primary-gradient text-primary-foreground font-bold text-sm">Crear</button>
                             )}
                           </>
                         )}
