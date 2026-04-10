@@ -113,6 +113,38 @@ export type Database = {
         }
         Relationships: []
       }
+      folder_shares: {
+        Row: {
+          created_at: string
+          folder_id: string
+          id: string
+          owner_id: string
+          shared_with_id: string
+        }
+        Insert: {
+          created_at?: string
+          folder_id: string
+          id?: string
+          owner_id: string
+          shared_with_id: string
+        }
+        Update: {
+          created_at?: string
+          folder_id?: string
+          id?: string
+          owner_id?: string
+          shared_with_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "folder_shares_folder_id_fkey"
+            columns: ["folder_id"]
+            isOneToOne: false
+            referencedRelation: "folders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       folders: {
         Row: {
           color: string | null
