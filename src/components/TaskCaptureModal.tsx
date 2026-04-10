@@ -271,7 +271,7 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
                       </div>
                       <div className="flex gap-4 items-center">
                         {isRecording ? (
-                          <button onClick={() => { stopRecording(); setPhase('saving'); }} className="w-16 h-16 rounded-full primary-gradient flex items-center justify-center shadow-lg shadow-primary/20">
+                          <button onClick={() => stopRecording()} className="w-16 h-16 rounded-full primary-gradient flex items-center justify-center shadow-lg shadow-primary/20">
                             <Square className="w-6 h-6 text-primary-foreground" fill="currentColor" />
                           </button>
                         ) : (
