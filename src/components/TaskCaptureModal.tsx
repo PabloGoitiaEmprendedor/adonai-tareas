@@ -100,11 +100,9 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
   useEffect(() => {
     if (transcript && !isRecording && sourceType === 'voice') {
       setTitle(transcript);
-      if (phase === 'saving') {
-        handleTitleDone();
-      }
+      handleTitleDone();
     }
-  }, [transcript, isRecording, sourceType, phase]);
+  }, [transcript, isRecording, sourceType, handleTitleDone]);
 
   const handleClose = () => {
     if (isRecording) {
@@ -247,9 +245,7 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
                         </div>
                       )}
                       <div className="w-full text-center min-h-[60px]">
-                        {isRecording ? (
-                          <p className="text-sm text-on-surface-variant/60 mt-2">Escuchando...</p>
-                        ) : title || transcript ? (
+                        {isRecording ? null : title || transcript ? (
                           <p className="text-2xl font-semibold text-foreground leading-relaxed tracking-tight">
                             {title || transcript}
                           </p>

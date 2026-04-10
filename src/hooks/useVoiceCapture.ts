@@ -45,24 +45,16 @@ export const useVoiceCapture = () => {
       if (sessionRef.current !== sessionId) return;
 
       let interimTranscript = '';
-      
       for (let i = event.resultIndex; i < event.results.length; ++i) {
-        const facet = event.results[i][0].transcript;
+        const chunk = event.results[i][0].transcript;
         if (event.results[i].isFinal) {
-          finalTranscriptRef.current += facet;
+          finalTranscriptRef.current += chunk;
+          setConfidence(event.results[i][0].confidence || 0);
         } else {
-          interimTranscript += facet;
+          interimTranscript += chunk;
         }
       }
-      
-      const fullTranscriptResult = (finalTranscriptRef.current + interimTranscript).trim();
-      setTranscript(fullTranscriptResult);
-      
-      const lastResult = event.results[event.results.length - 1];
-      if (lastResult.isFinal) {
-        setConfidence(lastResult[0].confidence || 0);
-      }
-
+      setTranscript((finalTranscriptRef.current + interimTranscript).trim());
     };
 
     recognition.onstart = () => {
