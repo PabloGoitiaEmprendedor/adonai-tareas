@@ -128,12 +128,10 @@ const FoldersPage = () => {
                 <div className="space-y-2">
                   <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">Compartida con:</p>
                   {shares.map((share: any) => {
-                    const friend = acceptedFriends.find((f: any) => 
-                      f.friend_profile?.user_id === share.shared_with_id
-                    );
+                    const profile = friendProfiles.find(p => p.user_id === share.shared_with_id);
                     return (
                       <div key={share.id} className="flex items-center justify-between p-3 rounded-lg bg-surface-container-high">
-                        <span className="text-sm text-foreground">{friend?.friend_profile?.name || friend?.friend_profile?.email || 'Amigo'}</span>
+                        <span className="text-sm text-foreground">{profile?.name || profile?.email || 'Amigo'}</span>
                         <button onClick={() => handleRemoveShare(share.id)} className="text-error text-xs font-semibold">Quitar</button>
                       </div>
                     );
@@ -144,15 +142,15 @@ const FoldersPage = () => {
               {/* Add friends */}
               <div className="space-y-2">
                 <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">Añadir amigos:</p>
-                {acceptedFriends.length === 0 ? (
+                {friendProfiles.length === 0 ? (
                   <p className="text-sm text-on-surface-variant">No tienes amigos añadidos aún</p>
                 ) : (
-                  acceptedFriends
-                    .filter((f: any) => !sharedWithIds.includes(f.friend_profile?.user_id))
-                    .map((friend: any) => (
-                      <button key={friend.id} onClick={() => handleShareWithFriend(friend.friend_profile?.user_id)}
+                  friendProfiles
+                    .filter(p => !sharedWithIds.includes(p.user_id))
+                    .map((profile) => (
+                      <button key={profile.user_id} onClick={() => handleShareWithFriend(profile.user_id)}
                         className="w-full flex items-center justify-between p-3 rounded-lg bg-surface-container-high hover:bg-surface-container-highest transition-colors">
-                        <span className="text-sm text-foreground">{friend.friend_profile?.name || friend.friend_profile?.email}</span>
+                        <span className="text-sm text-foreground">{profile.name || profile.email}</span>
                         <UserPlus className="w-4 h-4 text-primary" />
                       </button>
                     ))
