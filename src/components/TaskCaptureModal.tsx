@@ -257,7 +257,7 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
                           <input autoFocus value={title} onChange={(e) => setTitle(e.target.value)}
                             placeholder="¿Qué necesitas hacer?"
                             className="w-full text-xl text-center bg-transparent text-foreground placeholder:text-on-surface-variant/40 focus:outline-none border-none"
-                            onKeyDown={(e) => e.key === 'Enter' && handleTitleDone()} />
+                            onKeyDown={(e) => { if (e.key === 'Enter') handleTitleDone(); }} />
                         ) : null}
                       </div>
                       <p className="text-[11px] text-on-surface-variant/60 text-center">
@@ -281,7 +281,7 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
                               </button>
                             )}
                             {(title || showTextInput) && (
-                              <button onClick={handleTitleDone} className="px-6 py-3 rounded-full primary-gradient text-primary-foreground font-bold text-sm">Crear</button>
+                              <button onClick={() => handleTitleDone()} className="px-6 py-3 rounded-full primary-gradient text-primary-foreground font-bold text-sm">Crear</button>
                             )}
                           </>
                         )}
