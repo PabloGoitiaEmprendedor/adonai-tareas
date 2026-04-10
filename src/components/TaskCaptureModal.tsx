@@ -38,8 +38,10 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
   const [fallbackEstimatedMinutes, setFallbackEstimatedMinutes] = useState<number | null>(null);
   const requestedVoiceOpenRef = useRef(false);
   const mountedRef = useRef(false);
+  const voiceProcessedRef = useRef(false);
 
   const beginVoiceCapture = useCallback(() => {
+    voiceProcessedRef.current = false;
     const started = startRecording();
     if (started) {
       setSourceType('voice');
@@ -104,8 +106,8 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
     onClose();
   };
 
-  const handleTitleDone = useCallback(async () => {
-    const rawTitle = title.trim();
+  const handleTitleDone = useCallback(async (overrideTitle?: string) => {
+    const rawTitle = (overrideTitle || title).trim();
     if (!rawTitle) { toast.error('Escribe o dicta una tarea'); return; }
 
     let parsedTitle = rawTitle;
@@ -137,9 +139,10 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
   }, [title, dueDate, sourceType]);
 
   useEffect(() => {
-    if (transcript && !isRecording && sourceType === 'voice') {
+    if (transcript && !isRecording && sourceType === 'voice' && !voiceProcessedRef.current) {
+      voiceProcessedRef.current = true;
       setTitle(transcript);
-      handleTitleDone();
+      handleTitleDone(transcript);
     }
   }, [transcript, isRecording, sourceType, handleTitleDone]);
 
