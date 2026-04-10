@@ -97,13 +97,6 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
     setSourceType('text');
   }, [open, resetTranscript]);
 
-  useEffect(() => {
-    if (transcript && !isRecording && sourceType === 'voice') {
-      setTitle(transcript);
-      handleTitleDone();
-    }
-  }, [transcript, isRecording, sourceType, handleTitleDone]);
-
   const handleClose = () => {
     if (isRecording) {
       stopRecording();
@@ -142,6 +135,13 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
 
     await runClassificationAndSave(parsedTitle, parsedDate, sourceForClassification || parsedTitle, rawTitle);
   }, [title, dueDate, sourceType]);
+
+  useEffect(() => {
+    if (transcript && !isRecording && sourceType === 'voice') {
+      setTitle(transcript);
+      handleTitleDone();
+    }
+  }, [transcript, isRecording, sourceType, handleTitleDone]);
 
   const handleDateDone = async () => {
     await runClassificationAndSave(title, dueDate, classificationSource || title, classificationSource || title);
