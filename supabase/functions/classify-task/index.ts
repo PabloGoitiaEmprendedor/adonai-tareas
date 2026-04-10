@@ -117,8 +117,9 @@ ${existingTasks.map((t: any) => `- ${t.title} (${t.priority}, fecha: ${t.due_dat
               parameters: {
                 type: "object",
                 properties: {
-                  refined_title: { type: "string", description: "Título claro y conciso de la tarea (máx 60 chars)" },
+                  refined_title: { type: "string", description: "Título claro y conciso de la tarea (máx 60 chars). NO incluir fechas, recurrencia ni contexto temporal." },
                   description: { type: "string", description: "Descripción breve con detalles adicionales. Vacío si no hay detalles extra." },
+                  due_date: { type: "string", description: "Fecha en formato YYYY-MM-DD. Analiza lo que dice el usuario: 'hoy', 'mañana', 'el lunes', 'el 15 de julio', etc. Si no menciona fecha, devuelve null." },
                   importance: { type: "boolean" },
                   urgency: { type: "boolean" },
                   priority: { type: "string", enum: ["high", "medium", "low"] },
@@ -133,7 +134,7 @@ ${existingTasks.map((t: any) => `- ${t.title} (${t.priority}, fecha: ${t.due_dat
                     properties: {
                       frequency: { type: "string", enum: ["daily", "weekly", "monthly", "yearly"] },
                       interval: { type: "number", description: "Cada cuántas unidades (1 = cada, 2 = cada 2, etc.)" },
-                      days_of_week: { type: "array", items: { type: "number" }, description: "0=Dom, 1=Lun, ..., 6=Sáb" },
+                      days_of_week: { type: "array", items: { type: "number" }, description: "Usa JS getDay(): 0=Domingo, 1=Lunes, 2=Martes, 3=Miércoles, 4=Jueves, 5=Viernes, 6=Sábado" },
                       day_of_month: { type: "number", description: "Día del mes (1-31)" },
                     },
                     required: ["frequency", "interval"],
