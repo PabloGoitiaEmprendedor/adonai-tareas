@@ -76,7 +76,19 @@ const FoldersPage = () => {
     toast.success('Acceso removido');
   };
 
-  const acceptedFriends = friends.filter((f: any) => f.status === 'accepted');
+  // Get friend user IDs from accepted friendships
+  const friendUserIds = acceptedFriendships.map((f: any) => 
+    f.requester_id === user?.id ? f.addressee_id : f.requester_id
+  );
+
+  // Load friend profiles
+  useEffect(() => {
+    if (friendUserIds.length === 0) { setFriendProfiles([]); return; }
+    supabase.from('profiles').select('user_id, name, email')
+      .in('user_id', friendUserIds)
+      .then(({ data }) => setFriendProfiles(data || []));
+  }, [JSON.stringify(friendUserIds)]);
+
   const sharedWithIds = shares.map((s: any) => s.shared_with_id);
 
   const folderTasks = selectedFolder ? tasks.filter((t) => t.folder_id === selectedFolder) : [];
