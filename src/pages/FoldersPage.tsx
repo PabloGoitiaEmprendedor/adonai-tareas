@@ -3,6 +3,7 @@ import { useFolders } from '@/hooks/useFolders';
 import { useTasks } from '@/hooks/useTasks';
 import { useFriendships } from '@/hooks/useFriendships';
 import { useFolderShares } from '@/hooks/useFolderShares';
+import { useAuth } from '@/contexts/AuthContext';
 import { useGlobalVoiceCapture } from '@/hooks/useGlobalVoiceCapture';
 import { FolderOpen, Plus, ChevronRight, Lock, Users, MoreVertical, Trash2, Check, Timer, UserPlus, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -17,7 +18,9 @@ const FOLDER_COLORS = ['#4BE277', '#4AE176', '#FF8B7C', '#C7C6C6', '#6B9FFF', '#
 const FoldersPage = () => {
   const { folders, createFolder, updateFolder, deleteFolder } = useFolders();
   const { tasks, updateTask } = useTasks();
-  const { friends } = useFriendships();
+  const { user } = useAuth();
+  const { friends: friendships, searchUsers } = useFriendships();
+  const [friendProfiles, setFriendProfiles] = useState<any[]>([]);
   const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState('');
