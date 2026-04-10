@@ -54,18 +54,23 @@ serve(async (req) => {
     const goalsList = goals.map((g: any) => `${g.title} [id: ${g.id}] (${g.horizon})`).join(", ");
     const foldersList = folders.map((f: any) => `${f.name} (id: ${f.id})`).join(", ");
 
-    const systemPrompt = `Eres Adonai, un asistente de productividad experto. Tu trabajo es:
+    const todayStr = new Date().toISOString().split("T")[0];
+    const systemPrompt = `Eres Adonai, un asistente de productividad experto. Hoy es ${todayStr}.
+
+Tu trabajo es:
 1. Analizar lo que el usuario dice (puede ser una transcripción de voz larga y desordenada) y extraer la TAREA real.
-2. Crear un título claro, conciso y accionable para la tarea (máximo 60 caracteres).
+2. Crear un título claro, conciso y accionable para la tarea (máximo 60 caracteres). El título NO debe incluir fechas ni información temporal.
 3. Si hay detalles adicionales, crear una descripción breve.
+4. EXTRAER LA FECHA: Analiza cuidadosamente cuándo el usuario quiere hacer la tarea. "hoy" = ${todayStr}, "mañana" = día siguiente, "el lunes" = próximo lunes, "el 15 de julio" = 2026-07-15, etc. Devuelve la fecha en formato YYYY-MM-DD en el campo due_date.
+5. Clasificar la tarea automáticamente.
+6. ASIGNAR A UNA CARPETA.
+7. DETECTAR RECURRENCIA: Si el usuario menciona patrones recurrentes, extrae la regla. IMPORTANTE: days_of_week usa convención JavaScript: 0=Domingo, 1=Lunes, 2=Martes, 3=Miércoles, 4=Jueves, 5=Viernes, 6=Sábado.
 4. Clasificar la tarea automáticamente.
 5. ASIGNAR A UNA CARPETA: Analiza el contenido de la tarea y asígnala a la carpeta más apropiada. Si ninguna carpeta existente es adecuada, sugiere crear una nueva con suggest_new_folder_name.
 6. DETECTAR RECURRENCIA: Si el usuario menciona patrones recurrentes (todos los días, cada lunes, cada mes, etc.), extrae la regla de recurrencia.
 
+
 IMPORTANTE: El usuario puede dictar algo largo como "oye mira necesito que mañana me acuerde de ir al banco a sacar la tarjeta nueva porque la otra se me venció". Tú debes convertir eso en:
-- Título: "Ir al banco por tarjeta nueva"
-- Descripción: "La tarjeta anterior está vencida"
-- Carpeta: "Personal" (si existe)
 
 PATRONES DE RECURRENCIA a detectar:
 - "todos los días" → frequency: daily, interval: 1
