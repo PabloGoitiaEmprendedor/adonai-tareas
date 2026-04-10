@@ -247,19 +247,19 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
                           ))}
                         </div>
                       )}
-                      <div className="w-full text-center min-h-[60px]">
-                        {isRecording ? null : title || transcript ? (
-                          <p className="text-2xl font-semibold text-foreground leading-relaxed tracking-tight">
-                            {title || transcript}
-                          </p>
-                        ) : showTextInput ? (
-
+                      {isRecording && transcript && (
+                        <p className="text-sm text-on-surface-variant/60 text-center animate-pulse max-w-[90%] truncate">
+                          {transcript}
+                        </p>
+                      )}
+                      {!isRecording && showTextInput && (
+                        <div className="w-full text-center min-h-[60px]">
                           <input autoFocus value={title} onChange={(e) => setTitle(e.target.value)}
                             placeholder="¿Qué necesitas hacer?"
                             className="w-full text-xl text-center bg-transparent text-foreground placeholder:text-on-surface-variant/40 focus:outline-none border-none"
                             onKeyDown={(e) => { if (e.key === 'Enter') handleTitleDone(); }} />
-                        ) : null}
-                      </div>
+                        </div>
+                      )}
                       <p className="text-[11px] text-on-surface-variant/60 text-center">
                         💡 Di lo que necesitas. La IA lo analiza y crea la tarea con un nombre claro.
                       </p>
