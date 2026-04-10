@@ -105,9 +105,8 @@ export const useTasks = (filters?: { date?: string; startDate?: string; endDate?
         if (rule.frequency === 'daily') {
           shouldShow = diffDays % (rule.interval || 1) === 0;
         } else if (rule.frequency === 'weekly') {
-          const dayOfWeek = day.getDay(); 
-          const adjustedDay = dayOfWeek === 0 ? 6 : dayOfWeek - 1; 
-          const isCorrectDay = rule.days_of_week?.includes(adjustedDay) || false;
+          const dayOfWeek = day.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
+          const isCorrectDay = rule.days_of_week?.includes(dayOfWeek) || false;
           
           if (isCorrectDay) {
             const weekDiff = Math.floor(diffDays / 7);
