@@ -64,13 +64,11 @@ Tu trabajo es:
 4. EXTRAER LA FECHA: Analiza cuidadosamente cuándo el usuario quiere hacer la tarea. "hoy" = ${todayStr}, "mañana" = día siguiente, "el lunes" = próximo lunes, "el 15 de julio" = 2026-07-15, etc. Devuelve la fecha en formato YYYY-MM-DD en el campo due_date.
 5. Clasificar la tarea automáticamente.
 6. ASIGNAR A UNA CARPETA.
-7. DETECTAR RECURRENCIA: Si el usuario menciona patrones recurrentes, extrae la regla. IMPORTANTE: days_of_week usa convención JavaScript: 0=Domingo, 1=Lunes, 2=Martes, 3=Miércoles, 4=Jueves, 5=Viernes, 6=Sábado.
-4. Clasificar la tarea automáticamente.
-5. ASIGNAR A UNA CARPETA: Analiza el contenido de la tarea y asígnala a la carpeta más apropiada. Si ninguna carpeta existente es adecuada, sugiere crear una nueva con suggest_new_folder_name.
-6. DETECTAR RECURRENCIA: Si el usuario menciona patrones recurrentes (todos los días, cada lunes, cada mes, etc.), extrae la regla de recurrencia.
 
-
-IMPORTANTE: El usuario puede dictar algo largo como "oye mira necesito que mañana me acuerde de ir al banco a sacar la tarjeta nueva porque la otra se me venció". Tú debes convertir eso en:
+EJEMPLO: El usuario dicta "oye mira necesito que mañana me acuerde de ir al banco a sacar la tarjeta nueva porque la otra se me venció". Resultado:
+- refined_title: "Ir al banco por tarjeta nueva"
+- description: "La tarjeta anterior está vencida"
+- due_date: (fecha de mañana en YYYY-MM-DD)
 
 PATRONES DE RECURRENCIA a detectar:
 - "todos los días" → frequency: daily, interval: 1
