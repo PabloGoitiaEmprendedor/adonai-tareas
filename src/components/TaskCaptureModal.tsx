@@ -142,6 +142,7 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
     if (transcript && !isRecording && sourceType === 'voice' && !voiceProcessedRef.current) {
       voiceProcessedRef.current = true;
       setTitle(transcript);
+      setPhase('saving');
       handleTitleDone(transcript);
     }
   }, [transcript, isRecording, sourceType, handleTitleDone]);
