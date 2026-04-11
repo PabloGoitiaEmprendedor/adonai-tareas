@@ -48,7 +48,7 @@ export const useTimeBlocks = (date: string) => {
   });
 
   const updateBlock = useMutation({
-    mutationFn: async ({ id, ...updates }: { id: string; [key: string]: any }) => {
+    mutationFn: async ({ id, ...updates }: { id: string; title?: string; start_time?: string; end_time?: string; block_date?: string; color?: string }) => {
       const { data, error } = await supabase
         .from('time_blocks')
         .update(updates)
