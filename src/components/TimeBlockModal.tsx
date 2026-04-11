@@ -10,6 +10,7 @@ interface TimeBlockModalProps {
   open: boolean;
   onClose: () => void;
   selectedDate: Date;
+  block?: any; // To edit
 }
 
 const PRESET_COLORS = [
@@ -21,7 +22,7 @@ const PRESET_COLORS = [
   '#607D8B', // Blue Grey
 ];
 
-export const TimeBlockModal: React.FC<TimeBlockModalProps> = ({ open, onClose, selectedDate }) => {
+export const TimeBlockModal: React.FC<TimeBlockModalProps> = ({ open, onClose, selectedDate, block }) => {
   const [title, setTitle] = useState('');
   const [startTime, setStartTime] = useState('09:00');
   const [endTime, setEndTime] = useState('10:00');
@@ -29,18 +30,27 @@ export const TimeBlockModal: React.FC<TimeBlockModalProps> = ({ open, onClose, s
   const [isRecurring, setIsRecurring] = useState(false);
   const [daysOfWeek, setDaysOfWeek] = useState<number[]>([]);
 
-  const { createBlock } = useTimeBlocks(format(selectedDate, 'yyyy-MM-dd'));
+  const { createBlock, updateBlock } = useTimeBlocks(format(selectedDate, 'yyyy-MM-dd'));
 
   useEffect(() => {
     if (open) {
-      setTitle('');
-      setStartTime('09:00');
-      setEndTime('10:00');
-      setColor(PRESET_COLORS[0]);
-      setIsRecurring(false);
-      setDaysOfWeek([]);
+      if (block) {
+        setTitle(block.title);
+        setStartTime(block.start_time.substring(0, 5));
+        setEndTime(block.end_time.substring(0, 5));
+        setColor(block.color || PRESET_COLORS[0]);
+        setIsRecurring(block.is_recurring || false);
+        setDaysOfWeek(block.days_of_week || []);
+      } else {
+        setTitle('');
+        setStartTime('09:00');
+        setEndTime('10:00');
+        setColor(PRESET_COLORS[0]);
+        setIsRecurring(false);
+        setDaysOfWeek([]);
+      }
     }
-  }, [open]);
+  }, [open, block]);
 
   const toggleDay = (day: number) => {
     setDaysOfWeek(prev => 
@@ -54,7 +64,7 @@ export const TimeBlockModal: React.FC<TimeBlockModalProps> = ({ open, onClose, s
     e.preventDefault();
     if (!title.trim() || !startTime || !endTime) return;
 
-    createBlock.mutate({
+    const payload = {
       title: title.trim(),
       start_time: startTime,
       end_time: endTime,
@@ -62,18 +72,24 @@ export const TimeBlockModal: React.FC<TimeBlockModalProps> = ({ open, onClose, s
       color,
       is_recurring: isRecurring,
       days_of_week: daysOfWeek
-    } as any, {
-      onSuccess: () => {
-        onClose();
-      }
-    });
+    };
+
+    if (block) {
+      updateBlock.mutate({ id: block.id, ...payload }, {
+        onSuccess: () => onClose()
+      });
+    } else {
+      createBlock.mutate(payload as any, {
+        onSuccess: () => onClose()
+      });
+    }
   };
 
   return (
     <Dialog open={open} onOpenChange={(val) => !val && onClose()}>
       <DialogContent className="sm:max-w-md max-w-[90%] rounded-[32px] p-6 glass-sheet shadow-2xl">
         <DialogHeader>
-          <DialogTitle className="text-xl font-bold">Crear Bloque de Tiempo</DialogTitle>
+          <DialogTitle className="text-xl font-bold">{block ? 'Editar Bloque' : 'Crear Bloque de Tiempo'}</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4 mt-4">

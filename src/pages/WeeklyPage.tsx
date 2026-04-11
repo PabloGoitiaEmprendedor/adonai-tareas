@@ -6,7 +6,7 @@ import { useGlobalVoiceCapture } from '@/hooks/useGlobalVoiceCapture';
 import { useTimeBlocks } from '@/hooks/useTimeBlocks';
 import { format, startOfWeek, addDays, subDays, isSameDay, addWeeks, subWeeks } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { TrendingUp, Calendar as CalendarIcon, Check, GripVertical, Timer, ChevronLeft, ChevronRight, Filter, Clock, Trash2, MoreVertical, Settings } from 'lucide-react';
+import { TrendingUp, Calendar as CalendarIcon, Check, GripVertical, Timer, ChevronLeft, ChevronRight, Filter, Clock, Trash2, MoreVertical, Settings, Edit2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import FAB from '@/components/FAB';
 import TaskCaptureModal, { type TaskCaptureModalHandle } from '@/components/TaskCaptureModal';
@@ -16,6 +16,12 @@ import { TimeBlockModal } from '@/components/TimeBlockModal';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const WeeklyPage = () => {
   const [captureOpen, setCaptureOpen] = useState(false);
@@ -24,6 +30,7 @@ const WeeklyPage = () => {
   const [selectedTask, setSelectedTask] = useState<any>(null);
   const [timerTask, setTimerTask] = useState<any>(null);
   const [blockModalOpen, setBlockModalOpen] = useState(false);
+  const [editingBlock, setEditingBlock] = useState<any>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
   const captureModalRef = useRef<TaskCaptureModalHandle>(null);
 
@@ -251,7 +258,7 @@ const WeeklyPage = () => {
                     style={{ backgroundColor: `${blockColor}15` }}
                   >
                     <div 
-                      className="px-4 py-3 flex items-center justify-between"
+                      className="px-4 py-3 flex items-center justify-between group"
                       style={{ backgroundColor: blockColor, color: '#ffffff' }}
                     >
                       <h3 className="font-bold text-lg tracking-tight flex items-center gap-2">
@@ -262,18 +269,35 @@ const WeeklyPage = () => {
                           <Clock className="w-3.5 h-3.5" />
                           {formatTime(block.start_time)} - {formatTime(block.end_time)}
                         </div>
-                        <button 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (confirm('¿Eliminar este bloque de tiempo?')) {
-                              deleteBlock.mutate(block.id);
-                            }
-                          }}
-                          className="hover:bg-white/20 p-1.5 rounded-lg transition-colors"
-                          title="Eliminar bloque"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <button className="hover:bg-white/20 p-1.5 rounded-lg transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100">
+                              <MoreVertical className="w-4 h-4" />
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="glass-sheet rounded-xl border-outline-variant/30">
+                            <DropdownMenuItem 
+                              onClick={() => {
+                                setEditingBlock(block);
+                                setBlockModalOpen(true);
+                              }}
+                              className="gap-2 font-medium"
+                            >
+                              <Edit2 className="w-4 h-4" /> Editar
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              onClick={() => {
+                                if (confirm('¿Eliminar este bloque de tiempo?')) {
+                                  deleteBlock.mutate(block.id);
+                                }
+                              }}
+                              className="gap-2 font-medium text-destructive focus:text-destructive"
+                            >
+                              <Trash2 className="w-4 h-4" /> Eliminar
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                     </div>
                     
@@ -406,7 +430,15 @@ const WeeklyPage = () => {
       <TaskCaptureModal ref={captureModalRef} open={captureOpen} onClose={() => setCaptureOpen(false)} />
       <TaskDetailModal task={selectedTask} open={!!selectedTask} onClose={() => setSelectedTask(null)} />
       <FullscreenTimer task={timerTask} open={!!timerTask} onClose={() => setTimerTask(null)} />
-      <TimeBlockModal open={blockModalOpen} onClose={() => setBlockModalOpen(false)} selectedDate={selectedDay} />
+      <TimeBlockModal 
+        open={blockModalOpen} 
+        onClose={() => {
+          setBlockModalOpen(false);
+          setEditingBlock(null);
+        }} 
+        selectedDate={selectedDay} 
+        block={editingBlock}
+      />
     </div>
   );
 };
