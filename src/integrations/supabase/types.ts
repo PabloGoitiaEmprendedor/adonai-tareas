@@ -521,33 +521,39 @@ export type Database = {
       }
       time_blocks: {
         Row: {
-          block_date: string
+          block_date: string | null
           color: string | null
           created_at: string | null
+          days_of_week: number[] | null
           end_time: string
           id: string
+          is_recurring: boolean | null
           start_time: string
           title: string
           updated_at: string | null
           user_id: string
         }
         Insert: {
-          block_date: string
+          block_date?: string | null
           color?: string | null
           created_at?: string | null
+          days_of_week?: number[] | null
           end_time: string
           id?: string
+          is_recurring?: boolean | null
           start_time: string
           title: string
           updated_at?: string | null
           user_id: string
         }
         Update: {
-          block_date?: string
+          block_date?: string | null
           color?: string | null
           created_at?: string | null
+          days_of_week?: number[] | null
           end_time?: string
           id?: string
+          is_recurring?: boolean | null
           start_time?: string
           title?: string
           updated_at?: string | null

@@ -256,9 +256,6 @@ const WeeklyPage = () => {
                     >
                       <h3 className="font-bold text-lg tracking-tight flex items-center gap-2">
                         {block.title}
-                        {block.is_recurring && (
-                          <span className="text-[9px] bg-white/20 px-2 py-0.5 rounded-full uppercase tracking-tighter border border-white/10">Fijo</span>
-                        )}
                       </h3>
                       <div className="flex items-center gap-3">
                         <div className="flex items-center gap-1.5 text-xs font-semibold bg-black/20 px-2 py-1 rounded-md">
