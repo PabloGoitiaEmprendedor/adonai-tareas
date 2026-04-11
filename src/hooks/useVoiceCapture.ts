@@ -36,7 +36,7 @@ export const useVoiceCapture = () => {
     sessionRef.current = sessionId;
 
     recognition.lang = 'es-ES';
-    recognition.continuous = true;
+    recognition.continuous = false;
     recognition.interimResults = true;
     recognition.maxAlternatives = 1;
 
