@@ -272,7 +272,7 @@ const WeeklyPage = () => {
                         
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <button className="hover:bg-white/20 p-1.5 rounded-lg transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100">
+                            <button className="hover:bg-white/20 p-1.5 rounded-lg transition-colors">
                               <MoreVertical className="w-4 h-4" />
                             </button>
                           </DropdownMenuTrigger>

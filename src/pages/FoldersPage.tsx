@@ -6,7 +6,7 @@ import { useFolderShares } from '@/hooks/useFolderShares';
 import { useAuth } from '@/contexts/AuthContext';
 import { useGlobalVoiceCapture } from '@/hooks/useGlobalVoiceCapture';
 import { supabase } from '@/integrations/supabase/client';
-import { FolderOpen, Plus, ChevronRight, Lock, Users, MoreVertical, Trash2, Check, Timer, UserPlus, X } from 'lucide-react';
+import { FolderOpen, Plus, ChevronRight, Lock, Users, MoreVertical, Trash2, Check, Timer, UserPlus, X, Edit2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import FAB from '@/components/FAB';
 import TaskCaptureModal, { type TaskCaptureModalHandle } from '@/components/TaskCaptureModal';
@@ -77,6 +77,15 @@ const FoldersPage = () => {
   };
 
   // Get friend user IDs from accepted friendships
+  const handleUpdate = (id: string) => {
+    if (!newName.trim()) { toast.error('Escribe un nombre'); return; }
+    updateFolder.mutate({ id, name: newName.trim(), color: newColor });
+    setEditingFolder(null);
+    setMenuFolder(null);
+    setNewName('');
+    toast.success('Carpeta actualizada');
+  };
+
   const friendUserIds = acceptedFriendships.map((f: any) => 
     f.requester_id === user?.id ? f.addressee_id : f.requester_id
   );
@@ -287,45 +296,75 @@ const FoldersPage = () => {
             {folders.map((folder) => {
               const count = tasks.filter((t) => t.folder_id === folder.id).length;
               const doneCount = tasks.filter((t) => t.folder_id === folder.id && t.status === 'done').length;
+              const isEditing = editingFolder === folder.id;
+
               return (
                 <motion.div key={folder.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
                   className="bg-surface-container-low rounded-xl overflow-hidden">
-                  <div className="flex items-center gap-3 p-4 cursor-pointer hover:bg-surface-container-high transition-colors"
-                    onClick={() => setSelectedFolder(folder.id)}>
-                    <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: (folder.color || '#4BE277') + '20' }}>
-                      <FolderOpen className="w-5 h-5" style={{ color: folder.color || '#4BE277' }} />
+                  {isEditing ? (
+                    <div className="p-4 space-y-4">
+                      <input autoFocus value={newName} onChange={(e) => setNewName(e.target.value)}
+                        placeholder="Nombre de la carpeta"
+                        className="w-full bg-surface-container-high rounded-lg p-3 text-foreground text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                        onKeyDown={(e) => e.key === 'Enter' && handleUpdate(folder.id)} />
+                      <div className="flex gap-2">
+                        {FOLDER_COLORS.map((c) => (
+                          <button key={c} onClick={() => setNewColor(c)}
+                            className={`w-8 h-8 rounded-full transition-all ${newColor === c ? 'ring-2 ring-primary ring-offset-2 ring-offset-background scale-110' : ''}`}
+                            style={{ backgroundColor: c }} />
+                        ))}
+                      </div>
+                      <div className="flex gap-2">
+                        <button onClick={() => setEditingFolder(null)} className="flex-1 py-2.5 rounded-lg bg-surface-container-high text-on-surface-variant text-sm font-semibold">Cancelar</button>
+                        <button onClick={() => handleUpdate(folder.id)} className="flex-1 py-2.5 rounded-lg primary-gradient text-primary-foreground text-sm font-bold">Guardar</button>
+                      </div>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-sm font-bold text-foreground truncate">{folder.name}</h3>
-                      <p className="text-[10px] text-on-surface-variant">{count} tarea{count !== 1 ? 's' : ''} · {doneCount} hecha{doneCount !== 1 ? 's' : ''}</p>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <button onClick={(e) => { e.stopPropagation(); setSharingFolder(folder.id); }}
-                        className="p-1.5 rounded-lg hover:bg-surface-container-highest">
-                        <Users className="w-3.5 h-3.5 text-on-surface-variant/40" />
-                      </button>
-                      <button onClick={(e) => { e.stopPropagation(); setMenuFolder(menuFolder === folder.id ? null : folder.id); }}
-                        className="p-1.5 rounded-lg hover:bg-surface-container-highest">
-                        <MoreVertical className="w-4 h-4 text-on-surface-variant" />
-                      </button>
-                    </div>
-                  </div>
-                  <AnimatePresence>
-                    {menuFolder === folder.id && (
-                      <motion.div initial={{ height: 0 }} animate={{ height: 'auto' }} exit={{ height: 0 }} className="overflow-hidden">
-                        <div className="px-4 pb-3 flex gap-2">
-                          <button onClick={() => { setSharingFolder(folder.id); setMenuFolder(null); }}
-                            className="flex-1 py-2 rounded-lg bg-surface-container-high text-xs font-semibold text-on-surface-variant flex items-center justify-center gap-1">
-                            <Users className="w-3 h-3" /> Compartir
+                  ) : (
+                    <>
+                      <div className="flex items-center gap-3 p-4 cursor-pointer hover:bg-surface-container-high transition-colors"
+                        onClick={() => setSelectedFolder(folder.id)}>
+                        <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: (folder.color || '#4BE277') + '20' }}>
+                          <FolderOpen className="w-5 h-5" style={{ color: folder.color || '#4BE277' }} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="text-sm font-bold text-foreground truncate">{folder.name}</h3>
+                          <p className="text-[10px] text-on-surface-variant">{count} tarea{count !== 1 ? 's' : ''} · {doneCount} hecha{doneCount !== 1 ? 's' : ''}</p>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <button onClick={(e) => { e.stopPropagation(); setSharingFolder(folder.id); }}
+                            className="p-1.5 rounded-lg hover:bg-surface-container-highest">
+                            <Users className="w-3.5 h-3.5 text-on-surface-variant/40" />
                           </button>
-                          <button onClick={() => handleDelete(folder.id)}
-                            className="flex-1 py-2 rounded-lg bg-error/10 text-error text-xs font-semibold flex items-center justify-center gap-1">
-                            <Trash2 className="w-3 h-3" /> Eliminar
+                          <button onClick={(e) => { e.stopPropagation(); setMenuFolder(menuFolder === folder.id ? null : folder.id); }}
+                            className="p-1.5 rounded-lg hover:bg-surface-container-highest">
+                            <MoreVertical className="w-4 h-4 text-on-surface-variant" />
                           </button>
                         </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
+                      </div>
+                      <AnimatePresence>
+                        {menuFolder === folder.id && (
+                          <motion.div initial={{ height: 0 }} animate={{ height: 'auto' }} exit={{ height: 0 }} className="overflow-hidden">
+                            <div className="px-4 pb-3 flex gap-2">
+                              <button onClick={(e) => {
+                                e.stopPropagation();
+                                setEditingFolder(folder.id);
+                                setNewName(folder.name);
+                                setNewColor(folder.color || FOLDER_COLORS[0]);
+                                setMenuFolder(null);
+                              }}
+                                className="flex-1 py-2 rounded-lg bg-surface-container-high text-xs font-semibold text-on-surface-variant flex items-center justify-center gap-1">
+                                <Edit2 className="w-3 h-3" /> Editar
+                              </button>
+                              <button onClick={() => handleDelete(folder.id)}
+                                className="flex-1 py-2 rounded-lg bg-error/10 text-error text-xs font-semibold flex items-center justify-center gap-1">
+                                <Trash2 className="w-3 h-3" /> Eliminar
+                              </button>
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </>
+                  )}
                 </motion.div>
               );
             })}
