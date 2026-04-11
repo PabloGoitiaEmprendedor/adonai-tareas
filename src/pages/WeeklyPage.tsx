@@ -6,7 +6,7 @@ import { useGlobalVoiceCapture } from '@/hooks/useGlobalVoiceCapture';
 import { useTimeBlocks } from '@/hooks/useTimeBlocks';
 import { format, startOfWeek, addDays, subDays, isSameDay, addWeeks, subWeeks } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { TrendingUp, Calendar as CalendarIcon, Check, GripVertical, Timer, ChevronLeft, ChevronRight, Filter, Clock, Trash2, MoreVertical, Settings, Edit2 } from 'lucide-react';
+import { TrendingUp, Calendar as CalendarIcon, Check, GripVertical, Timer, ChevronLeft, ChevronRight, Filter, Clock, Trash2, MoreVertical, Settings, Edit2, Plus } from 'lucide-react';
 import { motion } from 'framer-motion';
 import FAB from '@/components/FAB';
 import TaskCaptureModal, { type TaskCaptureModalHandle } from '@/components/TaskCaptureModal';

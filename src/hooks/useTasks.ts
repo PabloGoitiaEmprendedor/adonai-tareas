@@ -154,6 +154,7 @@ export const useTasks = (filters?: { date?: string; startDate?: string; endDate?
       goal_id?: string | null;
       folder_id?: string | null;
       recurrence_id?: string | null;
+      time_block_id?: string | null;
     }) => {
       if (!user) throw new Error('No user');
       const { data, error } = await supabase
