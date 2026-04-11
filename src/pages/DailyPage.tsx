@@ -221,23 +221,30 @@ const DailyPage = () => {
               const blockTasks = orderedTasks.filter(t => t.time_block_id === block.id);
               // Calculate format start to end
               const formatTime = (t: string) => t.substring(0, 5); // 09:00:00 -> 09:00
+              const blockColor = block.color || '#2196F3'; // fallback color, nice blue
               
               return (
-                <div key={block.id} className="space-y-2">
-                  <div className="flex items-center justify-between px-1">
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 rounded-full" style={{ backgroundColor: block.color || '#4caf50' }} />
-                      <h3 className="font-bold text-lg text-foreground">{block.title}</h3>
-                    </div>
-                    <div className="flex items-center gap-1.5 px-3 py-1 bg-surface-container-high rounded-full text-xs font-semibold text-on-surface-variant">
+                <div 
+                  key={block.id} 
+                  className="rounded-2xl overflow-hidden shadow-sm transition-all"
+                  style={{ backgroundColor: `${blockColor}15` }} // 15% opacity background
+                >
+                  {/* Block Header */}
+                  <div 
+                    className="px-4 py-3 flex items-center justify-between"
+                    style={{ backgroundColor: blockColor, color: '#ffffff' }}
+                  >
+                    <h3 className="font-bold text-lg tracking-tight">{block.title}</h3>
+                    <div className="flex items-center gap-1.5 text-xs font-semibold bg-black/20 px-2 py-1 rounded-md">
                       <Clock className="w-3.5 h-3.5" />
                       {formatTime(block.start_time)} - {formatTime(block.end_time)}
                     </div>
                   </div>
                   
-                  <div className="space-y-1.5 pl-5 border-l-2" style={{ borderColor: block.color || '#4caf50' }}>
+                  {/* Block Tasks */}
+                  <div className="p-3 space-y-2">
                     {blockTasks.length === 0 && (
-                      <p className="text-sm text-on-surface-variant/50 p-2">No hay tareas en este bloque</p>
+                      <p className="text-sm p-2 text-foreground/50 italic">Área libre (sin tareas agendadas)</p>
                     )}
                     {blockTasks.map((task, idx) => {
                       const isDone = task.status === 'done';
@@ -247,8 +254,8 @@ const DailyPage = () => {
                           initial={{ opacity: 0, x: -10 }}
                           animate={{ opacity: 1, x: 0 }}
                           onClick={() => setSelectedTask(task)}
-                          className={`p-3 rounded-xl flex items-start gap-3 cursor-pointer transition-all ${
-                            isDone ? 'opacity-50' : 'bg-surface-container-low hover:bg-surface-container-high shadow-sm'
+                          className={`p-3 rounded-xl flex items-start gap-3 cursor-pointer transition-all border border-black/5 ${
+                            isDone ? 'opacity-50 bg-background/40' : 'bg-background hover:scale-[1.01] shadow-sm'
                           }`}
                         >
                           {isDone ? (
