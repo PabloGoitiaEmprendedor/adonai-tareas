@@ -3,9 +3,10 @@ import { useTasks } from '@/hooks/useTasks';
 import { useGoals } from '@/hooks/useGoals';
 import { useProfile } from '@/hooks/useProfile';
 import { useGlobalVoiceCapture } from '@/hooks/useGlobalVoiceCapture';
+import { useTimeBlocks } from '@/hooks/useTimeBlocks';
 import { format, startOfWeek, addDays, isSameDay, addWeeks, subWeeks } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { TrendingUp, Calendar as CalendarIcon, Check, GripVertical, Timer, ChevronLeft, ChevronRight, Filter } from 'lucide-react';
+import { TrendingUp, Calendar as CalendarIcon, Check, GripVertical, Timer, ChevronLeft, ChevronRight, Filter, Clock } from 'lucide-react';
 import { motion } from 'framer-motion';
 import FAB from '@/components/FAB';
 import TaskCaptureModal, { type TaskCaptureModalHandle } from '@/components/TaskCaptureModal';
@@ -31,6 +32,7 @@ const WeeklyPage = () => {
   const { tasks, updateTask } = useTasks({ startDate, endDate });
   const { goals } = useGoals();
   const { profile } = useProfile();
+  const { timeBlocks } = useTimeBlocks(format(selectedDay, 'yyyy-MM-dd'));
 
   const openCapture = useCallback(() => setCaptureOpen(true), []);
   const openCaptureInVoiceMode = useCallback(() => {
@@ -210,49 +212,126 @@ const WeeklyPage = () => {
             <span className="text-xs text-on-surface-variant">{orderedTasks.length} tareas</span>
           </div>
 
-          {orderedTasks.length === 0 ? (
+          {orderedTasks.length === 0 && timeBlocks.length === 0 ? (
             <div className="bg-surface-container-low p-5 rounded-lg text-center space-y-3">
               <p className="text-on-surface-variant text-sm">Sin tareas para este día.</p>
               <button onClick={openCapture} className="text-primary text-sm font-semibold">+ Añadir tarea</button>
             </div>
           ) : (
-            <div className="space-y-1.5">
-              {orderedTasks.map((task, idx) => {
-                const isDone = task.status === 'done';
+            <div className="space-y-6">
+              
+              {/* Time Blocks Rendering */}
+              {timeBlocks.map((block) => {
+                const blockTasks = orderedTasks.filter(t => t.time_block_id === block.id);
+                const formatTime = (t: string) => t.substring(0, 5); 
+                const blockColor = block.color || '#2196F3'; 
+                
                 return (
-                  <motion.div key={task.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
-                    draggable={!isDone}
-                    onDragStart={() => handleDragStart(idx)}
-                    onDragOver={(e) => handleDragOver(e, idx)}
-                    onDragEnd={handleDragEnd}
-                    onTouchStart={(e) => !isDone && handleTouchStart(idx, e)}
-                    onTouchMove={handleTouchMove}
-                    onTouchEnd={handleTouchEnd}
-                    onClick={() => setSelectedTask(task)}
-                    className={`p-3.5 rounded-lg flex items-start gap-3 cursor-pointer transition-all ${
-                      isDone ? 'opacity-50' : dragIdx === idx || touchIdx === idx ? 'bg-surface-container-high scale-[1.02] shadow-lg' : 'bg-surface-container-low hover:bg-surface-container-high'
-                    }`}>
-                    {!isDone && <GripVertical className="w-4 h-4 text-on-surface-variant/30 flex-shrink-0 cursor-grab" />}
-                    {isDone ? (
-                      <div className="w-5 h-5 rounded bg-primary flex items-center justify-center flex-shrink-0">
-                        <Check className="w-3 h-3 text-primary-foreground" />
+                  <div 
+                    key={block.id} 
+                    className="rounded-2xl overflow-hidden shadow-sm transition-all"
+                    style={{ backgroundColor: `${blockColor}15` }}
+                  >
+                    <div 
+                      className="px-4 py-3 flex items-center justify-between"
+                      style={{ backgroundColor: blockColor, color: '#ffffff' }}
+                    >
+                      <h3 className="font-bold text-lg tracking-tight">{block.title}</h3>
+                      <div className="flex items-center gap-1.5 text-xs font-semibold bg-black/20 px-2 py-1 rounded-md">
+                        <Clock className="w-3.5 h-3.5" />
+                        {formatTime(block.start_time)} - {formatTime(block.end_time)}
                       </div>
-                    ) : (
-                      <button onClick={(e) => { e.stopPropagation(); handleComplete(task.id); }}
-                        className="w-5 h-5 rounded border-2 border-outline-variant flex items-center justify-center hover:border-primary flex-shrink-0" />
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <h4 className={`text-sm font-semibold break-words ${isDone ? 'text-on-surface-variant line-through' : 'text-foreground'}`}>{task.title}</h4>
                     </div>
-                    {!isDone && (
-                      <button onClick={(e) => handleStartTimer(task, e)}
-                        className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center hover:bg-primary/20 flex-shrink-0 transition-colors">
-                        <Timer className="w-3.5 h-3.5 text-primary" />
-                      </button>
-                    )}
-                  </motion.div>
+                    
+                    <div className="p-3 space-y-2">
+                      {blockTasks.length === 0 && (
+                        <p className="text-sm p-2 text-foreground/50 italic">Área libre (sin tareas agendadas)</p>
+                      )}
+                      {blockTasks.map((task, idx) => {
+                        const isDone = task.status === 'done';
+                        return (
+                          <motion.div key={task.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+                            draggable={!isDone}
+                            onDragStart={() => handleDragStart(idx)}
+                            onDragOver={(e) => handleDragOver(e, idx)}
+                            onDragEnd={handleDragEnd}
+                            onTouchStart={(e) => !isDone && handleTouchStart(idx, e)}
+                            onTouchMove={handleTouchMove}
+                            onTouchEnd={handleTouchEnd}
+                            onClick={() => setSelectedTask(task)}
+                            className={`p-3 rounded-xl flex items-start gap-3 cursor-pointer transition-all border border-black/5 ${
+                              isDone ? 'opacity-50 bg-background/40' : dragIdx === idx || touchIdx === idx ? 'bg-surface-container-high scale-[1.02] shadow-lg' : 'bg-background hover:scale-[1.01] shadow-sm'
+                            }`}>
+                            {!isDone && <GripVertical className="w-4 h-4 text-on-surface-variant/30 flex-shrink-0 cursor-grab mt-1" />}
+                            {isDone ? (
+                              <div className="w-5 h-5 rounded bg-primary flex items-center justify-center flex-shrink-0 mt-0.5">
+                                <Check className="w-3 h-3 text-primary-foreground" />
+                              </div>
+                            ) : (
+                              <button onClick={(e) => { e.stopPropagation(); handleComplete(task.id); }}
+                                className="w-5 h-5 rounded border-2 border-outline-variant flex items-center justify-center hover:border-primary flex-shrink-0 mt-0.5" />
+                            )}
+                            <div className="flex-1 min-w-0 flex items-center mt-0.5">
+                              <h4 className={`text-sm font-semibold break-words ${isDone ? 'text-on-surface-variant line-through' : 'text-foreground'}`}>{task.title}</h4>
+                            </div>
+                            {!isDone && (
+                              <button onClick={(e) => handleStartTimer(task, e)}
+                                className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center hover:bg-primary/20 flex-shrink-0 transition-colors">
+                                <Timer className="w-3.5 h-3.5 text-primary" />
+                              </button>
+                            )}
+                          </motion.div>
+                        );
+                      })}
+                    </div>
+                  </div>
                 );
               })}
+
+              {/* Unscheduled Tasks */}
+              <div className="space-y-2 mt-8">
+                {orderedTasks.filter(t => !t.time_block_id).length > 0 && (
+                  <h3 className="text-xs font-bold text-on-surface-variant uppercase tracking-wider px-2 mb-3">
+                    Tareas sin bloque ({orderedTasks.filter(t => !t.time_block_id).length})
+                  </h3>
+                )}
+                {orderedTasks.filter(t => !t.time_block_id).map((task, idx) => {
+                  const isDone = task.status === 'done';
+                  return (
+                    <motion.div key={task.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+                      draggable={!isDone}
+                      onDragStart={() => handleDragStart(idx)}
+                      onDragOver={(e) => handleDragOver(e, idx)}
+                      onDragEnd={handleDragEnd}
+                      onTouchStart={(e) => !isDone && handleTouchStart(idx, e)}
+                      onTouchMove={handleTouchMove}
+                      onTouchEnd={handleTouchEnd}
+                      onClick={() => setSelectedTask(task)}
+                      className={`p-3.5 rounded-xl flex items-start gap-3 cursor-pointer transition-all ${
+                        isDone ? 'opacity-50' : dragIdx === idx || touchIdx === idx ? 'bg-surface-container-high scale-[1.02] shadow-lg' : 'bg-surface-container-low hover:bg-surface-container-high shadow-sm'
+                      }`}>
+                      {!isDone && <GripVertical className="w-4 h-4 text-on-surface-variant/30 flex-shrink-0 cursor-grab mt-0.5" />}
+                      {isDone ? (
+                        <div className="w-5 h-5 rounded bg-primary flex items-center justify-center flex-shrink-0">
+                          <Check className="w-3 h-3 text-primary-foreground" />
+                        </div>
+                      ) : (
+                        <button onClick={(e) => { e.stopPropagation(); handleComplete(task.id); }}
+                          className="w-5 h-5 rounded border-2 border-outline-variant flex items-center justify-center hover:border-primary flex-shrink-0" />
+                      )}
+                      <div className="flex-1 min-w-0 flex items-center">
+                        <h4 className={`text-sm font-semibold break-words ${isDone ? 'text-on-surface-variant line-through' : 'text-foreground'}`}>{task.title}</h4>
+                      </div>
+                      {!isDone && (
+                        <button onClick={(e) => handleStartTimer(task, e)}
+                          className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center hover:bg-primary/20 flex-shrink-0 transition-colors">
+                          <Timer className="w-3.5 h-3.5 text-primary" />
+                        </button>
+                      )}
+                    </motion.div>
+                  );
+                })}
+              </div>
             </div>
           )}
         </section>

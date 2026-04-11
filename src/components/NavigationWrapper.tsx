@@ -100,7 +100,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
 
   const menuItems = [
     { label: 'Hoy', icon: Home, path: '/' },
-    { label: 'Semana', icon: Calendar, path: '/week' },
+    { label: 'Calendario', icon: Calendar, path: '/week' },
     { label: 'Carpetas', icon: FolderOpen, path: '/folders' },
     { label: 'Metas', icon: Target, path: '/goals' },
     { label: 'Amigos', icon: Users, path: '/friends' },
@@ -115,7 +115,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
   const getPageTitle = (path: string) => {
     switch (path) {
       case '/': return '';
-      case '/week': return 'Semana';
+      case '/week': return 'Calendario';
       case '/goals': return 'Metas';
       case '/folders': return 'Carpetas';
       case '/friends': return 'Comunidad';

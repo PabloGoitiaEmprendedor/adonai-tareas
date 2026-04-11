@@ -6,7 +6,7 @@ const BottomNav = () => {
 
   const navItems = [
     { icon: Sun, label: 'Hoy', path: '/' },
-    { icon: Calendar, label: 'Semana', path: '/week' },
+    { icon: Calendar, label: 'Calendario', path: '/week' },
     { icon: FolderOpen, label: 'Carpetas', path: '/folders' },
   ];
 
