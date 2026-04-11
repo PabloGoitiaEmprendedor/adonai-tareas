@@ -10,6 +10,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { dispatchVoiceCaptureClosed, dispatchVoiceCaptureOpened } from '@/lib/voiceEvents';
+import { AISphere } from './AISphere';
 
 interface TaskCaptureModalProps {
   open: boolean;
@@ -561,47 +562,11 @@ Tu trabajo es:`;
                   )}
 
                    {phase === 'saving' && (
-                    <motion.div key="saving" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="py-10 text-center space-y-6 w-full">
-                      <div className="relative w-20 h-20 mx-auto">
-                        {/* Glow effect */}
-                        <motion.div 
-                          className="absolute inset-0 bg-primary/20 blur-xl rounded-full"
-                          animate={{ scale: [1, 1.4, 1], opacity: [0.3, 0.6, 0.3] }}
-                          transition={{ duration: 2, repeat: Infinity }}
-                        />
-                        {/* Rotating ring */}
-                        <motion.div 
-                          animate={{ rotate: 360 }} 
-                          transition={{ duration: 1.5, repeat: Infinity, ease: 'linear' }}
-                          className="absolute inset-0 border-3 border-transparent border-t-primary border-r-primary/30 rounded-full shadow-[0_0_15px_rgba(75,226,119,0.3)]" 
-                        />
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <motion.div
-                            animate={{ scale: [1, 1.2, 1], rotate: [0, 10, -10, 0] }}
-                            transition={{ duration: 3, repeat: Infinity }}
-                          >
-                            <Sparkles className="w-8 h-8 text-primary drop-shadow-[0_0_5px_rgba(75,226,119,0.8)]" />
-                          </motion.div>
-                        </div>
-                        {/* Orbiting sparkles */}
-                        <motion.div 
-                          className="absolute -top-1 -right-1"
-                          animate={{ scale: [0, 1, 0], y: [-5, -15, -20], x: [5, 15, 10] }}
-                          transition={{ duration: 1.5, repeat: Infinity, delay: 0.2 }}
-                        >
-                          <Sparkles className="w-3 h-3 text-primary/60" />
-                        </motion.div>
-                        <motion.div 
-                          className="absolute -bottom-1 -left-1"
-                          animate={{ scale: [0, 1, 0], y: [5, 15, 20], x: [-5, -15, -10] }}
-                          transition={{ duration: 1.5, repeat: Infinity, delay: 0.7 }}
-                        >
-                          <Sparkles className="w-3 h-3 text-primary/40" />
-                        </motion.div>
-                      </div>
-                      <div className="space-y-2">
+                    <motion.div key="saving" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="py-6 text-center space-y-2 w-full">
+                      <AISphere />
+                      <div className="space-y-4 pt-4">
                         <motion.p 
-                          initial={{ opacity: 0, y: 5 }} 
+                          initial={{ opacity: 0, y: 10 }}
                           animate={{ opacity: 1, y: 0 }}
                           className="text-lg font-bold text-foreground tracking-tight"
                         >
