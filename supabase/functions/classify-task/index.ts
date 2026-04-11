@@ -102,9 +102,17 @@ METAS ACTIVAS: ${goalsList || "Ninguna"}
 CONTEXTOS: ${contextList || "Ninguno"}
 CARPETAS: ${foldersList || "Ninguna"}
 BLOQUES DE TIEMPO ACTIVOS: ${blocksList || "Ninguno programado"}
+TU REGLA DE ORO PARA LA CLASIFICACIÓN (SÉ ESTRICTO):
+1. CARPETAS: Mira la lista de CARPETAS arriba. Si el usuario dice "ponlo en la carpeta X" o si el tema encaja perfectamente, USALA. Si no encaja en ninguna pero es un tema recurrente nuevo, sugiere crear una en 'suggest_new_folder_name'.
+2. PRIORIDAD (Urgencia e Importancia): 
+   - IMPORTANTE = Afecta a largo plazo, a sus metas, o a su carrera/negocio.
+   - URGENTE = Tiene un deadline inmediato (hoy/mañana) o consecuencias graves si no se hace pronto.
+   - Analiza el tono del usuario: "¡Urgente!", "Necesito esto ya", "Es vital" -> High priority.
+3. RECURRENCIA (VITAL): Si el usuario dice "cada X", "todos los", "X veces por semana", "el 1 de cada mes", ESTÁS OBLIGADO a llenar el objeto 'recurrence'. No lo ignores.
+4. CONTEXTO: Usa lo que sabes de su ocupación (${userContext?.occupation}) e industria para decidir si algo es importante.
 
-TAREAS PENDIENTES:
-${existingTasks.map((t: any) => `- ${t.title} (${t.priority}, fecha: ${t.due_date}, carpeta: ${t.folder_id || 'sin carpeta'})`).join("\n") || "Ninguna"}`;
+TAREAS PENDIENTES (PARA REFERENCIA DE ESTILO):
+${existingTasks.map((t: any) => `- ${t.title} (Prioridad: ${t.priority}, Urgencia: ${t.urgency}, Importancia: ${t.importance}, Carpeta: ${t.folder_id || 'sin carpeta'})`).join("\n") || "Ninguna"}`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -113,7 +121,7 @@ ${existingTasks.map((t: any) => `- ${t.title} (${t.priority}, fecha: ${t.due_dat
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: "google/gemini-1.5-pro-002",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: `Analiza y clasifica esto: "${taskTitle}"${dueDate ? ` (fecha sugerida: ${dueDate})` : ""}` },
