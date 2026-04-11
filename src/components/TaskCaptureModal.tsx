@@ -1,6 +1,6 @@
 import { useState, useEffect, forwardRef, useImperativeHandle, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mic, X, Square, Sparkles } from 'lucide-react';
+import { Mic, X, Square, Sparkles, Camera } from 'lucide-react';
 import { useVoiceCapture } from '@/hooks/useVoiceCapture';
 import { parseVoiceTranscript } from '@/hooks/useVoiceParser';
 import { useTasks } from '@/hooks/useTasks';
@@ -29,13 +29,18 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
   const { createTask } = useTasks();
   const { classifyTask } = useTaskClassifier();
 
-  const [phase, setPhase] = useState<'input' | 'date' | 'saving'>('input');
+  const [phase, setPhase] = useState<'input' | 'date' | 'saving' | 'image_date'>('input');
   const [title, setTitle] = useState('');
   const [dueDate, setDueDate] = useState('');
-  const [sourceType, setSourceType] = useState<'voice' | 'text'>('text');
+  const [sourceType, setSourceType] = useState<'voice' | 'text' | 'image'>('text');
   const [showTextInput, setShowTextInput] = useState(true);
   const [classificationSource, setClassificationSource] = useState('');
   const [fallbackEstimatedMinutes, setFallbackEstimatedMinutes] = useState<number | null>(null);
+  const [extractedTasks, setExtractedTasks] = useState<{ raw_text: string; has_date: boolean; detected_date: string | null; assigned_date?: string }[]>([]);
+  const [currentTaskIndex, setCurrentTaskIndex] = useState(0);
+  const [savingMessage, setSavingMessage] = useState('Analizando y creando tarea...');
+  
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const requestedVoiceOpenRef = useRef(false);
   const mountedRef = useRef(false);
   const voiceProcessedRef = useRef(false);
@@ -145,14 +150,133 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
       setPhase('saving');
       handleTitleDone(transcript);
     }
-  }, [transcript, isRecording, sourceType, handleTitleDone]);
+    
+    if (transcript && !isRecording && sourceType === 'image' && phase === 'image_date') {
+      const parsed = parseVoiceTranscript(transcript);
+      handleImageDateAssignment(parsed.dueDate || format(new Date(), 'yyyy-MM-dd'));
+      resetTranscript();
+    }
+  }, [transcript, isRecording, sourceType, handleTitleDone, phase, resetTranscript]);
+
+  const resizeImage = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          const max = 1200;
+
+          if (width > height) {
+            if (width > max) { height *= max / width; width = max; }
+          } else {
+            if (height > max) { width *= max / height; height = max; }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL(file.type));
+        };
+        img.onerror = reject;
+        img.src = e.target?.result as string;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleImageSelected = async (file: File) => {
+    setSourceType('image');
+    setPhase('saving');
+    setSavingMessage('Leyendo tu agenda...');
+
+    try {
+      const resizedBase64 = await resizeImage(file);
+      const mimeType = file.type;
+
+      const { data, error } = await supabase.functions.invoke('extract-tasks-from-image', {
+        body: { imageBase64: resizedBase64.split(',')[1], mimeType }
+      });
+
+      if (error || !data.tasks || data.tasks.length === 0) {
+        toast.error('No pude leer tareas en esta imagen. Intenta con mejor luz o enfoque.');
+        setPhase('input');
+        return;
+      }
+
+      const tasks = data.tasks;
+      const tasksWithoutDate = tasks.filter((t: any) => !t.has_date);
+
+      if (tasksWithoutDate.length === 0) {
+        await processAndSaveImageTasks(tasks);
+      } else {
+        setExtractedTasks(tasks);
+        const firstIndex = tasks.findIndex((t: any) => !t.has_date);
+        setCurrentTaskIndex(firstIndex);
+        setPhase('image_date');
+      }
+    } catch (err) {
+      console.error("Image process error:", err);
+      toast.error('Error al procesar la imagen');
+      setPhase('input');
+    }
+  };
+
+  const handleImageDateAssignment = (date: string) => {
+    const updatedTasks = [...extractedTasks];
+    updatedTasks[currentTaskIndex].assigned_date = date;
+    setExtractedTasks(updatedTasks);
+
+    const nextIndex = updatedTasks.findIndex((t, idx) => idx > currentTaskIndex && !t.has_date);
+    if (nextIndex !== -1) {
+      setCurrentTaskIndex(nextIndex);
+    } else {
+      processAndSaveImageTasks(updatedTasks);
+    }
+  };
+
+  const processAndSaveImageTasks = async (tasks: any[]) => {
+    setPhase('saving');
+    let createdCount = 0;
+    
+    for (let i = 0; i < tasks.length; i++) {
+      const task = tasks[i];
+      setSavingMessage(`Creando tarea ${i + 1} de ${tasks.length}...`);
+      const date = task.assigned_date || task.detected_date || format(new Date(), 'yyyy-MM-dd');
+      
+      try {
+        await runClassificationAndSave(task.raw_text, date, task.raw_text, task.raw_text, true);
+        createdCount++;
+      } catch (e) {
+        console.error("Error creating task from image:", e);
+      }
+    }
+
+    if (user) {
+      await supabase.from('image_captures').insert({
+        user_id: user.id,
+        tasks_extracted: tasks.length,
+        tasks_created: createdCount
+      });
+    }
+
+    toast.success(`${createdCount} tareas creadas desde tu agenda 📸`);
+    handleClose();
+  };
 
   const handleDateDone = async () => {
     await runClassificationAndSave(title, dueDate, classificationSource || title, classificationSource || title);
   };
 
-  const runClassificationAndSave = async (taskTitle: string, date: string, classificationInput: string, originalTranscript: string) => {
-    setPhase('saving');
+  const runClassificationAndSave = async (taskTitle: string, date: string, classificationInput: string, originalTranscript: string, isImageLoop = false) => {
+    if (!isImageLoop) {
+      setPhase('saving');
+      setSavingMessage('Analizando y creando tarea...');
+    }
 
     const defaults = {
       refined_title: taskTitle,
@@ -211,10 +335,14 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
       }
 
       toast.success('Tarea creada');
-      handleClose();
-    } catch {
-      toast.error('Error al crear tarea');
-      setPhase('input');
+      if (!isImageLoop) handleClose();
+      return task;
+    } catch (err) {
+      if (!isImageLoop) {
+        toast.error('Error al crear tarea');
+        setPhase('input');
+      }
+      throw err;
     }
   };
 
@@ -282,6 +410,13 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
                                 <Mic className="w-6 h-6 text-foreground" />
                               </button>
                             )}
+                            <button onClick={() => fileInputRef.current?.click()} className="w-14 h-14 rounded-full bg-surface-container-high flex items-center justify-center">
+                              <Camera className="w-6 h-6 text-foreground" />
+                            </button>
+                            <input type="file" ref={fileInputRef} hidden accept="image/*" capture="environment" onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) handleImageSelected(file);
+                            }} />
                             {(title || showTextInput) && (
                               <button onClick={() => handleTitleDone()} className="px-6 py-3 rounded-full primary-gradient text-primary-foreground font-bold text-sm">Crear</button>
                             )}
@@ -310,6 +445,54 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
                     </motion.div>
                   )}
 
+                  {phase === 'image_date' && extractedTasks[currentTaskIndex] && (
+                    <motion.div key="image_date" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} className="w-full space-y-6">
+                      <div className="text-center">
+                        <span className="text-xs uppercase tracking-[0.2em] font-bold text-on-surface-variant">
+                          Tarea {extractedTasks.filter((t, idx) => idx <= currentTaskIndex && !t.has_date).length} de {extractedTasks.filter(t => !t.has_date).length}
+                        </span>
+                        <h2 className="text-lg font-medium text-foreground mt-1">"{extractedTasks[currentTaskIndex].raw_text}"</h2>
+                        <p className="text-sm text-on-surface-variant mt-1 text-pretty px-4 italic leading-tight">Extraída de tu agenda</p>
+                      </div>
+
+                      <div className="flex flex-col gap-4">
+                        <div className="flex gap-2">
+                          <button onClick={() => handleImageDateAssignment(format(new Date(), 'yyyy-MM-dd'))}
+                            className="flex-1 py-3 rounded-lg bg-primary/10 text-primary font-semibold text-sm">Hoy</button>
+                          <button onClick={() => handleImageDateAssignment(format(new Date(Date.now() + 86400000), 'yyyy-MM-dd'))}
+                            className="flex-1 py-3 rounded-lg bg-surface-container-high text-foreground font-semibold text-sm">Mañana</button>
+                        </div>
+                        
+                        <div className="relative">
+                          <input 
+                            type="text"
+                            placeholder="Escribe o di la fecha..."
+                            className="w-full bg-surface-container-high rounded-lg p-4 text-foreground pr-12 focus:outline-none focus:ring-1 focus:ring-primary"
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                const target = e.target as HTMLInputElement;
+                                const parsed = parseVoiceTranscript(target.value);
+                                handleImageDateAssignment(parsed.dueDate || format(new Date(), 'yyyy-MM-dd'));
+                              }
+                            }}
+                          />
+                          <button 
+                            onClick={() => {
+                              if (isRecording) {
+                                stopRecording();
+                              } else {
+                                beginVoiceCapture();
+                              }
+                            }}
+                            className={`absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-full ${isRecording ? 'bg-primary text-white animate-pulse' : 'text-on-surface-variant'}`}
+                          >
+                            <Mic className="w-5 h-5" />
+                          </button>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+
                   {phase === 'saving' && (
                     <motion.div key="saving" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="py-8 text-center space-y-4">
                       <div className="w-12 h-12 mx-auto relative">
@@ -317,7 +500,7 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
                           className="w-12 h-12 border-2 border-primary/30 border-t-primary rounded-full" />
                         <Sparkles className="w-5 h-5 text-primary absolute inset-0 m-auto" />
                       </div>
-                      <p className="text-foreground font-medium">Analizando y creando tarea...</p>
+                      <p className="text-foreground font-medium">{savingMessage}</p>
                     </motion.div>
                   )}
                 </AnimatePresence>
