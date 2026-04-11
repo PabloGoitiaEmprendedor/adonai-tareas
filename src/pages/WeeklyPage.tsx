@@ -110,6 +110,17 @@ const WeeklyPage = () => {
     });
   };
 
+  const handleDropOnBlock = (e: React.DragEvent, blockId: string | null) => {
+    e.preventDefault();
+    if (dragIdx === null) return;
+    
+    const task = orderedTasks[dragIdx];
+    if (task.time_block_id !== blockId) {
+      updateTask.mutate({ id: task.id, time_block_id: blockId });
+    }
+    setDragIdx(null);
+  };
+
   const [touchIdx, setTouchIdx] = useState<number | null>(null);
   const [touchY, setTouchY] = useState(0);
   const handleTouchStart = (idx: number, e: React.TouchEvent) => { setTouchIdx(idx); setTouchY(e.touches[0].clientY); };
@@ -223,6 +234,8 @@ const WeeklyPage = () => {
                 return (
                   <div 
                     key={block.id} 
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => handleDropOnBlock(e, block.id)}
                     className="rounded-2xl overflow-hidden shadow-sm transition-all"
                     style={{ backgroundColor: `${blockColor}15` }}
                   >
@@ -283,7 +296,11 @@ const WeeklyPage = () => {
               })}
 
               {/* Unscheduled Tasks */}
-              <div className="space-y-2 mt-8">
+              <div 
+                className="space-y-2 mt-8 min-h-[50px]"
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => handleDropOnBlock(e, null)}
+              >
                 {orderedTasks.filter(t => !t.time_block_id).length > 0 && (
                   <h3 className="text-xs font-bold text-on-surface-variant uppercase tracking-wider px-2 mb-3">
                     Tareas sin bloque ({orderedTasks.filter(t => !t.time_block_id).length})
