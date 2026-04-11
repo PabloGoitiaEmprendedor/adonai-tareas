@@ -44,17 +44,21 @@ export const useVoiceCapture = () => {
     recognition.onresult = (event: any) => {
       if (sessionRef.current !== sessionId) return;
 
-      let interimTranscript = '';
-      for (let i = event.resultIndex; i < event.results.length; ++i) {
-        const chunk = event.results[i][0].transcript;
+      let final = '';
+      let interim = '';
+      
+      for (let i = 0; i < event.results.length; ++i) {
+        const piece = event.results[i][0].transcript;
         if (event.results[i].isFinal) {
-          finalTranscriptRef.current += chunk;
-          setConfidence(event.results[i][0].confidence || 0);
+          final += piece;
         } else {
-          interimTranscript += chunk;
+          interim += piece;
         }
       }
-      setTranscript((finalTranscriptRef.current + interimTranscript).trim());
+      
+      const fullText = (final + interim).trim();
+      setTranscript(fullText);
+      finalTranscriptRef.current = final;
     };
 
     recognition.onstart = () => {
