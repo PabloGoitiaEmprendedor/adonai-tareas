@@ -1,6 +1,6 @@
 import { useState, useEffect, forwardRef, useImperativeHandle, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mic, X, Square, Sparkles, Camera } from 'lucide-react';
+import { Mic, X, Square, Sparkles, Camera, Type } from 'lucide-react';
 import { useVoiceCapture } from '@/hooks/useVoiceCapture';
 import { parseVoiceTranscript } from '@/hooks/useVoiceParser';
 import { useTasks } from '@/hooks/useTasks';
@@ -29,7 +29,7 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
   const { createTask } = useTasks();
   const { classifyTask } = useTaskClassifier();
 
-  const [phase, setPhase] = useState<'input' | 'date' | 'saving' | 'image_date'>('input');
+  const [phase, setPhase] = useState<'select' | 'input' | 'date' | 'saving' | 'image_date'>('select');
   const [title, setTitle] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [sourceType, setSourceType] = useState<'voice' | 'text' | 'image'>('text');
@@ -88,16 +88,18 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
   useEffect(() => {
     if (!open) return;
 
-    setPhase('input');
     setDueDate(format(new Date(), 'yyyy-MM-dd'));
     setClassificationSource('');
     setFallbackEstimatedMinutes(null);
 
+    // If triggered by a voice-specific UI action
     if (requestedVoiceOpenRef.current) {
       requestedVoiceOpenRef.current = false;
       return;
     }
 
+    // Default to the selection screen
+    setPhase('select');
     setTitle('');
     resetTranscript();
     setShowTextInput(true);
@@ -368,6 +370,41 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
                 <button onClick={handleClose} className="absolute top-4 right-4 text-on-surface-variant"><X className="w-5 h-5" /></button>
 
                 <AnimatePresence mode="wait">
+                  {phase === 'select' && (
+                    <motion.div key="select" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="w-full flex flex-col items-center gap-6 pb-2">
+                      <div className="text-center space-y-1">
+                        <h2 className="text-xl font-bold text-foreground">Añadir Tarea</h2>
+                        <p className="text-sm text-on-surface-variant">¿Cómo prefieres crearla?</p>
+                      </div>
+                      
+                      <div className="grid grid-cols-3 gap-3 w-full">
+                        <button onClick={() => { setPhase('input'); setShowTextInput(true); setSourceType('text'); }} 
+                          className="flex flex-col items-center justify-center gap-3 p-4 bg-surface-container-high rounded-2xl hover:bg-surface-container-highest transition-colors">
+                          <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                            <Type className="w-6 h-6 text-primary" />
+                          </div>
+                          <span className="text-xs font-bold text-foreground">Escribir</span>
+                        </button>
+                        
+                        <button onClick={() => { setPhase('input'); beginVoiceCapture(); }}
+                          className="flex flex-col items-center justify-center gap-3 p-4 bg-surface-container-high rounded-2xl hover:bg-surface-container-highest transition-colors">
+                          <div className="w-12 h-12 rounded-full primary-gradient flex items-center justify-center shadow-lg shadow-primary/20">
+                            <Mic className="w-6 h-6 text-primary-foreground" />
+                          </div>
+                          <span className="text-xs font-bold text-foreground">Voz</span>
+                        </button>
+                        
+                        <button onClick={() => fileInputRef.current?.click()}
+                          className="flex flex-col items-center justify-center gap-3 p-4 bg-surface-container-high rounded-2xl hover:bg-surface-container-highest transition-colors">
+                          <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                            <Camera className="w-6 h-6 text-primary" />
+                          </div>
+                          <span className="text-xs font-bold text-foreground">Foto</span>
+                        </button>
+                      </div>
+                    </motion.div>
+                  )}
+
                   {phase === 'input' && (
                     <motion.div key="input" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="w-full flex flex-col items-center gap-6">
                       {isRecording && (
@@ -413,10 +450,6 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
                             <button onClick={() => fileInputRef.current?.click()} className="w-14 h-14 rounded-full bg-surface-container-high flex items-center justify-center">
                               <Camera className="w-6 h-6 text-foreground" />
                             </button>
-                            <input type="file" ref={fileInputRef} hidden accept="image/*" capture="environment" onChange={(e) => {
-                              const file = e.target.files?.[0];
-                              if (file) handleImageSelected(file);
-                            }} />
                             {(title || showTextInput) && (
                               <button onClick={() => handleTitleDone()} className="px-6 py-3 rounded-full primary-gradient text-primary-foreground font-bold text-sm">Crear</button>
                             )}
@@ -504,6 +537,12 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
                     </motion.div>
                   )}
                 </AnimatePresence>
+                
+                {/* Global File Input */}
+                <input type="file" ref={fileInputRef} hidden accept="image/*" capture="environment" onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleImageSelected(file);
+                }} />
               </div>
             </div>
           </motion.div>
