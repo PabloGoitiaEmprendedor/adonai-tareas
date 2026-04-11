@@ -107,8 +107,10 @@ TU REGLA DE ORO PARA LA CLASIFICACIÓN (SÉ ESTRICTO):
 2. PRIORIDAD (Urgencia e Importancia): 
    - IMPORTANTE = Afecta a largo plazo, a sus metas, o a su carrera/negocio.
    - URGENTE = Tiene un deadline inmediato (hoy/mañana) o consecuencias graves si no se hace pronto.
-   - Analiza el tono del usuario: "¡Urgente!", "Necesito esto ya", "Es vital" -> High priority.
-3. RECURRENCIA (VITAL): Si el usuario dice "cada X", "todos los", "X veces por semana", "el 1 de cada mes", ESTÁS OBLIGADO a llenar el objeto 'recurrence'. No lo ignores.
+   - Analiza el tono del usuario: "¡Urgente!", "Nece3. RECURRENCIA (VITAL): Si el usuario dice "cada X", "todos los", "X veces por semana", "diariamente", "los lunes", "el 1 de cada mes", etc., ESTÁS OBLIGADO a llenar el objeto 'recurrence'. No lo ignores. 
+   - Ejemplo: "Ir al gym cada lunes y miércoles" -> frequency: weekly, interval: 1, days_of_week: [1, 3]
+   - Ejemplo: "Pagar internet cada 30 de mes" -> frequency: monthly, interval: 1, day_of_month: 30
+   - Ejemplo: "Sacar la basura todos los días" -> frequency: daily, interval: 1
 4. CONTEXTO: Usa lo que sabes de su ocupación (${userContext?.occupation}) e industria para decidir si algo es importante.
 5. TÍTULO MINIMALISTA: Crea títulos de máximo 5 palabras. Si el usuario da muchos detalles, ponlos en 'description', NUNCA en el título. El título debe ser una acción simple (ej: 'Revisar reporte' en lugar de 'Revisar el reporte de ventas del mes pasado para la junta de mañana').
 
@@ -132,7 +134,7 @@ ${existingTasks.map((t: any) => `- ${t.title} (Prioridad: ${t.priority}, Urgenci
             type: "function",
             function: {
               name: "classify_task",
-              description: "Analiza la entrada del usuario, genera un título limpio y descripción, clasifica la tarea, asigna carpeta y detecta recurrencia",
+              description: "Analiza la entrada del usuario, genera un título limpio y descripción, clasifica la tarea, asigna carpeta y detecta CUALQUIER patrón de repetición/recurrencia mencionado.",
               parameters: {
                 type: "object",
                 properties: {
@@ -161,12 +163,12 @@ ${existingTasks.map((t: any) => `- ${t.title} (Prioridad: ${t.priority}, Urgenci
                   suggest_new_folder_name: { type: "string", description: "Si no hay carpeta adecuada, sugiere un nombre para crear una nueva. Vacío si ya hay carpeta." },
                   recurrence: {
                     type: "object",
-                    description: "Regla de recurrencia si el usuario menciona un patrón recurrente. Null si no es recurrente.",
+                    description: "SIEMPRE que el usuario mencione repetición (cada día, semanal, cada X tiempo), llena este objeto. Null solo si es una tarea única.",
                     properties: {
-                      frequency: { type: "string", enum: ["daily", "weekly", "monthly", "yearly"] },
-                      interval: { type: "number", description: "Cada cuántas unidades (1 = cada, 2 = cada 2, etc.)" },
-                      days_of_week: { type: "array", items: { type: "number" }, description: "Usa JS getDay(): 0=Domingo, 1=Lunes, 2=Martes, 3=Miércoles, 4=Jueves, 5=Viernes, 6=Sábado" },
-                      day_of_month: { type: "number", description: "Día del mes (1-31)" },
+                      frequency: { type: "string", enum: ["daily", "weekly", "monthly", "yearly"], description: "Frecuencia de la repetición." },
+                      interval: { type: "number", description: "Cada cuántas unidades (1 = cada semana/día, 2 = cada 2 semanas/días, etc.)" },
+                      days_of_week: { type: "array", items: { type: "number" }, description: "Días de la semana si es weekly. 0=Dom, 1=Lun, 2=Mar, 3=Mie, 4=Jue, 5=Vie, 6=Sab." },
+                      day_of_month: { type: "number", description: "Día del mes (1-31) si es monthly." },
                     },
                     required: ["frequency", "interval"],
                   },
