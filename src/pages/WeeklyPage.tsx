@@ -246,7 +246,13 @@ const WeeklyPage = () => {
               {/* Time Blocks Rendering */}
               {timeBlocks.map((block) => {
                 const blockTasks = orderedTasks.filter(t => t.time_block_id === block.id);
-                const formatTime = (t: string) => t.substring(0, 5); 
+                const formatTime = (t: string) => {
+                  if (!t) return '';
+                  const [h, m] = t.split(':').map(Number);
+                  const ampm = h >= 12 ? 'pm' : 'am';
+                  const h12 = h % 12 || 12;
+                  return `${h12}:${m.toString().padStart(2, '0')}${ampm}`;
+                }; 
                 const blockColor = block.color || '#2196F3'; 
                 
                 return (

@@ -158,7 +158,7 @@ const CalendarPage = () => {
                       <div className="min-w-0 flex-1">
                         <h3 className="text-sm font-bold text-foreground truncate">{event.title}</h3>
                         <p className="text-xs text-on-surface-variant mt-0.5">
-                          {event.allDay ? 'Todo el día' : `${format(parseISO(event.start), 'HH:mm')} - ${format(parseISO(event.end), 'HH:mm')}`}
+                          {event.allDay ? 'Todo el día' : `${format(parseISO(event.start), 'h:mm aa')} - ${format(parseISO(event.end), 'h:mm aa')}`}
                         </p>
                       </div>
                       {event.htmlLink && (
