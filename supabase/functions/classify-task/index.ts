@@ -34,13 +34,14 @@ serve(async (req) => {
 
     const { taskTitle, dueDate } = await req.json();
 
-    const [contextRes, profileRes, tasksRes, goalsRes, contextsRes, foldersRes] = await Promise.all([
+    const [contextRes, profileRes, tasksRes, goalsRes, contextsRes, foldersRes, blocksRes] = await Promise.all([
       supabase.from("user_context").select("*").eq("user_id", userId).single(),
       supabase.from("profiles").select("*").eq("user_id", userId).single(),
       supabase.from("tasks").select("id, title, priority, urgency, importance, status, due_date, context_id, estimated_minutes, folder_id").eq("user_id", userId).eq("status", "pending").limit(20),
       supabase.from("goals").select("id, title, horizon, active").eq("user_id", userId).eq("active", true),
       supabase.from("contexts").select("id, name").eq("user_id", userId),
       supabase.from("folders").select("id, name").eq("user_id", userId),
+      supabase.from("time_blocks").select("id, title, start_time, end_time, color, block_date").eq("user_id", userId).gte("block_date", new Date().toISOString().split("T")[0]).order("start_time"),
     ]);
 
     const userContext = contextRes.data;
@@ -49,10 +50,12 @@ serve(async (req) => {
     const goals = goalsRes.data || [];
     const contexts = contextsRes.data || [];
     const folders = foldersRes.data || [];
+    const timeBlocks = blocksRes.data || [];
 
     const contextList = contexts.map((c: any) => `${c.name} (id: ${c.id})`).join(", ");
     const goalsList = goals.map((g: any) => `${g.title} [id: ${g.id}] (${g.horizon})`).join(", ");
     const foldersList = folders.map((f: any) => `${f.name} (id: ${f.id})`).join(", ");
+    const blocksList = timeBlocks.map((b: any) => `${b.title} [id: ${b.id}] (${b.start_time}-${b.end_time} el ${b.block_date})`).join(", ");
 
     const todayStr = new Date().toISOString().split("T")[0];
     const systemPrompt = `Eres Adonai, un asistente de productividad experto. Hoy es ${todayStr}.
@@ -63,7 +66,8 @@ Tu trabajo es:
 3. Si hay detalles adicionales, crear una descripción breve.
 4. EXTRAER LA FECHA: Analiza cuidadosamente cuándo el usuario quiere hacer la tarea. "hoy" = ${todayStr}, "mañana" = día siguiente, "el lunes" = próximo lunes, "el 15 de julio" = 2026-07-15, etc. Devuelve la fecha en formato YYYY-MM-DD en el campo due_date.
 5. Clasificar la tarea automáticamente.
-6. ASIGNAR A UNA CARPETA.
+6. ASIGNAR A UNA CARPETA adecuada (si aplica).
+7. ASIGNAR A UN BLOQUE DE TIEMPO (time_block) si el usuario menciona algo como "en el bloque de la tarde" o "de 2 a 4". Puedes sugerir un ID existente O puedes SUGERIR crear uno nuevo devolviendo los detalles (start_time, end_time).
 
 EJEMPLO: El usuario dicta "oye mira necesito que mañana me acuerde de ir al banco a sacar la tarjeta nueva porque la otra se me venció". Resultado:
 - refined_title: "Ir al banco por tarjeta nueva"
@@ -95,6 +99,7 @@ CONTEXTO DEL USUARIO:
 METAS ACTIVAS: ${goalsList || "Ninguna"}
 CONTEXTOS: ${contextList || "Ninguno"}
 CARPETAS: ${foldersList || "Ninguna"}
+BLOQUES DE TIEMPO ACTIVOS: ${blocksList || "Ninguno programado"}
 
 TAREAS PENDIENTES:
 ${existingTasks.map((t: any) => `- ${t.title} (${t.priority}, fecha: ${t.due_date}, carpeta: ${t.folder_id || 'sin carpeta'})`).join("\n") || "Ninguna"}`;
@@ -130,6 +135,18 @@ ${existingTasks.map((t: any) => `- ${t.title} (${t.priority}, fecha: ${t.due_dat
                   context_id: { type: "string", description: "ID del contexto más apropiado, o null" },
                   goal_id: { type: "string", description: "ID de la meta relacionada, o null" },
                   folder_id: { type: "string", description: "ID de la carpeta existente más apropiada, o null si ninguna aplica" },
+                  time_block_id: { type: "string", description: "ID del bloque de tiempo existente, o null" },
+                  suggest_new_time_block: { 
+                    type: "object", 
+                    description: "Si el usuario quiere agendar en una hora que NO existe como bloque todavía, genera los detalles para crear el bloque. IMPORTANTE: Usa HH:MM en 24h.",
+                    properties: {
+                      title: { type: "string", description: "Nombre del bloque, ej. 'Bloque Foco', 'Reuniones'" },
+                      start_time: { type: "string", description: "HH:MM, ej. '14:00'" },
+                      end_time: { type: "string", description: "HH:MM, ej. '16:00'" },
+                      color: { type: "string", description: "Color hex, ej. '#4caf50'" }
+                    },
+                    required: ["title", "start_time", "end_time"]
+                  },
                   suggest_new_folder_name: { type: "string", description: "Si no hay carpeta adecuada, sugiere un nombre para crear una nueva. Vacío si ya hay carpeta." },
                   recurrence: {
                     type: "object",
@@ -203,6 +220,25 @@ ${existingTasks.map((t: any) => `- ${t.title} (${t.priority}, fecha: ${t.due_dat
         classification.folder_id = newFolder.id;
         classification.created_new_folder = classification.suggest_new_folder_name;
       }
+    }
+
+    // Auto-create suggested time block if no returning ID
+    if (!classification.time_block_id && classification.suggest_new_time_block) {
+        const { data: newBlock } = await supabase
+          .from("time_blocks")
+          .insert({ 
+            user_id: userId, 
+            title: classification.suggest_new_time_block.title,
+            start_time: classification.suggest_new_time_block.start_time,
+            end_time: classification.suggest_new_time_block.end_time,
+            color: classification.suggest_new_time_block.color || '#4caf50',
+            block_date: classification.due_date || todayStr
+          })
+          .select()
+          .single();
+        if (newBlock) {
+          classification.time_block_id = newBlock.id;
+        }
     }
 
     // Create recurrence rule if detected
