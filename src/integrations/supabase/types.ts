@@ -434,6 +434,7 @@ export type Database = {
           sort_order: number | null
           source_type: string | null
           status: string | null
+          time_block_id: string | null
           title: string
           urgency: boolean | null
           user_id: string
@@ -454,6 +455,7 @@ export type Database = {
           sort_order?: number | null
           source_type?: string | null
           status?: string | null
+          time_block_id?: string | null
           title: string
           urgency?: boolean | null
           user_id: string
@@ -474,6 +476,7 @@ export type Database = {
           sort_order?: number | null
           source_type?: string | null
           status?: string | null
+          time_block_id?: string | null
           title?: string
           urgency?: boolean | null
           user_id?: string
@@ -507,7 +510,50 @@ export type Database = {
             referencedRelation: "recurrence_rules"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "tasks_time_block_id_fkey"
+            columns: ["time_block_id"]
+            isOneToOne: false
+            referencedRelation: "time_blocks"
+            referencedColumns: ["id"]
+          },
         ]
+      }
+      time_blocks: {
+        Row: {
+          block_date: string
+          color: string | null
+          created_at: string | null
+          end_time: string
+          id: string
+          start_time: string
+          title: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          block_date: string
+          color?: string | null
+          created_at?: string | null
+          end_time: string
+          id?: string
+          start_time: string
+          title: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          block_date?: string
+          color?: string | null
+          created_at?: string | null
+          end_time?: string
+          id?: string
+          start_time?: string
+          title?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
       }
       usage_events: {
         Row: {

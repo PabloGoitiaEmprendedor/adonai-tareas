@@ -4,9 +4,10 @@ import { useGoals } from '@/hooks/useGoals';
 import { useProfile } from '@/hooks/useProfile';
 import { useStreaks } from '@/hooks/useStreaks';
 import { useGlobalVoiceCapture } from '@/hooks/useGlobalVoiceCapture';
+import { useTimeBlocks } from '@/hooks/useTimeBlocks';
 import { format } from 'date-fns';
-import { Check, Plus, GripVertical, Timer } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { Check, Plus, GripVertical, Timer, Clock } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import FAB from '@/components/FAB';
 import TaskCaptureModal, { type TaskCaptureModalHandle } from '@/components/TaskCaptureModal';
 import TaskDetailModal from '@/components/TaskDetailModal';
@@ -92,6 +93,7 @@ const DailyPage = () => {
   const today = format(new Date(), 'yyyy-MM-dd');
 
   const { tasks, updateTask } = useTasks({ date: today });
+  const { timeBlocks } = useTimeBlocks(today);
   const { goals } = useGoals();
   const { profile } = useProfile();
   const { trackDayActive } = useStreaks();
@@ -204,7 +206,7 @@ const DailyPage = () => {
         {/* Dynamic greeting - centered, single line */}
         <p className="text-center text-sm text-on-surface-variant py-3">{greeting}</p>
 
-        {orderedTasks.length === 0 ? (
+        {orderedTasks.length === 0 && timeBlocks.length === 0 ? (
           <div className="bg-surface-container-low p-6 rounded-lg text-center space-y-3">
             <p className="text-on-surface-variant">Tu día está despejado. ¿Qué quieres lograr?</p>
             <button onClick={openCapture} className="inline-flex items-center gap-2 px-4 py-2 rounded-full primary-gradient text-primary-foreground text-sm font-semibold">
@@ -212,47 +214,115 @@ const DailyPage = () => {
             </button>
           </div>
         ) : (
-          <div className="space-y-1.5">
-            {orderedTasks.map((task, idx) => {
-              const isDone = task.status === 'done';
+          <div className="space-y-6">
+            
+            {/* Time Blocks Rendering */}
+            {timeBlocks.map((block) => {
+              const blockTasks = orderedTasks.filter(t => t.time_block_id === block.id);
+              // Calculate format start to end
+              const formatTime = (t: string) => t.substring(0, 5); // 09:00:00 -> 09:00
+              
               return (
-                <motion.div
-                  key={task.id}
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  draggable={!isDone}
-                  onDragStart={() => handleDragStart(idx)}
-                  onDragOver={(e) => handleDragOver(e, idx)}
-                  onDragEnd={handleDragEnd}
-                  onTouchStart={(e) => !isDone && handleTouchStart(idx, e)}
-                  onTouchMove={handleTouchMove}
-                  onTouchEnd={handleTouchEnd}
-                  onClick={() => setSelectedTask(task)}
-                  className={`p-3.5 rounded-lg flex items-start gap-3 cursor-pointer transition-all ${
-                    isDone ? 'opacity-50' : dragIdx === idx || touchIdx === idx ? 'bg-surface-container-high scale-[1.02] shadow-lg' : 'bg-surface-container-low hover:bg-surface-container-high'
-                  }`}
-                >
-                  {!isDone && <GripVertical className="w-4 h-4 text-on-surface-variant/30 flex-shrink-0 cursor-grab mt-0.5" />}
-                  {isDone ? (
-                    <div className="w-5 h-5 rounded bg-primary flex items-center justify-center flex-shrink-0 mt-0.5">
-                      <Check className="w-3 h-3 text-primary-foreground" />
+                <div key={block.id} className="space-y-2">
+                  <div className="flex items-center justify-between px-1">
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full" style={{ backgroundColor: block.color || '#4caf50' }} />
+                      <h3 className="font-bold text-lg text-foreground">{block.title}</h3>
                     </div>
-                  ) : (
-                    <button onClick={(e) => handleComplete(task.id, e)}
-                      className="w-5 h-5 rounded border-2 border-outline-variant flex items-center justify-center hover:border-primary flex-shrink-0 mt-0.5" />
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <h4 className={`text-sm font-semibold break-words ${isDone ? 'text-on-surface-variant line-through' : 'text-foreground'}`}>{task.title}</h4>
+                    <div className="flex items-center gap-1.5 px-3 py-1 bg-surface-container-high rounded-full text-xs font-semibold text-on-surface-variant">
+                      <Clock className="w-3.5 h-3.5" />
+                      {formatTime(block.start_time)} - {formatTime(block.end_time)}
+                    </div>
                   </div>
-                  {!isDone && (
-                    <button onClick={(e) => handleStartTimer(task, e)}
-                      className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center hover:bg-primary/20 flex-shrink-0 transition-colors">
-                      <Timer className="w-3.5 h-3.5 text-primary" />
-                    </button>
-                  )}
-                </motion.div>
+                  
+                  <div className="space-y-1.5 pl-5 border-l-2" style={{ borderColor: block.color || '#4caf50' }}>
+                    {blockTasks.length === 0 && (
+                      <p className="text-sm text-on-surface-variant/50 p-2">No hay tareas en este bloque</p>
+                    )}
+                    {blockTasks.map((task, idx) => {
+                      const isDone = task.status === 'done';
+                      return (
+                        <motion.div
+                          key={task.id}
+                          initial={{ opacity: 0, x: -10 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          onClick={() => setSelectedTask(task)}
+                          className={`p-3 rounded-xl flex items-start gap-3 cursor-pointer transition-all ${
+                            isDone ? 'opacity-50' : 'bg-surface-container-low hover:bg-surface-container-high shadow-sm'
+                          }`}
+                        >
+                          {isDone ? (
+                            <div className="w-5 h-5 rounded bg-primary flex items-center justify-center flex-shrink-0 mt-0.5">
+                              <Check className="w-3 h-3 text-primary-foreground" />
+                            </div>
+                          ) : (
+                            <button onClick={(e) => handleComplete(task.id, e)}
+                              className="w-5 h-5 rounded border-2 border-outline-variant flex items-center justify-center hover:border-primary flex-shrink-0 mt-0.5" />
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <h4 className={`text-sm font-semibold break-words ${isDone ? 'text-on-surface-variant line-through' : 'text-foreground'}`}>{task.title}</h4>
+                          </div>
+                          {!isDone && (
+                            <button onClick={(e) => handleStartTimer(task, e)}
+                              className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center hover:bg-primary/20 flex-shrink-0 transition-colors">
+                              <Timer className="w-3.5 h-3.5 text-primary" />
+                            </button>
+                          )}
+                        </motion.div>
+                      );
+                    })}
+                  </div>
+                </div>
               );
             })}
+
+            {/* Unscheduled Tasks Rendering */}
+            <div className="space-y-2 mt-8">
+              {timeBlocks.length > 0 && orderedTasks.filter(t => !t.time_block_id).length > 0 && (
+                <h3 className="font-bold text-lg text-foreground px-1 pb-2">Tareas sin bloque asignado</h3>
+              )}
+              {orderedTasks.filter(t => !t.time_block_id).map((task, idx) => {
+                const isDone = task.status === 'done';
+                return (
+                  <motion.div
+                    key={task.id}
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    draggable={!isDone}
+                    onDragStart={() => handleDragStart(idx)}
+                    onDragOver={(e) => handleDragOver(e, idx)}
+                    onDragEnd={handleDragEnd}
+                    onTouchStart={(e) => !isDone && handleTouchStart(idx, e)}
+                    onTouchMove={handleTouchMove}
+                    onTouchEnd={handleTouchEnd}
+                    onClick={() => setSelectedTask(task)}
+                    className={`p-3.5 rounded-2xl flex items-start gap-3 cursor-pointer transition-all ${
+                      isDone ? 'opacity-50' : dragIdx === idx || touchIdx === idx ? 'bg-surface-container-high scale-[1.02] shadow-lg' : 'bg-surface-container-low hover:bg-surface-container-high'
+                    }`}
+                  >
+                    {!isDone && <GripVertical className="w-4 h-4 text-on-surface-variant/30 flex-shrink-0 cursor-grab mt-0.5" />}
+                    {isDone ? (
+                      <div className="w-5 h-5 rounded bg-primary flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <Check className="w-3 h-3 text-primary-foreground" />
+                      </div>
+                    ) : (
+                      <button onClick={(e) => handleComplete(task.id, e)}
+                        className="w-5 h-5 rounded border-2 border-outline-variant flex items-center justify-center hover:border-primary flex-shrink-0 mt-0.5" />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <h4 className={`text-sm font-semibold break-words ${isDone ? 'text-on-surface-variant line-through' : 'text-foreground'}`}>{task.title}</h4>
+                    </div>
+                    {!isDone && (
+                      <button onClick={(e) => handleStartTimer(task, e)}
+                        className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center hover:bg-primary/20 flex-shrink-0 transition-colors">
+                        <Timer className="w-3.5 h-3.5 text-primary" />
+                      </button>
+                    )}
+                  </motion.div>
+                );
+              })}
+            </div>
+            
           </div>
         )}
       </div>

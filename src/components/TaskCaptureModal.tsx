@@ -153,7 +153,8 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
       handleTitleDone(transcript);
     }
     
-    if (transcript && !isRecording && sourceType === 'image' && phase === 'image_date') {
+    if (transcript && !isRecording && sourceType === 'image' && phase === 'image_date' && !voiceProcessedRef.current) {
+      voiceProcessedRef.current = true;
       const parsed = parseVoiceTranscript(transcript);
       handleImageDateAssignment(parsed.dueDate || format(new Date(), 'yyyy-MM-dd'));
       resetTranscript();
@@ -204,8 +205,26 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
         body: { imageBase64: resizedBase64.split(',')[1], mimeType }
       });
 
-      if (error || !data.tasks || data.tasks.length === 0) {
-        toast.error('No pude leer tareas en esta imagen. Intenta con mejor luz o enfoque.');
+      if (error) {
+        console.error("Functions invoke error:", error);
+        toast.error(`Error de conexión: ${error.message || 'Desconocido'}`);
+        setPhase('input');
+        return;
+      }
+
+      if (data?.error) {
+        console.error("Edge function returned error:", data.error, data.raw_content);
+        if (data.error === "parse_error") {
+          toast.error('La IA confundió el formato. Intenta con una letra más clara o menos texto.');
+        } else {
+          toast.error(`Error interno: ${data.error}`);
+        }
+        setPhase('input');
+        return;
+      }
+
+      if (!data.tasks || data.tasks.length === 0) {
+        toast.error('No se detectaron tareas escritas. Intenta con mejor luz o toma más cerca.');
         setPhase('input');
         return;
       }
