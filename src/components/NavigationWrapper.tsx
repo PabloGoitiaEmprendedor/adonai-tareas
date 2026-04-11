@@ -57,7 +57,7 @@ const SidebarContent = ({ user, menuItems, location, handleNavigate, signOut, is
           }`}
         >
           <Trash2 className={`w-5 h-5 ${location.pathname === '/trash' ? 'text-primary' : ''}`} />
-          <span className="text-sm tracking-wide">Papelera</span>
+          <span className="text-sm tracking-wide">Historial</span>
         </Button>
       </div>
 
@@ -120,7 +120,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
       case '/folders': return 'Carpetas';
       case '/friends': return 'Comunidad';
       case '/profile': return 'Perfil';
-      case '/trash': return 'Papelera';
+      case '/trash': return 'Historial';
       default: return 'Adonai';
     }
   };

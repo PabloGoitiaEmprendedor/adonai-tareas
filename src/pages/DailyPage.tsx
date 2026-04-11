@@ -115,14 +115,16 @@ const DailyPage = () => {
   useEffect(() => { trackDayActive.mutate(); }, []);
 
   const sortedTasks = useMemo(() => {
-    return [...tasks].sort((a: any, b: any) => {
-      const orderA = a.sort_order || 0;
-      const orderB = b.sort_order || 0;
-      if (orderA !== orderB) return orderA - orderB;
-      const scoreA = (a.urgency ? 2 : 0) + (a.importance ? 1 : 0);
-      const scoreB = (b.urgency ? 2 : 0) + (b.importance ? 1 : 0);
-      return scoreB - scoreA;
-    });
+    return tasks
+      .filter((t: any) => t.status !== 'done')
+      .sort((a: any, b: any) => {
+        const orderA = a.sort_order || 0;
+        const orderB = b.sort_order || 0;
+        if (orderA !== orderB) return orderA - orderB;
+        const scoreA = (a.urgency ? 2 : 0) + (a.importance ? 1 : 0);
+        const scoreB = (b.urgency ? 2 : 0) + (b.importance ? 1 : 0);
+        return scoreB - scoreA;
+      });
   }, [tasks]);
 
   useEffect(() => {

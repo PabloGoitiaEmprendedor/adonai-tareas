@@ -65,6 +65,19 @@ const WeeklyPage = () => {
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
   const today = new Date();
 
+  const getDayStatusLabel = (date: Date) => {
+    if (isSameDay(date, today)) return 'Hoy';
+    if (isSameDay(date, addDays(today, 1))) return 'Mañana';
+    if (isSameDay(date, subDays(today, 1))) return 'Ayer';
+    
+    const diff = Math.floor((date.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    if (diff > 1 && diff < 7) {
+      return `Próximo ${format(date, 'EEEE', { locale: es })}`;
+    }
+    
+    return format(date, 'EEEE d MMM', { locale: es });
+  };
+
   const handlePrevDay = () => setSelectedDay(subDays(selectedDay, 1));
   const handleNextDay = () => setSelectedDay(addDays(selectedDay, 1));
   const handleSelectDate = (date: Date | undefined) => {
@@ -85,7 +98,7 @@ const WeeklyPage = () => {
 
   const getTasksForDay = (date: Date) => {
     const dateStr = format(date, 'yyyy-MM-dd');
-    return tasks.filter((t) => t.due_date === dateStr);
+    return tasks.filter((t) => t.due_date === dateStr && t.status !== 'done');
   };
 
   const mainGoal = goals.find((g) => g.id === profile?.main_goal_id);
@@ -213,34 +226,21 @@ const WeeklyPage = () => {
              </SheetContent>
           </Sheet>
 
-          <div className="flex-1 overflow-x-auto no-scrollbar py-2">
-            <div className="flex gap-2 min-w-max px-2">
-              {days.map((day) => {
-                const isSelected = isSameDay(day, selectedDay);
-                const isToday = isSameDay(day, today);
-                const label = getDateLabel(day);
-                
-                return (
-                  <button
-                    key={day.toISOString()}
-                    onClick={() => setSelectedDay(day)}
-                    className={`flex flex-col items-center min-w-[70px] py-3 px-2 rounded-2xl transition-all duration-300 ${
-                      isSelected 
-                        ? 'bg-primary text-primary-foreground shadow-lg scale-105' 
-                        : isToday 
-                          ? 'bg-primary/10 text-primary border border-primary/20' 
-                          : 'hover:bg-surface-container-high text-on-surface-variant'
-                    }`}
-                  >
-                    <span className="text-[10px] font-black uppercase tracking-tighter mb-1">
-                      {label === 'Hoy' || label === 'Mañana' || label === 'Ayer' ? label : format(day, 'EEE', { locale: es })}
-                    </span>
-                    <span className="text-lg font-bold">{format(day, 'd')}</span>
-                  </button>
-                );
-              })}
-            </div>
+          <div className="flex items-center gap-1">
+            <Button variant="ghost" size="icon" onClick={handlePrevDay} className="h-9 w-9 rounded-xl">
+              <ChevronLeft className="w-5 h-5" />
+            </Button>
+            
+            <span className="text-sm font-bold capitalize min-w-[160px] text-center">
+              {getDayStatusLabel(selectedDay)}
+            </span>
+
+            <Button variant="ghost" size="icon" onClick={handleNextDay} className="h-9 w-9 rounded-xl">
+              <ChevronRight className="w-5 h-5" />
+            </Button>
           </div>
+
+          <div className="w-9" />
         </div>
 
         <section className="space-y-3">

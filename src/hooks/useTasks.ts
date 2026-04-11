@@ -37,7 +37,9 @@ export const useTasks = (filters?: { date?: string; startDate?: string; endDate?
         query = query.gte('due_date', filters.startDate).lte('due_date', filters.endDate);
       }
 
-      if (filters?.status) {
+      if (filters?.status === 'history') {
+        query = query.in('status', ['done', 'deleted']);
+      } else if (filters?.status) {
         query = query.eq('status', filters.status);
       } else {
         query = query.neq('status', 'deleted');
