@@ -4,7 +4,7 @@ import { useGoals } from '@/hooks/useGoals';
 import { useProfile } from '@/hooks/useProfile';
 import { useGlobalVoiceCapture } from '@/hooks/useGlobalVoiceCapture';
 import { useTimeBlocks } from '@/hooks/useTimeBlocks';
-import { format, startOfWeek, addDays, isSameDay, addWeeks, subWeeks } from 'date-fns';
+import { format, startOfWeek, addDays, subDays, isSameDay, addWeeks, subWeeks } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { TrendingUp, Calendar as CalendarIcon, Check, GripVertical, Timer, ChevronLeft, ChevronRight, Filter, Clock } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -44,8 +44,8 @@ const WeeklyPage = () => {
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
   const today = new Date();
 
-  const handlePrevWeek = () => setViewDate(subWeeks(viewDate, 1));
-  const handleNextWeek = () => setViewDate(addWeeks(viewDate, 1));
+  const handlePrevDay = () => setSelectedDay(subDays(selectedDay, 1));
+  const handleNextDay = () => setSelectedDay(addDays(selectedDay, 1));
   const handleSelectDate = (date: Date | undefined) => {
     if (date) {
       setViewDate(date);
@@ -149,15 +149,10 @@ const WeeklyPage = () => {
     <div className="min-h-screen bg-background">
       <div className="max-w-[430px] lg:max-w-4xl mx-auto px-6 pt-4 pb-24 space-y-6">
         <div className="flex justify-between items-center bg-surface-container-low p-2 rounded-2xl border border-outline-variant/10">
-          <Button variant="ghost" size="icon" onClick={handlePrevWeek} className="h-9 w-9 rounded-xl">
-            <ChevronLeft className="w-5 h-5" />
-          </Button>
-          
           <Sheet>
              <SheetTrigger asChild>
-                <Button variant="ghost" className="h-9 px-4 rounded-xl gap-2 hover:bg-surface-container-high transition-all">
-                  <CalendarIcon className="w-4 h-4 text-primary" />
-                  <span className="text-xs font-bold capitalize">{weekRange}</span>
+                <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl hover:bg-surface-container-high transition-all">
+                  <CalendarIcon className="w-5 h-5 text-primary" />
                 </Button>
              </SheetTrigger>
              <SheetContent side="bottom" className="rounded-t-[32px] p-6 glass-sheet h-auto">
@@ -169,7 +164,7 @@ const WeeklyPage = () => {
                   <div className="flex justify-center bg-surface-container px-2 py-4 rounded-[28px]">
                     <CalendarComponent
                       mode="single"
-                      selected={viewDate}
+                      selected={selectedDay}
                       onSelect={handleSelectDate}
                       initialFocus
                       locale={es}
@@ -179,29 +174,21 @@ const WeeklyPage = () => {
              </SheetContent>
           </Sheet>
 
-          <Button variant="ghost" size="icon" onClick={handleNextWeek} className="h-9 w-9 rounded-xl">
-            <ChevronRight className="w-5 h-5" />
-          </Button>
-        </div>
+          <div className="flex items-center gap-1">
+            <Button variant="ghost" size="icon" onClick={handlePrevDay} className="h-9 w-9 rounded-xl">
+              <ChevronLeft className="w-5 h-5" />
+            </Button>
+            
+            <span className="text-sm font-bold capitalize min-w-[130px] text-center">
+              {isSameDay(selectedDay, today) ? 'Hoy, ' : ''}{format(selectedDay, 'EEEE d MMM', { locale: es })}
+            </span>
 
+            <Button variant="ghost" size="icon" onClick={handleNextDay} className="h-9 w-9 rounded-xl">
+              <ChevronRight className="w-5 h-5" />
+            </Button>
+          </div>
 
-        <div className="grid grid-cols-7 gap-1.5">
-          {days.map((day, i) => {
-            const isToday = isSameDay(day, today);
-            const isSelected = isSameDay(day, selectedDay);
-            const data = weeklyData[i];
-            return (
-              <button key={i} onClick={() => setSelectedDay(day)}
-                className={`flex flex-col items-center p-2 rounded-xl transition-all ${
-                  isSelected ? 'bg-primary/20 ring-2 ring-primary' : isToday ? 'bg-primary/10 ring-1 ring-primary/20' : 'bg-surface-container-low'
-                }`}>
-                <span className={`text-[10px] font-bold ${isSelected || isToday ? 'text-primary' : 'text-on-surface-variant'}`}>{dayNames[i]}</span>
-                <span className={`text-base font-bold mt-0.5 ${isSelected || isToday ? 'text-primary' : ''}`}>{format(day, 'd')}</span>
-                <div className={`w-1.5 h-1.5 rounded-full mt-1 ${data.completed > 0 ? 'bg-primary' : data.total > 0 ? 'bg-tertiary' : 'bg-surface-container-highest'}`} />
-                {data.total > 0 && <span className="text-[8px] text-on-surface-variant mt-0.5">{data.completed}/{data.total}</span>}
-              </button>
-            );
-          })}
+          <div className="w-9" /> {/* Spacer to balance the Calendar icon on the left */}
         </div>
 
         <section className="space-y-3">
