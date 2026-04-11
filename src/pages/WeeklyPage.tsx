@@ -12,6 +12,7 @@ import FAB from '@/components/FAB';
 import TaskCaptureModal, { type TaskCaptureModalHandle } from '@/components/TaskCaptureModal';
 import TaskDetailModal from '@/components/TaskDetailModal';
 import FullscreenTimer from '@/components/FullscreenTimer';
+import { TimeBlockModal } from '@/components/TimeBlockModal';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
@@ -22,6 +23,7 @@ const WeeklyPage = () => {
   const [selectedDay, setSelectedDay] = useState<Date>(new Date());
   const [selectedTask, setSelectedTask] = useState<any>(null);
   const [timerTask, setTimerTask] = useState<any>(null);
+  const [blockModalOpen, setBlockModalOpen] = useState(false);
   const captureModalRef = useRef<TaskCaptureModalHandle>(null);
 
   const weekStart = startOfWeek(viewDate, { weekStartsOn: 1 });
@@ -192,11 +194,16 @@ const WeeklyPage = () => {
         </div>
 
         <section className="space-y-3">
-          <div className="flex justify-between items-center">
-            <h2 className="text-base font-bold tracking-tight capitalize">
+          <div className="flex justify-between items-center px-1">
+            <h2 className="text-base font-bold tracking-tight capitalize border-l-2 border-primary pl-2">
               {isSameDay(selectedDay, today) ? 'Hoy' : isSameDay(selectedDay, addDays(today, 1)) ? 'Mañana' : format(selectedDay, 'EEEE d', { locale: es })}
             </h2>
-            <span className="text-xs text-on-surface-variant">{orderedTasks.length} tareas</span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-on-surface-variant font-medium">{orderedTasks.length} tareas</span>
+              <Button onClick={() => setBlockModalOpen(true)} variant="outline" size="sm" className="h-7 text-xs px-2 gap-1 rounded-lg border-primary/20 text-primary hover:bg-primary/5">
+                 + Bloque
+              </Button>
+            </div>
           </div>
 
           {orderedTasks.length === 0 && timeBlocks.length === 0 ? (
@@ -356,6 +363,7 @@ const WeeklyPage = () => {
       <TaskCaptureModal ref={captureModalRef} open={captureOpen} onClose={() => setCaptureOpen(false)} />
       <TaskDetailModal task={selectedTask} open={!!selectedTask} onClose={() => setSelectedTask(null)} />
       <FullscreenTimer task={timerTask} open={!!timerTask} onClose={() => setTimerTask(null)} />
+      <TimeBlockModal open={blockModalOpen} onClose={() => setBlockModalOpen(false)} selectedDate={selectedDay} />
     </div>
   );
 };
