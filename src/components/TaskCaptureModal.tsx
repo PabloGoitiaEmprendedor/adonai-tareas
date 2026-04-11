@@ -561,29 +561,36 @@ Tu trabajo es:`;
                     </motion.div>
                   )}
 
-                   {phase === 'saving' && (
-                    <motion.div key="saving" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="py-2 text-center space-y-0 w-full flex flex-col items-center">
-                      <div className="relative scale-110 mb-[-20px]">
-                        <AISphere />
-                      </div>
-                      
-                      <div className="space-y-4 relative z-50">
-                        <motion.p 
-                          initial={{ opacity: 0, y: 10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          className="text-xl font-extrabold text-foreground tracking-tight px-8 leading-tight drop-shadow-sm"
-                        >
-                          {savingMessage}
-                        </motion.p>
-                        <div className="flex flex-col items-center gap-2">
-                          <p className="text-[10px] text-on-surface-variant/60 font-black uppercase tracking-[0.3em] animate-pulse">
-                            Neural Processing Unit
-                          </p>
-                          <div className="h-[1px] w-12 bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
+                    {phase === 'saving' && (
+                      <motion.div 
+                        key="saving" 
+                        initial={{ opacity: 0, scale: 0.9 }} 
+                        animate={{ opacity: 1, scale: 1 }} 
+                        className="flex flex-col items-center justify-center py-12 w-full min-h-[350px] space-y-8"
+                      >
+                        <div className="relative flex items-center justify-center w-full h-48">
+                          <div className="absolute inset-0 flex items-center justify-center scale-150">
+                            <AISphere />
+                          </div>
                         </div>
-                      </div>
-                    </motion.div>
-                  )}
+                        
+                        <div className="flex flex-col items-center space-y-4 pt-4 relative z-10">
+                          <motion.p 
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="text-2xl font-black text-foreground tracking-tighter text-center max-w-[280px] leading-[0.9]"
+                          >
+                            {savingMessage}
+                          </motion.p>
+                          <div className="flex flex-col items-center gap-2">
+                             <div className="h-[2px] w-8 bg-primary rounded-full" />
+                             <p className="text-[9px] text-on-surface-variant/40 font-bold uppercase tracking-[0.4em]">
+                              Adonai Nano Processing
+                            </p>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
                 </AnimatePresence>
                 
                 {/* Global File Input */}
