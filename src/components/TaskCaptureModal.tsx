@@ -562,19 +562,25 @@ Tu trabajo es:`;
                   )}
 
                    {phase === 'saving' && (
-                    <motion.div key="saving" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="py-6 text-center space-y-2 w-full">
-                      <AISphere />
-                      <div className="space-y-4 pt-4">
+                    <motion.div key="saving" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="py-2 text-center space-y-0 w-full flex flex-col items-center">
+                      <div className="relative scale-110 mb-[-20px]">
+                        <AISphere />
+                      </div>
+                      
+                      <div className="space-y-4 relative z-50">
                         <motion.p 
                           initial={{ opacity: 0, y: 10 }}
                           animate={{ opacity: 1, y: 0 }}
-                          className="text-lg font-bold text-foreground tracking-tight"
+                          className="text-xl font-extrabold text-foreground tracking-tight px-8 leading-tight drop-shadow-sm"
                         >
                           {savingMessage}
                         </motion.p>
-                        <p className="text-[11px] text-on-surface-variant font-medium uppercase tracking-widest animate-pulse">
-                          Optimizando con Adonai AI
-                        </p>
+                        <div className="flex flex-col items-center gap-2">
+                          <p className="text-[10px] text-on-surface-variant/60 font-black uppercase tracking-[0.3em] animate-pulse">
+                            Neural Processing Unit
+                          </p>
+                          <div className="h-[1px] w-12 bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
+                        </div>
                       </div>
                     </motion.div>
                   )}
