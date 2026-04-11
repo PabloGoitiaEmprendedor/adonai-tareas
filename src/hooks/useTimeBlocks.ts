@@ -7,13 +7,11 @@ export const useTimeBlocks = (date: string) => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
-  const { data: timeBlocks = [], isLoading } = useQuery({
+  const { data: allBlocks = [], isLoading } = useQuery({
     queryKey: ['time_blocks', date],
     queryFn: async () => {
       if (!user) return [];
       
-      const dayOfWeek = (new Date(`${date}T12:00:00`)).getDay();
-
       const { data, error } = await supabase
         .from('time_blocks')
         .select('*')
@@ -21,14 +19,18 @@ export const useTimeBlocks = (date: string) => {
         .or(`block_date.eq.${date},is_recurring.eq.true`)
         .order('start_time', { ascending: true });
 
-      if (error) {
-        console.error('Error fetching time blocks:', error);
-        throw error;
-      }
-
+      if (error) throw error;
       return data;
     },
     enabled: !!user && !!date,
+  });
+
+  const dayOfWeek = (new Date(`${date}T12:00:00`)).getDay(); // 0-6
+
+  const timeBlocks = allBlocks.filter(b => {
+    if (!b.is_recurring) return b.block_date === date;
+    if (!b.days_of_week || b.days_of_week.length === 0) return true;
+    return b.days_of_week.includes(dayOfWeek);
   });
 
   const timeToMinutes = (t: string) => {
@@ -36,65 +38,26 @@ export const useTimeBlocks = (date: string) => {
     return h * 60 + (m || 0);
   };
 
-  const minutesToTime = (min: number) => {
-    const h = Math.floor(min / 60);
-    const m = min % 60;
-    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
-  };
-
-  const resolveCollisions = async (newBlock: { start_time: string; end_time: string; id?: string }) => {
-    if (!user) return;
+  const hasCollision = (newBlock: { start_time: string; end_time: string; id?: string }) => {
+    if (!user) return false;
     const s1 = timeToMinutes(newBlock.start_time);
     const e1 = timeToMinutes(newBlock.end_time);
 
-    // Fetch existing blocks for this context (exact date or recurring)
-    const { data: others } = await supabase
-      .from('time_blocks')
-      .select('*')
-      .eq('user_id', user.id)
-      .or(`block_date.eq.${date},is_recurring.eq.true`);
-
-    if (!others) return;
-
-    for (const b of others) {
-      if (b.id === newBlock.id) continue;
-      // Skip if it's recurring but today is not one of its days (complex, let's simplify to same logic)
-      
+    return timeBlocks.some(b => {
+      if (b.id === newBlock.id) return false;
       const s2 = timeToMinutes(b.start_time);
       const e2 = timeToMinutes(b.end_time);
-
-      // Check overlap
-      const hasOverlap = s1 < e2 && s2 < e1;
-      if (!hasOverlap) continue;
-
-      if (s2 >= s1 && e2 <= e1) {
-        // Case 1: Existing block is entirely covered by new block -> DELETE
-        await supabase.from('time_blocks').delete().eq('id', b.id);
-      } else if (s2 < s1 && e2 > e1) {
-        // Case 2: New block is inside existing block -> SPLIT existing
-        await supabase.from('time_blocks').update({ end_time: minutesToTime(s1) }).eq('id', b.id);
-        await supabase.from('time_blocks').insert({
-          ...b,
-          id: undefined,
-          start_time: minutesToTime(e1),
-          user_id: user.id
-        });
-      } else if (s2 < s1 && e2 <= e1) {
-        // Case 3: Overlap at the end of existing -> TRIM end
-        await supabase.from('time_blocks').update({ end_time: minutesToTime(s1) }).eq('id', b.id);
-      } else if (s2 >= s1 && e2 > e1) {
-        // Case 4: Overlap at the start of existing -> TRIM start
-        await supabase.from('time_blocks').update({ start_time: minutesToTime(e1) }).eq('id', b.id);
-      }
-    }
+      return s1 < e2 && s2 < e1;
+    });
   };
 
   const createBlock = useMutation({
     mutationFn: async (block: { title: string; start_time: string; end_time: string; block_date: string | null; color?: string; is_recurring?: boolean; days_of_week?: number[] }) => {
       if (!user) throw new Error('No user');
       
-      // Resolve collisions first
-      await resolveCollisions(block);
+      if (hasCollision(block)) {
+        throw new Error('ESTE HORARIO YA ESTÁ OCUPADO');
+      }
 
       const { data, error } = await supabase
         .from('time_blocks')
@@ -108,9 +71,11 @@ export const useTimeBlocks = (date: string) => {
       queryClient.invalidateQueries({ queryKey: ['time_blocks'] });
       toast.success('Bloque programado');
     },
-    onError: (err) => {
-      console.error(err);
-      toast.error('Error al crear bloque');
+    onError: (err: any) => {
+      const msg = err.message === 'ESTE HORARIO YA ESTÁ OCUPADO' ? err.message : 'Error al crear bloque';
+      toast.error(msg, {
+        style: { background: '#ef4444', color: '#fff', border: 'none' }
+      });
     }
   });
 
@@ -118,8 +83,18 @@ export const useTimeBlocks = (date: string) => {
     mutationFn: async ({ id, ...updates }: { id: string; title?: string; start_time?: string; end_time?: string; block_date?: string | null; color?: string; is_recurring?: boolean; days_of_week?: number[] }) => {
       if (!user) throw new Error('No user');
 
-      if (updates.start_time && updates.end_time) {
-        await resolveCollisions({ ...updates, id } as any);
+      if (updates.start_time || updates.end_time) {
+        // We need full block to check collision reliably
+        const current = allBlocks.find(b => b.id === id);
+        if (hasCollision({ 
+          ...current, 
+          ...updates, 
+          start_time: updates.start_time || current.start_time,
+          end_time: updates.end_time || current.end_time,
+          id 
+        })) {
+          throw new Error('ESTE HORARIO YA ESTÁ OCUPADO');
+        }
       }
 
       const { data, error } = await supabase
@@ -135,9 +110,11 @@ export const useTimeBlocks = (date: string) => {
       queryClient.invalidateQueries({ queryKey: ['time_blocks'] });
       toast.success('Bloque actualizado');
     },
-    onError: (err) => {
-      console.error(err);
-      toast.error('Error al actualizar bloque');
+    onError: (err: any) => {
+      const msg = err.message === 'ESTE HORARIO YA ESTÁ OCUPADO' ? err.message : 'Error al actualizar bloque';
+      toast.error(msg, {
+        style: { background: '#ef4444', color: '#fff', border: 'none' }
+      });
     }
   });
 

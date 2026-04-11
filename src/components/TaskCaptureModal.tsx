@@ -558,14 +558,57 @@ Tu trabajo es:`;
                     </motion.div>
                   )}
 
-                  {phase === 'saving' && (
-                    <motion.div key="saving" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="py-8 text-center space-y-4">
-                      <div className="w-12 h-12 mx-auto relative">
-                        <motion.div animate={{ rotate: 360 }} transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
-                          className="w-12 h-12 border-2 border-primary/30 border-t-primary rounded-full" />
-                        <Sparkles className="w-5 h-5 text-primary absolute inset-0 m-auto" />
+                   {phase === 'saving' && (
+                    <motion.div key="saving" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="py-10 text-center space-y-6 w-full">
+                      <div className="relative w-20 h-20 mx-auto">
+                        {/* Glow effect */}
+                        <motion.div 
+                          className="absolute inset-0 bg-primary/20 blur-xl rounded-full"
+                          animate={{ scale: [1, 1.4, 1], opacity: [0.3, 0.6, 0.3] }}
+                          transition={{ duration: 2, repeat: Infinity }}
+                        />
+                        {/* Rotating ring */}
+                        <motion.div 
+                          animate={{ rotate: 360 }} 
+                          transition={{ duration: 1.5, repeat: Infinity, ease: 'linear' }}
+                          className="absolute inset-0 border-3 border-transparent border-t-primary border-r-primary/30 rounded-full shadow-[0_0_15px_rgba(75,226,119,0.3)]" 
+                        />
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <motion.div
+                            animate={{ scale: [1, 1.2, 1], rotate: [0, 10, -10, 0] }}
+                            transition={{ duration: 3, repeat: Infinity }}
+                          >
+                            <Sparkles className="w-8 h-8 text-primary drop-shadow-[0_0_5px_rgba(75,226,119,0.8)]" />
+                          </motion.div>
+                        </div>
+                        {/* Orbiting sparkles */}
+                        <motion.div 
+                          className="absolute -top-1 -right-1"
+                          animate={{ scale: [0, 1, 0], y: [-5, -15, -20], x: [5, 15, 10] }}
+                          transition={{ duration: 1.5, repeat: Infinity, delay: 0.2 }}
+                        >
+                          <Sparkles className="w-3 h-3 text-primary/60" />
+                        </motion.div>
+                        <motion.div 
+                          className="absolute -bottom-1 -left-1"
+                          animate={{ scale: [0, 1, 0], y: [5, 15, 20], x: [-5, -15, -10] }}
+                          transition={{ duration: 1.5, repeat: Infinity, delay: 0.7 }}
+                        >
+                          <Sparkles className="w-3 h-3 text-primary/40" />
+                        </motion.div>
                       </div>
-                      <p className="text-foreground font-medium">{savingMessage}</p>
+                      <div className="space-y-2">
+                        <motion.p 
+                          initial={{ opacity: 0, y: 5 }} 
+                          animate={{ opacity: 1, y: 0 }}
+                          className="text-lg font-bold text-foreground tracking-tight"
+                        >
+                          {savingMessage}
+                        </motion.p>
+                        <p className="text-[11px] text-on-surface-variant font-medium uppercase tracking-widest animate-pulse">
+                          Optimizando con Adonai AI
+                        </p>
+                      </div>
                     </motion.div>
                   )}
                 </AnimatePresence>

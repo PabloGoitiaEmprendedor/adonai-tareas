@@ -104,7 +104,7 @@ const AppRoutes = () => {
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
-      <Sonner />
+      <Sonner position="top-center" duration={2000} />
       <BrowserRouter>
         <AuthProvider>
           <AppRoutes />
