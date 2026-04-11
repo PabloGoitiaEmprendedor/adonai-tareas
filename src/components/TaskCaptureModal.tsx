@@ -44,6 +44,7 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
   const requestedVoiceOpenRef = useRef(false);
   const mountedRef = useRef(false);
   const voiceProcessedRef = useRef(false);
+  const isCurrentlySavingRef = useRef(false);
 
   const beginVoiceCapture = useCallback(() => {
     voiceProcessedRef.current = false;
@@ -196,13 +197,19 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
     setSourceType('image');
     setPhase('saving');
     setSavingMessage('Leyendo tu agenda...');
+    const todayStr = format(new Date(), 'yyyy-MM-dd');
 
     try {
       const resizedBase64 = await resizeImage(file);
+      const systemPrompt = `Eres Adonai, un asistente de productividad experto. Hoy es ${todayStr}.
+
+IMPORTANTE: Si el usuario dicta algo que parece contener varias tareas separadas, intenta consolidarlas en la tarea más importante o enfócate en la primera. Solo puedes devolver UNA tarea por cada llamada. No intentes meter una lista en el título.
+
+Tu trabajo es:`;
       const mimeType = file.type;
 
       const { data, error } = await supabase.functions.invoke('extract-tasks-from-image', {
-        body: { imageBase64: resizedBase64.split(',')[1], mimeType }
+        body: { imageBase64: resizedBase64.split(',')[1], mimeType, systemPrompt }
       });
 
       if (error) {
@@ -294,7 +301,9 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
   };
 
   const runClassificationAndSave = async (taskTitle: string, date: string, classificationInput: string, originalTranscript: string, isImageLoop = false) => {
+    if (isCurrentlySavingRef.current && !isImageLoop) return;
     if (!isImageLoop) {
+      isCurrentlySavingRef.current = true;
       setPhase('saving');
       setSavingMessage('Analizando y creando tarea...');
     }
@@ -364,6 +373,10 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
         setPhase('input');
       }
       throw err;
+    } finally {
+      if (!isImageLoop) {
+        isCurrentlySavingRef.current = false;
+      }
     }
   };
 

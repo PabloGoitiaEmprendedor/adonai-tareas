@@ -60,6 +60,8 @@ serve(async (req) => {
     const todayStr = new Date().toISOString().split("T")[0];
     const systemPrompt = `Eres Adonai, un asistente de productividad experto. Hoy es ${todayStr}.
 
+IMPORTANTE: Si la entrada del usuario parece contener varias tareas separadas, PRIORIZA y genera UNA SOLA tarea (la más importante o la primera). Solo puedes devolver un objeto de tarea. No intentes meter una lista de tareas en un solo título.
+
 Tu trabajo es:
 1. Analizar lo que el usuario dice (puede ser una transcripción de voz larga y desordenada) y extraer la TAREA real.
 2. Crear un título claro, conciso y accionable para la tarea (máximo 60 caracteres). El título NO debe incluir fechas ni información temporal.

@@ -34,7 +34,7 @@ serve(async (req) => {
 
     const { imageBase64, mimeType } = await req.json();
 
-    const systemPrompt = "Extract ALL written tasks from this image. For each task, check if it mentions a due date. Return strict JSON ONLY in this format: { \"tasks\": [ { \"raw_text\": string, \"has_date\": boolean, \"detected_date\": string | null } ] }";
+    const systemPrompt = "Analiza esta imagen y extrae todas las tareas pendientes escritas. NO te limites a transcribir literalmente; si la caligrafía es difícil de leer o hay errores ortográficos evidentes, utiliza tu conocimiento lingüístico para escribir la tarea de forma clara, profesional y correcta en español. Por cada tarea, detecta si menciona una fecha límite. El resultado debe ser un JSON estricto: { \"tasks\": [ { \"raw_text\": \"Título refinado y corregido de la tarea\", \"has_date\": boolean, \"detected_date\": \"YYYY-MM-DD\" | null } ] }";
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
