@@ -24,7 +24,18 @@ const WeeklyPage = () => {
   const [selectedTask, setSelectedTask] = useState<any>(null);
   const [timerTask, setTimerTask] = useState<any>(null);
   const [blockModalOpen, setBlockModalOpen] = useState(false);
+  const [currentTime, setCurrentTime] = useState(new Date());
   const captureModalRef = useRef<TaskCaptureModalHandle>(null);
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 60000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const timeToMinutes = (timeStr: string) => {
+    const [h, m] = timeStr.split(':').map(Number);
+    return h * 60 + m;
+  };
 
   const weekStart = startOfWeek(viewDate, { weekStartsOn: 1 });
   const weekEnd = addDays(weekStart, 6);
@@ -250,7 +261,33 @@ const WeeklyPage = () => {
                       </div>
                     </div>
                     
-                    <div className="p-3 space-y-2">
+                    <div className="p-3 space-y-2 relative">
+                      {/* Time Indicator Line */}
+                      {(() => {
+                        if (!isSameDay(selectedDay, today)) return null;
+                        
+                        const nowMinutes = currentTime.getHours() * 60 + currentTime.getMinutes();
+                        const startMin = timeToMinutes(block.start_time);
+                        const endMin = timeToMinutes(block.end_time);
+                        
+                        if (nowMinutes >= startMin && nowMinutes <= endMin) {
+                          const percent = ((nowMinutes - startMin) / (endMin - startMin)) * 100;
+                          return (
+                            <div 
+                              className="absolute left-0 right-0 z-10 flex items-center pointer-events-none"
+                              style={{ top: `${percent}%` }}
+                            >
+                              <div className="w-full h-[2px] bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]" />
+                              <div className="absolute -left-1 w-2.5 h-2.5 bg-red-500 rounded-full shadow-lg" />
+                              <span className="absolute -left-12 text-[10px] font-bold text-red-500 bg-background/80 px-1 rounded">
+                                {format(currentTime, 'HH:mm')}
+                              </span>
+                            </div>
+                          );
+                        }
+                        return null;
+                      })()}
+
                       {blockTasks.length === 0 && (
                         <p className="text-sm p-2 text-foreground/50 italic">Área libre (sin tareas agendadas)</p>
                       )}
@@ -347,33 +384,6 @@ const WeeklyPage = () => {
           )}
         </section>
 
-        {mainGoal && (
-          <div className="bg-surface-container-low rounded-lg p-5 space-y-4">
-            <div className="flex justify-between items-start">
-              <span className="px-2 py-0.5 bg-secondary-container text-on-surface-variant text-[10px] font-bold uppercase rounded-full">Meta Activa</span>
-              <span className="text-primary font-bold text-sm">
-                {totalPlanned > 0 ? Math.round((totalCompleted / totalPlanned) * 100) : 0}%
-              </span>
-            </div>
-            <h3 className="text-xl font-bold tracking-tight">{mainGoal.title}</h3>
-            <div className="w-full h-2 bg-surface-container-highest rounded-full overflow-hidden">
-              <div className="h-full primary-gradient rounded-full" style={{ width: `${totalPlanned > 0 ? (totalCompleted / totalPlanned) * 100 : 0}%` }} />
-            </div>
-          </div>
-        )}
-
-        <div className="bg-surface-container-low rounded-lg p-5">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Tendencia</h3>
-            <TrendingUp className="w-4 h-4 text-primary" />
-          </div>
-          <div className="flex items-end justify-between gap-1.5 h-24">
-            {weeklyData.map((d, i) => (
-              <div key={i} className="flex-1 bg-primary/20 rounded-t-md transition-all"
-                style={{ height: `${Math.max(d.pct, 5)}%`, opacity: d.pct > 0 ? 0.3 + (d.pct / 100) * 0.7 : 0.15 }} />
-            ))}
-          </div>
-        </div>
       </div>
 
       <FAB onClick={openCapture} />
