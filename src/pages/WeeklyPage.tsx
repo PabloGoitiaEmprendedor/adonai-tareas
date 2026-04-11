@@ -6,7 +6,7 @@ import { useGlobalVoiceCapture } from '@/hooks/useGlobalVoiceCapture';
 import { useTimeBlocks } from '@/hooks/useTimeBlocks';
 import { format, startOfWeek, addDays, subDays, isSameDay, addWeeks, subWeeks } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { TrendingUp, Calendar as CalendarIcon, Check, GripVertical, Timer, ChevronLeft, ChevronRight, Filter, Clock } from 'lucide-react';
+import { TrendingUp, Calendar as CalendarIcon, Check, GripVertical, Timer, ChevronLeft, ChevronRight, Filter, Clock, Trash2, MoreVertical, Settings } from 'lucide-react';
 import { motion } from 'framer-motion';
 import FAB from '@/components/FAB';
 import TaskCaptureModal, { type TaskCaptureModalHandle } from '@/components/TaskCaptureModal';
@@ -45,7 +45,7 @@ const WeeklyPage = () => {
   const { tasks, updateTask } = useTasks({ startDate, endDate });
   const { goals } = useGoals();
   const { profile } = useProfile();
-  const { timeBlocks } = useTimeBlocks(format(selectedDay, 'yyyy-MM-dd'));
+  const { timeBlocks, deleteBlock } = useTimeBlocks(format(selectedDay, 'yyyy-MM-dd'));
 
   const openCapture = useCallback(() => setCaptureOpen(true), []);
   const openCaptureInVoiceMode = useCallback(() => {
@@ -254,10 +254,29 @@ const WeeklyPage = () => {
                       className="px-4 py-3 flex items-center justify-between"
                       style={{ backgroundColor: blockColor, color: '#ffffff' }}
                     >
-                      <h3 className="font-bold text-lg tracking-tight">{block.title}</h3>
-                      <div className="flex items-center gap-1.5 text-xs font-semibold bg-black/20 px-2 py-1 rounded-md">
-                        <Clock className="w-3.5 h-3.5" />
-                        {formatTime(block.start_time)} - {formatTime(block.end_time)}
+                      <h3 className="font-bold text-lg tracking-tight flex items-center gap-2">
+                        {block.title}
+                        {block.is_recurring && (
+                          <span className="text-[9px] bg-white/20 px-2 py-0.5 rounded-full uppercase tracking-tighter border border-white/10">Fijo</span>
+                        )}
+                      </h3>
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-1.5 text-xs font-semibold bg-black/20 px-2 py-1 rounded-md">
+                          <Clock className="w-3.5 h-3.5" />
+                          {formatTime(block.start_time)} - {formatTime(block.end_time)}
+                        </div>
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (confirm('¿Eliminar este bloque de tiempo?')) {
+                              deleteBlock.mutate(block.id);
+                            }
+                          }}
+                          className="hover:bg-white/20 p-1.5 rounded-lg transition-colors"
+                          title="Eliminar bloque"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
                       </div>
                     </div>
                     

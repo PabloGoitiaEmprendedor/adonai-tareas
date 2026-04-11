@@ -11,18 +11,27 @@ export const useTimeBlocks = (date: string) => {
     queryKey: ['time_blocks', date],
     queryFn: async () => {
       if (!user) return [];
+      
+      const dayOfWeek = (new Date(`${date}T12:00:00`)).getDay();
+
       const { data, error } = await supabase
         .from('time_blocks')
         .select('*')
         .eq('user_id', user.id)
-        .eq('block_date', date)
+        .or(`block_date.eq.${date},is_recurring.eq.true`)
         .order('start_time', { ascending: true });
 
       if (error) {
         console.error('Error fetching time blocks:', error);
         throw error;
       }
-      return data;
+
+      // Final filtering for specific days of week if recurring
+      return data.filter(block => {
+        if (!block.is_recurring) return true;
+        if (!block.days_of_week || block.days_of_week.length === 0) return true; // Daily if recurring but no days specified
+        return block.days_of_week.includes(dayOfWeek);
+      });
     },
     enabled: !!user && !!date,
   });

@@ -26,6 +26,8 @@ export const TimeBlockModal: React.FC<TimeBlockModalProps> = ({ open, onClose, s
   const [startTime, setStartTime] = useState('09:00');
   const [endTime, setEndTime] = useState('10:00');
   const [color, setColor] = useState(PRESET_COLORS[0]);
+  const [isRecurring, setIsRecurring] = useState(false);
+  const [daysOfWeek, setDaysOfWeek] = useState<number[]>([]);
 
   const { createBlock } = useTimeBlocks(format(selectedDate, 'yyyy-MM-dd'));
 
@@ -35,8 +37,18 @@ export const TimeBlockModal: React.FC<TimeBlockModalProps> = ({ open, onClose, s
       setStartTime('09:00');
       setEndTime('10:00');
       setColor(PRESET_COLORS[0]);
+      setIsRecurring(false);
+      setDaysOfWeek([]);
     }
   }, [open]);
+
+  const toggleDay = (day: number) => {
+    setDaysOfWeek(prev => 
+      prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day]
+    );
+  };
+
+  const dayNames = ['D', 'L', 'M', 'X', 'J', 'V', 'S']; // 0 is Sunday in JS getDay()
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,9 +58,11 @@ export const TimeBlockModal: React.FC<TimeBlockModalProps> = ({ open, onClose, s
       title: title.trim(),
       start_time: startTime,
       end_time: endTime,
-      block_date: format(selectedDate, 'yyyy-MM-dd'),
-      color
-    }, {
+      block_date: isRecurring ? null : format(selectedDate, 'yyyy-MM-dd'),
+      color,
+      is_recurring: isRecurring,
+      days_of_week: daysOfWeek
+    } as any, {
       onSuccess: () => {
         onClose();
       }
@@ -111,6 +125,42 @@ export const TimeBlockModal: React.FC<TimeBlockModalProps> = ({ open, onClose, s
                 />
               ))}
             </div>
+          </div>
+
+          <div className="space-y-4 pt-4 border-t border-outline-variant/30">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="recurring" className="text-sm font-bold text-foreground">Repetir bloque</Label>
+              <input 
+                id="recurring"
+                type="checkbox"
+                checked={isRecurring}
+                onChange={(e) => setIsRecurring(e.target.checked)}
+                className="w-5 h-5 rounded border-outline-variant bg-surface-container text-primary focus:ring-primary"
+              />
+            </div>
+
+            {isRecurring && (
+              <div className="space-y-3 animate-in fade-in slide-in-from-top-2">
+                <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">Días de la semana</p>
+                <div className="flex justify-between">
+                  {[1, 2, 3, 4, 5, 6, 0].map(day => (
+                    <button
+                      key={day}
+                      type="button"
+                      onClick={() => toggleDay(day)}
+                      className={`w-9 h-9 rounded-full text-xs font-bold transition-all border ${
+                        daysOfWeek.includes(day)
+                          ? 'bg-primary border-primary text-primary-foreground shadow-md'
+                          : 'bg-surface-container border-outline-variant/50 text-on-surface-variant hover:bg-surface-container-high'
+                      }`}
+                    >
+                      {dayNames[day]}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[10px] text-on-surface-variant/70 italic text-center">Si no marcas ningún día, se repetirá a diario.</p>
+              </div>
+            )}
           </div>
 
           <Button 
