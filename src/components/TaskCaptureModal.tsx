@@ -16,6 +16,7 @@ interface TaskCaptureModalProps {
   onClose: () => void;
   goalId?: string | null;
   folderId?: string | null;
+  timeBlockId?: string | null;
 }
 
 
@@ -23,7 +24,7 @@ export interface TaskCaptureModalHandle {
   openInVoiceMode: () => boolean;
 }
 
-const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProps>(({ open, onClose, goalId, folderId }, ref) => {
+const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProps>(({ open, onClose, goalId, folderId, timeBlockId }, ref) => {
   const { user } = useAuth();
   const { isRecording, transcript, confidence, voiceFallback, isSupported, startRecording, stopRecording, resetTranscript } = useVoiceCapture();
   const { createTask } = useTasks();
@@ -349,6 +350,7 @@ Tu trabajo es:`;
         recurrence_id: cls.recurrence_id || null,
         estimated_minutes: cls.estimated_minutes || defaults.estimated_minutes,
         due_date: finalDate,
+        time_block_id: timeBlockId || null,
       });
 
       if (cls.created_new_folder) {

@@ -102,6 +102,7 @@ const DailyPage = () => {
   const [timerTask, setTimerTask] = useState<any>(null);
   const [orderedTasks, setOrderedTasks] = useState<any[]>([]);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
   const captureModalRef = useRef<TaskCaptureModalHandle>(null);
 
   const openCapture = useCallback(() => setCaptureOpen(true), []);
@@ -241,9 +242,21 @@ const DailyPage = () => {
                     style={{ backgroundColor: blockColor, color: '#ffffff' }}
                   >
                     <h3 className="font-bold text-lg tracking-tight">{block.title}</h3>
-                    <div className="flex items-center gap-1.5 text-xs font-semibold bg-black/20 px-2 py-1 rounded-md">
-                      <Clock className="w-3.5 h-3.5" />
-                      {formatTime(block.start_time)} - {formatTime(block.end_time)}
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1.5 text-xs font-semibold bg-black/20 px-2 py-1 rounded-md">
+                        <Clock className="w-3.5 h-3.5" />
+                        {formatTime(block.start_time)} - {formatTime(block.end_time)}
+                      </div>
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveBlockId(block.id);
+                          setCaptureOpen(true);
+                        }}
+                        className="bg-white/20 hover:bg-white/30 p-1 rounded-lg transition-colors"
+                      >
+                        <Plus className="w-4 h-4" />
+                      </button>
                     </div>
                   </div>
                   
@@ -340,8 +353,16 @@ const DailyPage = () => {
         )}
       </div>
 
-      <FAB onClick={openCapture} />
-      <TaskCaptureModal ref={captureModalRef} open={captureOpen} onClose={() => setCaptureOpen(false)} />
+      <FAB onClick={() => { setActiveBlockId(null); setCaptureOpen(true); }} />
+      <TaskCaptureModal 
+        ref={captureModalRef} 
+        open={captureOpen} 
+        timeBlockId={activeBlockId}
+        onClose={() => {
+          setCaptureOpen(false);
+          setActiveBlockId(null);
+        }} 
+      />
       <TaskDetailModal task={selectedTask} open={!!selectedTask} onClose={() => setSelectedTask(null)} />
       <FullscreenTimer task={timerTask} open={!!timerTask} onClose={() => setTimerTask(null)} />
     </div>

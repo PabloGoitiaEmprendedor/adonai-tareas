@@ -32,6 +32,7 @@ const WeeklyPage = () => {
   const [blockModalOpen, setBlockModalOpen] = useState(false);
   const [editingBlock, setEditingBlock] = useState<any>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
   const captureModalRef = useRef<TaskCaptureModalHandle>(null);
 
   useEffect(() => {
@@ -73,7 +74,14 @@ const WeeklyPage = () => {
     }
   };
 
-  const dayNames = ['LUN', 'MAR', 'MIE', 'JUE', 'VIE', 'SAB', 'DOM'];
+  const dayNames = ['D', 'L', 'M', 'M', 'J', 'V', 'S'];
+
+  const getDateLabel = (date: Date) => {
+    if (isSameDay(date, today)) return 'Hoy';
+    if (isSameDay(date, addDays(today, 1))) return 'Mañana';
+    if (isSameDay(date, subDays(today, 1))) return 'Ayer';
+    return format(date, 'EEEE', { locale: es });
+  };
 
   const getTasksForDay = (date: Date) => {
     const dateStr = format(date, 'yyyy-MM-dd');
@@ -205,34 +213,41 @@ const WeeklyPage = () => {
              </SheetContent>
           </Sheet>
 
-          <div className="flex items-center gap-1">
-            <Button variant="ghost" size="icon" onClick={handlePrevDay} className="h-9 w-9 rounded-xl">
-              <ChevronLeft className="w-5 h-5" />
-            </Button>
-            
-            <span className="text-sm font-bold capitalize min-w-[130px] text-center">
-              {isSameDay(selectedDay, today) ? 'Hoy, ' : ''}{format(selectedDay, 'EEEE d MMM', { locale: es })}
-            </span>
-
-            <Button variant="ghost" size="icon" onClick={handleNextDay} className="h-9 w-9 rounded-xl">
-              <ChevronRight className="w-5 h-5" />
-            </Button>
+          <div className="flex-1 overflow-x-auto no-scrollbar py-2">
+            <div className="flex gap-2 min-w-max px-2">
+              {days.map((day) => {
+                const isSelected = isSameDay(day, selectedDay);
+                const isToday = isSameDay(day, today);
+                const label = getDateLabel(day);
+                
+                return (
+                  <button
+                    key={day.toISOString()}
+                    onClick={() => setSelectedDay(day)}
+                    className={`flex flex-col items-center min-w-[70px] py-3 px-2 rounded-2xl transition-all duration-300 ${
+                      isSelected 
+                        ? 'bg-primary text-primary-foreground shadow-lg scale-105' 
+                        : isToday 
+                          ? 'bg-primary/10 text-primary border border-primary/20' 
+                          : 'hover:bg-surface-container-high text-on-surface-variant'
+                    }`}
+                  >
+                    <span className="text-[10px] font-black uppercase tracking-tighter mb-1">
+                      {label === 'Hoy' || label === 'Mañana' || label === 'Ayer' ? label : format(day, 'EEE', { locale: es })}
+                    </span>
+                    <span className="text-lg font-bold">{format(day, 'd')}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
-
-          <div className="w-9" /> {/* Spacer to balance the Calendar icon on the left */}
         </div>
 
         <section className="space-y-3">
-          <div className="flex justify-between items-center px-1">
-            <h2 className="text-base font-bold tracking-tight capitalize border-l-2 border-primary pl-2">
-              {isSameDay(selectedDay, today) ? 'Hoy' : isSameDay(selectedDay, addDays(today, 1)) ? 'Mañana' : format(selectedDay, 'EEEE d', { locale: es })}
-            </h2>
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-on-surface-variant font-medium">{orderedTasks.length} tareas</span>
-              <Button onClick={() => setBlockModalOpen(true)} variant="outline" size="sm" className="h-7 text-xs px-2 gap-1 rounded-lg border-primary/20 text-primary hover:bg-primary/5">
-                 + Bloque
-              </Button>
-            </div>
+          <div className="flex justify-end items-center px-1">
+            <Button onClick={() => setBlockModalOpen(true)} variant="outline" size="sm" className="h-8 text-xs px-3 gap-1.5 rounded-xl border-primary/30 text-primary font-bold hover:bg-primary/5 shadow-sm">
+               <Plus className="w-3.5 h-3.5" /> Nuevo Bloque
+            </Button>
           </div>
 
           {orderedTasks.length === 0 && timeBlocks.length === 0 ? (
@@ -271,9 +286,22 @@ const WeeklyPage = () => {
                         {block.title}
                       </h3>
                       <div className="flex items-center gap-3">
-                        <div className="flex items-center gap-1.5 text-xs font-semibold bg-black/20 px-2 py-1 rounded-md">
-                          <Clock className="w-3.5 h-3.5" />
-                          {formatTime(block.start_time)} - {formatTime(block.end_time)}
+                        <div className="flex items-center gap-1">
+                          <div className="flex items-center gap-1.5 text-[10px] font-bold bg-black/20 px-2 py-1 rounded-md">
+                            <Clock className="w-3 h-3" />
+                            {formatTime(block.start_time)} - {formatTime(block.end_time)}
+                          </div>
+                          
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveBlockId(block.id);
+                              setCaptureOpen(true);
+                            }}
+                            className="bg-white/20 hover:bg-white/30 p-1 rounded-lg transition-colors"
+                          >
+                            <Plus className="w-4 h-4" />
+                          </button>
                         </div>
                         
                         <DropdownMenu>
@@ -432,8 +460,16 @@ const WeeklyPage = () => {
 
       </div>
 
-      <FAB onClick={openCapture} />
-      <TaskCaptureModal ref={captureModalRef} open={captureOpen} onClose={() => setCaptureOpen(false)} />
+      <FAB onClick={() => { setActiveBlockId(null); setCaptureOpen(true); }} />
+      <TaskCaptureModal 
+        ref={captureModalRef} 
+        open={captureOpen} 
+        timeBlockId={activeBlockId}
+        onClose={() => {
+          setCaptureOpen(false);
+          setActiveBlockId(null);
+        }} 
+      />
       <TaskDetailModal task={selectedTask} open={!!selectedTask} onClose={() => setSelectedTask(null)} />
       <FullscreenTimer task={timerTask} open={!!timerTask} onClose={() => setTimerTask(null)} />
       <TimeBlockModal 
