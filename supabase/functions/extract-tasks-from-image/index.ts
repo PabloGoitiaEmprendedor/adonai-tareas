@@ -34,7 +34,7 @@ serve(async (req) => {
 
     const { imageBase64, mimeType } = await req.json();
 
-    const systemPrompt = "Eres un asistente que extrae tareas de imágenes de agendas escritas a mano. Extrae TODAS las tareas visibles. Para cada tarea, indica si tiene fecha (y cuál es) o no tiene fecha. Responde SOLO con JSON válido, sin markdown, sin explicaciones. El formato es: { \"tasks\": [ { \"raw_text\": string, \"has_date\": boolean, \"detected_date\": string | null } ] }";
+    const systemPrompt = "Extract ALL written tasks from this image. For each task, check if it mentions a due date. Return strict JSON ONLY in this format: { \"tasks\": [ { \"raw_text\": string, \"has_date\": boolean, \"detected_date\": string | null } ] }";
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -43,7 +43,7 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.0-flash-exp",
+        model: "google/gemini-2.5-flash",
         messages: [
           { role: "system", content: systemPrompt },
           {
@@ -57,16 +57,17 @@ serve(async (req) => {
     });
 
     if (!response.ok) {
-        const text = await response.text();
-        console.error("AI vision error:", text);
-        throw new Error("AI vision failed");
+        const errText = await response.text();
+        console.error("AI vision error HTTP", response.status, errText);
+        return new Response(JSON.stringify({ error: `ai_failed_${response.status}` }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
     }
 
     const aiResult = await response.json();
     const content = aiResult.choices?.[0]?.message?.content || "";
     
     try {
-        // Clean markdown if present
         const jsonStr = content.replace(/```json\n?|\n?```/g, '').trim();
         const data = JSON.parse(jsonStr);
         return new Response(JSON.stringify(data), {
@@ -80,10 +81,10 @@ serve(async (req) => {
     }
 
   } catch (e) {
-    console.error("extract-tasks-from-image error:", e);
+    console.error("Total error:", e);
     return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });
