@@ -26,12 +26,7 @@ export const useTimeBlocks = (date: string) => {
         throw error;
       }
 
-      // Final filtering for specific days of week if recurring
-      return data.filter(block => {
-        if (!block.is_recurring) return true;
-        if (!block.days_of_week || block.days_of_week.length === 0) return true; // Daily if recurring but no days specified
-        return block.days_of_week.includes(dayOfWeek);
-      });
+      return data;
     },
     enabled: !!user && !!date,
   });
