@@ -238,7 +238,7 @@ const GoalsPage = () => {
         )}
       </div>
 
-      <FAB onClick={openCaptureInVoiceMode} />
+      <FAB onClick={openCapture} />
       <TaskCaptureModal 
         ref={captureModalRef} 
         open={captureOpen} 

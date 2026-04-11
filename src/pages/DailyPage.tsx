@@ -257,7 +257,7 @@ const DailyPage = () => {
         )}
       </div>
 
-      <FAB onClick={openCaptureInVoiceMode} />
+      <FAB onClick={openCapture} />
       <TaskCaptureModal ref={captureModalRef} open={captureOpen} onClose={() => setCaptureOpen(false)} />
       <TaskDetailModal task={selectedTask} open={!!selectedTask} onClose={() => setSelectedTask(null)} />
       <FullscreenTimer task={timerTask} open={!!timerTask} onClose={() => setTimerTask(null)} />

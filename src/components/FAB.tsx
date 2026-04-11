@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Mic } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { WAKE_WORD_TRIGGERED_EVENT } from '@/lib/voiceEvents';
 
 interface FABProps {
@@ -23,12 +23,13 @@ const FAB = ({ onClick }: FABProps) => {
   return (
     <motion.button
       onClick={onClick}
+      id="global-add-button"
       className="fixed bottom-[76px] right-5 z-50 w-14 h-14 rounded-full primary-gradient flex items-center justify-center shadow-lg shadow-primary/20"
       animate={wakePulse ? { scale: [1, 1.18, 1] } : { scale: [1, 1.05, 1] }}
       transition={{ duration: wakePulse ? 0.45 : 2, repeat: wakePulse ? 0 : Infinity, ease: 'easeInOut' }}
       whileTap={{ scale: 0.9 }}
     >
-      <Mic className="w-6 h-6 text-primary-foreground" />
+      <Plus className="w-7 h-7 text-primary-foreground" strokeWidth={3} />
     </motion.button>
   );
 };
