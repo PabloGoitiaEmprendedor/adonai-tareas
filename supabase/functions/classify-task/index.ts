@@ -110,6 +110,7 @@ TU REGLA DE ORO PARA LA CLASIFICACIÓN (SÉ ESTRICTO):
    - Analiza el tono del usuario: "¡Urgente!", "Necesito esto ya", "Es vital" -> High priority.
 3. RECURRENCIA (VITAL): Si el usuario dice "cada X", "todos los", "X veces por semana", "el 1 de cada mes", ESTÁS OBLIGADO a llenar el objeto 'recurrence'. No lo ignores.
 4. CONTEXTO: Usa lo que sabes de su ocupación (${userContext?.occupation}) e industria para decidir si algo es importante.
+5. TÍTULO MINIMALISTA: Crea títulos de máximo 5 palabras. Si el usuario da muchos detalles, ponlos en 'description', NUNCA en el título. El título debe ser una acción simple (ej: 'Revisar reporte' en lugar de 'Revisar el reporte de ventas del mes pasado para la junta de mañana').
 
 TAREAS PENDIENTES (PARA REFERENCIA DE ESTILO):
 ${existingTasks.map((t: any) => `- ${t.title} (Prioridad: ${t.priority}, Urgencia: ${t.urgency}, Importancia: ${t.importance}, Carpeta: ${t.folder_id || 'sin carpeta'})`).join("\n") || "Ninguna"}`;
@@ -135,7 +136,7 @@ ${existingTasks.map((t: any) => `- ${t.title} (Prioridad: ${t.priority}, Urgenci
               parameters: {
                 type: "object",
                 properties: {
-                  refined_title: { type: "string", description: "Título claro y conciso de la tarea (máx 60 chars). NO incluir fechas, recurrencia ni contexto temporal." },
+                  refined_title: { type: "string", description: "Título ultra-conciso y accionable (máximo 4-5 palabras). NUNCA incluyas fechas, recurrencia ni detalles explicativos aquí." },
                   description: { type: "string", description: "Descripción breve con detalles adicionales. Vacío si no hay detalles extra." },
                   due_date: { type: "string", description: "Fecha en formato YYYY-MM-DD. Analiza lo que dice el usuario: 'hoy', 'mañana', 'el lunes', 'el 15 de julio', etc. Si no menciona fecha, devuelve null." },
                   importance: { type: "boolean" },
