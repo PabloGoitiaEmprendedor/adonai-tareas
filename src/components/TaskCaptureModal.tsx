@@ -259,7 +259,7 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
     }
 
     if (user) {
-      await supabase.from('image_captures').insert({
+      await (supabase as any).from('image_captures').insert({
         user_id: user.id,
         tasks_extracted: tasks.length,
         tasks_created: createdCount

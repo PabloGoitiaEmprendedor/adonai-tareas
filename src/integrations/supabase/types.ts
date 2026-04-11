@@ -268,6 +268,30 @@ export type Database = {
         }
         Relationships: []
       }
+      image_captures: {
+        Row: {
+          created_at: string | null
+          id: string
+          tasks_created: number
+          tasks_extracted: number
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          tasks_created: number
+          tasks_extracted: number
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          tasks_created?: number
+          tasks_extracted?: number
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           accent_color: string | null
