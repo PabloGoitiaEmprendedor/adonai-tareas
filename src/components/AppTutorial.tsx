@@ -17,6 +17,7 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
       content: '¡Bienvenido! Toca aquí para empezar a organizar tu día.',
       disableBeacon: true,
       spotlightClicks: true,
+      hideFooter: true,
     },
     {
       target: '#tutorial-write-button',
