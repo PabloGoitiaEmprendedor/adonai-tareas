@@ -87,14 +87,22 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
     }
   };
 
-  // Synchronize tutorial with current page to avoid missing targets
+  // Synchronize tutorial with current page and handle interactive step advancement
   useEffect(() => {
     if (!run) return;
     
-    if (location.pathname === '/week' && stepIndex < 2) {
-      // Logic could be added here if needed to sync index with page load
-    }
-  }, [location.pathname, run, stepIndex]);
+    // Auto-advance if we detect the user clicked the FAB but index didn't update
+    const handleGlobalClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (stepIndex === 0 && (target.closest('#global-add-task-button') || target.id === 'global-add-task-button')) {
+        // Give the modal a split second to start opening before moving the tooltip
+        setTimeout(() => setStepIndex(1), 100);
+      }
+    };
+
+    window.addEventListener('click', handleGlobalClick);
+    return () => window.removeEventListener('click', handleGlobalClick);
+  }, [run, stepIndex]);
 
   return (
     <Joyride
