@@ -99,22 +99,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  useEffect(() => {
-    // Check if tutorial has been completed before
-    const tutorialCompleted = localStorage.getItem('adonai_tutorial_completed');
-    
-    // Check if we just finished onboarding (this is a priority trigger)
-    const pendingOnboarding = localStorage.getItem('tutorial_pending');
 
-    if (!tutorialCompleted || pendingOnboarding === 'true') {
-      // Small delay to let the page settle before starting the tour
-      const timer = setTimeout(() => {
-        setTutorialRun(true);
-        if (pendingOnboarding) localStorage.removeItem('tutorial_pending');
-      }, 2000);
-      return () => clearTimeout(timer);
-    }
-  }, []);
 
   const isHome = location.pathname === '/';
 
