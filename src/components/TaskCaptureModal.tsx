@@ -402,7 +402,7 @@ Tu trabajo es:`;
                 <div className="w-12 h-1.5 bg-on-surface-variant/20 rounded-full" />
               </div>
               <div className="p-6 flex flex-col items-center gap-6">
-                <button onClick={handleClose} className="absolute top-4 right-4 text-on-surface-variant"><X className="w-5 h-5" /></button>
+                <button id="tutorial-close-capture" onClick={handleClose} className="absolute top-4 right-4 text-on-surface-variant"><X className="w-5 h-5" /></button>
 
                 <AnimatePresence mode="wait">
                   {phase === 'select' && (

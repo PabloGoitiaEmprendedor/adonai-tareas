@@ -36,6 +36,13 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
       spotlightClicks: true,
     },
     {
+      target: '#tutorial-close-capture',
+      content: '¡Perfecto! Ahora cierra este panel para continuar.',
+      spotlightClicks: true,
+      showNextButton: false,
+      showBackButton: false,
+    },
+    {
       target: '#nav-week',
       content: 'Ahora, toca el icono de Calendario para organizar tu semana.',
       spotlightClicks: true,
@@ -138,35 +145,16 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
     } else if (type === EVENTS.STEP_AFTER) {
       const nextIndex = index + (action === ACTIONS.PREV ? -1 : 1);
       
+      // Handle page transitions on Next button (only for informational steps that need it)
       if (action === ACTIONS.NEXT) {
-        if (index === 4) { // Next on #nav-week transition
-          navigate('/week');
-          setTimeout(() => setStepIndex(5), 600);
-          return;
-        } else if (index === 10) { // Next on save button transition
-          navigate('/folders'); 
-          setTimeout(() => setStepIndex(11), 600);
-          return;
-        } else if (index === 11) { // Next on folders nav transition
-          navigate('/folders');
-          setTimeout(() => setStepIndex(12), 600);
-          return;
-        } else if (index === 15) { // Next on share transition
-          navigate('/friends');
-          setTimeout(() => setStepIndex(16), 600);
-          return;
-        } else if (index === 16) { // Next on friends transition
-          navigate('/goals');
-          setTimeout(() => setStepIndex(17), 600);
-          return;
-        }
+        // No explicit info steps need navigation anymore as they are handled by global clicks or are on same page
       }
 
       setStepIndex(nextIndex);
     }
   };
 
-  // Strict interactive step advancement
+  // Strict interactive step advancement with navigation support
   useEffect(() => {
     if (!run) return;
     
@@ -175,32 +163,39 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
       
       const interactiveTriggers: Record<number, string> = {
         0: 'global-add-task-button',
-        4: 'nav-week',
-        5: 'tutorial-block-button',
-        10: 'block-save-button',
-        11: 'nav-folders',
-        12: 'add-folder-button',
-        14: 'folder-create-confirm',
-        16: 'nav-friends',
-        17: 'nav-goals'
+        4: 'tutorial-close-capture',
+        5: 'nav-week',
+        6: 'tutorial-block-button',
+        11: 'block-save-button',
+        12: 'nav-folders',
+        13: 'add-folder-button',
+        15: 'folder-create-confirm',
+        17: 'nav-friends',
+        18: 'nav-goals'
       };
 
       const requiredId = interactiveTriggers[stepIndex];
       if (requiredId) {
         const isMatch = target.id === requiredId || target.closest(`#${requiredId}`);
         if (isMatch) {
-          if (stepIndex === 0) {
-            setTimeout(() => setStepIndex(1), 400);
-          } else {
+          // Actions before index update
+          if (stepIndex === 5) navigate('/week');
+          if (stepIndex === 12) navigate('/folders');
+          if (stepIndex === 17) navigate('/friends');
+          if (stepIndex === 18) navigate('/goals');
+
+          const delay = (stepIndex === 5 || stepIndex === 12 || stepIndex === 17 || stepIndex === 18) ? 800 : 400;
+
+          setTimeout(() => {
             setStepIndex(stepIndex + 1);
-          }
+          }, delay);
         }
       }
     };
 
     window.addEventListener('mousedown', handleGlobalClick);
     return () => window.removeEventListener('mousedown', handleGlobalClick);
-  }, [run, stepIndex]);
+  }, [run, stepIndex, navigate]);
 
   return (
     <Joyride
