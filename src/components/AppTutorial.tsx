@@ -14,56 +14,83 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
   const steps: Step[] = [
     {
       target: '#global-add-task-button',
-      content: '¡Bienvenido! Haz clic aquí para añadir tu primera tarea. Puedes dictarla por voz o escribirla rápidamente.',
-      skipBeacon: true,
-      placement: 'left',
-      blockTargetInteraction: false,
+      content: '¡Bienvenido! Toca aquí para empezar a organizar tu día.',
+      disableBeacon: true,
+      spotlightClicks: true,
+    },
+    {
+      target: '#tutorial-write-button',
+      content: 'Aquí puedes escribir tus tareas de forma tradicional.',
+      spotlightClicks: true,
     },
     {
       target: '#tutorial-voice-button',
-      content: 'Toca el ícono de micrófono para dictar una tarea. ¡Pruébalo ahora mismo!',
-      placement: 'top',
-      skipBeacon: true,
-      blockTargetInteraction: false,
+      content: 'Sabías que también puedes usar tu voz para agendar tareas rápidamente si no tienes las manos libres.',
+      spotlightClicks: true,
     },
     {
       target: '#tutorial-photo-button',
-      content: 'O si prefieres, toma una foto de tu agenda física para digitalizarla.',
-      placement: 'top',
-      skipBeacon: true,
-      blockTargetInteraction: false,
+      content: 'Incluso puedes capturar fotos de tu agenda física y nosotros digitalizamos las tareas por ti.',
+      spotlightClicks: true,
     },
     {
       target: '#nav-week',
-      content: 'Ahora vamos al calendario para organizar tu tiempo.',
-      placement: 'top',
-      skipBeacon: true,
-      blockTargetInteraction: false,
+      content: 'Ahora vamos al calendario semanal para tener una visión clara de tus tiempos.',
+      spotlightClicks: true,
     },
     {
       target: '#tutorial-block-button',
-      content: '¡Crea tu primer bloque de tiempo aquí! Haz clic y reserva un espacio para enfocarte.',
-      placement: 'bottom',
-      skipBeacon: true,
-      blockTargetInteraction: false,
+      content: 'Aquí puedes reservar bloques de tiempo. ¡Toca en Nuevo Bloque para ver cómo funciona!',
+      spotlightClicks: true,
+    },
+    {
+      target: '#block-title-input',
+      content: 'Solo tienes que ponerle un nombre, elegir el horario y un color que te guste.',
+      spotlightClicks: true,
+    },
+    {
+      target: '#block-save-button',
+      content: 'Al guardarlo, aparecerá en tu calendario para ayudarte a mantener el enfoque.',
+      spotlightClicks: true,
     },
     {
       target: '#nav-folders',
-      content: 'Finalmente, organiza todo en carpetas.',
-      placement: 'top',
-      skipBeacon: true,
-      blockTargetInteraction: false,
+      content: 'También puedes organizar tus tareas en proyectos o categorías usando carpetas.',
+      spotlightClicks: true,
+    },
+    {
+      target: '#add-folder-button',
+      content: 'Crea una carpeta nueva para separar lo personal de lo profesional.',
+      spotlightClicks: true,
+    },
+    {
+      target: '#folder-name-input',
+      content: 'Ponle un nombre, elige un color y ¡listo!',
+      spotlightClicks: true,
+    },
+    {
+      target: '#folder-create-confirm',
+      content: 'Ya tienes tu carpeta organizada.',
+      spotlightClicks: true,
     },
     {
       target: '#tutorial-share-button',
-      content: 'Crea tu primera carpeta y compártela para colaborar con otros.',
-      placement: 'bottom',
-      skipBeacon: true,
-      blockTargetInteraction: false,
+      content: 'Y recuerda que puedes compartir tus carpetas para colaborar con amigos en tiempo real.',
+      spotlightClicks: true,
+    },
+    {
+      target: '#nav-friends',
+      content: 'Aquí podrás ver a tus amigos y lo que están compartiendo contigo.',
+      spotlightClicks: true,
+    },
+    {
+      target: '#nav-goals',
+      content: 'Define tus metas a largo plazo para no perder de vista lo que te inspira.',
+      spotlightClicks: true,
     },
     {
       target: 'body',
-      content: '¡Listo! Ya tienes todo para dominar Adonai.',
+      content: '¡Excelente! Ya conoces lo básico. Vuelve a tu vista de Hoy y empieza a conquistar tus metas.',
       placement: 'center',
     }
   ];
@@ -76,19 +103,33 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
       localStorage.setItem('adonai_tutorial_completed', 'true');
       onFinish();
     } else if (type === EVENTS.STEP_AFTER || type === EVENTS.TARGET_NOT_FOUND) {
-      if (index === 0 && action === ACTIONS.NEXT) {
-        setStepIndex(index + 1);
-      } else if (index === 3 && action === ACTIONS.NEXT) {
-        navigate('/week');
-        setTimeout(() => setStepIndex(index + 1), 800);
-      } else if (index === 5 && action === ACTIONS.NEXT) {
-        navigate('/folders');
-        setTimeout(() => setStepIndex(index + 1), 800);
-      } else if (action === ACTIONS.PREV) {
-        setStepIndex(index - 1);
-      } else if (action === ACTIONS.NEXT) {
-        setStepIndex(index + 1);
+      const nextIndex = index + (action === ACTIONS.PREV ? -1 : 1);
+      
+      if (action === ACTIONS.NEXT) {
+        if (index === 4) { // Next on #nav-week
+          navigate('/week');
+          setTimeout(() => setStepIndex(5), 600);
+          return;
+        } else if (index === 7) { // Next on #block-save-button
+          navigate('/folders'); 
+          setTimeout(() => setStepIndex(8), 600);
+          return;
+        } else if (index === 8) { // Next on #nav-folders
+          navigate('/folders');
+          setTimeout(() => setStepIndex(9), 600);
+          return;
+        } else if (index === 12) { // Next on #tutorial-share-button
+          navigate('/friends');
+          setTimeout(() => setStepIndex(13), 600);
+          return;
+        } else if (index === 13) { // Next on #nav-friends
+          navigate('/goals');
+          setTimeout(() => setStepIndex(14), 600);
+          return;
+        }
       }
+
+      setStepIndex(nextIndex);
     }
   };
 
@@ -96,18 +137,31 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
   useEffect(() => {
     if (!run) return;
     
-    // Auto-advance if we detect the user clicked the FAB but index didn't update
     const handleGlobalClick = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
-      if (stepIndex === 0 && (target.closest('#global-add-task-button') || target.id === 'global-add-task-button')) {
-        // Give the modal a split second to start opening before moving the tooltip
-        setTimeout(() => setStepIndex(1), 100);
+      
+      const triggers = [
+        { id: 'global-add-task-button', next: 1 },
+        { id: 'nav-week', next: 5 },
+        { id: 'tutorial-block-button', next: 6 },
+        { id: 'block-save-button', next: 8 },
+        { id: 'nav-folders', next: 9 },
+        { id: 'add-folder-button', next: 10 },
+        { id: 'folder-create-confirm', next: 12 },
+        { id: 'nav-friends', next: 13 },
+        { id: 'nav-goals', next: 14 },
+        { id: 'nav-today', next: 15 }
+      ];
+
+      const match = triggers.find(t => target.id === t.id || target.closest(`#${t.id}`));
+      if (match) {
+        setStepIndex(match.next);
       }
     };
 
     window.addEventListener('click', handleGlobalClick);
     return () => window.removeEventListener('click', handleGlobalClick);
-  }, [run, stepIndex]);
+  }, [run]);
 
   return (
     <Joyride

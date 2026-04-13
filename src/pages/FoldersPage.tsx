@@ -252,7 +252,7 @@ const FoldersPage = () => {
             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-primary">Organización</p>
             <h1 className="text-xl font-extrabold tracking-tight">Tus Proyectos</h1>
           </div>
-          <button onClick={() => setShowCreate(true)}
+          <button id="add-folder-button" onClick={() => setShowCreate(true)}
             className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center hover:bg-primary/20 transition-all">
             <Plus className="w-5 h-5" />
           </button>
@@ -263,11 +263,11 @@ const FoldersPage = () => {
             <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
               className="bg-surface-container-low rounded-xl overflow-hidden">
               <div className="p-4 space-y-4">
-                <input autoFocus value={newName} onChange={(e) => setNewName(e.target.value)}
+                <input id="folder-name-input" autoFocus value={newName} onChange={(e) => setNewName(e.target.value)}
                   placeholder="Nombre de la carpeta"
                   className="w-full bg-surface-container-high rounded-lg p-3 text-foreground text-sm focus:outline-none focus:ring-1 focus:ring-primary"
                   onKeyDown={(e) => e.key === 'Enter' && handleCreate()} />
-                <div className="flex gap-2">
+                <div id="folder-color-selector" className="flex gap-2">
                   {FOLDER_COLORS.map((c) => (
                     <button key={c} onClick={() => setNewColor(c)}
                       className={`w-8 h-8 rounded-full transition-all ${newColor === c ? 'ring-2 ring-primary ring-offset-2 ring-offset-background scale-110' : ''}`}
@@ -276,7 +276,7 @@ const FoldersPage = () => {
                 </div>
                 <div className="flex gap-2">
                   <button onClick={() => setShowCreate(false)} className="flex-1 py-2.5 rounded-lg bg-surface-container-high text-on-surface-variant text-sm font-semibold">Cancelar</button>
-                  <button onClick={handleCreate} className="flex-1 py-2.5 rounded-lg primary-gradient text-primary-foreground text-sm font-bold">Crear</button>
+                  <button id="folder-create-confirm" onClick={handleCreate} className="flex-1 py-2.5 rounded-lg primary-gradient text-primary-foreground text-sm font-bold">Crear</button>
                 </div>
               </div>
             </motion.div>

@@ -36,6 +36,7 @@ const SidebarContent = ({ user, menuItems, location, handleNavigate, signOut, st
         {menuItems.map((item: any) => (
           <Button
             key={item.path}
+            id={`nav-${item.path.replace('/', '') || 'today'}`}
             variant="ghost"
             onClick={() => handleNavigate(item.path)}
             className={`w-full justify-start gap-4 h-12 rounded-xl transition-all duration-300 ${

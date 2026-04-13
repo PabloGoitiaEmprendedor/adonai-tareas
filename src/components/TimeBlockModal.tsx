@@ -96,7 +96,7 @@ export const TimeBlockModal: React.FC<TimeBlockModalProps> = ({ open, onClose, s
           <div className="space-y-2">
             <Label htmlFor="title" className="text-sm font-semibold text-on-surface-variant">Nombre del bloque</Label>
             <Input
-              id="title"
+              id="block-title-input"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Ej. Trabajo Profundo"
@@ -109,7 +109,7 @@ export const TimeBlockModal: React.FC<TimeBlockModalProps> = ({ open, onClose, s
             <div className="space-y-2">
               <Label htmlFor="startTime" className="text-sm font-semibold text-on-surface-variant">Hora de Inicio</Label>
               <Input
-                id="startTime"
+                id="block-start-time"
                 type="time"
                 value={startTime}
                 onChange={(e) => setStartTime(e.target.value)}
@@ -119,7 +119,7 @@ export const TimeBlockModal: React.FC<TimeBlockModalProps> = ({ open, onClose, s
             <div className="space-y-2">
               <Label htmlFor="endTime" className="text-sm font-semibold text-on-surface-variant">Hora Fin</Label>
               <Input
-                id="endTime"
+                id="block-end-time"
                 type="time"
                 value={endTime}
                 onChange={(e) => setEndTime(e.target.value)}
@@ -130,7 +130,7 @@ export const TimeBlockModal: React.FC<TimeBlockModalProps> = ({ open, onClose, s
 
           <div className="space-y-2 pt-2">
             <Label className="text-sm font-semibold text-on-surface-variant">Color</Label>
-            <div className="flex gap-3 mt-1">
+            <div id="block-color-picker" className="flex gap-3 mt-1">
               {PRESET_COLORS.map(c => (
                 <button
                   key={c}
@@ -147,7 +147,7 @@ export const TimeBlockModal: React.FC<TimeBlockModalProps> = ({ open, onClose, s
             <div className="flex items-center justify-between">
               <Label htmlFor="recurring" className="text-sm font-bold text-foreground">Repetir bloque</Label>
               <input 
-                id="recurring"
+                id="block-recurring-toggle"
                 type="checkbox"
                 checked={isRecurring}
                 onChange={(e) => setIsRecurring(e.target.checked)}
@@ -180,6 +180,7 @@ export const TimeBlockModal: React.FC<TimeBlockModalProps> = ({ open, onClose, s
           </div>
 
           <Button 
+            id="block-save-button"
             type="submit" 
             disabled={!title.trim() || createBlock.isPending}
             className="w-full h-12 mt-6 rounded-xl font-bold primary-gradient shadow-md"
