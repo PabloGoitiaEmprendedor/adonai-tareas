@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
-import Joyride, { Step, CallBackProps, STATUS } from 'react-joyride';
+import { Joyride, type Step, type Props as JoyrideProps, STATUS } from 'react-joyride';
+
+type CallBackProps = Parameters<NonNullable<JoyrideProps['callback']>>[0];
 import { useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 
