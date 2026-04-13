@@ -153,7 +153,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
         <header className={`sticky top-0 inset-x-0 h-14 glass-sheet border-b border-outline-variant/10 z-[55] lg:hidden flex items-center justify-between px-4 ${isHome ? 'border-b-0 bg-transparent backdrop-blur-none' : ''}`}>
           <div className="w-10 flex justify-start">
             <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="w-9 h-9 rounded-xl text-on-surface-variant hover:text-primary transition-all duration-300">
+              <Button variant="ghost" size="icon" className="w-9 h-9 rounded-xl text-foreground hover:text-primary transition-all duration-300">
                 <Menu className="w-5 h-5" />
               </Button>
             </SheetTrigger>
