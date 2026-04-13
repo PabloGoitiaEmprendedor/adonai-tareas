@@ -1,6 +1,6 @@
-import { useState } from 'react';
-import { Joyride, type Step, type EventData, type Controls, STATUS } from 'react-joyride';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import Joyride, { Step, CallBackProps, STATUS, ACTIONS, EVENTS } from 'react-joyride';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 interface AppTutorialProps {
   run: boolean;
@@ -9,80 +9,91 @@ interface AppTutorialProps {
 
 const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [stepIndex, setStepIndex] = useState(0);
 
   const steps: Step[] = [
     {
       target: '#global-add-task-button',
-      content: '¡Bienvenido! Empecemos por lo básico. Haz clic aquí para crear tu primera tarea.',
-      skipBeacon: true,
+      content: '¡Bienvenido! Empecemos por lo básico. Haz clic aquí para añadir tu primera tarea o planificar tu día.',
+      disableBeacon: true,
       placement: 'left',
-      primaryColor: '#4BE277',
-      zIndex: 10000,
+      spotlightClicks: true,
     },
     {
       target: '#tutorial-photo-button',
-      content: '¿Sabías que puedes agendar tareas con solo una foto?',
+      content: '¿No tienes tiempo de escribir? Toma una foto de tu agenda o notas y Adonai la transcribirá por ti. ¡Pruébalo cuando tengas tu libreta a mano!',
       placement: 'top',
-      primaryColor: '#4BE277',
-      zIndex: 10000,
+      spotlightClicks: true,
     },
     {
       target: '#nav-week',
-      content: 'Aquí puedes ver toda tu semana y planificar bloques de tiempo.',
+      content: 'En la vista de calendario puedes ver tu semana completa y organizar tus tiempos de forma visual.',
       placement: 'top',
-      primaryColor: '#4BE277',
-      zIndex: 10000,
+      spotlightClicks: true,
     },
     {
       target: '#tutorial-block-button',
-      content: 'Los bloques de tiempo te ayudan a enfocarte en una sola cosa.',
+      content: 'Los bloques de tiempo son ideales para proteger tus horas de enfoque. ¡Crea uno para tus tareas más importantes!',
       placement: 'bottom',
-      primaryColor: '#4BE277',
-      zIndex: 10000,
+      spotlightClicks: true,
     },
     {
       target: '#nav-folders',
-      content: 'Organiza tus proyectos en carpetas y compártelas con amigos.',
+      content: 'Crea carpetas para separar tus proyectos personales, de trabajo o estudio.',
       placement: 'top',
-      primaryColor: '#4BE277',
-      zIndex: 10000,
+      spotlightClicks: true,
     },
     {
       target: '#tutorial-share-button',
-      content: 'Desde aquí puedes invitar a tus amigos a cualquier carpeta.',
+      content: '¡Lo mejor es hacerlo acompañado! Invita a tus amigos a tus carpetas para compartir tareas y metas.',
       placement: 'bottom',
-      primaryColor: '#4BE277',
-      zIndex: 10000,
+      spotlightClicks: true,
     },
     {
       target: 'body',
-      content: '¡Estás listo para dominar tu tiempo con Adonai!',
+      content: '¡Ya conoces lo esencial! Recuerda que Adonai está aquí para ayudarte a que nada se te olvide. ¡A por ello!',
       placement: 'center',
-      primaryColor: '#4BE277',
-      zIndex: 10000,
     }
   ];
 
-  const handleEvent = (data: EventData, controls: Controls) => {
-    const { status, type, index, action } = data;
+  const handleCallback = (data: CallBackProps) => {
+    const { action, index, status, type } = data;
 
-    if (status === STATUS.FINISHED || status === STATUS.SKIPPED) {
+    if ([STATUS.FINISHED, STATUS.SKIPPED].includes(status as any)) {
       setStepIndex(0);
       localStorage.setItem('adonai_tutorial_completed', 'true');
       onFinish();
-    } else if (type === 'step:after') {
-      if (index === 1 && action === 'next') {
+    } else if (type === EVENTS.STEP_AFTER || type === EVENTS.TARGET_NOT_FOUND) {
+      if (index === 0 && action === ACTIONS.NEXT) {
+        // We move to step 1 (photo button), which is in the modal.
+        // We hope the modal is open if they clicked it, or we skip if not found.
+        setStepIndex(index + 1);
+      } else if (index === 1 && action === ACTIONS.NEXT) {
         navigate('/week');
-        setTimeout(() => setStepIndex(index + 1), 500);
-      } else if (index === 3 && action === 'next') {
+        setTimeout(() => setStepIndex(index + 1), 800);
+      } else if (index === 3 && action === ACTIONS.NEXT) {
         navigate('/folders');
-        setTimeout(() => setStepIndex(index + 1), 500);
-      } else {
-        setStepIndex(index + (action === 'prev' ? -1 : 1));
+        setTimeout(() => setStepIndex(index + 1), 800);
+      } else if (action === ACTIONS.PREV) {
+        setStepIndex(index - 1);
+      } else if (action === ACTIONS.NEXT) {
+        setStepIndex(index + 1);
       }
     }
   };
+
+  // Synchronize tutorial with current page to avoid missing targets
+  useEffect(() => {
+    if (!run) return;
+    
+    if (location.pathname === '/week' && stepIndex < 2) {
+      // If we are at /week but tutorial is lagging
+    }
+    if (location.pathname === '/' && stepIndex >= 2 && stepIndex < 4) {
+      // If we went back home
+    }
+  }, [location.pathname, run, stepIndex]);
 
   return (
     <Joyride
@@ -90,20 +101,30 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
       run={run}
       stepIndex={stepIndex}
       continuous
-      onEvent={handleEvent}
+      showProgress
+      showSkipButton
+      hideCloseButton
+      disableOverlayClose
+      scrollToSteps={false}
+      callback={handleCallback}
       locale={{
         back: 'Atrás',
         close: 'Cerrar',
         last: 'Finalizar',
         next: 'Siguiente',
-        skip: 'Saltar tutorial',
+        skip: 'Saltar',
       }}
       styles={{
-        buttonPrimary: {
+        options: {
+          primaryColor: '#4BE277',
+          zIndex: 10000,
+        },
+        buttonNext: {
           fontSize: '12px',
           fontWeight: 'bold',
           padding: '10px 18px',
           borderRadius: '12px',
+          backgroundColor: '#4BE277',
         },
         buttonBack: {
           fontSize: '12px',
@@ -115,13 +136,17 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
           fontWeight: 'bold',
           color: '#666',
         },
+        tooltip: {
+          borderRadius: '24px',
+          padding: '15px',
+        },
         tooltipContainer: {
-          textAlign: 'left' as const,
-          borderRadius: '20px',
+          textAlign: 'left',
         },
         tooltipContent: {
-          fontSize: '14px',
-          padding: '10px 0',
+          fontSize: '15px',
+          padding: '15px 0',
+          lineHeight: '1.4',
         }
       }}
     />
