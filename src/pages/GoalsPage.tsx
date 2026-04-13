@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import FAB from '@/components/FAB';
 import TaskCaptureModal, { type TaskCaptureModalHandle } from '@/components/TaskCaptureModal';
 import { toast } from 'sonner';
+import { dispatchTutorialGoalCreated } from '@/lib/tutorialEvents';
 
 const horizonLabels: Record<string, string> = {
   daily: 'Diario',
@@ -60,6 +61,7 @@ const GoalsPage = () => {
       await createGoal.mutateAsync({ title: newTitle.trim(), horizon: newHorizon });
       setNewTitle('');
       setShowNewGoal(false);
+      dispatchTutorialGoalCreated();
       toast.success('Meta creada');
     } catch {
       toast.error('Error al crear meta');
@@ -102,7 +104,7 @@ const GoalsPage = () => {
   return (
     <div className="min-h-screen bg-background">
       <div className="max-w-[430px] lg:max-w-4xl mx-auto px-6 pt-4 pb-24 space-y-6">
-        <div className="space-y-1 py-1">
+        <div id="goals-overview" className="space-y-1 py-1">
           <p className="text-[10px] font-black uppercase tracking-[0.2em] text-primary">Tu Visión</p>
           <h1 className="text-xl font-extrabold tracking-tight text-foreground">Fragmentada.</h1>
         </div>
@@ -132,7 +134,7 @@ const GoalsPage = () => {
         {activeGoals.length === 0 && !showNewGoal && !completedGoalId && (
           <div className="bg-surface-container-low p-6 rounded-lg text-center space-y-3">
             <p className="text-on-surface-variant">Define tu norte. Las metas dan sentido a las tareas.</p>
-            <button onClick={() => setShowNewGoal(true)} className="inline-flex items-center gap-2 px-4 py-2 rounded-full primary-gradient text-primary-foreground text-sm font-semibold">
+            <button id="goal-add-button" onClick={() => setShowNewGoal(true)} className="inline-flex items-center gap-2 px-4 py-2 rounded-full primary-gradient text-primary-foreground text-sm font-semibold">
               <Plus className="w-4 h-4" /> Crear meta
             </button>
           </div>
@@ -140,9 +142,9 @@ const GoalsPage = () => {
 
         {showNewGoal && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-surface-container-low p-5 rounded-lg space-y-4">
-            <input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="Título de la meta"
+            <input id="goal-title-input" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="Título de la meta"
               className="w-full h-12 px-4 bg-surface-container-lowest rounded-lg text-foreground placeholder:text-on-surface-variant/40 focus:outline-none border-none" />
-            <div className="flex flex-wrap gap-2">
+            <div id="goal-horizon-options" className="flex flex-wrap gap-2">
               {horizons.map((h) => (
                 <button key={h} onClick={() => setNewHorizon(h)}
                   className={`px-3 py-1.5 rounded-full text-xs font-bold ${newHorizon === h ? 'primary-gradient text-primary-foreground' : 'bg-surface-container-high text-on-surface-variant'}`}>
@@ -151,12 +153,13 @@ const GoalsPage = () => {
               ))}
             </div>
             <div className="flex gap-2">
-              <button onClick={handleCreateGoal} className="flex-1 py-2.5 rounded-lg primary-gradient text-primary-foreground font-bold text-sm">Crear</button>
+              <button id="goal-create-button" onClick={handleCreateGoal} className="flex-1 py-2.5 rounded-lg primary-gradient text-primary-foreground font-bold text-sm">Crear</button>
               <button onClick={() => setShowNewGoal(false)} className="px-4 py-2.5 rounded-lg bg-surface-container-high text-on-surface-variant text-sm">Cancelar</button>
             </div>
           </motion.div>
         )}
 
+        <div id="goals-list-section" className="space-y-6">
         {horizons.map((h) => {
           const hGoals = groupedGoals[h];
           if (hGoals.length === 0) return null;
@@ -206,6 +209,7 @@ const GoalsPage = () => {
             </section>
           );
         })}
+        </div>
 
         {selectedGoal && selectedGoalTasks.length > 0 && (
           <section className="space-y-2">
@@ -232,7 +236,7 @@ const GoalsPage = () => {
         )}
 
         {activeGoals.length > 0 && (
-          <button onClick={() => setShowNewGoal(true)} className="w-full py-3 rounded-lg bg-surface-container-low text-on-surface-variant font-semibold text-sm flex items-center justify-center gap-2 hover:bg-surface-container transition-colors">
+          <button id="goal-add-button" onClick={() => setShowNewGoal(true)} className="w-full py-3 rounded-lg bg-surface-container-low text-on-surface-variant font-semibold text-sm flex items-center justify-center gap-2 hover:bg-surface-container transition-colors">
             <Plus className="w-4 h-4" /> Nueva meta
           </button>
         )}

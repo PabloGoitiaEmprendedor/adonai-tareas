@@ -122,6 +122,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
     { label: 'Hoy', icon: Home, path: '/' },
     { label: 'Calendario', icon: Calendar, path: '/week' },
     { label: 'Carpetas', icon: FolderOpen, path: '/folders' },
+    { label: 'Amigos', icon: Users, path: '/friends' },
     { label: 'Metas', icon: Target, path: '/goals' },
     { label: 'Perfil', icon: User, path: '/profile' },
   ];
@@ -137,6 +138,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
       case '/week': return 'Calendario';
       case '/goals': return 'Metas';
       case '/folders': return 'Carpetas';
+      case '/friends': return 'Amigos';
       case '/profile': return 'Perfil';
       case '/trash': return 'Historial';
       default: return 'Adonai';

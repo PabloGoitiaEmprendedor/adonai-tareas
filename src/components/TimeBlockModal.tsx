@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useTimeBlocks } from '@/hooks/useTimeBlocks';
 import { format } from 'date-fns';
+import { dispatchTutorialTimeBlockCreated } from '@/lib/tutorialEvents';
 
 interface TimeBlockModalProps {
   open: boolean;
@@ -80,7 +81,10 @@ export const TimeBlockModal: React.FC<TimeBlockModalProps> = ({ open, onClose, s
       });
     } else {
       createBlock.mutate(payload as any, {
-        onSuccess: () => onClose()
+        onSuccess: () => {
+          dispatchTutorialTimeBlockCreated();
+          onClose();
+        }
       });
     }
   };

@@ -227,12 +227,12 @@ const FriendsPage = () => {
         <div className="flex gap-2">
           <div className="flex-1 relative">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant" />
-            <input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
+            <input id="friend-search-input" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Buscar por nombre o email..."
               className="w-full bg-surface-container-low rounded-lg pl-9 pr-3 py-2.5 text-foreground text-sm focus:outline-none focus:ring-1 focus:ring-primary"
               onKeyDown={(e) => e.key === 'Enter' && handleSearch()} />
           </div>
-          <button onClick={handleSearch} className="px-4 rounded-lg primary-gradient text-primary-foreground text-sm font-bold">
+          <button id="friend-search-button" onClick={handleSearch} className="px-4 rounded-lg primary-gradient text-primary-foreground text-sm font-bold">
             Buscar
           </button>
         </div>
@@ -267,7 +267,7 @@ const FriendsPage = () => {
         )}
 
         {/* Tabs */}
-        <div className="flex bg-surface-container-low rounded-lg p-0.5">
+        <div id="friends-tabs" className="flex bg-surface-container-low rounded-lg p-0.5">
           <button onClick={() => setTab('friends')}
             className={`flex-1 py-2 rounded-md text-sm font-bold transition-all ${tab === 'friends' ? 'bg-primary text-primary-foreground' : 'text-on-surface-variant'}`}>
             Amigos ({friends.length})
