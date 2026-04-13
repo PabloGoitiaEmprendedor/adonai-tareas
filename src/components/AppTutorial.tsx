@@ -17,7 +17,8 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
       content: '¡Bienvenido! Toca este botón para empezar a organizar tu día.',
       disableBeacon: true,
       spotlightClicks: true,
-      styles: { buttonNext: { display: 'none' } }
+      showNextButton: false,
+      showBackButton: false,
     },
     {
       target: '#tutorial-write-button',
@@ -38,13 +39,15 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
       target: '#nav-week',
       content: 'Ahora, toca el icono de Calendario para organizar tu semana.',
       spotlightClicks: true,
-      styles: { buttonNext: { display: 'none' } }
+      showNextButton: false,
+      showBackButton: false,
     },
     {
       target: '#tutorial-block-button',
       content: 'Toca en Nuevo Bloque para empezar a planificar.',
       spotlightClicks: true,
-      styles: { buttonNext: { display: 'none' } }
+      showNextButton: false,
+      showBackButton: false,
     },
     {
       target: '#block-title-input',
@@ -70,19 +73,22 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
       target: '#block-save-button',
       content: '¡Listo! Dale a Guardar para confirmar.',
       spotlightClicks: true,
-      styles: { buttonNext: { display: 'none' } }
+      showNextButton: false,
+      showBackButton: false,
     },
     {
       target: '#nav-folders',
       content: 'Toca aquí para ir a tus Carpetas y proyectos.',
       spotlightClicks: true,
-      styles: { buttonNext: { display: 'none' } }
+      showNextButton: false,
+      showBackButton: false,
     },
     {
       target: '#add-folder-button',
       content: 'Crea una nueva carpeta tocando el botón de añadir.',
       spotlightClicks: true,
-      styles: { buttonNext: { display: 'none' } }
+      showNextButton: false,
+      showBackButton: false,
     },
     {
       target: '#folder-name-input',
@@ -93,7 +99,8 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
       target: '#folder-create-confirm',
       content: 'Toca en Crear para finalizar la carpeta.',
       spotlightClicks: true,
-      styles: { buttonNext: { display: 'none' } }
+      showNextButton: false,
+      showBackButton: false,
     },
     {
       target: '#tutorial-share-button',
@@ -104,13 +111,15 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
       target: '#nav-friends',
       content: 'Toca aquí para ver a tus Amigos.',
       spotlightClicks: true,
-      styles: { buttonNext: { display: 'none' } }
+      showNextButton: false,
+      showBackButton: false,
     },
     {
       target: '#nav-goals',
       content: 'Finalmente, toca aquí para ver tus Metas.',
       spotlightClicks: true,
-      styles: { buttonNext: { display: 'none' } }
+      showNextButton: false,
+      showBackButton: false,
     },
     {
       target: 'body',
@@ -126,7 +135,7 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
       setStepIndex(0);
       localStorage.setItem('adonai_tutorial_completed', 'true');
       onFinish();
-    } else if (type === EVENTS.STEP_AFTER || type === EVENTS.TARGET_NOT_FOUND) {
+    } else if (type === EVENTS.STEP_AFTER) {
       const nextIndex = index + (action === ACTIONS.PREV ? -1 : 1);
       
       if (action === ACTIONS.NEXT) {
@@ -164,7 +173,6 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
     const handleGlobalClick = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
       
-      // Map of step index to the required interaction ID
       const interactiveTriggers: Record<number, string> = {
         0: 'global-add-task-button',
         4: 'nav-week',
@@ -202,6 +210,9 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
       continuous
       scrollToFirstStep
       showSkipButton
+      disableScrolling={false}
+      spotlightClicks={true}
+      disableOverlayClose={true}
       onEvent={handleCallback}
       options={{
         buttons: ['back', 'close', 'primary'],
@@ -233,6 +244,11 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
           fontWeight: '600',
           color: 'hsl(var(--muted-foreground))',
           marginRight: '10px',
+        },
+        buttonSkip: {
+          fontSize: '13px',
+          fontWeight: '600',
+          color: 'hsl(var(--muted-foreground))',
         },
         tooltip: {
           borderRadius: '28px',
