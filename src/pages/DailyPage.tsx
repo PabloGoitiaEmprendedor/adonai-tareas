@@ -8,6 +8,8 @@ import { useTimeBlocks } from '@/hooks/useTimeBlocks';
 import { format } from 'date-fns';
 import { Check, Plus, GripVertical, Timer, Clock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { toast } from 'sonner';
+import { triggerTaskCelebration, triggerDailyCelebration } from '@/lib/celebrations';
 import FAB from '@/components/FAB';
 import TaskCaptureModal, { type TaskCaptureModalHandle } from '@/components/TaskCaptureModal';
 import TaskDetailModal from '@/components/TaskDetailModal';
@@ -145,9 +147,34 @@ const DailyPage = () => {
     [profile?.name, completedCount, totalCount, mainGoal?.title]
   );
 
-  const handleComplete = (id: string, e: React.MouseEvent) => {
+  const handleComplete = (task: any, e: React.MouseEvent) => {
     e.stopPropagation();
-    updateTask.mutate({ id, status: 'done', completed_at: new Date().toISOString() });
+    
+    // Find if this is the last task
+    const remainingTasks = tasks.filter((t: any) => t.status !== 'done' && t.id !== task.id);
+    const isLastTask = tasks.length > 0 && remainingTasks.length === 0;
+
+    updateTask.mutate({ 
+      id: task.id, 
+      status: 'done', 
+      completed_at: new Date().toISOString() 
+    }, {
+      onSuccess: () => {
+        if (isLastTask) {
+          const message = triggerDailyCelebration(profile?.name);
+          toast.success(message, {
+            duration: 6000,
+            icon: '🎉',
+          });
+        } else {
+          const message = triggerTaskCelebration(task.title, profile?.name);
+          toast.success(message, {
+            duration: 4000,
+            icon: '🚀',
+          });
+        }
+      }
+    });
   };
 
   const handleDragStart = (idx: number) => setDragIdx(idx);
@@ -209,13 +236,37 @@ const DailyPage = () => {
         {/* Dynamic greeting - centered, single line */}
         <p className="text-center text-sm text-on-surface-variant py-3">{greeting}</p>
 
-        {orderedTasks.length === 0 && timeBlocks.length === 0 ? (
-          <div className="bg-surface-container-low p-6 rounded-lg text-center space-y-3">
-            <p className="text-on-surface-variant">Tu día está despejado. ¿Qué quieres lograr?</p>
-            <button onClick={openCapture} className="inline-flex items-center gap-2 px-4 py-2 rounded-full primary-gradient text-primary-foreground text-sm font-semibold">
-              <Plus className="w-4 h-4" /> Añadir tarea
-            </button>
-          </div>
+        {orderedTasks.length === 0 && timeBlocks.filter(b => tasks.some(t => t.time_block_id === b.id && t.status !== 'done')).length === 0 ? (
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-surface-container-low p-10 rounded-3xl text-center space-y-4 border border-primary/10 shadow-sm"
+          >
+            {tasks.length > 0 && tasks.every(t => t.status === 'done') ? (
+              <>
+                <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <span className="text-4xl">🏆</span>
+                </div>
+                <h2 className="text-2xl font-bold text-foreground">¡Día Superado, {profile?.name || 'Emprendedor'}!</h2>
+                <p className="text-on-surface-variant max-w-[280px] mx-auto">
+                  Has completado todas tus tareas de hoy. Tu enfoque y disciplina están dando resultados increíbles.
+                </p>
+                <div className="pt-4">
+                   <p className="text-xs font-bold uppercase tracking-widest text-primary">¡Disfruta tu descanso!</p>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="w-16 h-16 bg-surface-container-high rounded-full flex items-center justify-center mx-auto opacity-40">
+                  <Plus className="w-8 h-8 text-on-surface-variant" />
+                </div>
+                <p className="text-on-surface-variant font-medium">Tu día está despejado. ¿Qué quieres lograr hoy?</p>
+                <button onClick={openCapture} className="inline-flex items-center gap-2 px-6 py-3 rounded-full primary-gradient text-primary-foreground text-sm font-bold shadow-md hover:shadow-lg transition-all active:scale-95">
+                  <Plus className="w-4 h-4" /> Empezar a planificar
+                </button>
+              </>
+            )}
+          </motion.div>
         ) : (
           <div className="space-y-6">
             
@@ -284,7 +335,7 @@ const DailyPage = () => {
                               <Check className="w-3 h-3 text-primary-foreground" />
                             </div>
                           ) : (
-                            <button onClick={(e) => handleComplete(task.id, e)}
+                            <button onClick={(e) => handleComplete(task, e)}
                               className="w-5 h-5 rounded border-2 border-outline-variant flex items-center justify-center hover:border-primary flex-shrink-0 mt-0.5" />
                           )}
                           <div className="flex-1 min-w-0">
@@ -334,7 +385,7 @@ const DailyPage = () => {
                         <Check className="w-3 h-3 text-primary-foreground" />
                       </div>
                     ) : (
-                      <button onClick={(e) => handleComplete(task.id, e)}
+                      <button onClick={(e) => handleComplete(task, e)}
                         className="w-5 h-5 rounded border-2 border-outline-variant flex items-center justify-center hover:border-primary flex-shrink-0 mt-0.5" />
                     )}
                     <div className="flex-1 min-w-0">

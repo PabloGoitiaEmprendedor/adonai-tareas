@@ -6,7 +6,7 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
+    --background: 142 15% 98.5%;
     --foreground: 0 0% 9%;
     --card: 0 0% 98%;
     --card-foreground: 0 0% 9%;
@@ -30,11 +30,11 @@
     --radius: 1.25rem;
 
     /* Adonai surface system - Light */
-    --surface: 0 0% 100%;
-    --surface-dim: 0 0% 98%;
+    --surface: 142 15% 98.5%;
+    --surface-dim: 142 10% 96%;
     --surface-container-lowest: 0 0% 100%;
-    --surface-container-low: 0 0% 97%;
-    --surface-container: 0 0% 95%;
+    --surface-container-low: 142 10% 95%;
+    --surface-container: 142 10% 93%;
     --surface-container-high: 0 0% 92%;
     --surface-container-highest: 0 0% 89%;
     --on-surface: 0 0% 9%;

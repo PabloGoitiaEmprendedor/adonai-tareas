@@ -8,6 +8,8 @@ import { format, startOfWeek, addDays, subDays, isSameDay, addWeeks, subWeeks } 
 import { es } from 'date-fns/locale';
 import { TrendingUp, Calendar as CalendarIcon, Check, GripVertical, Timer, ChevronLeft, ChevronRight, Filter, Clock, Trash2, MoreVertical, Settings, Edit2, Plus } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { toast } from 'sonner';
+import { triggerTaskCelebration, triggerDailyCelebration } from '@/lib/celebrations';
 import FAB from '@/components/FAB';
 import TaskCaptureModal, { type TaskCaptureModalHandle } from '@/components/TaskCaptureModal';
 import TaskDetailModal from '@/components/TaskDetailModal';
@@ -188,8 +190,32 @@ const WeeklyPage = () => {
     setTouchIdx(null);
   };
 
-  const handleComplete = (taskId: string) => {
-    updateTask.mutate({ id: taskId, status: 'done', completed_at: new Date().toISOString() });
+  const handleComplete = (task: any) => {
+    // Find if this is the last task for the selected day
+    const remainingTasks = tasks.filter((t: any) => t.status !== 'done' && t.id !== task.id);
+    const isLastTask = tasks.length > 0 && remainingTasks.length === 0;
+
+    updateTask.mutate({ 
+      id: task.id, 
+      status: 'done', 
+      completed_at: new Date().toISOString() 
+    }, {
+      onSuccess: () => {
+        if (isLastTask) {
+          const message = triggerDailyCelebration(profile?.name);
+          toast.success(message, {
+            duration: 6000,
+            icon: '🎉',
+          });
+        } else {
+          const message = triggerTaskCelebration(task.title, profile?.name);
+          toast.success(message, {
+            duration: 4000,
+            icon: '🚀',
+          });
+        }
+      }
+    });
   };
 
   const handleStartTimer = (task: any, e: React.MouseEvent) => {
@@ -438,7 +464,7 @@ const WeeklyPage = () => {
                           <Check className="w-3 h-3 text-primary-foreground" />
                         </div>
                       ) : (
-                        <button onClick={(e) => { e.stopPropagation(); handleComplete(task.id); }}
+                        <button onClick={(e) => { e.stopPropagation(); handleComplete(task); }}
                           className="w-5 h-5 rounded border-2 border-outline-variant flex items-center justify-center hover:border-primary flex-shrink-0" />
                       )}
                       <div className="flex-1 min-w-0 flex items-center">
