@@ -100,22 +100,19 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
   const location = useLocation();
 
   useEffect(() => {
+    // Check if tutorial has been completed before
     const tutorialCompleted = localStorage.getItem('adonai_tutorial_completed');
+    
+    // Check if we just finished onboarding (this is a priority trigger)
     const pendingOnboarding = localStorage.getItem('tutorial_pending');
 
     if (!tutorialCompleted || pendingOnboarding === 'true') {
-      // Poll until the FAB target exists in the DOM, max 8 seconds
-      let attempts = 0;
-      const interval = setInterval(() => {
-        attempts++;
-        const fabEl = document.getElementById('global-add-task-button');
-        if (fabEl || attempts > 16) {
-          clearInterval(interval);
-          setTutorialRun(true);
-          if (pendingOnboarding) localStorage.removeItem('tutorial_pending');
-        }
-      }, 500);
-      return () => clearInterval(interval);
+      // Small delay to let the page settle before starting the tour
+      const timer = setTimeout(() => {
+        setTutorialRun(true);
+        if (pendingOnboarding) localStorage.removeItem('tutorial_pending');
+      }, 2000);
+      return () => clearTimeout(timer);
     }
   }, []);
 
@@ -126,7 +123,6 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
     { label: 'Calendario', icon: Calendar, path: '/week' },
     { label: 'Carpetas', icon: FolderOpen, path: '/folders' },
     { label: 'Metas', icon: Target, path: '/goals' },
-    { label: 'Amigos', icon: Users, path: '/friends' },
     { label: 'Perfil', icon: User, path: '/profile' },
   ];
 
@@ -141,7 +137,6 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
       case '/week': return 'Calendario';
       case '/goals': return 'Metas';
       case '/folders': return 'Carpetas';
-      case '/friends': return 'Comunidad';
       case '/profile': return 'Perfil';
       case '/trash': return 'Historial';
       default: return 'Adonai';
