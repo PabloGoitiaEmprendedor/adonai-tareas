@@ -40,22 +40,37 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
     },
     {
       target: '#tutorial-block-button',
-      content: 'Aquí puedes reservar bloques de tiempo. ¡Toca en Nuevo Bloque para ver cómo funciona!',
+      content: '¡Crea tu primer bloque de tiempo aquí! Toca en Nuevo Bloque.',
       spotlightClicks: true,
     },
     {
       target: '#block-title-input',
-      content: 'Solo tienes que ponerle un nombre, elegir el horario y un color que te guste.',
+      content: 'Escribe aquí el nombre de tu actividad para saber en qué te enfocarás.',
+      spotlightClicks: true,
+    },
+    {
+      target: '#block-start-time',
+      content: 'Define el horario de inicio y fin para reservar tu espacio.',
+      spotlightClicks: true,
+    },
+    {
+      target: '#block-color-picker',
+      content: 'Elige un color para identificar rápidamente el tipo de actividad.',
+      spotlightClicks: true,
+    },
+    {
+      target: '#block-recurring-toggle',
+      content: 'Si es algo que haces seguido, puedes activar la repetición.',
       spotlightClicks: true,
     },
     {
       target: '#block-save-button',
-      content: 'Al guardarlo, aparecerá en tu calendario para ayudarte a mantener el enfoque.',
+      content: '¡Listo! Solo dale a Guardar para visualizarlo en tu calendario.',
       spotlightClicks: true,
     },
     {
       target: '#nav-folders',
-      content: 'También puedes organizar tus tareas en proyectos o categorías usando carpetas.',
+      content: 'También puedes organizar tus tareas en proyectos usando carpetas.',
       spotlightClicks: true,
     },
     {
@@ -110,21 +125,21 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
           navigate('/week');
           setTimeout(() => setStepIndex(5), 600);
           return;
-        } else if (index === 7) { // Next on #block-save-button
+        } else if (index === 10) { // Next on #block-save-button
           navigate('/folders'); 
-          setTimeout(() => setStepIndex(8), 600);
+          setTimeout(() => setStepIndex(11), 600);
           return;
-        } else if (index === 8) { // Next on #nav-folders
+        } else if (index === 11) { // Next on #nav-folders
           navigate('/folders');
-          setTimeout(() => setStepIndex(9), 600);
+          setTimeout(() => setStepIndex(12), 600);
           return;
-        } else if (index === 12) { // Next on #tutorial-share-button
+        } else if (index === 15) { // Next on #tutorial-share-button
           navigate('/friends');
-          setTimeout(() => setStepIndex(13), 600);
+          setTimeout(() => setStepIndex(16), 600);
           return;
-        } else if (index === 13) { // Next on #nav-friends
+        } else if (index === 16) { // Next on #nav-friends
           navigate('/goals');
-          setTimeout(() => setStepIndex(14), 600);
+          setTimeout(() => setStepIndex(17), 600);
           return;
         }
       }
@@ -144,13 +159,13 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
         { id: 'global-add-task-button', next: 1 },
         { id: 'nav-week', next: 5 },
         { id: 'tutorial-block-button', next: 6 },
-        { id: 'block-save-button', next: 8 },
-        { id: 'nav-folders', next: 9 },
-        { id: 'add-folder-button', next: 10 },
-        { id: 'folder-create-confirm', next: 12 },
-        { id: 'nav-friends', next: 13 },
-        { id: 'nav-goals', next: 14 },
-        { id: 'nav-today', next: 15 }
+        { id: 'block-save-button', next: 11 },
+        { id: 'nav-folders', next: 12 },
+        { id: 'add-folder-button', next: 13 },
+        { id: 'folder-create-confirm', next: 15 },
+        { id: 'nav-friends', next: 16 },
+        { id: 'nav-goals', next: 17 },
+        { id: 'nav-today', next: 18 }
       ];
 
       const match = triggers.find(t => target.id === t.id || target.closest(`#${t.id}`));
@@ -159,8 +174,8 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
       }
     };
 
-    window.addEventListener('click', handleGlobalClick);
-    return () => window.removeEventListener('click', handleGlobalClick);
+    window.addEventListener('mousedown', handleGlobalClick);
+    return () => window.removeEventListener('mousedown', handleGlobalClick);
   }, [run]);
 
   return (
