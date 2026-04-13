@@ -1,6 +1,13 @@
-import { useState, useEffect } from 'react';
-import { Joyride, type Step, type EventData, ACTIONS, EVENTS, STATUS } from 'react-joyride';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { Joyride, type EventData, ACTIONS, EVENTS, STATUS } from 'react-joyride';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { useGoals } from '@/hooks/useGoals';
+import {
+  TUTORIAL_FOLDER_CREATED_EVENT,
+  TUTORIAL_GOAL_CREATED_EVENT,
+  TUTORIAL_TIME_BLOCK_CREATED_EVENT,
+} from '@/lib/tutorialEvents';
+import { getTutorialSteps } from './tutorial/tutorialSteps';
 
 interface AppTutorialProps {
   run: boolean;
@@ -9,115 +16,33 @@ interface AppTutorialProps {
 
 const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { goals, isLoading } = useGoals();
   const [stepIndex, setStepIndex] = useState(0);
+  const hasGoals = goals.length > 0;
+  const steps = useMemo(() => getTutorialSteps({ hasGoals }), [hasGoals]);
 
-  const steps: Step[] = [
-    {
-      target: '#global-add-task-button',
-      content: '¡Bienvenido! Toca este botón para empezar a organizar tu día.',
-      skipBeacon: true,
-      blockTargetInteraction: false,
-      buttons: [],
-    },
-    {
-      target: '#tutorial-write-button',
-      content: 'Aquí puedes escribir tus tareas de forma tradicional.',
-      blockTargetInteraction: false,
-    },
-    {
-      target: '#tutorial-voice-button',
-      content: 'O usa tu voz para agendar tareas en segundos. ¡Solo habla!',
-      blockTargetInteraction: false,
-    },
-    {
-      target: '#tutorial-photo-button',
-      content: 'También puedes fotografiar tu agenda física para digitalizarla automáticamente.',
-      blockTargetInteraction: false,
-    },
-    {
-      target: '#tutorial-close-capture',
-      content: 'Perfecto. Ahora cierra este panel para continuar el recorrido.',
-      blockTargetInteraction: false,
-      buttons: [],
-    },
-    {
-      target: '#nav-week',
-      content: 'Toca el Calendario para planificar tu semana con bloques de tiempo.',
-      blockTargetInteraction: false,
-      buttons: [],
-    },
-    {
-      target: '#tutorial-block-button',
-      content: 'Toca "Nuevo Bloque" para crear un bloque de tiempo.',
-      blockTargetInteraction: false,
-      buttons: [],
-    },
-    {
-      target: '#block-title-input',
-      content: 'Dale un nombre a tu actividad. Por ejemplo: "Trabajo profundo", "Gym", "Lectura".',
-      blockTargetInteraction: false,
-    },
-    {
-      target: '#block-start-time',
-      content: 'Define el horario de inicio y fin de tu actividad.',
-      blockTargetInteraction: false,
-    },
-    {
-      target: '#block-color-picker',
-      content: 'Elige un color para identificar este bloque visualmente en tu calendario.',
-      blockTargetInteraction: false,
-    },
-    {
-      target: '#block-recurring-toggle',
-      content: 'Activa esto si es una actividad que se repite. Puedes elegir qué días.',
-      blockTargetInteraction: false,
-    },
-    {
-      target: '#block-save-button',
-      content: '¡Listo! Guarda el bloque y quedará registrado en tu semana.',
-      blockTargetInteraction: false,
-      buttons: [],
-    },
-    {
-      target: '#nav-folders',
-      content: 'Las Carpetas te permiten agrupar tareas por proyecto o área de tu vida.',
-      blockTargetInteraction: false,
-      buttons: [],
-    },
-    {
-      target: '#add-folder-button',
-      content: 'Toca aquí para crear tu primera carpeta.',
-      blockTargetInteraction: false,
-      buttons: [],
-    },
-    {
-      target: '#folder-name-input',
-      content: 'Escribe el nombre de tu proyecto o área. Por ejemplo: "Trabajo", "Casa", "Salud".',
-      blockTargetInteraction: false,
-    },
-    {
-      target: '#folder-create-confirm',
-      content: 'Confirma para crear la carpeta. Después podrás asignar tareas a ella.',
-      blockTargetInteraction: false,
-      buttons: [],
-    },
-    {
-      target: '#tutorial-share-button',
-      content: 'Desde aquí puedes compartir esta carpeta con tus proyectos.',
-      blockTargetInteraction: false,
-    },
-    {
-      target: '#nav-goals',
-      content: 'En Metas defines tus objetivos grandes. Cada tarea que completes te acerca a ellos.',
-      blockTargetInteraction: false,
-      buttons: [],
-    },
-    {
-      target: 'body',
-      content: '¡Felicidades! Has completado el tutorial. ¡A darle con todo!',
-      placement: 'center',
-    }
-  ];
+  const goalCreationStartIndex = 19;
+  const goalCreationSaveIndex = 22;
+  const manualClickDelays: Record<number, number> = {
+    0: 250,
+    4: 700,
+    5: 250,
+    12: 250,
+    [goalCreationStartIndex]: 250,
+  };
+
+  const getRouteForStep = (index: number) => {
+    if (index <= 4) return '/';
+    if (index <= 11) return '/week';
+    if (index <= 15) return '/folders';
+    if (index <= 17) return '/friends';
+    return '/goals';
+  };
+
+  const advanceToStep = (nextStep: number, delay = 0) => {
+    window.setTimeout(() => setStepIndex(nextStep), delay);
+  };
 
   const handleCallback = (data: EventData) => {
     const { action, index, status, type } = data;
@@ -126,52 +51,93 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
       setStepIndex(0);
       localStorage.setItem('adonai_tutorial_completed', 'true');
       onFinish();
-    } else if (type === EVENTS.STEP_AFTER) {
+      return;
+    }
+
+    if (type === EVENTS.TARGET_NOT_FOUND) {
+      const expectedRoute = getRouteForStep(index);
+      if (location.pathname !== expectedRoute) {
+        navigate(expectedRoute);
+      }
+      return;
+    }
+
+    if (type === EVENTS.STEP_AFTER) {
+      if (index === 11 || index === 15 || (!hasGoals && index === goalCreationSaveIndex)) {
+        return;
+      }
+
       const nextIndex = index + (action === ACTIONS.PREV ? -1 : 1);
       setStepIndex(nextIndex);
     }
   };
 
-  // Strict interactive step advancement with navigation support
   useEffect(() => {
     if (!run) return;
-    
+
+    const expectedRoute = getRouteForStep(stepIndex);
+    if (location.pathname !== expectedRoute) {
+      navigate(expectedRoute);
+    }
+  }, [run, stepIndex, location.pathname, navigate]);
+
+  useEffect(() => {
+    if (!run) return;
+
+    navigate('/');
+    setStepIndex(0);
+  }, [run, navigate]);
+
+  useEffect(() => {
+    if (!run) return;
+
     const handleGlobalClick = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
-      
+
       const interactiveTriggers: Record<number, string> = {
         0: 'global-add-task-button',
         4: 'tutorial-close-capture',
-        5: 'nav-week',
-        6: 'tutorial-block-button',
-        11: 'block-save-button',
-        12: 'nav-folders',
-        13: 'add-folder-button',
-        15: 'folder-create-confirm',
-        17: 'nav-goals'
+        5: 'tutorial-block-button',
+        12: 'add-folder-button',
+        ...(hasGoals ? {} : { [goalCreationStartIndex]: 'goal-add-button' }),
       };
 
       const requiredId = interactiveTriggers[stepIndex];
       if (requiredId) {
         const isMatch = target.id === requiredId || target.closest(`#${requiredId}`);
         if (isMatch) {
-          // Actions before index update
-          if (stepIndex === 5) navigate('/week');
-          if (stepIndex === 12) navigate('/folders');
-          if (stepIndex === 17) navigate('/goals');
-
-          const delay = (stepIndex === 5 || stepIndex === 12 || stepIndex === 17) ? 800 : 400;
-
-          setTimeout(() => {
-            setStepIndex(stepIndex + 1);
-          }, delay);
+          advanceToStep(stepIndex + 1, manualClickDelays[stepIndex] ?? 0);
         }
       }
     };
 
     window.addEventListener('mousedown', handleGlobalClick);
     return () => window.removeEventListener('mousedown', handleGlobalClick);
-  }, [run, stepIndex, navigate]);
+  }, [run, stepIndex, hasGoals]);
+
+  useEffect(() => {
+    if (!run) return;
+
+    const handleTimeBlockCreated = () => advanceToStep(12, 300);
+    const handleFolderCreated = () => advanceToStep(16, 300);
+    const handleGoalCreated = () => {
+      if (!hasGoals) {
+        advanceToStep(23, 300);
+      }
+    };
+
+    window.addEventListener(TUTORIAL_TIME_BLOCK_CREATED_EVENT, handleTimeBlockCreated);
+    window.addEventListener(TUTORIAL_FOLDER_CREATED_EVENT, handleFolderCreated);
+    window.addEventListener(TUTORIAL_GOAL_CREATED_EVENT, handleGoalCreated);
+
+    return () => {
+      window.removeEventListener(TUTORIAL_TIME_BLOCK_CREATED_EVENT, handleTimeBlockCreated);
+      window.removeEventListener(TUTORIAL_FOLDER_CREATED_EVENT, handleFolderCreated);
+      window.removeEventListener(TUTORIAL_GOAL_CREATED_EVENT, handleGoalCreated);
+    };
+  }, [run, hasGoals]);
+
+  if (!run || isLoading) return null;
 
   return (
     <Joyride

@@ -107,6 +107,7 @@ const DailyPage = () => {
   const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
   const [completingTaskId, setCompletingTaskId] = useState<string | null>(null);
   const captureModalRef = useRef<TaskCaptureModalHandle>(null);
+  const hasTrackedDayRef = useRef(false);
 
   const openCapture = useCallback(() => setCaptureOpen(true), []);
   const openCaptureInVoiceMode = useCallback(() => {
@@ -115,7 +116,11 @@ const DailyPage = () => {
   }, []);
   useGlobalVoiceCapture(captureModalRef, openCapture);
 
-  useEffect(() => { trackDayActive.mutate(); }, []);
+  useEffect(() => {
+    if (hasTrackedDayRef.current) return;
+    hasTrackedDayRef.current = true;
+    trackDayActive.mutate();
+  }, [trackDayActive]);
 
   const sortedTasks = useMemo(() => {
     return tasks

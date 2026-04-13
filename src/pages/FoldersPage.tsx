@@ -13,6 +13,7 @@ import TaskCaptureModal, { type TaskCaptureModalHandle } from '@/components/Task
 import TaskDetailModal from '@/components/TaskDetailModal';
 import FullscreenTimer from '@/components/FullscreenTimer';
 import { toast } from 'sonner';
+import { dispatchTutorialFolderCreated } from '@/lib/tutorialEvents';
 
 const FOLDER_COLORS = ['#4BE277', '#4AE176', '#FF8B7C', '#C7C6C6', '#6B9FFF', '#FFB86C', '#FF79C6', '#BD93F9'];
 
@@ -45,11 +46,19 @@ const FoldersPage = () => {
 
   const handleCreate = () => {
     if (!newName.trim()) { toast.error('Escribe un nombre'); return; }
-    createFolder.mutate({ name: newName.trim(), color: newColor });
-    setNewName('');
-    setNewColor(FOLDER_COLORS[0]);
-    setShowCreate(false);
-    toast.success('Carpeta creada');
+    createFolder.mutate(
+      { name: newName.trim(), color: newColor },
+      {
+        onSuccess: () => {
+          setNewName('');
+          setNewColor(FOLDER_COLORS[0]);
+          setShowCreate(false);
+          dispatchTutorialFolderCreated();
+          toast.success('Carpeta creada');
+        },
+        onError: () => toast.error('Error al crear carpeta'),
+      }
+    );
   };
 
   const handleDelete = (id: string) => {
