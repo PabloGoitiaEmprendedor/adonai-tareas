@@ -14,45 +14,58 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
   const steps: Step[] = [
     {
       target: '#global-add-task-button',
-      content: '¡Bienvenido! Empecemos por lo básico. Haz clic aquí para crear tu primera tarea. Puedes crear tareas simples o configurar repeticiones diarias, semanales o mensuales.',
+      content: '¡Bienvenido! Empecemos por lo básico. Haz clic aquí para crear tu primera tarea.',
       skipBeacon: true,
       placement: 'left',
+      primaryColor: '#4BE277',
+      zIndex: 10000,
     },
     {
       target: '#tutorial-photo-button',
-      content: '¿Sabías que puedes agendar tareas con solo una foto? Solo apunta a tu nota o lista y Adonai se encarga del resto.',
+      content: '¿Sabías que puedes agendar tareas con solo una foto?',
       placement: 'top',
+      primaryColor: '#4BE277',
+      zIndex: 10000,
     },
     {
       target: '#nav-week',
       content: 'Aquí puedes ver toda tu semana y planificar bloques de tiempo.',
       placement: 'top',
+      primaryColor: '#4BE277',
+      zIndex: 10000,
     },
     {
       target: '#tutorial-block-button',
-      content: 'Los bloques de tiempo te ayudan a enfocarte en una sola cosa. ¡Crea uno para organizar tu día!',
+      content: 'Los bloques de tiempo te ayudan a enfocarte en una sola cosa.',
       placement: 'bottom',
+      primaryColor: '#4BE277',
+      zIndex: 10000,
     },
     {
       target: '#nav-folders',
-      content: 'Organiza tus proyectos en carpetas y compártelas con amigos para trabajar juntos.',
+      content: 'Organiza tus proyectos en carpetas y compártelas con amigos.',
       placement: 'top',
+      primaryColor: '#4BE277',
+      zIndex: 10000,
     },
     {
       target: '#tutorial-share-button',
-      content: 'Desde aquí puedes invitar a tus amigos a cualquier carpeta y ver qué están haciendo.',
+      content: 'Desde aquí puedes invitar a tus amigos a cualquier carpeta.',
       placement: 'bottom',
+      primaryColor: '#4BE277',
+      zIndex: 10000,
     },
     {
       target: 'body',
-      content: '¡Estás listo para dominar tu tiempo con Adonai! Si necesitas ayuda, busca el botón de tutorial en el menú.',
+      content: '¡Estás listo para dominar tu tiempo con Adonai!',
       placement: 'center',
+      primaryColor: '#4BE277',
+      zIndex: 10000,
     }
   ];
 
   const handleEvent = (data: EventData, controls: Controls) => {
-    const { status, type, index } = data;
-    const action = data.action;
+    const { status, type, index, action } = data;
 
     if (status === STATUS.FINISHED || status === STATUS.SKIPPED) {
       setStepIndex(0);
@@ -76,7 +89,6 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
       run={run}
       stepIndex={stepIndex}
       continuous
-      showProgress
       onEvent={handleEvent}
       locale={{
         back: 'Atrás',
@@ -85,8 +97,6 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
         next: 'Siguiente',
         skip: 'Saltar tutorial',
       }}
-      primaryColor="#4BE277"
-      zIndex={10000}
       styles={{
         buttonPrimary: {
           fontSize: '12px',
@@ -107,10 +117,6 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
         tooltipContainer: {
           textAlign: 'left' as const,
           borderRadius: '20px',
-        },
-        tooltipTitle: {
-          fontSize: '16px',
-          fontWeight: 'bold',
         },
         tooltipContent: {
           fontSize: '14px',
