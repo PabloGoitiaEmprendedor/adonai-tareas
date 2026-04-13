@@ -17,7 +17,7 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
       content: '¡Bienvenido! Toca aquí para empezar a organizar tu día.',
       disableBeacon: true,
       spotlightClicks: true,
-      hideFooter: true,
+      styles: { buttonNext: { display: 'none' } }
     },
     {
       target: '#tutorial-write-button',
@@ -38,15 +38,17 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
       target: '#nav-week',
       content: 'Ahora vamos al calendario semanal para tener una visión clara de tus tiempos.',
       spotlightClicks: true,
+      styles: { buttonNext: { display: 'none' } }
     },
     {
       target: '#tutorial-block-button',
       content: '¡Crea tu primer bloque de tiempo aquí! Toca en Nuevo Bloque.',
       spotlightClicks: true,
+      styles: { buttonNext: { display: 'none' } }
     },
     {
       target: '#block-title-input',
-      content: 'Escribe aquí el nombre de tu actividad para saber en qué te enfocarás.',
+      content: 'Escribe el nombre de tu actividad para saber en qué te enfocarás.',
       spotlightClicks: true,
     },
     {
@@ -56,7 +58,7 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
     },
     {
       target: '#block-color-picker',
-      content: 'Elige un color para identificar rápidamente el tipo de actividad.',
+      content: 'Elige un color para identificar rápidamente tu bloque.',
       spotlightClicks: true,
     },
     {
@@ -66,43 +68,49 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
     },
     {
       target: '#block-save-button',
-      content: '¡Listo! Solo dale a Guardar para visualizarlo en tu calendario.',
+      content: '¡Listo! Dale a Guardar para visualizarlo en tu calendario.',
       spotlightClicks: true,
+      styles: { buttonNext: { display: 'none' } }
     },
     {
       target: '#nav-folders',
       content: 'También puedes organizar tus tareas en proyectos usando carpetas.',
       spotlightClicks: true,
+      styles: { buttonNext: { display: 'none' } }
     },
     {
       target: '#add-folder-button',
-      content: 'Crea una carpeta nueva para separar lo personal de lo profesional.',
+      content: 'Crea una carpeta nueva para separar tus proyectos.',
       spotlightClicks: true,
+      styles: { buttonNext: { display: 'none' } }
     },
     {
       target: '#folder-name-input',
-      content: 'Ponle un nombre, elige un color y ¡listo!',
+      content: 'Ponle un nombre y elige un color para tu nueva carpeta.',
       spotlightClicks: true,
     },
     {
       target: '#folder-create-confirm',
-      content: 'Ya tienes tu carpeta organizada.',
+      content: 'Dale a Crear para finalizar.',
       spotlightClicks: true,
+      styles: { buttonNext: { display: 'none' } }
     },
     {
       target: '#tutorial-share-button',
-      content: 'Y recuerda que puedes compartir tus carpetas para colaborar con amigos en tiempo real.',
+      content: 'Recuerda que puedes compartir tus carpetas para colaborar con amigos.',
       spotlightClicks: true,
     },
     {
       target: '#nav-friends',
       content: 'Aquí podrás ver a tus amigos y lo que están compartiendo contigo.',
       spotlightClicks: true,
+      styles: { buttonNext: { display: 'none' } }
     },
     {
       target: '#nav-goals',
       content: 'Define tus metas a largo plazo para no perder de vista lo que te inspira.',
       spotlightClicks: true,
+      styles: { buttonNext: { display: 'none' } }
     },
     {
       target: 'body',
@@ -164,8 +172,8 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
         { id: 'nav-folders', next: 12 },
         { id: 'add-folder-button', next: 13 },
         { id: 'folder-create-confirm', next: 15 },
-        { id: 'nav-friends', next: 16 },
-        { id: 'nav-goals', next: 17 },
+        { id: 'nav-friends', next: 17 },
+        { id: 'nav-goals', next: 18 },
         { id: 'nav-today', next: 18 }
       ];
 
@@ -191,6 +199,7 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
       stepIndex={stepIndex}
       continuous
       scrollToFirstStep
+      showSkipButton
       onEvent={handleCallback}
       options={{
         buttons: ['back', 'close', 'primary'],
