@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import Joyride, { type Step, type CallBackProps, ACTIONS, EVENTS, STATUS } from 'react-joyride';
+import { Joyride, type Step, type EventData, ACTIONS, EVENTS, STATUS } from 'react-joyride';
 import { useNavigate } from 'react-router-dom';
 
 interface AppTutorialProps {
@@ -20,142 +20,142 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
     {
       target: '#global-add-task-button',
       content: '¡Bienvenido! Toca este botón para empezar a organizar tu día.',
-      disableBeacon: true,
-      spotlightClicks: true,
+      skipBeacon: true,
+      blockTargetInteraction: false,
       hideFooter: true,
     },
     {
       target: '#tutorial-write-button',
       content: 'Aquí puedes escribir tus tareas de forma tradicional.',
-      spotlightClicks: true,
-      disableBeacon: true,
+      blockTargetInteraction: false,
+      skipBeacon: true,
     },
     {
       target: '#tutorial-voice-button',
       content: 'O usa tu voz para agendar tareas en segundos. ¡Solo habla!',
-      spotlightClicks: true,
-      disableBeacon: true,
+      blockTargetInteraction: false,
+      skipBeacon: true,
     },
     {
       target: '#tutorial-photo-button',
       content: 'También puedes fotografiar tu agenda física para digitalizarla automáticamente.',
-      spotlightClicks: true,
-      disableBeacon: true,
+      blockTargetInteraction: false,
+      skipBeacon: true,
     },
     {
       target: '#tutorial-close-capture',
       content: 'Perfecto. Ahora cierra este panel para continuar el recorrido.',
-      spotlightClicks: true,
+      blockTargetInteraction: false,
       hideFooter: true,
-      disableBeacon: true,
+      skipBeacon: true,
     },
     {
       target: '#nav-week',
       content: 'Toca el Calendario para planificar tu semana con bloques de tiempo.',
-      spotlightClicks: true,
+      blockTargetInteraction: false,
       hideFooter: true,
-      disableBeacon: true,
+      skipBeacon: true,
     },
     {
       target: '#tutorial-block-button',
       content: 'Toca "Nuevo Bloque" para crear un bloque de tiempo.',
-      spotlightClicks: true,
+      blockTargetInteraction: false,
       hideFooter: true,
-      disableBeacon: true,
+      skipBeacon: true,
     },
     {
       target: '#block-title-input',
       content: 'Dale un nombre a tu actividad. Por ejemplo: "Trabajo profundo", "Gym", "Lectura".',
-      spotlightClicks: true,
-      disableBeacon: true,
+      blockTargetInteraction: false,
+      skipBeacon: true,
     },
     {
       target: '#block-start-time',
       content: 'Define el horario de inicio y fin de tu actividad.',
-      spotlightClicks: true,
-      disableBeacon: true,
+      blockTargetInteraction: false,
+      skipBeacon: true,
     },
     {
       target: '#block-color-picker',
       content: 'Elige un color para identificar este bloque visualmente en tu calendario.',
-      spotlightClicks: true,
-      disableBeacon: true,
+      blockTargetInteraction: false,
+      skipBeacon: true,
     },
     {
       target: '#block-recurring-toggle',
       content: 'Activa esto si es una actividad que se repite. Puedes elegir qué días.',
-      spotlightClicks: true,
-      disableBeacon: true,
+      blockTargetInteraction: false,
+      skipBeacon: true,
     },
     {
       target: '#block-save-button',
       content: '¡Listo! Guarda el bloque y quedará registrado en tu semana.',
-      spotlightClicks: true,
+      blockTargetInteraction: false,
       hideFooter: true,
-      disableBeacon: true,
+      skipBeacon: true,
     },
     {
       target: '#nav-folders',
       content: 'Las Carpetas te permiten agrupar tareas por proyecto o área de tu vida.',
-      spotlightClicks: true,
+      blockTargetInteraction: false,
       hideFooter: true,
-      disableBeacon: true,
+      skipBeacon: true,
     },
     {
       target: '#add-folder-button',
       content: 'Toca aquí para crear tu primera carpeta.',
-      spotlightClicks: true,
+      blockTargetInteraction: false,
       hideFooter: true,
-      disableBeacon: true,
+      skipBeacon: true,
     },
     {
       target: '#folder-name-input',
       content: 'Escribe el nombre de tu proyecto o área. Por ejemplo: "Trabajo", "Casa", "Salud".',
-      spotlightClicks: true,
-      disableBeacon: true,
+      blockTargetInteraction: false,
+      skipBeacon: true,
     },
     {
       target: '#folder-color-selector',
       content: 'Elige un color para identificar esta carpeta de un vistazo.',
-      spotlightClicks: true,
-      disableBeacon: true,
+      blockTargetInteraction: false,
+      skipBeacon: true,
     },
     {
       target: '#folder-create-confirm',
       content: 'Confirma para crear la carpeta. Después podrás asignar tareas a ella.',
-      spotlightClicks: true,
+      blockTargetInteraction: false,
       hideFooter: true,
-      disableBeacon: true,
+      skipBeacon: true,
     },
     {
       target: '#tutorial-share-button',
       content: 'Desde aquí puedes compartir esta carpeta con amigos o compañeros de equipo.',
-      spotlightClicks: true,
-      disableBeacon: true,
+      blockTargetInteraction: false,
+      skipBeacon: true,
     },
     {
       target: '#nav-friends',
       content: 'En Amigos puedes conectar con personas de tu entorno y ver su progreso.',
-      spotlightClicks: true,
+      blockTargetInteraction: false,
       hideFooter: true,
-      disableBeacon: true,
+      skipBeacon: true,
     },
     {
       target: '#nav-goals',
       content: 'En Metas defines tus objetivos grandes. Cada tarea que completes te acerca a ellos.',
-      spotlightClicks: true,
+      blockTargetInteraction: false,
       hideFooter: true,
-      disableBeacon: true,
+      skipBeacon: true,
     },
     {
       target: 'body',
       content: '¡Felicidades! Ya conoces Adonai. Recuerda: puedes volver a este recorrido desde el menú lateral en "Guía rápida". ¡A darle con todo!',
       placement: 'center',
-      disableBeacon: true,
+      skipBeacon: true,
     }
   ];
 
-  const handleCallback = (data: CallBackProps) => {
+  const handleCallback = (data: EventData) => {
     const { action, index, status, type } = data;
 
     if (
@@ -234,17 +234,16 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
       stepIndex={stepIndex}
       continuous
       scrollToFirstStep
-      showSkipButton
-      disableScrolling={false}
-      spotlightClicks={true}
-      disableOverlayClose={true}
-      callback={handleCallback}
+      options={{
+        primaryColor: 'hsl(var(--primary))',
+        overlayColor: 'hsl(var(--background) / 0.55)',
+        zIndex: 10000,
+        buttons: ['back', 'primary', 'skip'],
+        blockTargetInteraction: false,
+        overlayClickAction: false,
+      }}
+      onEvent={handleCallback}
       styles={{
-        options: {
-          primaryColor: 'hsl(var(--primary))',
-          overlayColor: 'rgba(0,0,0,0.55)',
-          zIndex: 10000,
-        },
         buttonPrimary: {
           fontSize: '13px',
           fontWeight: '700',
