@@ -1,6 +1,6 @@
-import { useState } from 'react';
-import { Joyride, type Step, type EventData, ACTIONS, EVENTS, STATUS } from 'react-joyride';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import Joyride, { Step, CallBackProps, STATUS, ACTIONS, EVENTS } from 'react-joyride';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 interface AppTutorialProps {
   run: boolean;
@@ -9,57 +9,52 @@ interface AppTutorialProps {
 
 const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [stepIndex, setStepIndex] = useState(0);
 
   const steps: Step[] = [
     {
       target: '#global-add-task-button',
       content: '¡Bienvenido! Haz clic aquí para añadir tu primera tarea. Puedes dictarla por voz o escribirla rápidamente.',
-      skipBeacon: true,
+      disableBeacon: true,
       placement: 'left',
-      blockTargetInteraction: false,
+      spotlightClicks: true,
     },
     {
       target: '#tutorial-voice-button',
       content: 'Toca el ícono de micrófono para dictar una tarea. ¡Pruébalo ahora mismo!',
       placement: 'top',
-      skipBeacon: true,
-      blockTargetInteraction: false,
+      spotlightClicks: true,
     },
     {
       target: '#tutorial-photo-button',
       content: 'O si prefieres, toma una foto de tu agenda física para digitalizarla.',
       placement: 'top',
-      skipBeacon: true,
-      blockTargetInteraction: false,
+      spotlightClicks: true,
     },
     {
       target: '#nav-week',
       content: 'Ahora vamos al calendario para organizar tu tiempo.',
       placement: 'top',
-      skipBeacon: true,
-      blockTargetInteraction: false,
+      spotlightClicks: true,
     },
     {
       target: '#tutorial-block-button',
       content: '¡Crea tu primer bloque de tiempo aquí! Haz clic y reserva un espacio para enfocarte.',
       placement: 'bottom',
-      skipBeacon: true,
-      blockTargetInteraction: false,
+      spotlightClicks: true,
     },
     {
       target: '#nav-folders',
       content: 'Finalmente, organiza todo en carpetas.',
       placement: 'top',
-      skipBeacon: true,
-      blockTargetInteraction: false,
+      spotlightClicks: true,
     },
     {
       target: '#tutorial-share-button',
       content: 'Crea tu primera carpeta y compártela para colaborar con otros.',
       placement: 'bottom',
-      skipBeacon: true,
-      blockTargetInteraction: false,
+      spotlightClicks: true,
     },
     {
       target: 'body',
@@ -68,7 +63,7 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
     }
   ];
 
-  const handleCallback = (data: EventData) => {
+  const handleCallback = (data: CallBackProps) => {
     const { action, index, status, type } = data;
 
     if (status === STATUS.FINISHED || status === STATUS.SKIPPED || action === ACTIONS.CLOSE) {
@@ -92,14 +87,35 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
     }
   };
 
+  // Synchronize tutorial with current page and handle interactive step advancement
+  useEffect(() => {
+    if (!run) return;
+    
+    // Auto-advance if we detect the user clicked the FAB but index didn't update
+    const handleGlobalClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (stepIndex === 0 && (target.closest('#global-add-task-button') || target.id === 'global-add-task-button')) {
+        // Give the modal a split second to start opening before moving the tooltip
+        setTimeout(() => setStepIndex(1), 100);
+      }
+    };
+
+    window.addEventListener('click', handleGlobalClick);
+    return () => window.removeEventListener('click', handleGlobalClick);
+  }, [run, stepIndex]);
+
   return (
     <Joyride
       steps={steps}
       run={run}
       stepIndex={stepIndex}
       continuous
-      scrollToFirstStep
-      onEvent={handleCallback}
+      showProgress={false}
+      showSkipButton={false}
+      disableOverlayClose={false}
+      disableCloseOnEsc={false}
+      scrollToSteps={true}
+      callback={handleCallback}
       locale={{
         back: 'Atrás',
         close: 'Cerrar',
@@ -107,14 +123,13 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
         next: 'Siguiente',
         skip: 'Saltar',
       }}
-      options={{
-        primaryColor: '#4BE277',
-        overlayColor: 'rgba(0, 0, 0, 0.6)',
-        zIndex: 10000,
-        showProgress: false,
-      }}
       styles={{
-        buttonPrimary: {
+        options: {
+          primaryColor: '#4BE277',
+          zIndex: 10000,
+          overlayColor: 'rgba(0, 0, 0, 0.6)',
+        },
+        buttonNext: {
           fontSize: '13px',
           fontWeight: '700',
           padding: '12px 24px',
