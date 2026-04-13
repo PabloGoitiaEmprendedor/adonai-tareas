@@ -105,6 +105,7 @@ const DailyPage = () => {
   const [orderedTasks, setOrderedTasks] = useState<any[]>([]);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
+  const [completingTaskId, setCompletingTaskId] = useState<string | null>(null);
   const captureModalRef = useRef<TaskCaptureModalHandle>(null);
 
   const openCapture = useCallback(() => setCaptureOpen(true), []);
@@ -147,34 +148,42 @@ const DailyPage = () => {
     [profile?.name, completedCount, totalCount, mainGoal?.title]
   );
 
-  const handleComplete = (task: any, e: React.MouseEvent) => {
+  const handleComplete = async (task: any, e: React.MouseEvent) => {
     e.stopPropagation();
     
-    // Find if this is the last task
-    const remainingTasks = tasks.filter((t: any) => t.status !== 'done' && t.id !== task.id);
-    const isLastTask = tasks.length > 0 && remainingTasks.length === 0;
+    // Step 1: Trigger local "completing" animation
+    setCompletingTaskId(task.id);
 
-    updateTask.mutate({ 
-      id: task.id, 
-      status: 'done', 
-      completed_at: new Date().toISOString() 
-    }, {
-      onSuccess: () => {
-        if (isLastTask) {
-          const message = triggerDailyCelebration(profile?.name);
-          toast.success(message, {
-            duration: 6000,
-            icon: '🎉',
-          });
-        } else {
-          const message = triggerTaskCelebration(task.title, profile?.name);
-          toast.success(message, {
-            duration: 4000,
-            icon: '🚀',
-          });
-        }
-      }
-    });
+    // Step 2: Delay the actual mutation to allow animation to play
+    setTimeout(() => {
+      // Find if this is the last task
+      const remainingTasks = tasks.filter((t: any) => t.status !== 'done' && t.id !== task.id);
+      const isLastTask = tasks.length > 0 && remainingTasks.length === 0;
+
+      updateTask.mutate({ 
+        id: task.id, 
+        status: 'done', 
+        completed_at: new Date().toISOString() 
+      }, {
+        onSuccess: () => {
+          setCompletingTaskId(null);
+          if (isLastTask) {
+            const message = triggerDailyCelebration(profile?.name);
+            toast.success(message, {
+              duration: 6000,
+              icon: '🎉',
+            });
+          } else {
+            const message = triggerTaskCelebration(task.title, profile?.name);
+            toast.success(message, {
+              duration: 4000,
+              icon: '🚀',
+            });
+          }
+        },
+        onError: () => setCompletingTaskId(null)
+      });
+    }, 800); // 800ms for strike + check animation
   };
 
   const handleDragStart = (idx: number) => setDragIdx(idx);
@@ -313,43 +322,67 @@ const DailyPage = () => {
                     </div>
                   </div>
                   
-                  {/* Block Tasks */}
-                  <div className="p-3 space-y-2">
+                   <div className="p-3 space-y-2">
                     {blockTasks.length === 0 && (
                       <p className="text-sm p-2 text-foreground/50 italic">Área libre (sin tareas agendadas)</p>
                     )}
-                    {blockTasks.map((task, idx) => {
-                      const isDone = task.status === 'done';
-                      return (
-                        <motion.div
-                          key={task.id}
-                          initial={{ opacity: 0, x: -10 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          onClick={() => setSelectedTask(task)}
-                          className={`p-3 rounded-xl flex items-start gap-3 cursor-pointer transition-all border border-black/5 ${
-                            isDone ? 'opacity-50 bg-background/40' : 'bg-background hover:scale-[1.01] shadow-sm'
-                          }`}
-                        >
-                          {isDone ? (
-                            <div className="w-5 h-5 rounded bg-primary flex items-center justify-center flex-shrink-0 mt-0.5">
-                              <Check className="w-3 h-3 text-primary-foreground" />
+                    <AnimatePresence mode="popLayout">
+                      {blockTasks.map((task, idx) => {
+                        const isDone = task.status === 'done';
+                        return (
+                          <motion.div
+                            key={task.id}
+                            layout
+                            initial={{ opacity: 0, x: -10 }}
+                            animate={{ 
+                              opacity: completingTaskId === task.id ? 0.3 : 1, 
+                              x: 0,
+                              scale: completingTaskId === task.id ? 0.98 : 1
+                            }}
+                            exit={{ opacity: 0, x: 20, transition: { duration: 0.3 } }}
+                            onClick={() => setSelectedTask(task)}
+                            className={`p-3 rounded-xl flex items-start gap-3 cursor-pointer transition-all border border-black/5 ${
+                              isDone ? 'opacity-50 bg-background/40' : 'bg-background hover:scale-[1.01] shadow-sm'
+                            }`}
+                          >
+                            {isDone || completingTaskId === task.id ? (
+                              <motion.div 
+                                initial={{ scale: 0 }}
+                                animate={{ scale: 1 }}
+                                className="w-5 h-5 rounded bg-primary flex items-center justify-center flex-shrink-0 mt-0.5"
+                              >
+                                <Check className="w-3 h-3 text-primary-foreground" />
+                              </motion.div>
+                            ) : (
+                              <button onClick={(e) => handleComplete(task, e)}
+                                className="w-5 h-5 rounded border-2 border-outline-variant flex items-center justify-center hover:border-primary flex-shrink-0 mt-0.5" />
+                            )}
+                            <div className="flex-1 min-w-0 relative">
+                              <h4 className={`text-sm font-semibold break-words transition-colors ${
+                                isDone || completingTaskId === task.id ? 'text-on-surface-variant' : 'text-foreground'
+                              }`}>
+                                {task.title}
+                              </h4>
+                              {(isDone || completingTaskId === task.id) && (
+                                <motion.div 
+                                  initial={{ width: 0 }}
+                                  animate={{ width: '100%' }}
+                                  transition={{ duration: 0.5, ease: "easeInOut" }}
+                                  className="absolute top-1/2 left-0 h-[2px] bg-primary/40 -translate-y-1/2"
+                                />
+                              )}
                             </div>
-                          ) : (
-                            <button onClick={(e) => handleComplete(task, e)}
-                              className="w-5 h-5 rounded border-2 border-outline-variant flex items-center justify-center hover:border-primary flex-shrink-0 mt-0.5" />
-                          )}
-                          <div className="flex-1 min-w-0">
-                            <h4 className={`text-sm font-semibold break-words ${isDone ? 'text-on-surface-variant line-through' : 'text-foreground'}`}>{task.title}</h4>
-                          </div>
-                          {!isDone && (
-                            <button onClick={(e) => handleStartTimer(task, e)}
-                              className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center hover:bg-primary/20 flex-shrink-0 transition-colors">
-                              <Timer className="w-3.5 h-3.5 text-primary" />
-                            </button>
-                          )}
-                        </motion.div>
-                      );
-                    })}
+                            {!isDone && (
+                              <button onClick={(e) => handleStartTimer(task, e)}
+                                className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center hover:bg-primary/20 flex-shrink-0 transition-colors">
+                                <Timer className="w-3.5 h-3.5 text-primary" />
+                              </button>
+                            )}
+                          </motion.div>
+                        );
+                      })}
+                    </AnimatePresence>
+                  </div>          })}
                   </div>
                 </div>
               );
@@ -360,46 +393,69 @@ const DailyPage = () => {
               {timeBlocks.length > 0 && orderedTasks.filter(t => !t.time_block_id).length > 0 && (
                 <h3 className="font-bold text-lg text-foreground px-1 pb-2">Tareas sin bloque asignado</h3>
               )}
-              {orderedTasks.filter(t => !t.time_block_id).map((task, idx) => {
-                const isDone = task.status === 'done';
-                return (
-                  <motion.div
-                    key={task.id}
-                    initial={{ opacity: 0, y: 6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    draggable={!isDone}
-                    onDragStart={() => handleDragStart(idx)}
-                    onDragOver={(e) => handleDragOver(e, idx)}
-                    onDragEnd={handleDragEnd}
-                    onTouchStart={(e) => !isDone && handleTouchStart(idx, e)}
-                    onTouchMove={handleTouchMove}
-                    onTouchEnd={handleTouchEnd}
-                    onClick={() => setSelectedTask(task)}
-                    className={`p-3.5 rounded-2xl flex items-start gap-3 cursor-pointer transition-all ${
-                      isDone ? 'opacity-50' : dragIdx === idx || touchIdx === idx ? 'bg-surface-container-high scale-[1.02] shadow-lg' : 'bg-surface-container-low hover:bg-surface-container-high'
-                    }`}
-                  >
-                    {!isDone && <GripVertical className="w-4 h-4 text-on-surface-variant/30 flex-shrink-0 cursor-grab mt-0.5" />}
-                    {isDone ? (
-                      <div className="w-5 h-5 rounded bg-primary flex items-center justify-center flex-shrink-0 mt-0.5">
-                        <Check className="w-3 h-3 text-primary-foreground" />
+              <AnimatePresence mode="popLayout">
+                {orderedTasks.filter(t => !t.time_block_id).map((task, idx) => {
+                  const isDone = task.status === 'done';
+                  return (
+                    <motion.div
+                      key={task.id}
+                      layout
+                      initial={{ opacity: 0, y: 6 }}
+                      animate={{ 
+                        opacity: completingTaskId === task.id ? 0.3 : 1, 
+                        y: 0,
+                        scale: completingTaskId === task.id ? 0.98 : 1
+                      }}
+                      exit={{ opacity: 0, x: 20, transition: { duration: 0.3 } }}
+                      draggable={!isDone}
+                      onDragStart={() => handleDragStart(idx)}
+                      onDragOver={(e) => handleDragOver(e, idx)}
+                      onDragEnd={handleDragEnd}
+                      onTouchStart={(e) => !isDone && handleTouchStart(idx, e)}
+                      onTouchMove={handleTouchMove}
+                      onTouchEnd={handleTouchEnd}
+                      onClick={() => setSelectedTask(task)}
+                      className={`p-3.5 rounded-2xl flex items-start gap-3 cursor-pointer transition-all ${
+                        isDone ? 'opacity-50' : dragIdx === idx || touchIdx === idx ? 'bg-surface-container-high scale-[1.02] shadow-lg' : 'bg-surface-container-low hover:bg-surface-container-high'
+                      }`}
+                    >
+                      {!isDone && <GripVertical className="w-4 h-4 text-on-surface-variant/30 flex-shrink-0 cursor-grab mt-0.5" />}
+                      {isDone || completingTaskId === task.id ? (
+                        <motion.div 
+                          initial={{ scale: 0 }}
+                          animate={{ scale: 1 }}
+                          className="w-5 h-5 rounded bg-primary flex items-center justify-center flex-shrink-0 mt-0.5"
+                        >
+                          <Check className="w-3 h-3 text-primary-foreground" />
+                        </motion.div>
+                      ) : (
+                        <button onClick={(e) => handleComplete(task, e)}
+                          className="w-5 h-5 rounded border-2 border-outline-variant flex items-center justify-center hover:border-primary flex-shrink-0 mt-0.5" />
+                      )}
+                      <div className="flex-1 min-w-0 relative">
+                        <h4 className={`text-sm font-semibold break-words transition-colors ${
+                          isDone || completingTaskId === task.id ? 'text-on-surface-variant' : 'text-foreground'
+                        }`}>
+                          {task.title}
+                        </h4>
+                        {(isDone || completingTaskId === task.id) && (
+                          <motion.div 
+                            initial={{ width: 0 }}
+                            animate={{ width: '100%' }}
+                            className="absolute top-1/2 left-0 h-[2px] bg-primary/40 -translate-y-1/2"
+                          />
+                        )}
                       </div>
-                    ) : (
-                      <button onClick={(e) => handleComplete(task, e)}
-                        className="w-5 h-5 rounded border-2 border-outline-variant flex items-center justify-center hover:border-primary flex-shrink-0 mt-0.5" />
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <h4 className={`text-sm font-semibold break-words ${isDone ? 'text-on-surface-variant line-through' : 'text-foreground'}`}>{task.title}</h4>
-                    </div>
-                    {!isDone && (
-                      <button onClick={(e) => handleStartTimer(task, e)}
-                        className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center hover:bg-primary/20 flex-shrink-0 transition-colors">
-                        <Timer className="w-3.5 h-3.5 text-primary" />
-                      </button>
-                    )}
-                  </motion.div>
-                );
-              })}
+                      {!isDone && (
+                        <button onClick={(e) => handleStartTimer(task, e)}
+                          className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center hover:bg-primary/20 flex-shrink-0 transition-colors">
+                          <Timer className="w-3.5 h-3.5 text-primary" />
+                        </button>
+                      )}
+                    </motion.div>
+                  );
+                })}
+              </AnimatePresence>
             </div>
             
           </div>
