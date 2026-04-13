@@ -281,8 +281,7 @@ const DailyPage = () => {
             
             {/* Time Blocks Rendering */}
             {timeBlocks.map((block) => {
-              const blockTasks = orderedTasks.filter(t => t.time_block_id === block.id);
-              // Calculate format start to end
+              const blockTasks = orderedTasks.filter((t) => t.time_block_id === block.id);
               const formatTime = (t: string) => {
                 if (!t) return '';
                 const [h, m] = t.split(':').map(Number);
@@ -290,16 +289,15 @@ const DailyPage = () => {
                 const h12 = h % 12 || 12;
                 return `${h12}:${m.toString().padStart(2, '0')}${ampm}`;
               };
-              const blockColor = block.color || '#2196F3'; // fallback color, nice blue
-              
+              const blockColor = block.color || '#2196F3';
+
               return (
-                <div 
-                  key={block.id} 
+                <div
+                  key={block.id}
                   className="rounded-2xl overflow-hidden shadow-sm transition-all"
-                  style={{ backgroundColor: `${blockColor}15` }} // 15% opacity background
+                  style={{ backgroundColor: `${blockColor}15` }}
                 >
-                  {/* Block Header */}
-                  <div 
+                  <div
                     className="px-4 py-3 flex items-center justify-between"
                     style={{ backgroundColor: blockColor, color: '#ffffff' }}
                   >
@@ -309,7 +307,7 @@ const DailyPage = () => {
                         <Clock className="w-3.5 h-3.5" />
                         {formatTime(block.start_time)} - {formatTime(block.end_time)}
                       </div>
-                      <button 
+                      <button
                         onClick={(e) => {
                           e.stopPropagation();
                           setActiveBlockId(block.id);
@@ -321,23 +319,25 @@ const DailyPage = () => {
                       </button>
                     </div>
                   </div>
-                  
-                   <div className="p-3 space-y-2">
+
+                  <div className="p-3 space-y-2">
                     {blockTasks.length === 0 && (
                       <p className="text-sm p-2 text-foreground/50 italic">Área libre (sin tareas agendadas)</p>
                     )}
+
                     <AnimatePresence mode="popLayout">
-                      {blockTasks.map((task, idx) => {
+                      {blockTasks.map((task) => {
                         const isDone = task.status === 'done';
+
                         return (
                           <motion.div
                             key={task.id}
                             layout
                             initial={{ opacity: 0, x: -10 }}
-                            animate={{ 
-                              opacity: completingTaskId === task.id ? 0.3 : 1, 
+                            animate={{
+                              opacity: completingTaskId === task.id ? 0.3 : 1,
                               x: 0,
-                              scale: completingTaskId === task.id ? 0.98 : 1
+                              scale: completingTaskId === task.id ? 0.98 : 1,
                             }}
                             exit={{ opacity: 0, x: 20, transition: { duration: 0.3 } }}
                             onClick={() => setSelectedTask(task)}
@@ -346,7 +346,7 @@ const DailyPage = () => {
                             }`}
                           >
                             {isDone || completingTaskId === task.id ? (
-                              <motion.div 
+                              <motion.div
                                 initial={{ scale: 0 }}
                                 animate={{ scale: 1 }}
                                 className="w-5 h-5 rounded bg-primary flex items-center justify-center flex-shrink-0 mt-0.5"
@@ -354,27 +354,35 @@ const DailyPage = () => {
                                 <Check className="w-3 h-3 text-primary-foreground" />
                               </motion.div>
                             ) : (
-                              <button onClick={(e) => handleComplete(task, e)}
-                                className="w-5 h-5 rounded border-2 border-outline-variant flex items-center justify-center hover:border-primary flex-shrink-0 mt-0.5" />
+                              <button
+                                onClick={(e) => handleComplete(task, e)}
+                                className="w-5 h-5 rounded border-2 border-outline-variant flex items-center justify-center hover:border-primary flex-shrink-0 mt-0.5"
+                              />
                             )}
+
                             <div className="flex-1 min-w-0 relative">
-                              <h4 className={`text-sm font-semibold break-words transition-colors ${
-                                isDone || completingTaskId === task.id ? 'text-on-surface-variant' : 'text-foreground'
-                              }`}>
+                              <h4
+                                className={`text-sm font-semibold break-words transition-colors ${
+                                  isDone || completingTaskId === task.id ? 'text-on-surface-variant' : 'text-foreground'
+                                }`}
+                              >
                                 {task.title}
                               </h4>
                               {(isDone || completingTaskId === task.id) && (
-                                <motion.div 
+                                <motion.div
                                   initial={{ width: 0 }}
                                   animate={{ width: '100%' }}
-                                  transition={{ duration: 0.5, ease: "easeInOut" }}
+                                  transition={{ duration: 0.5, ease: 'easeInOut' }}
                                   className="absolute top-1/2 left-0 h-[2px] bg-primary/40 -translate-y-1/2"
                                 />
                               )}
                             </div>
+
                             {!isDone && (
-                              <button onClick={(e) => handleStartTimer(task, e)}
-                                className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center hover:bg-primary/20 flex-shrink-0 transition-colors">
+                              <button
+                                onClick={(e) => handleStartTimer(task, e)}
+                                className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center hover:bg-primary/20 flex-shrink-0 transition-colors"
+                              >
                                 <Timer className="w-3.5 h-3.5 text-primary" />
                               </button>
                             )}
@@ -382,7 +390,6 @@ const DailyPage = () => {
                         );
                       })}
                     </AnimatePresence>
-                  </div>          })}
                   </div>
                 </div>
               );
