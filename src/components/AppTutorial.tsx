@@ -14,107 +14,107 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
   const steps: Step[] = [
     {
       target: '#global-add-task-button',
-      content: '¡Bienvenido! Toca aquí para empezar a organizar tu día.',
+      content: '¡Bienvenido! Toca este botón para empezar a organizar tu día.',
       disableBeacon: true,
       spotlightClicks: true,
       styles: { buttonNext: { display: 'none' } }
     },
     {
       target: '#tutorial-write-button',
-      content: 'Primero, aquí puedes escribir tus tareas de forma tradicional si prefieres el teclado.',
+      content: 'Aquí puedes escribir tus tareas de forma tradicional.',
       spotlightClicks: true,
     },
     {
       target: '#tutorial-voice-button',
-      content: 'O mucho mejor, ¡puedes usar tu voz! Toca el micrófono para dictar tareas en segundos cuando estés apurado.',
+      content: 'También puedes usar tu voz para agendar tareas rápidamente.',
       spotlightClicks: true,
     },
     {
       target: '#tutorial-photo-button',
-      content: '¿Tienes una agenda física? Solo toma una foto y nosotros pasamos todo a digital por ti. ¡Es magia!',
+      content: 'Incluso puedes subir fotos de tu agenda física para digitalizarla.',
       spotlightClicks: true,
     },
     {
       target: '#nav-week',
-      content: 'Ahora vamos al calendario semanal para tener una visión clara de tus tiempos.',
+      content: 'Ahora, toca el icono de Calendario para organizar tu semana.',
       spotlightClicks: true,
       styles: { buttonNext: { display: 'none' } }
     },
     {
       target: '#tutorial-block-button',
-      content: '¡Crea tu primer bloque de tiempo aquí! Toca en Nuevo Bloque.',
+      content: 'Toca en Nuevo Bloque para empezar a planificar.',
       spotlightClicks: true,
       styles: { buttonNext: { display: 'none' } }
     },
     {
       target: '#block-title-input',
-      content: 'Escribe el nombre de tu actividad para saber en qué te enfocarás.',
+      content: 'Escribe el nombre de tu actividad aquí.',
       spotlightClicks: true,
     },
     {
       target: '#block-start-time',
-      content: 'Define el horario de inicio y fin para reservar tu espacio.',
+      content: 'Define el horario de tu actividad.',
       spotlightClicks: true,
     },
     {
       target: '#block-color-picker',
-      content: 'Elige un color para identificar rápidamente tu bloque.',
+      content: 'Elige un color para identificar tu bloque.',
       spotlightClicks: true,
     },
     {
       target: '#block-recurring-toggle',
-      content: 'Si es algo que haces seguido, puedes activar la repetición.',
+      content: 'Activa la repetición si es una tarea frecuente.',
       spotlightClicks: true,
     },
     {
       target: '#block-save-button',
-      content: '¡Listo! Dale a Guardar para visualizarlo en tu calendario.',
+      content: '¡Listo! Dale a Guardar para confirmar.',
       spotlightClicks: true,
       styles: { buttonNext: { display: 'none' } }
     },
     {
       target: '#nav-folders',
-      content: 'También puedes organizar tus tareas en proyectos usando carpetas.',
+      content: 'Toca aquí para ir a tus Carpetas y proyectos.',
       spotlightClicks: true,
       styles: { buttonNext: { display: 'none' } }
     },
     {
       target: '#add-folder-button',
-      content: 'Crea una carpeta nueva para separar tus proyectos.',
+      content: 'Crea una nueva carpeta tocando el botón de añadir.',
       spotlightClicks: true,
       styles: { buttonNext: { display: 'none' } }
     },
     {
       target: '#folder-name-input',
-      content: 'Ponle un nombre y elige un color para tu nueva carpeta.',
+      content: 'Configura el nombre y color de tu carpeta.',
       spotlightClicks: true,
     },
     {
       target: '#folder-create-confirm',
-      content: 'Dale a Crear para finalizar.',
+      content: 'Toca en Crear para finalizar la carpeta.',
       spotlightClicks: true,
       styles: { buttonNext: { display: 'none' } }
     },
     {
       target: '#tutorial-share-button',
-      content: 'Recuerda que puedes compartir tus carpetas para colaborar con amigos.',
+      content: 'Puedes compartir esta carpeta con tus amigos.',
       spotlightClicks: true,
     },
     {
       target: '#nav-friends',
-      content: 'Aquí podrás ver a tus amigos y lo que están compartiendo contigo.',
+      content: 'Toca aquí para ver a tus Amigos.',
       spotlightClicks: true,
       styles: { buttonNext: { display: 'none' } }
     },
     {
       target: '#nav-goals',
-      content: 'Define tus metas a largo plazo para no perder de vista lo que te inspira.',
+      content: 'Finalmente, toca aquí para ver tus Metas.',
       spotlightClicks: true,
       styles: { buttonNext: { display: 'none' } }
     },
     {
       target: 'body',
-      content: '¡Excelente! Ya conoces lo básico. Vuelve a tu vista de Hoy y empieza a conquistar tus metas.',
+      content: '¡Felicidades! Has completado el tutorial. ¡A darle con todo!',
       placement: 'center',
     }
   ];
@@ -130,23 +130,23 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
       const nextIndex = index + (action === ACTIONS.PREV ? -1 : 1);
       
       if (action === ACTIONS.NEXT) {
-        if (index === 4) { // Next on #nav-week
+        if (index === 4) { // Next on #nav-week transition
           navigate('/week');
           setTimeout(() => setStepIndex(5), 600);
           return;
-        } else if (index === 10) { // Next on #block-save-button
+        } else if (index === 10) { // Next on save button transition
           navigate('/folders'); 
           setTimeout(() => setStepIndex(11), 600);
           return;
-        } else if (index === 11) { // Next on #nav-folders
+        } else if (index === 11) { // Next on folders nav transition
           navigate('/folders');
           setTimeout(() => setStepIndex(12), 600);
           return;
-        } else if (index === 15) { // Next on #tutorial-share-button
+        } else if (index === 15) { // Next on share transition
           navigate('/friends');
           setTimeout(() => setStepIndex(16), 600);
           return;
-        } else if (index === 16) { // Next on #nav-friends
+        } else if (index === 16) { // Next on friends transition
           navigate('/goals');
           setTimeout(() => setStepIndex(17), 600);
           return;
@@ -157,40 +157,42 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
     }
   };
 
-  // Synchronize tutorial with current page and handle interactive step advancement
+  // Strict interactive step advancement
   useEffect(() => {
     if (!run) return;
     
     const handleGlobalClick = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
       
-      const triggers = [
-        { id: 'global-add-task-button', next: 1 },
-        { id: 'nav-week', next: 5 },
-        { id: 'tutorial-block-button', next: 6 },
-        { id: 'block-save-button', next: 11 },
-        { id: 'nav-folders', next: 12 },
-        { id: 'add-folder-button', next: 13 },
-        { id: 'folder-create-confirm', next: 15 },
-        { id: 'nav-friends', next: 17 },
-        { id: 'nav-goals', next: 18 },
-        { id: 'nav-today', next: 18 }
-      ];
+      // Map of step index to the required interaction ID
+      const interactiveTriggers: Record<number, string> = {
+        0: 'global-add-task-button',
+        4: 'nav-week',
+        5: 'tutorial-block-button',
+        10: 'block-save-button',
+        11: 'nav-folders',
+        12: 'add-folder-button',
+        14: 'folder-create-confirm',
+        16: 'nav-friends',
+        17: 'nav-goals'
+      };
 
-      const match = triggers.find(t => target.id === t.id || target.closest(`#${t.id}`));
-      if (match) {
-        if (match.id === 'global-add-task-button') {
-          // Wait for modal animation
-          setTimeout(() => setStepIndex(match.next), 400);
-        } else {
-          setStepIndex(match.next);
+      const requiredId = interactiveTriggers[stepIndex];
+      if (requiredId) {
+        const isMatch = target.id === requiredId || target.closest(`#${requiredId}`);
+        if (isMatch) {
+          if (stepIndex === 0) {
+            setTimeout(() => setStepIndex(1), 400);
+          } else {
+            setStepIndex(stepIndex + 1);
+          }
         }
       }
     };
 
     window.addEventListener('mousedown', handleGlobalClick);
     return () => window.removeEventListener('mousedown', handleGlobalClick);
-  }, [run]);
+  }, [run, stepIndex]);
 
   return (
     <Joyride
