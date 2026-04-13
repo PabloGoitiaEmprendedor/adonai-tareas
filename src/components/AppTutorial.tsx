@@ -69,6 +69,7 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
 
     if (status === STATUS.FINISHED || status === STATUS.SKIPPED) {
       setStepIndex(0);
+      localStorage.setItem('adonai_tutorial_completed', 'true');
       onFinish();
     } else if (type === 'step:after') {
       if (index === 1 && action === 'next') {

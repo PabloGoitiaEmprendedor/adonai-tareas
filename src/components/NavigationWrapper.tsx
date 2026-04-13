@@ -99,12 +99,19 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
   const location = useLocation();
 
   useEffect(() => {
-    // Check if tutorial is pending (new user finishing onboarding)
-    const pending = localStorage.getItem('tutorial_pending');
-    if (pending === 'true') {
-      // Clear flag and start
-      localStorage.removeItem('tutorial_pending');
-      setTimeout(() => setTutorialRun(true), 1500);
+    // Check if tutorial has been completed before
+    const tutorialCompleted = localStorage.getItem('adonai_tutorial_completed');
+    
+    // Check if we just finished onboarding (this is a priority trigger)
+    const pendingOnboarding = localStorage.getItem('tutorial_pending');
+
+    if (!tutorialCompleted || pendingOnboarding === 'true') {
+      // Small delay to let the page settle before starting the tour
+      const timer = setTimeout(() => {
+        setTutorialRun(true);
+        if (pendingOnboarding) localStorage.removeItem('tutorial_pending');
+      }, 2000);
+      return () => clearTimeout(timer);
     }
   }, []);
 
