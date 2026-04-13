@@ -21,17 +21,17 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
     },
     {
       target: '#tutorial-write-button',
-      content: 'Aquí puedes escribir tus tareas de forma tradicional.',
+      content: 'Primero, aquí puedes escribir tus tareas de forma tradicional si prefieres el teclado.',
       spotlightClicks: true,
     },
     {
       target: '#tutorial-voice-button',
-      content: 'Sabías que también puedes usar tu voz para agendar tareas rápidamente si no tienes las manos libres.',
+      content: 'O mucho mejor, ¡puedes usar tu voz! Toca el micrófono para dictar tareas en segundos cuando estés apurado.',
       spotlightClicks: true,
     },
     {
       target: '#tutorial-photo-button',
-      content: 'Incluso puedes capturar fotos de tu agenda física y nosotros digitalizamos las tareas por ti.',
+      content: '¿Tienes una agenda física? Solo toma una foto y nosotros pasamos todo a digital por ti. ¡Es magia!',
       spotlightClicks: true,
     },
     {
@@ -171,7 +171,12 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
 
       const match = triggers.find(t => target.id === t.id || target.closest(`#${t.id}`));
       if (match) {
-        setStepIndex(match.next);
+        if (match.id === 'global-add-task-button') {
+          // Wait for modal animation
+          setTimeout(() => setStepIndex(match.next), 400);
+        } else {
+          setStepIndex(match.next);
+        }
       }
     };
 
