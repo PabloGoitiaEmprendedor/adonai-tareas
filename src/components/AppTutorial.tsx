@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import Joyride, { Step, CallBackProps, STATUS, ACTIONS, EVENTS } from 'react-joyride';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { Joyride, type Step, type EventData, ACTIONS, EVENTS, STATUS } from 'react-joyride';
+import { useNavigate } from 'react-router-dom';
 
 interface AppTutorialProps {
   run: boolean;
@@ -9,52 +9,57 @@ interface AppTutorialProps {
 
 const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
   const navigate = useNavigate();
-  const location = useLocation();
   const [stepIndex, setStepIndex] = useState(0);
 
   const steps: Step[] = [
     {
       target: '#global-add-task-button',
       content: '¡Bienvenido! Haz clic aquí para añadir tu primera tarea. Puedes dictarla por voz o escribirla rápidamente.',
-      disableBeacon: true,
+      skipBeacon: true,
       placement: 'left',
-      spotlightClicks: true,
+      blockTargetInteraction: false,
     },
     {
       target: '#tutorial-voice-button',
       content: 'Toca el ícono de micrófono para dictar una tarea. ¡Pruébalo ahora mismo!',
       placement: 'top',
-      spotlightClicks: true,
+      skipBeacon: true,
+      blockTargetInteraction: false,
     },
     {
       target: '#tutorial-photo-button',
       content: 'O si prefieres, toma una foto de tu agenda física para digitalizarla.',
       placement: 'top',
-      spotlightClicks: true,
+      skipBeacon: true,
+      blockTargetInteraction: false,
     },
     {
       target: '#nav-week',
       content: 'Ahora vamos al calendario para organizar tu tiempo.',
       placement: 'top',
-      spotlightClicks: true,
+      skipBeacon: true,
+      blockTargetInteraction: false,
     },
     {
       target: '#tutorial-block-button',
       content: '¡Crea tu primer bloque de tiempo aquí! Haz clic y reserva un espacio para enfocarte.',
       placement: 'bottom',
-      spotlightClicks: true,
+      skipBeacon: true,
+      blockTargetInteraction: false,
     },
     {
       target: '#nav-folders',
       content: 'Finalmente, organiza todo en carpetas.',
       placement: 'top',
-      spotlightClicks: true,
+      skipBeacon: true,
+      blockTargetInteraction: false,
     },
     {
       target: '#tutorial-share-button',
       content: 'Crea tu primera carpeta y compártela para colaborar con otros.',
       placement: 'bottom',
-      spotlightClicks: true,
+      skipBeacon: true,
+      blockTargetInteraction: false,
     },
     {
       target: 'body',
@@ -63,7 +68,7 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
     }
   ];
 
-  const handleCallback = (data: CallBackProps) => {
+  const handleCallback = (data: EventData) => {
     const { action, index, status, type } = data;
 
     if (status === STATUS.FINISHED || status === STATUS.SKIPPED || action === ACTIONS.CLOSE) {
@@ -110,12 +115,17 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
       run={run}
       stepIndex={stepIndex}
       continuous
-      showProgress={false}
-      showSkipButton={false}
-      disableOverlayClose={false}
-      disableCloseOnEsc={false}
-      scrollToSteps={true}
-      callback={handleCallback}
+      scrollToFirstStep
+      onEvent={handleCallback}
+      options={{
+        buttons: ['back', 'close', 'primary'],
+        dismissKeyAction: 'close',
+        overlayClickAction: 'close',
+        overlayColor: 'hsl(var(--background) / 0.6)',
+        primaryColor: 'hsl(var(--primary))',
+        showProgress: false,
+        zIndex: 10000,
+      }}
       locale={{
         back: 'Atrás',
         close: 'Cerrar',
@@ -124,29 +134,24 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
         skip: 'Saltar',
       }}
       styles={{
-        options: {
-          primaryColor: '#4BE277',
-          zIndex: 10000,
-          overlayColor: 'rgba(0, 0, 0, 0.6)',
-        },
-        buttonNext: {
+        buttonPrimary: {
           fontSize: '13px',
           fontWeight: '700',
           padding: '12px 24px',
           borderRadius: '16px',
-          backgroundColor: '#4BE277',
-          boxShadow: '0 4px 12px rgba(75, 226, 119, 0.3)',
+          backgroundColor: 'hsl(var(--primary))',
+          boxShadow: '0 4px 12px hsl(var(--primary) / 0.3)',
         },
         buttonBack: {
           fontSize: '13px',
           fontWeight: '600',
-          color: '#888',
+          color: 'hsl(var(--muted-foreground))',
           marginRight: '10px',
         },
         tooltip: {
           borderRadius: '28px',
           padding: '20px',
-          backgroundColor: '#ffffff',
+          backgroundColor: 'hsl(var(--card))',
         },
         tooltipContainer: {
           textAlign: 'left',
@@ -155,7 +160,7 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
           fontSize: '16px',
           padding: '10px 0 20px 0',
           lineHeight: '1.5',
-          color: '#1A1C1E',
+          color: 'hsl(var(--foreground))',
         }
       }}
     />
