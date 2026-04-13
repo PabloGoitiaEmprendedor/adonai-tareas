@@ -60,7 +60,10 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
   if (!user) return <Navigate to="/auth" replace />;
 
-  if (profile && !profile.onboarding_completed && !localStorage.getItem('adonai_onboarding_done')) {
+  const onboardingDoneInStorage = localStorage.getItem('adonai_onboarding_done') === 'true';
+  const onboardingComplete = profile?.onboarding_completed || onboardingDoneInStorage;
+
+  if (profile && !onboardingComplete) {
     return <Navigate to="/onboarding" replace />;
   }
 

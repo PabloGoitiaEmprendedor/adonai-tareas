@@ -7,136 +7,166 @@ import { useUserContext } from '@/hooks/useUserContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useVoiceCapture } from '@/hooks/useVoiceCapture';
 import { supabase } from '@/integrations/supabase/client';
-import { Mic, MicOff, ArrowRight, Check, Brain, Plus, Trash2, Volume2 } from 'lucide-react';
+import { 
+  ArrowRight, 
+  Check, 
+  Brain, 
+  User, 
+  Briefcase, 
+  Layout, 
+  Mic, 
+  Keyboard, 
+  Zap, 
+  Heart,
+  Target,
+  Clock,
+  MapPin,
+  Smile,
+  AlertCircle
+} from 'lucide-react';
 import { toast } from 'sonner';
 
-type Step = 
-  | 'voice-test'
-  | 'name'
-  | 'age'
-  | 'profession'
-  | 'location'
-  | 'productivity'
-  | 'stress'
-  | 'challenge'
-  | 'goals'
-  | 'ready';
+type StepType = 'welcome' | 'context_basic' | 'context_work' | 'style' | 'input' | 'ready';
 
-const steps: Step[] = [
-  'voice-test',
-  'name',
-  'age',
-  'profession',
-  'location',
-  'productivity',
-  'stress',
-  'challenge',
-  'goals',
-  'ready'
-];
+const steps: StepType[] = ['welcome', 'context_basic', 'context_work', 'style', 'input', 'ready'];
 
 const OnboardingPage = () => {
-  const [currentStepIndex, setCurrentStepIndex] = useState(0);
-  const [name, setName] = useState('');
-  const [age, setAge] = useState('');
-  const [profession, setProfession] = useState('');
-  const [location, setLocation] = useState('');
-  const [productivity, setProductivity] = useState('');
-  const [stress, setStress] = useState('');
-  const [challenge, setChallenge] = useState('');
-  const [goals, setGoals] = useState<string[]>([]);
-  const [currentGoal, setCurrentGoal] = useState('');
-
+  const navigate = useNavigate();
+  const { user } = useAuth();
   const { updateProfile } = useProfile();
   const { createGoal } = useGoals();
   const { updateContext } = useUserContext();
-  const { user } = useAuth();
-  const navigate = useNavigate();
   const { isSupported, startRecording, stopRecording, isRecording, transcript } = useVoiceCapture();
 
-  // Sync transcript with current input
-  useEffect(() => {
-    if (transcript) {
-      const step = steps[currentStepIndex];
-      switch (step) {
-        case 'name': setName(transcript); break;
-        case 'age': setAge(transcript); break;
-        case 'profession': setProfession(transcript); break;
-        case 'location': setLocation(transcript); break;
-        case 'challenge': setChallenge(transcript); break;
-        case 'goals': setCurrentGoal(transcript); break;
-      }
-    }
-  }, [transcript, currentStepIndex]);
+  const [currentStepIndex, setCurrentStepIndex] = useState(0);
+  const [isFinishing, setIsFinishing] = useState(false);
 
-  const nextStep = () => {
+  // Welcome Step State
+  const [name, setName] = useState('');
+  const [goalText, setGoalText] = useState('');
+  const [showWelcomeError, setShowWelcomeError] = useState(false);
+
+  // Context Basic State
+  const [gender, setGender] = useState('');
+  const [ageRange, setAgeRange] = useState('');
+  const [familyStatus, setFamilyStatus] = useState('');
+  const [location, setLocation] = useState('');
+  const [energyPatterns, setEnergyPatterns] = useState('');
+  const [stressLevel, setStressLevel] = useState('');
+
+  // Context Work State
+  const [occupation, setOccupation] = useState('');
+  const [industry, setIndustry] = useState('');
+  const [workHours, setWorkHours] = useState('9:00-17:00');
+  const [hobbies, setHobbies] = useState('');
+  const [personalGoals, setPersonalGoals] = useState('');
+  const [biggestChallenge, setBiggestChallenge] = useState('');
+  const [importedContext, setImportedContext] = useState('');
+
+  // Style & Input State
+  const [workStyle, setWorkStyle] = useState('simple');
+  const [preferredInput, setPreferredInput] = useState('both');
+
+  const currentStep = steps[currentStepIndex];
+
+  const next = () => {
     if (currentStepIndex < steps.length - 1) {
       setCurrentStepIndex(prev => prev + 1);
-      stopRecording();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
-  const prevStep = () => {
+  const back = () => {
     if (currentStepIndex > 0) {
       setCurrentStepIndex(prev => prev - 1);
-      stopRecording();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
-  const handleGoalAdd = () => {
-    if (currentGoal.trim()) {
-      setGoals([...goals, currentGoal.trim()]);
-      setCurrentGoal('');
+  const handleWelcomeNext = () => {
+    if (!name.trim() || !goalText.trim()) {
+      setShowWelcomeError(true);
+      return;
     }
-  };
-
-  const handleGoalDelete = (index: number) => {
-    setGoals(goals.filter((_, i) => i !== index));
+    setShowWelcomeError(false);
+    next();
   };
 
   const handleFinish = async () => {
+    if (!user) return;
+    setIsFinishing(true);
+
     try {
-      // Create goals
-      for (const goalTitle of goals) {
-        await createGoal.mutateAsync({ title: goalTitle, horizon: 'annual' });
+      // 1. Create Goal with fallback (Bug 2 Fix)
+      const finalGoalText = goalText.trim() || "Mi gran meta";
+      try {
+        await createGoal.mutateAsync({ title: finalGoalText, horizon: 'annual' });
+      } catch (err) {
+        toast.error("No se pudo crear tu meta. Verifica tu conexión.");
+        throw err;
       }
 
-      await updateProfile.mutateAsync({
-        name,
-        onboarding_completed: true,
-        preferred_input: 'both',
-        organization_style: 'simple',
-      });
-
-      await updateContext.mutateAsync({
-        occupation: profession,
-        location,
-        energy_patterns: productivity,
-        stress_level: stress,
-        biggest_challenge: challenge,
-        age_range: age,
-        life_areas: ['Trabajo', 'Personal', 'Salud', 'Aprendizaje'],
-      });
-
-      if (user) {
-        await supabase.from('usage_events').insert({
-          user_id: user.id,
-          event_type: 'onboarding_completed',
+      // 2. Update Profile (Bug 4 Fix - part 1)
+      try {
+        await updateProfile.mutateAsync({
+          name,
+          onboarding_completed: true,
+          preferred_input: preferredInput,
+          organization_style: workStyle,
         });
+      } catch (err) {
+        toast.error("No se pudo guardar tu perfil. Verifica tu conexión.");
+        throw err;
       }
+
+      // 3. Upsert Context (Bug 3 Fix)
+      try {
+        await supabase.from('user_context').upsert({
+          user_id: user.id,
+          occupation,
+          industry,
+          work_hours: workHours,
+          personal_goals: personalGoals,
+          work_style: workStyle,
+          energy_patterns: energyPatterns,
+          imported_context: importedContext,
+          gender,
+          age_range: ageRange,
+          family_status: familyStatus,
+          location,
+          hobbies,
+          stress_level: stressLevel,
+          biggest_challenge: biggestChallenge,
+          life_areas: ['Trabajo', 'Personal', 'Salud', 'Aprendizaje'],
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'user_id' });
+      } catch (err) {
+        console.error("Context upsert error:", err);
+        // Non-blocking as requested (UX Improvement 3)
+      }
+
+      // 4. Usage Event
+      await supabase.from('usage_events').insert({
+        user_id: user.id,
+        event_type: 'onboarding_completed',
+      });
+
+      // 5. Success (Bug 4 Fix - part 2)
       localStorage.setItem('adonai_onboarding_done', 'true');
       localStorage.setItem('tutorial_pending', 'true');
       navigate('/');
     } catch (e) {
       console.error(e);
-      toast.error('Error al guardar. Intenta de nuevo.');
+      // Main catch for blocking errors
+    } finally {
+      setIsFinishing(false);
     }
   };
 
-  const currentStep = steps[currentStepIndex];
+  const OptionalLabel = () => <span className="text-[10px] text-on-surface-variant/40 ml-1">(opcional)</span>;
 
   return (
-    <div className="min-h-screen bg-background flex flex-col items-center justify-center px-6 selection:bg-primary/30">
+    <div className="min-h-screen bg-background flex flex-col items-center px-6 pb-32 pt-12 selection:bg-primary/30 relative">
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-[10%] -left-[10%] w-[40%] h-[40%] bg-primary/5 rounded-full blur-[120px]" />
         <div className="absolute -bottom-[10%] -right-[10%] w-[40%] h-[40%] bg-primary/5 rounded-full blur-[120px]" />
@@ -144,7 +174,7 @@ const OnboardingPage = () => {
 
       <div className="relative z-10 w-full max-w-[500px]">
         {/* Progress Bar */}
-        <div className="flex justify-center gap-1.5 mb-16">
+        <div className="flex justify-center gap-1.5 mb-12">
           {steps.map((_, i) => (
             <div key={i} className={`h-1 rounded-full transition-all duration-500 ease-out ${
               i === currentStepIndex ? 'w-10 bg-primary' : i < currentStepIndex ? 'w-4 bg-primary/40' : 'w-4 bg-surface-container-high'
@@ -155,310 +185,347 @@ const OnboardingPage = () => {
         <AnimatePresence mode="wait">
           <motion.div
             key={currentStep}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            transition={{ duration: 0.4, ease: "easeOut" }}
-            className="space-y-10"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            transition={{ duration: 0.3 }}
+            className="w-full"
           >
-            {/* Step: Voice Test */}
-            {currentStep === 'voice-test' && (
-              <div className="text-center space-y-8">
-                <div className="space-y-4">
+            {/* STEP: WELCOME */}
+            {currentStep === 'welcome' && (
+              <div className="space-y-8">
+                <div className="space-y-3">
                   <h1 className="text-4xl font-extrabold tracking-tight text-foreground">Hola, soy Adonai.</h1>
-                  <p className="text-on-surface-variant text-xl">Antes de empezar, vamos a probar tu voz.</p>
+                  <p className="text-on-surface-variant text-lg">Tu asistente personal de productividad. Vamos a configurar tu espacio.</p>
                 </div>
                 
-                <div className="flex flex-col items-center gap-6 py-6">
-                  <motion.button
-                    whileTap={{ scale: 0.95 }}
-                    onClick={isRecording ? stopRecording : startRecording}
-                    className={`w-24 h-24 rounded-full flex items-center justify-center transition-all ${
-                      isRecording ? 'primary-gradient shadow-[0_0_30px_-5px_var(--primary)]' : 'bg-surface-container-highest shadow-xl'
-                    }`}
-                  >
-                    {isRecording ? <Volume2 className="w-10 h-10 text-primary-foreground animate-pulse" /> : <Mic className="w-10 h-10 text-foreground" />}
-                  </motion.button>
-                  
-                  <div className="h-6">
-                    <p className="text-sm font-medium text-primary mt-2">
-                      {isRecording ? (transcript || 'Escuchando...') : 'Toca para probar tu voz'}
-                    </p>
+                <div className="space-y-6">
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold uppercase tracking-wider text-primary flex items-center gap-2">
+                      <User className="w-4 h-4" /> ¿Cómo te llamas?
+                    </label>
+                    <input 
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="Tu nombre"
+                      className="w-full bg-surface-container-low rounded-2xl px-6 h-16 outline-none focus:ring-2 focus:ring-primary/20 transition-all text-lg font-medium"
+                    />
                   </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold uppercase tracking-wider text-primary flex items-center gap-2">
+                      <Target className="w-4 h-4" /> ¿Tu meta principal?
+                    </label>
+                    <textarea 
+                      value={goalText}
+                      onChange={(e) => setGoalText(e.target.value)}
+                      placeholder="Ej: Lanzar mi negocio, Estar en forma..."
+                      className="w-full bg-surface-container-low rounded-2xl px-6 py-4 outline-none focus:ring-2 focus:ring-primary/20 transition-all text-lg font-medium min-h-[100px] resize-none"
+                    />
+                  </div>
+
+                  {showWelcomeError && (
+                    <p className="text-xs text-center text-error animate-fade-in flex items-center justify-center gap-1">
+                      <AlertCircle className="w-3 h-3" /> Por favor completa tu nombre y tu meta principal para continuar
+                    </p>
+                  )}
                 </div>
 
                 <button 
-                  onClick={nextStep}
-                  className="w-full h-16 bg-foreground text-background rounded-2xl font-bold text-lg flex items-center justify-center gap-2 hover:opacity-90 transition-all"
+                  onClick={handleWelcomeNext}
+                  className="w-full h-16 primary-gradient text-primary-foreground rounded-2xl font-bold text-lg flex items-center justify-center gap-2 shadow-xl hover:opacity-95 active:scale-[0.98] transition-all"
                 >
-                  Continuar <ArrowRight className="w-5 h-5" />
+                  Empezar ahora <ArrowRight className="w-5 h-5" />
                 </button>
               </div>
             )}
 
-            {/* Step: Name */}
-            {currentStep === 'name' && (
+            {/* STEP: CONTEXT BASIC */}
+            {currentStep === 'context_basic' && (
               <div className="space-y-8">
-                <div className="space-y-3">
-                  <label className="text-xs uppercase tracking-[0.3em] font-bold text-primary">Identidad</label>
-                  <h2 className="text-4xl font-extrabold tracking-tight text-foreground">¿Cómo te llamas?</h2>
-                </div>
-                
-                <div className="relative group">
-                  <input 
-                    autoFocus
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="Escribe tu nombre..."
-                    className="w-full bg-transparent text-3xl font-medium border-b-2 border-surface-container-highest focus:border-primary outline-none py-4 transition-all"
-                  />
-                  <VoiceButton active={isRecording} onClick={isRecording ? stopRecording : startRecording} />
+                <div className="space-y-2">
+                  <h2 className="text-3xl font-extrabold tracking-tight text-foreground">Cuentáme sobre ti</h2>
+                  <p className="text-on-surface-variant">Esto me ayuda a personalizar tus recordatorios y sugerencias.</p>
                 </div>
 
-                <div className="flex gap-4 pt-4">
-                  <button onClick={nextStep} disabled={!name} className="flex-1 h-16 bg-primary text-primary-foreground rounded-2xl font-bold text-lg flex items-center justify-center gap-2 disabled:opacity-30 transition-all">
-                    Siguiente <ArrowRight className="w-5 h-5" />
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Step: Age */}
-            {currentStep === 'age' && (
-              <div className="space-y-8">
-                <div className="space-y-3">
-                  <label className="text-xs uppercase tracking-[0.3em] font-bold text-primary">Perfil</label>
-                  <h2 className="text-4xl font-extrabold tracking-tight text-foreground">¿Qué edad tienes?</h2>
-                </div>
-                
-                <div className="relative">
-                  <input 
-                    autoFocus
-                    value={age}
-                    onChange={(e) => setAge(e.target.value)}
-                    placeholder="Tu edad..."
-                    className="w-full bg-transparent text-3xl font-medium border-b-2 border-surface-container-highest focus:border-primary outline-none py-4 transition-all"
-                  />
-                  <VoiceButton active={isRecording} onClick={isRecording ? stopRecording : startRecording} />
-                </div>
-
-                <div className="flex gap-4 pt-4">
-                  <button onClick={nextStep} className="flex-1 h-16 bg-primary text-primary-foreground rounded-2xl font-bold text-lg flex items-center justify-center gap-2 transition-all">
-                    Siguiente <ArrowRight className="w-5 h-5" />
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Step: Profession */}
-            {currentStep === 'profession' && (
-              <div className="space-y-8">
-                <div className="space-y-3">
-                  <label className="text-xs uppercase tracking-[0.3em] font-bold text-primary">Ocupación</label>
-                  <h2 className="text-4xl font-extrabold tracking-tight text-foreground">¿A qué te dedicas?</h2>
-                </div>
-                
-                <div className="relative">
-                  <input 
-                    autoFocus
-                    value={profession}
-                    onChange={(e) => setProfession(e.target.value)}
-                    placeholder="Ej: Desarrollador, Estudiante..."
-                    className="w-full bg-transparent text-3xl font-medium border-b-2 border-surface-container-highest focus:border-primary outline-none py-4 transition-all"
-                  />
-                  <VoiceButton active={isRecording} onClick={isRecording ? stopRecording : startRecording} />
-                </div>
-
-                <div className="flex gap-4 pt-4">
-                  <button onClick={nextStep} className="flex-1 h-16 bg-primary text-primary-foreground rounded-2xl font-bold text-lg flex items-center justify-center gap-2 transition-all">
-                    Siguiente <ArrowRight className="w-5 h-5" />
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Step: Location */}
-            {currentStep === 'location' && (
-              <div className="space-y-8">
-                <div className="space-y-3">
-                  <label className="text-xs uppercase tracking-[0.3em] font-bold text-primary">Contexto</label>
-                  <h2 className="text-4xl font-extrabold tracking-tight text-foreground">¿En qué país te encuentras?</h2>
-                </div>
-                
-                <div className="relative">
-                  <input 
-                    autoFocus
-                    value={location}
-                    onChange={(e) => setLocation(e.target.value)}
-                    placeholder="Ej: Venezuela, España..."
-                    className="w-full bg-transparent text-3xl font-medium border-b-2 border-surface-container-highest focus:border-primary outline-none py-4 transition-all"
-                  />
-                  <VoiceButton active={isRecording} onClick={isRecording ? stopRecording : startRecording} />
-                </div>
-
-                <div className="flex gap-4 pt-4">
-                  <button onClick={nextStep} className="flex-1 h-16 bg-primary text-primary-foreground rounded-2xl font-bold text-lg flex items-center justify-center gap-2 transition-all">
-                    Siguiente <ArrowRight className="w-5 h-5" />
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Step: Productivity */}
-            {currentStep === 'productivity' && (
-              <div className="space-y-8">
-                <div className="space-y-3">
-                  <label className="text-xs uppercase tracking-[0.3em] font-bold text-primary">Ritmo</label>
-                  <h2 className="text-4xl font-extrabold tracking-tight text-foreground">¿Cuándo eres más productivo?</h2>
-                </div>
-                
-                <div className="grid grid-cols-1 gap-3">
-                  {[
-                    { id: 'morning', label: 'Mañanas', emoji: '🌅' },
-                    { id: 'afternoon', label: 'Tardes', emoji: '☀️' },
-                    { id: 'night', label: 'Noches', emoji: '🌙' },
-                    { id: 'mixed', label: 'Variable', emoji: '🔄' },
-                  ].map((opt) => (
-                    <button
-                      key={opt.id}
-                      onClick={() => { setProductivity(opt.id); nextStep(); }}
-                      className={`h-16 px-6 rounded-2xl text-left flex items-center justify-between transition-all ${
-                        productivity === opt.id ? 'bg-primary text-primary-foreground' : 'bg-surface-container-low hover:bg-surface-container'
-                      }`}
-                    >
-                      <span className="text-lg font-semibold">{opt.emoji} {opt.label}</span>
-                      {productivity === opt.id && <Check className="w-5 h-5" />}
-                    </button>
-                  ))}
-                </div>
-
-                <div className="flex items-center gap-4">
-                  <div className="h-px flex-1 bg-surface-container-highest" />
-                  <span className="text-xs font-bold text-on-surface-variant/40">O DICTA TU RESPUESTA</span>
-                  <div className="h-px flex-1 bg-surface-container-highest" />
-                </div>
-
-                <div className="flex justify-center">
-                  <VoiceButton active={isRecording} onClick={isRecording ? stopRecording : startRecording} floating={false} />
-                </div>
-              </div>
-            )}
-
-            {/* Step: Stress */}
-            {currentStep === 'stress' && (
-              <div className="space-y-8">
-                <div className="space-y-3">
-                  <label className="text-xs uppercase tracking-[0.3em] font-bold text-primary">Estado</label>
-                  <h2 className="text-4xl font-extrabold tracking-tight text-foreground">¿Cuál es tu nivel de estrés?</h2>
-                </div>
-                
-                <div className="grid grid-cols-1 gap-3">
-                  {[
-                    { id: 'low', label: 'Bajo - Me siento en control', emoji: '😌' },
-                    { id: 'medium', label: 'Medio - Tengo varias cosas', emoji: '😐' },
-                    { id: 'high', label: 'Alto - Me siento abrumado', emoji: '😰' },
-                  ].map((opt) => (
-                    <button
-                      key={opt.id}
-                      onClick={() => { setStress(opt.id); nextStep(); }}
-                      className={`h-20 px-6 rounded-2xl text-left flex items-center justify-between transition-all ${
-                        stress === opt.id ? 'bg-primary text-primary-foreground' : 'bg-surface-container-low hover:bg-surface-container'
-                      }`}
-                    >
-                      <span className="text-lg font-semibold">{opt.emoji} {opt.label}</span>
-                      {stress === opt.id && <Check className="w-5 h-5" />}
-                    </button>
-                  ))}
-                </div>
-                
-                <div className="flex justify-center">
-                  <VoiceButton active={isRecording} onClick={isRecording ? stopRecording : startRecording} floating={false} />
-                </div>
-              </div>
-            )}
-
-            {/* Step: Challenge */}
-            {currentStep === 'challenge' && (
-              <div className="space-y-8">
-                <div className="space-y-3">
-                  <label className="text-xs uppercase tracking-[0.3em] font-bold text-primary">Enfoque</label>
-                  <h2 className="text-4xl font-extrabold tracking-tight text-foreground">¿Tu mayor reto hoy?</h2>
-                </div>
-                
-                <div className="relative">
-                  <textarea 
-                    autoFocus
-                    rows={3}
-                    value={challenge}
-                    onChange={(e) => setChallenge(e.target.value)}
-                    placeholder="Cuéntame qué es lo que más te preocupa hoy..."
-                    className="w-full bg-transparent text-2xl font-medium border-b-2 border-surface-container-highest focus:border-primary outline-none py-4 transition-all resize-none"
-                  />
-                  <VoiceButton active={isRecording} onClick={isRecording ? stopRecording : startRecording} />
-                </div>
-
-                <div className="flex gap-4 pt-4">
-                  <button onClick={nextStep} className="flex-1 h-16 bg-primary text-primary-foreground rounded-2xl font-bold text-lg flex items-center justify-center gap-2 transition-all">
-                    Siguiente <ArrowRight className="w-5 h-5" />
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Step: Goals */}
-            {currentStep === 'goals' && (
-              <div className="space-y-8">
-                <div className="space-y-3">
-                  <label className="text-xs uppercase tracking-[0.3em] font-bold text-primary">Visión</label>
-                  <h2 className="text-4xl font-extrabold tracking-tight text-foreground">¿Cuáles son tus metas?</h2>
-                </div>
-                
-                <div className="space-y-4">
-                  <div className="relative">
+                <div className="space-y-6">
+                  {/* Location */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold flex items-center gap-2">
+                      <MapPin className="w-4 h-4 text-primary" /> ¿Dónde vives? <OptionalLabel />
+                    </label>
                     <input 
-                      value={currentGoal}
-                      onChange={(e) => setCurrentGoal(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && handleGoalAdd()}
-                      placeholder="Añade una meta..."
-                      className="w-full bg-surface-container-low rounded-2xl px-6 h-16 outline-none pr-24 focus:ring-2 focus:ring-primary/20 transition-all"
+                      value={location}
+                      onChange={(e) => setLocation(e.target.value)}
+                      placeholder="Ciudad, País"
+                      className="w-full bg-surface-container-low rounded-xl px-4 h-12 outline-none focus:ring-2 focus:ring-primary/20 text-base"
                     />
-                    <div className="absolute right-2 top-2 flex gap-1">
-                      <VoiceButton active={isRecording} onClick={isRecording ? stopRecording : startRecording} floating={false} />
-                      <button 
-                        onClick={handleGoalAdd}
-                        className="w-12 h-12 bg-foreground text-background rounded-xl flex items-center justify-center hover:opacity-90"
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    {/* Gender */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold">Género <OptionalLabel /></label>
+                      <select 
+                        value={gender}
+                        onChange={(e) => setGender(e.target.value)}
+                        className="w-full bg-surface-container-low rounded-xl px-4 h-12 outline-none"
                       >
-                        <Plus className="w-5 h-5" />
-                      </button>
+                        <option value="">Seleccionar</option>
+                        <option value="male">Hombre</option>
+                        <option value="female">Mujer</option>
+                        <option value="other">Otro</option>
+                      </select>
+                    </div>
+
+                    {/* Age Range */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold">Edad <OptionalLabel /></label>
+                      <select 
+                        value={ageRange}
+                        onChange={(e) => setAgeRange(e.target.value)}
+                        className="w-full bg-surface-container-low rounded-xl px-4 h-12 outline-none"
+                      >
+                        <option value="">Seleccionar</option>
+                        <option value="18-24">18-24</option>
+                        <option value="25-34">25-34</option>
+                        <option value="35-44">35-44</option>
+                        <option value="45+">45+</option>
+                      </select>
                     </div>
                   </div>
 
-                  <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-                    {goals.map((g, index) => (
-                      <motion.div 
-                        initial={{ opacity: 0, x: -10 }} 
-                        animate={{ opacity: 1, x: 0 }}
-                        key={index} 
-                        className="bg-surface-container-highest/50 p-4 rounded-xl flex items-center justify-between group"
-                      >
-                        <span className="font-medium">{g}</span>
-                        <button onClick={() => handleGoalDelete(index)} className="text-on-surface-variant/40 hover:text-error transition-colors">
-                          <Trash2 className="w-4 h-4" />
+                  {/* Energy Patterns */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold flex items-center gap-2">
+                      <Zap className="w-4 h-4 text-primary" /> ¿Cuándo eres más productivo? <OptionalLabel />
+                    </label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {[
+                        { id: 'morning', label: 'Mañana' },
+                        { id: 'afternoon', label: 'Tarde' },
+                        { id: 'night', label: 'Noche' },
+                      ].map((opt) => (
+                        <button
+                          key={opt.id}
+                          onClick={() => setEnergyPatterns(opt.id === energyPatterns ? '' : opt.id)}
+                          className={`h-12 rounded-xl text-sm font-medium transition-all ${
+                            energyPatterns === opt.id ? 'bg-primary text-primary-foreground' : 'bg-surface-container-low'
+                          }`}
+                        >
+                          {opt.label}
                         </button>
-                      </motion.div>
-                    ))}
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Stress Level */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold flex items-center gap-2">
+                      <Smile className="w-4 h-4 text-primary" /> Nivel de estrés <OptionalLabel />
+                    </label>
+                    <div className="flex gap-2">
+                      {['Bajo', 'Medio', 'Alto'].map((level) => (
+                        <button
+                          key={level}
+                          onClick={() => setStressLevel(level === stressLevel ? '' : level)}
+                          className={`flex-1 h-12 rounded-xl text-sm font-medium transition-all ${
+                            stressLevel === level ? 'bg-primary text-primary-foreground' : 'bg-surface-container-low'
+                          }`}
+                        >
+                          {level}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
 
-                <div className="flex gap-4 pt-4">
-                  <button onClick={nextStep} disabled={goals.length === 0} className="flex-1 h-16 bg-primary text-primary-foreground rounded-2xl font-bold text-lg flex items-center justify-center gap-2 disabled:opacity-30 transition-all">
-                    Finalizar <ArrowRight className="w-5 h-5" />
+                <div className="space-y-3 pt-4">
+                  <button onClick={next} className="w-full h-16 bg-primary text-primary-foreground rounded-2xl font-bold text-lg flex items-center justify-center gap-2 transition-all">
+                    Continuar <ArrowRight className="w-5 h-5" />
+                  </button>
+                  <button onClick={next} className="w-full py-3 text-sm text-on-surface-variant/60 hover:text-on-surface-variant transition-colors">
+                    Saltar este paso
                   </button>
                 </div>
               </div>
             )}
 
-            {/* Step: Ready */}
+            {/* STEP: CONTEXT WORK */}
+            {currentStep === 'context_work' && (
+              <div className="space-y-8">
+                <div className="space-y-2">
+                  <h2 className="text-3xl font-extrabold tracking-tight text-foreground">Tu vida profesional</h2>
+                  <p className="text-on-surface-variant">Saber a qué te dedicas me ayuda a estructurar tus bloques de tiempo.</p>
+                </div>
+
+                <div className="space-y-6">
+                  {/* Occupation - REQUIRED */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold flex items-center gap-2">
+                      <Briefcase className="w-4 h-4 text-primary" /> ¿A qué te dedicas? <span className="text-[10px] text-primary ml-1">(requerido)</span>
+                    </label>
+                    <input 
+                      value={occupation}
+                      onChange={(e) => setOccupation(e.target.value)}
+                      placeholder="Ej: Ingeniero, Estudiante, Freelancer"
+                      className="w-full bg-surface-container-low rounded-xl px-4 h-12 outline-none focus:ring-2 focus:ring-primary/20 text-base border border-transparent focus:border-primary/30"
+                    />
+                  </div>
+
+                  {/* Industry */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold">Industria o área <OptionalLabel /></label>
+                    <input 
+                      value={industry}
+                      onChange={(e) => setIndustry(e.target.value)}
+                      placeholder="Ej: Tecnología, Salud, Arte"
+                      className="w-full bg-surface-container-low rounded-xl px-4 h-12 outline-none focus:ring-2 focus:ring-primary/20 text-base"
+                    />
+                  </div>
+
+                  {/* Work Hours */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-primary" /> Horario de trabajo <OptionalLabel />
+                    </label>
+                    <input 
+                      value={workHours}
+                      onChange={(e) => setWorkHours(e.target.value)}
+                      placeholder="Ej: 9:00-17:00"
+                      className="w-full bg-surface-container-low rounded-xl px-4 h-12 outline-none focus:ring-2 focus:ring-primary/20 text-base"
+                    />
+                  </div>
+
+                  {/* Biggest Challenge */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 text-primary" /> Tu mayor reto ahora <OptionalLabel />
+                    </label>
+                    <textarea 
+                      value={biggestChallenge}
+                      onChange={(e) => setBiggestChallenge(e.target.value)}
+                      placeholder="¿Qué es lo que más te cuesta organizar hoy?"
+                      className="w-full bg-surface-container-low rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-primary/20 text-base min-h-[80px] resize-none"
+                    />
+                  </div>
+
+                  {/* Hobbies */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold flex items-center gap-2">
+                      <Heart className="w-4 h-4 text-primary" /> Intereses y hobbies <OptionalLabel />
+                    </label>
+                    <input 
+                      value={hobbies}
+                      onChange={(e) => setHobbies(e.target.value)}
+                      placeholder="Ej: Correr, Leer, Videojuegos"
+                      className="w-full bg-surface-container-low rounded-xl px-4 h-12 outline-none focus:ring-2 focus:ring-primary/20 text-base"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex gap-4 pt-4">
+                  <button onClick={back} className="px-6 h-16 bg-surface-container-low text-on-surface-variant rounded-2xl font-bold flex items-center justify-center">
+                    Atrás
+                  </button>
+                  <button 
+                    onClick={next} 
+                    disabled={!occupation.trim()} 
+                    className="flex-1 h-16 bg-primary text-primary-foreground rounded-2xl font-bold text-lg flex items-center justify-center gap-2 disabled:opacity-30 transition-all shadow-lg shadow-primary/20"
+                  >
+                    Siguiente <ArrowRight className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* STEP: STYLE */}
+            {currentStep === 'style' && (
+              <div className="space-y-8">
+                <div className="space-y-2">
+                  <h2 className="text-3xl font-extrabold tracking-tight text-foreground">Tu estilo personal</h2>
+                  <p className="text-on-surface-variant">¿Cómo prefieres que organice tu información?</p>
+                </div>
+
+                <div className="grid grid-cols-1 gap-4">
+                  {[
+                    { id: 'simple', label: 'Modo Simple', desc: 'Limpio y directo, enfocado en lo esencial.', icon: <Layout className="w-6 h-6" /> },
+                    { id: 'professional', label: 'Modo Profesional', desc: 'Detallado, con métricas y carpetas avanzadas.', icon: <Briefcase className="w-6 h-6" /> },
+                    { id: 'minimalist', label: 'Modo Zen', desc: 'Máxima simplicidad, sin distracciones.', icon: <Heart className="w-6 h-6" /> },
+                  ].map((style) => (
+                    <button
+                      key={style.id}
+                      onClick={() => setWorkStyle(style.id)}
+                      className={`p-6 rounded-2xl text-left border-2 transition-all flex items-start gap-4 ${
+                        workStyle === style.id ? 'border-primary bg-primary/5' : 'border-surface-container-highest bg-surface-container-low'
+                      }`}
+                    >
+                      <div className={`p-3 rounded-xl ${workStyle === style.id ? 'bg-primary text-primary-foreground' : 'bg-surface-container-highest text-on-surface-variant'}`}>
+                        {style.icon}
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-lg">{style.label}</h3>
+                        <p className="text-sm text-on-surface-variant">{style.desc}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+
+                <div className="flex gap-4 pt-4">
+                  <button onClick={back} className="px-6 h-16 bg-surface-container-low rounded-2xl font-bold flex items-center justify-center">
+                    Atrás
+                  </button>
+                  <button onClick={next} className="flex-1 h-16 bg-primary text-primary-foreground rounded-2xl font-bold text-lg flex items-center justify-center gap-2 transition-all">
+                    Siguiente <ArrowRight className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* STEP: INPUT */}
+            {currentStep === 'input' && (
+              <div className="space-y-8">
+                <div className="space-y-2 text-center">
+                  <h2 className="text-3xl font-extrabold tracking-tight text-foreground">¿Cómo quieres que te escuche?</h2>
+                  <p className="text-on-surface-variant">Adonai puede procesar voz y texto para agendar tus tareas.</p>
+                </div>
+
+                <div className="flex flex-col gap-4">
+                  {[
+                    { id: 'voice', label: 'Solo Voz', desc: 'Perfecto para cuando estás en movimiento.', icon: <Mic className="w-8 h-8" /> },
+                    { id: 'text', label: 'Solo Teclado', desc: 'Escribe tus tareas de forma tradicional.', icon: <Keyboard className="w-8 h-8" /> },
+                    { id: 'both', label: 'Modo Híbrido', desc: 'Usa voz o texto según el momento.', icon: <div className="flex gap-1"><Mic className="w-5 h-5" /><Keyboard className="w-5 h-5" /></div> },
+                  ].map((opt) => (
+                    <button
+                      key={opt.id}
+                      onClick={() => setPreferredInput(opt.id)}
+                      className={`p-6 rounded-3xl text-center border-2 transition-all flex flex-col items-center gap-3 ${
+                        preferredInput === opt.id ? 'border-primary bg-primary/5' : 'border-surface-container-highest bg-surface-container-low'
+                      }`}
+                    >
+                      <div className={`p-4 rounded-full ${preferredInput === opt.id ? 'bg-primary text-primary-foreground' : 'bg-surface-container-highest text-on-surface-variant'}`}>
+                        {opt.icon}
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-xl">{opt.label}</h3>
+                        <p className="text-sm text-on-surface-variant">{opt.desc}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+
+                <div className="flex gap-4 pt-4">
+                  <button onClick={back} className="px-6 h-16 bg-surface-container-low rounded-2xl font-bold flex items-center justify-center">
+                    Atrás
+                  </button>
+                  <button onClick={next} className="flex-1 h-16 bg-primary text-primary-foreground rounded-2xl font-bold text-lg flex items-center justify-center gap-2 transition-all">
+                    Ver resumen <ArrowRight className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* STEP: READY */}
             {currentStep === 'ready' && (
               <div className="text-center space-y-10">
                 <div className="relative mx-auto w-32 h-32">
@@ -479,45 +546,46 @@ const OnboardingPage = () => {
 
                 <div className="space-y-4">
                   <h2 className="text-4xl font-extrabold tracking-tight text-foreground">¡Todo listo, {name}!</h2>
-                  <p className="text-on-surface-variant text-xl">Tu asistente personal está configurado. Dicta tus tareas y yo haré el resto.</p>
+                  <p className="text-on-surface-variant text-xl">Tu asistente personal está configurado para llevarte al siguiente nivel de productividad.</p>
+                </div>
+
+                <div className="bg-surface-container-low rounded-3xl p-6 text-left space-y-4 border border-surface-container-highest">
+                  <p className="text-sm font-bold uppercase tracking-widest text-primary">Resumen de tu espacio</p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <p className="text-xs text-on-surface-variant font-medium">Meta</p>
+                      <p className="font-bold truncate">{goalText}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-xs text-on-surface-variant font-medium">Ocupación</p>
+                      <p className="font-bold truncate">{occupation}</p>
+                    </div>
+                  </div>
                 </div>
 
                 <button 
                   onClick={handleFinish}
-                  className="w-full h-18 primary-gradient text-primary-foreground rounded-2xl font-extrabold text-xl flex items-center justify-center gap-3 shadow-xl hover:opacity-95 active:scale-[0.98] transition-all"
+                  disabled={isFinishing}
+                  className="w-full h-20 primary-gradient text-primary-foreground rounded-3xl font-extrabold text-xl flex items-center justify-center gap-3 shadow-xl shadow-primary/30 hover:opacity-95 active:scale-[0.98] transition-all disabled:opacity-50"
                 >
-                  Empezar ahora <Brain className="w-6 h-6" />
+                  {isFinishing ? (
+                    <>
+                      <div className="w-5 h-5 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+                      Guardando...
+                    </>
+                  ) : (
+                    <>
+                      Empezar <ArrowRight className="w-6 h-6" />
+                    </>
+                  )}
                 </button>
               </div>
             )}
           </motion.div>
         </AnimatePresence>
-
-        {/* Navigation Indicator */}
-        <div className="fixed bottom-10 left-0 right-0 flex justify-center items-center gap-8 px-6 opacity-30">
-          {currentStepIndex > 0 && currentStepIndex < steps.length - 1 && (
-            <button onClick={prevStep} className="text-sm font-bold uppercase tracking-widest text-on-surface-variant">Volver</button>
-          )}
-        </div>
       </div>
     </div>
   );
 };
-
-const VoiceButton = ({ active, onClick, floating = true }: { active: boolean, onClick: () => void, floating?: boolean }) => (
-  <button 
-    onClick={onClick}
-    className={`${floating ? 'absolute right-0 top-1/2 -translate-y-1/2 w-14 h-14 bg-surface-container-high rounded-full flex items-center justify-center' : 'w-12 h-12 bg-surface-container-high rounded-xl flex items-center justify-center'} transition-all ${active ? 'shadow-[0_0_20px_rgba(var(--primary-rgb),0.4)] ring-2 ring-primary' : 'hover:scale-105'}`}
-  >
-    {active ? (
-      <div className="relative flex items-center justify-center">
-        <div className="absolute w-full h-full rounded-full bg-primary animate-ping opacity-20" />
-        <Volume2 className="w-6 h-6 text-primary" />
-      </div>
-    ) : (
-      <Mic className="w-6 h-6 text-on-surface-variant" />
-    )}
-  </button>
-);
 
 export default OnboardingPage;

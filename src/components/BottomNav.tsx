@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Calendar, FolderOpen, Sun } from 'lucide-react';
+import { Calendar, FolderOpen, Sun, Target, Users } from 'lucide-react';
 
 const BottomNav = () => {
   const location = useLocation();
@@ -8,6 +8,8 @@ const BottomNav = () => {
     { icon: Sun, label: 'Hoy', path: '/', id: 'nav-today' },
     { icon: Calendar, label: 'Calendario', path: '/week', id: 'nav-week' },
     { icon: FolderOpen, label: 'Carpetas', path: '/folders', id: 'nav-folders' },
+    { icon: Target, label: 'Metas', path: '/goals', id: 'nav-goals' },
+    { icon: Users, label: 'Amigos', path: '/friends', id: 'nav-friends' },
   ];
 
   return (
@@ -31,7 +33,7 @@ const BottomNav = () => {
               >
                 <item.icon className="w-5 h-5" strokeWidth={isActive ? 2.5 : 2} />
               </div>
-              <span className={`text-[9px] font-bold tracking-tight ${isActive ? 'opacity-100' : 'opacity-60'}`}>
+              <span className={`text-[8px] font-bold tracking-tight ${isActive ? 'opacity-100' : 'opacity-60'}`}>
                 {item.label}
               </span>
             </Link>

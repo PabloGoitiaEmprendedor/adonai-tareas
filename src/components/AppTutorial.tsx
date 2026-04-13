@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Joyride, type Step, type EventData, ACTIONS, EVENTS, STATUS } from 'react-joyride';
+import Joyride, { type Step, type CallBackProps, ACTIONS, EVENTS, STATUS } from 'react-joyride';
 import { useNavigate } from 'react-router-dom';
 
 interface AppTutorialProps {
@@ -11,156 +11,182 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
   const navigate = useNavigate();
   const [stepIndex, setStepIndex] = useState(0);
 
+  // Reset step index when tutorial starts fresh
+  useEffect(() => {
+    if (run) setStepIndex(0);
+  }, [run]);
+
   const steps: Step[] = [
     {
       target: '#global-add-task-button',
       content: '¡Bienvenido! Toca este botón para empezar a organizar tu día.',
       disableBeacon: true,
       spotlightClicks: true,
-      showNextButton: false,
-      showBackButton: false,
+      hideFooter: true,
     },
     {
       target: '#tutorial-write-button',
       content: 'Aquí puedes escribir tus tareas de forma tradicional.',
       spotlightClicks: true,
+      disableBeacon: true,
     },
     {
       target: '#tutorial-voice-button',
-      content: 'También puedes usar tu voz para agendar tareas rápidamente.',
+      content: 'O usa tu voz para agendar tareas en segundos. ¡Solo habla!',
       spotlightClicks: true,
+      disableBeacon: true,
     },
     {
       target: '#tutorial-photo-button',
-      content: 'Incluso puedes subir fotos de tu agenda física para digitalizarla.',
+      content: 'También puedes fotografiar tu agenda física para digitalizarla automáticamente.',
       spotlightClicks: true,
+      disableBeacon: true,
     },
     {
       target: '#tutorial-close-capture',
-      content: '¡Perfecto! Ahora cierra este panel para continuar.',
+      content: 'Perfecto. Ahora cierra este panel para continuar el recorrido.',
       spotlightClicks: true,
-      showNextButton: false,
-      showBackButton: false,
+      hideFooter: true,
+      disableBeacon: true,
     },
     {
       target: '#nav-week',
-      content: 'Ahora, toca el icono de Calendario para organizar tu semana.',
+      content: 'Toca el Calendario para planificar tu semana con bloques de tiempo.',
       spotlightClicks: true,
-      showNextButton: false,
-      showBackButton: false,
+      hideFooter: true,
+      disableBeacon: true,
     },
     {
       target: '#tutorial-block-button',
-      content: 'Toca en Nuevo Bloque para empezar a planificar.',
+      content: 'Toca "Nuevo Bloque" para crear un bloque de tiempo.',
       spotlightClicks: true,
-      showNextButton: false,
-      showBackButton: false,
+      hideFooter: true,
+      disableBeacon: true,
     },
     {
       target: '#block-title-input',
-      content: 'Escribe el nombre de tu actividad aquí.',
+      content: 'Dale un nombre a tu actividad. Por ejemplo: "Trabajo profundo", "Gym", "Lectura".',
       spotlightClicks: true,
+      disableBeacon: true,
     },
     {
       target: '#block-start-time',
-      content: 'Define el horario de tu actividad.',
+      content: 'Define el horario de inicio y fin de tu actividad.',
       spotlightClicks: true,
+      disableBeacon: true,
     },
     {
       target: '#block-color-picker',
-      content: 'Elige un color para identificar tu bloque.',
+      content: 'Elige un color para identificar este bloque visualmente en tu calendario.',
       spotlightClicks: true,
+      disableBeacon: true,
     },
     {
       target: '#block-recurring-toggle',
-      content: 'Activa la repetición si es una tarea frecuente.',
+      content: 'Activa esto si es una actividad que se repite. Puedes elegir qué días.',
       spotlightClicks: true,
+      disableBeacon: true,
     },
     {
       target: '#block-save-button',
-      content: '¡Listo! Dale a Guardar para confirmar.',
+      content: '¡Listo! Guarda el bloque y quedará registrado en tu semana.',
       spotlightClicks: true,
-      showNextButton: false,
-      showBackButton: false,
+      hideFooter: true,
+      disableBeacon: true,
     },
     {
       target: '#nav-folders',
-      content: 'Toca aquí para ir a tus Carpetas y proyectos.',
+      content: 'Las Carpetas te permiten agrupar tareas por proyecto o área de tu vida.',
       spotlightClicks: true,
-      showNextButton: false,
-      showBackButton: false,
+      hideFooter: true,
+      disableBeacon: true,
     },
     {
       target: '#add-folder-button',
-      content: 'Crea una nueva carpeta tocando el botón de añadir.',
+      content: 'Toca aquí para crear tu primera carpeta.',
       spotlightClicks: true,
-      showNextButton: false,
-      showBackButton: false,
+      hideFooter: true,
+      disableBeacon: true,
     },
     {
       target: '#folder-name-input',
-      content: 'Configura el nombre y color de tu carpeta.',
+      content: 'Escribe el nombre de tu proyecto o área. Por ejemplo: "Trabajo", "Casa", "Salud".',
       spotlightClicks: true,
+      disableBeacon: true,
+    },
+    {
+      target: '#folder-color-selector',
+      content: 'Elige un color para identificar esta carpeta de un vistazo.',
+      spotlightClicks: true,
+      disableBeacon: true,
     },
     {
       target: '#folder-create-confirm',
-      content: 'Toca en Crear para finalizar la carpeta.',
+      content: 'Confirma para crear la carpeta. Después podrás asignar tareas a ella.',
       spotlightClicks: true,
-      showNextButton: false,
-      showBackButton: false,
+      hideFooter: true,
+      disableBeacon: true,
     },
     {
       target: '#tutorial-share-button',
-      content: 'Puedes compartir esta carpeta con tus amigos.',
+      content: 'Desde aquí puedes compartir esta carpeta con amigos o compañeros de equipo.',
       spotlightClicks: true,
+      disableBeacon: true,
     },
     {
       target: '#nav-friends',
-      content: 'Toca aquí para ver a tus Amigos.',
+      content: 'En Amigos puedes conectar con personas de tu entorno y ver su progreso.',
       spotlightClicks: true,
-      showNextButton: false,
-      showBackButton: false,
+      hideFooter: true,
+      disableBeacon: true,
     },
     {
       target: '#nav-goals',
-      content: 'Finalmente, toca aquí para ver tus Metas.',
+      content: 'En Metas defines tus objetivos grandes. Cada tarea que completes te acerca a ellos.',
       spotlightClicks: true,
-      showNextButton: false,
-      showBackButton: false,
+      hideFooter: true,
+      disableBeacon: true,
     },
     {
       target: 'body',
-      content: '¡Felicidades! Has completado el tutorial. ¡A darle con todo!',
+      content: '¡Felicidades! Ya conoces Adonai. Recuerda: puedes volver a este recorrido desde el menú lateral en "Guía rápida". ¡A darle con todo!',
       placement: 'center',
+      disableBeacon: true,
     }
   ];
 
-  const handleCallback = (data: EventData) => {
+  const handleCallback = (data: CallBackProps) => {
     const { action, index, status, type } = data;
 
-    if (status === STATUS.FINISHED || status === STATUS.SKIPPED || action === ACTIONS.CLOSE) {
+    if (
+      status === STATUS.FINISHED ||
+      status === STATUS.SKIPPED ||
+      action === ACTIONS.CLOSE
+    ) {
       setStepIndex(0);
       localStorage.setItem('adonai_tutorial_completed', 'true');
       onFinish();
-    } else if (type === EVENTS.STEP_AFTER) {
-      const nextIndex = index + (action === ACTIONS.PREV ? -1 : 1);
-      
-      // Handle page transitions on Next button (only for informational steps that need it)
-      if (action === ACTIONS.NEXT) {
-        // No explicit info steps need navigation anymore as they are handled by global clicks or are on same page
-      }
+      return;
+    }
 
-      setStepIndex(nextIndex);
+    if (type === EVENTS.STEP_AFTER) {
+      const next = index + (action === ACTIONS.PREV ? -1 : 1);
+      setStepIndex(next);
+    }
+
+    if (type === EVENTS.TARGET_NOT_FOUND) {
+      // If target not found, skip this step to avoid getting stuck
+      setStepIndex(index + 1);
     }
   };
 
-  // Strict interactive step advancement with navigation support
   useEffect(() => {
     if (!run) return;
-    
+
     const handleGlobalClick = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
-      
+
+      // Steps that require user interaction to advance (no Next button shown)
       const interactiveTriggers: Record<number, string> = {
         0: 'global-add-task-button',
         4: 'tutorial-close-capture',
@@ -169,28 +195,32 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
         11: 'block-save-button',
         12: 'nav-folders',
         13: 'add-folder-button',
-        15: 'folder-create-confirm',
-        17: 'nav-friends',
-        18: 'nav-goals'
+        16: 'folder-create-confirm',
+        18: 'nav-friends',
+        19: 'nav-goals',
       };
 
       const requiredId = interactiveTriggers[stepIndex];
-      if (requiredId) {
-        const isMatch = target.id === requiredId || target.closest(`#${requiredId}`);
-        if (isMatch) {
-          // Actions before index update
-          if (stepIndex === 5) navigate('/week');
-          if (stepIndex === 12) navigate('/folders');
-          if (stepIndex === 17) navigate('/friends');
-          if (stepIndex === 18) navigate('/goals');
+      if (!requiredId) return;
 
-          const delay = (stepIndex === 5 || stepIndex === 12 || stepIndex === 17 || stepIndex === 18) ? 800 : 400;
+      const isMatch = target.id === requiredId || !!target.closest(`#${requiredId}`);
+      if (!isMatch) return;
 
-          setTimeout(() => {
-            setStepIndex(stepIndex + 1);
-          }, delay);
-        }
-      }
+      // Navigate before updating step for page-transition steps
+      if (stepIndex === 5) navigate('/week');
+      if (stepIndex === 12) navigate('/folders');
+      if (stepIndex === 18) navigate('/friends');
+      if (stepIndex === 19) navigate('/goals');
+
+      // Delay: more time for page transitions and modal animations
+      const delay =
+        stepIndex === 0 ? 600 :
+        (stepIndex === 5 || stepIndex === 12 || stepIndex === 18 || stepIndex === 19) ? 900 :
+        400;
+
+      setTimeout(() => {
+        setStepIndex((prev) => prev + 1);
+      }, delay);
     };
 
     window.addEventListener('mousedown', handleGlobalClick);
@@ -208,15 +238,39 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
       disableScrolling={false}
       spotlightClicks={true}
       disableOverlayClose={true}
-      onEvent={handleCallback}
-      options={{
-        buttons: ['back', 'close', 'primary'],
-        dismissKeyAction: 'close',
-        overlayClickAction: 'close',
-        overlayColor: 'hsl(var(--background) / 0.6)',
-        primaryColor: 'hsl(var(--primary))',
-        showProgress: false,
-        zIndex: 10000,
+      callback={handleCallback}
+      styles={{
+        options: {
+          primaryColor: 'hsl(var(--primary))',
+          overlayColor: 'rgba(0,0,0,0.55)',
+          zIndex: 10000,
+        },
+        buttonPrimary: {
+          fontSize: '13px',
+          fontWeight: '700',
+          padding: '12px 24px',
+          borderRadius: '16px',
+        },
+        buttonBack: {
+          fontSize: '13px',
+          fontWeight: '600',
+          marginRight: '10px',
+        },
+        buttonSkip: {
+          fontSize: '13px',
+          fontWeight: '600',
+        },
+        tooltip: {
+          borderRadius: '28px',
+          padding: '20px',
+          backgroundColor: 'hsl(var(--card))',
+        },
+        tooltipContent: {
+          fontSize: '15px',
+          padding: '10px 0 20px 0',
+          lineHeight: '1.5',
+          color: 'hsl(var(--foreground))',
+        },
       }}
       locale={{
         back: 'Atrás',
@@ -224,41 +278,6 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
         last: 'Finalizar',
         next: 'Siguiente',
         skip: 'Saltar',
-      }}
-      styles={{
-        buttonPrimary: {
-          fontSize: '13px',
-          fontWeight: '700',
-          padding: '12px 24px',
-          borderRadius: '16px',
-          backgroundColor: 'hsl(var(--primary))',
-          boxShadow: '0 4px 12px hsl(var(--primary) / 0.3)',
-        },
-        buttonBack: {
-          fontSize: '13px',
-          fontWeight: '600',
-          color: 'hsl(var(--muted-foreground))',
-          marginRight: '10px',
-        },
-        buttonSkip: {
-          fontSize: '13px',
-          fontWeight: '600',
-          color: 'hsl(var(--muted-foreground))',
-        },
-        tooltip: {
-          borderRadius: '28px',
-          padding: '20px',
-          backgroundColor: 'hsl(var(--card))',
-        },
-        tooltipContainer: {
-          textAlign: 'left',
-        },
-        tooltipContent: {
-          fontSize: '16px',
-          padding: '10px 0 20px 0',
-          lineHeight: '1.5',
-          color: 'hsl(var(--foreground))',
-        }
       }}
     />
   );
