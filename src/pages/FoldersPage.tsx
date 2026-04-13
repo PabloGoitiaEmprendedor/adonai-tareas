@@ -191,7 +191,7 @@ const FoldersPage = () => {
                 {folderShareCount > 0 && ` · ${folderShareCount} amigo${folderShareCount !== 1 ? 's' : ''}`}
               </p>
             </div>
-            <button onClick={() => setSharingFolder(currentFolder.id)} className="p-2 rounded-lg bg-surface-container-low">
+            <button id="tutorial-share-button" onClick={() => setSharingFolder(currentFolder.id)} className="p-2 rounded-lg bg-surface-container-low">
               {folderShareCount > 0 ? <Users className="w-4 h-4 text-primary" /> : <Lock className="w-4 h-4 text-on-surface-variant" />}
             </button>
           </div>

@@ -125,6 +125,7 @@ const OnboardingPage = () => {
         });
       }
       localStorage.setItem('adonai_onboarding_done', 'true');
+      localStorage.setItem('tutorial_pending', 'true');
       navigate('/');
     } catch (e) {
       console.error(e);

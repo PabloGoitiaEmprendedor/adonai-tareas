@@ -261,7 +261,7 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
 
                   {/* Recurrence Section */}
                   <div className="space-y-2">
-                    <button onClick={() => setShowRecurrence(!showRecurrence)}
+                    <button id="tutorial-recurrence-toggle" onClick={() => setShowRecurrence(!showRecurrence)}
                       className={`w-full p-3 rounded-xl text-sm font-bold flex items-center justify-between transition-all ${recurrenceFreq !== 'none' ? 'bg-primary/20 text-primary ring-1 ring-primary/30' : 'bg-surface-container-high text-on-surface-variant'}`}>
                       <div className="flex items-center gap-2">
                         <Repeat className="w-4 h-4" />
@@ -283,7 +283,7 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
                                 { id: 'monthly', label: 'Mes' },
                                 { id: 'yearly', label: 'Año' }
                               ].map((f) => (
-                                <button key={f.id} onClick={() => {
+                                <button key={f.id} id={`tutorial-freq-${f.id}`} onClick={() => {
                                   setRecurrenceFreq(f.id as any);
                                   if (f.id === 'monthly' && !selectedMonthDay) {
                                     setSelectedMonthDay(new Date().getDate());

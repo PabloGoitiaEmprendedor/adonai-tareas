@@ -5,9 +5,9 @@ const BottomNav = () => {
   const location = useLocation();
 
   const navItems = [
-    { icon: Sun, label: 'Hoy', path: '/' },
-    { icon: Calendar, label: 'Calendario', path: '/week' },
-    { icon: FolderOpen, label: 'Carpetas', path: '/folders' },
+    { icon: Sun, label: 'Hoy', path: '/', id: 'nav-today' },
+    { icon: Calendar, label: 'Calendario', path: '/week', id: 'nav-week' },
+    { icon: FolderOpen, label: 'Carpetas', path: '/folders', id: 'nav-folders' },
   ];
 
   return (
@@ -19,6 +19,7 @@ const BottomNav = () => {
             <Link
               key={item.path}
               to={item.path}
+              id={item.id}
               className={`flex flex-col items-center gap-0.5 min-w-[56px] transition-all duration-300 ${
                 isActive ? 'text-primary' : 'text-on-surface-variant/60 hover:text-on-surface-variant'
               }`}

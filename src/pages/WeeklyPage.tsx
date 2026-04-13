@@ -245,7 +245,7 @@ const WeeklyPage = () => {
 
         <section className="space-y-3">
           <div className="flex justify-end items-center px-1">
-            <Button onClick={() => setBlockModalOpen(true)} variant="outline" size="sm" className="h-8 text-xs px-3 gap-1.5 rounded-xl border-primary/30 text-primary font-bold hover:bg-primary/5 shadow-sm">
+            <Button id="tutorial-block-button" onClick={() => setBlockModalOpen(true)} variant="outline" size="sm" className="h-8 text-xs px-3 gap-1.5 rounded-xl border-primary/30 text-primary font-bold hover:bg-primary/5 shadow-sm">
                <Plus className="w-3.5 h-3.5" /> Nuevo Bloque
             </Button>
           </div>

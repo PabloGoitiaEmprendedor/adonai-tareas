@@ -23,7 +23,7 @@ const FAB = ({ onClick }: FABProps) => {
   return (
     <motion.button
       onClick={onClick}
-      id="global-add-button"
+      id="global-add-task-button"
       className="fixed bottom-[76px] right-5 z-50 w-14 h-14 rounded-full primary-gradient flex items-center justify-center shadow-lg shadow-primary/20"
       animate={wakePulse ? { scale: [1, 1.18, 1] } : { scale: [1, 1.05, 1] }}
       transition={{ duration: wakePulse ? 0.45 : 2, repeat: wakePulse ? 0 : Infinity, ease: 'easeInOut' }}

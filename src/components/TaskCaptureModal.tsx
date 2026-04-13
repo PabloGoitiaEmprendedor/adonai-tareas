@@ -413,7 +413,7 @@ Tu trabajo es:`;
                       </div>
                       
                       <div className="grid grid-cols-3 gap-3 w-full">
-                        <button onClick={() => { setPhase('input'); setShowTextInput(true); setSourceType('text'); }} 
+                        <button id="tutorial-write-button" onClick={() => { setPhase('input'); setShowTextInput(true); setSourceType('text'); }} 
                           className="flex flex-col items-center justify-center gap-3 p-4 bg-surface-container-high rounded-2xl hover:bg-surface-container-highest transition-colors">
                           <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
                             <Type className="w-6 h-6 text-primary" />
@@ -421,7 +421,7 @@ Tu trabajo es:`;
                           <span className="text-xs font-bold text-foreground">Escribir</span>
                         </button>
                         
-                        <button onClick={() => { setPhase('input'); beginVoiceCapture(); }}
+                        <button id="tutorial-voice-button" onClick={() => { setPhase('input'); beginVoiceCapture(); }}
                           className="flex flex-col items-center justify-center gap-3 p-4 bg-surface-container-high rounded-2xl hover:bg-surface-container-highest transition-colors">
                           <div className="w-12 h-12 rounded-full primary-gradient flex items-center justify-center shadow-lg shadow-primary/20">
                             <Mic className="w-6 h-6 text-primary-foreground" />
@@ -429,7 +429,7 @@ Tu trabajo es:`;
                           <span className="text-xs font-bold text-foreground">Voz</span>
                         </button>
                         
-                        <button onClick={() => fileInputRef.current?.click()}
+                        <button id="tutorial-photo-button" onClick={() => fileInputRef.current?.click()}
                           className="flex flex-col items-center justify-center gap-3 p-4 bg-surface-container-high rounded-2xl hover:bg-surface-container-highest transition-colors">
                           <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
                             <Camera className="w-6 h-6 text-primary" />

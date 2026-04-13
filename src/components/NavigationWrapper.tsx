@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { FolderOpen, Users, User, Calendar, LogOut, Settings, Bell, HelpCircle, Menu, Trash2, Home, Target } from 'lucide-react';
 
@@ -6,12 +6,13 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/co
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import BottomNav from './BottomNav';
+import AppTutorial from './AppTutorial';
 
 interface NavigationWrapperProps {
   children: React.ReactNode;
 }
 
-const SidebarContent = ({ user, menuItems, location, handleNavigate, signOut, isSheet = false }: any) => (
+const SidebarContent = ({ user, menuItems, location, handleNavigate, signOut, startTutorial, isSheet = false }: any) => (
   <div className="flex flex-col h-full">
     <div className="p-6 border-b border-outline-variant/10">
       {isSheet ? (
@@ -70,8 +71,8 @@ const SidebarContent = ({ user, menuItems, location, handleNavigate, signOut, is
           <Button onClick={() => handleNavigate('/profile')} variant="ghost" className="w-full justify-start gap-4 h-11 text-on-surface-variant/60 hover:text-foreground">
             <Settings className="w-4 h-4" /> <span className="text-xs">Preferencias</span>
           </Button>
-          <Button variant="ghost" className="w-full justify-start gap-4 h-11 text-on-surface-variant/60 hover:text-foreground">
-            <HelpCircle className="w-4 h-4" /> <span className="text-xs">Ayuda</span>
+          <Button onClick={startTutorial} variant="ghost" className="w-full justify-start gap-4 h-11 text-on-surface-variant/60 hover:text-foreground">
+            <HelpCircle className="w-4 h-4" /> <span className="text-xs">Guía rápida</span>
           </Button>
         </div>
       </div>
@@ -92,9 +93,20 @@ const SidebarContent = ({ user, menuItems, location, handleNavigate, signOut, is
 
 const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
   const [open, setOpen] = useState(false);
+  const [tutorialRun, setTutorialRun] = useState(false);
   const { signOut, user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+
+  useEffect(() => {
+    // Check if tutorial is pending (new user finishing onboarding)
+    const pending = localStorage.getItem('tutorial_pending');
+    if (pending === 'true') {
+      // Clear flag and start
+      localStorage.removeItem('tutorial_pending');
+      setTimeout(() => setTutorialRun(true), 1500);
+    }
+  }, []);
 
   const isHome = location.pathname === '/';
 
@@ -129,6 +141,8 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
 
   return (
     <div className="min-h-screen bg-background">
+      <AppTutorial run={tutorialRun} onFinish={() => setTutorialRun(false)} />
+      
       <Sheet open={open} onOpenChange={setOpen}>
         <header className={`sticky top-0 inset-x-0 h-14 glass-sheet border-b border-outline-variant/10 z-[55] lg:hidden flex items-center justify-between px-4 ${isHome ? 'border-b-0 bg-transparent backdrop-blur-none' : ''}`}>
           <div className="w-10 flex justify-start">
@@ -150,12 +164,27 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
         </header>
 
         <SheetContent side="left" className="w-[280px] glass-sheet border-r-outline-variant/20 p-0">
-          <SidebarContent user={user} menuItems={menuItems} location={location} handleNavigate={handleNavigate} signOut={signOut} isSheet />
+          <SidebarContent 
+            user={user} 
+            menuItems={menuItems} 
+            location={location} 
+            handleNavigate={handleNavigate} 
+            signOut={signOut} 
+            startTutorial={() => { setTutorialRun(true); setOpen(false); }}
+            isSheet 
+          />
         </SheetContent>
       </Sheet>
 
       <aside className="hidden lg:flex fixed left-0 top-0 bottom-0 w-64 glass-sheet border-r border-outline-variant/10 z-[50] flex-col">
-        <SidebarContent user={user} menuItems={menuItems} location={location} handleNavigate={handleNavigate} signOut={signOut} />
+        <SidebarContent 
+          user={user} 
+          menuItems={menuItems} 
+          location={location} 
+          handleNavigate={handleNavigate} 
+          signOut={signOut} 
+          startTutorial={() => setTutorialRun(true)}
+        />
       </aside>
 
       <main className="pb-20 lg:pb-0 lg:pl-64 min-h-screen transition-all duration-300">
