@@ -1,7 +1,6 @@
-import { useState, useEffect } from 'react';
-import Joyride, { Step, CallBackProps, STATUS } from 'react-joyride';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { toast } from 'sonner';
+import { useState } from 'react';
+import { Joyride, type Step, type EventData, type Controls, STATUS } from 'react-joyride';
+import { useNavigate } from 'react-router-dom';
 
 interface AppTutorialProps {
   run: boolean;
@@ -10,59 +9,70 @@ interface AppTutorialProps {
 
 const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
   const navigate = useNavigate();
-  const location = useLocation();
   const [stepIndex, setStepIndex] = useState(0);
 
   const steps: Step[] = [
     {
       target: '#global-add-task-button',
-      content: '¡Bienvenido! Empecemos por lo básico. Haz clic aquí para crear tu primera tarea. Puedes crear tareas simples o configurar repeticiones diarias, semanales o mensuales.',
-      disableBeacon: true,
+      content: '¡Bienvenido! Empecemos por lo básico. Haz clic aquí para crear tu primera tarea.',
+      skipBeacon: true,
       placement: 'left',
+      primaryColor: '#4BE277',
+      zIndex: 10000,
     },
     {
       target: '#tutorial-photo-button',
-      content: '¿Sabías que puedes agendar tareas con solo una foto? Solo apunta a tu nota o lista y Adonai se encarga del resto.',
+      content: '¿Sabías que puedes agendar tareas con solo una foto?',
       placement: 'top',
+      primaryColor: '#4BE277',
+      zIndex: 10000,
     },
     {
       target: '#nav-week',
       content: 'Aquí puedes ver toda tu semana y planificar bloques de tiempo.',
       placement: 'top',
+      primaryColor: '#4BE277',
+      zIndex: 10000,
     },
     {
       target: '#tutorial-block-button',
-      content: 'Los bloques de tiempo te ayudan a enfocarte en una sola cosa. ¡Crea uno para organizar tu día!',
+      content: 'Los bloques de tiempo te ayudan a enfocarte en una sola cosa.',
       placement: 'bottom',
+      primaryColor: '#4BE277',
+      zIndex: 10000,
     },
     {
       target: '#nav-folders',
-      content: 'Organiza tus proyectos en carpetas y compártelas con amigos para trabajar juntos.',
+      content: 'Organiza tus proyectos en carpetas y compártelas con amigos.',
       placement: 'top',
+      primaryColor: '#4BE277',
+      zIndex: 10000,
     },
     {
       target: '#tutorial-share-button',
-      content: 'Desde aquí puedes invitar a tus amigos a cualquier carpeta y ver qué están haciendo.',
+      content: 'Desde aquí puedes invitar a tus amigos a cualquier carpeta.',
       placement: 'bottom',
+      primaryColor: '#4BE277',
+      zIndex: 10000,
     },
     {
       target: 'body',
-      content: '¡Estás listo para dominar tu tiempo con Adonai! Si necesitas ayuda, busca el botón de tutorial en el menú.',
+      content: '¡Estás listo para dominar tu tiempo con Adonai!',
       placement: 'center',
+      primaryColor: '#4BE277',
+      zIndex: 10000,
     }
   ];
 
-  const handleJoyrideCallback = (data: CallBackProps) => {
+  const handleEvent = (data: EventData, controls: Controls) => {
     const { status, type, index, action } = data;
 
-    if ([STATUS.FINISHED, STATUS.SKIPPED].includes(status as any)) {
+    if (status === STATUS.FINISHED || status === STATUS.SKIPPED) {
       setStepIndex(0);
       onFinish();
     } else if (type === 'step:after') {
-      // Auto-navigation for steps
       if (index === 1 && action === 'next') {
         navigate('/week');
-        // Small delay to let the page load
         setTimeout(() => setStepIndex(index + 1), 500);
       } else if (index === 3 && action === 'next') {
         navigate('/folders');
@@ -79,9 +89,7 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
       run={run}
       stepIndex={stepIndex}
       continuous
-      showProgress
-      showSkipButton
-      callback={handleJoyrideCallback}
+      onEvent={handleEvent}
       locale={{
         back: 'Atrás',
         close: 'Cerrar',
@@ -90,11 +98,7 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
         skip: 'Saltar tutorial',
       }}
       styles={{
-        options: {
-          primaryColor: '#4BE277',
-          zIndex: 10000,
-        },
-        buttonNext: {
+        buttonPrimary: {
           fontSize: '12px',
           fontWeight: 'bold',
           padding: '10px 18px',
@@ -111,12 +115,8 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
           color: '#666',
         },
         tooltipContainer: {
-          textAlign: 'left',
+          textAlign: 'left' as const,
           borderRadius: '20px',
-        },
-        tooltipTitle: {
-          fontSize: '16px',
-          fontWeight: 'bold',
         },
         tooltipContent: {
           fontSize: '14px',
