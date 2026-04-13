@@ -88,7 +88,7 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
       primaryColor="#4BE277"
       zIndex={10000}
       styles={{
-        buttonNext: {
+        buttonPrimary: {
           fontSize: '12px',
           fontWeight: 'bold',
           padding: '10px 18px',
