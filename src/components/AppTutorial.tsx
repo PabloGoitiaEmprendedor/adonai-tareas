@@ -1,88 +1,100 @@
-import { useState } from 'react';
-import { Joyride, type EventData, type Step, ACTIONS, EVENTS, STATUS } from 'react-joyride';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import Joyride, { Step, CallBackProps, STATUS, ACTIONS, EVENTS } from 'react-joyride';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 interface AppTutorialProps {
   run: boolean;
   onFinish: () => void;
 }
 
-const steps: Step[] = [
-  {
-    target: '#global-add-task-button',
-    content: '¡Bienvenido! Empecemos por lo básico. Haz clic aquí para añadir tu primera tarea o planificar tu día.',
-    skipBeacon: true,
-    placement: 'left',
-  },
-  {
-    target: '#tutorial-photo-button',
-    content: '¿No tienes tiempo de escribir? Toma una foto de tu agenda o notas y Adonai la transcribirá por ti. ¡Pruébalo cuando tengas tu libreta a mano!',
-    placement: 'top',
-  },
-  {
-    target: '#nav-week',
-    content: 'En la vista de calendario puedes ver tu semana completa y organizar tus tiempos de forma visual.',
-    placement: 'top',
-  },
-  {
-    target: '#tutorial-block-button',
-    content: 'Los bloques de tiempo son ideales para proteger tus horas de enfoque. ¡Crea uno para tus tareas más importantes!',
-    placement: 'bottom',
-  },
-  {
-    target: '#nav-folders',
-    content: 'Crea carpetas para separar tus proyectos personales, de trabajo o estudio.',
-    placement: 'top',
-  },
-  {
-    target: '#tutorial-share-button',
-    content: '¡Lo mejor es hacerlo acompañado! Invita a tus amigos a tus carpetas para compartir tareas y metas.',
-    placement: 'bottom',
-  },
-  {
-    target: 'body',
-    content: '¡Ya conoces lo esencial! Recuerda que Adonai está aquí para ayudarte a que nada se te olvide. ¡A por ello!',
-    placement: 'center',
-  },
-];
-
 const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [stepIndex, setStepIndex] = useState(0);
 
-  const handleEvent = (data: EventData) => {
+  const steps: Step[] = [
+    {
+      target: '#global-add-task-button',
+      content: '¡Bienvenido! Haz clic aquí para añadir tu primera tarea. Puedes dictarla por voz o escribirla rápidamente.',
+      disableBeacon: true,
+      placement: 'left',
+      spotlightClicks: true,
+    },
+    {
+      target: '#tutorial-voice-button',
+      content: 'Toca el ícono de micrófono para dictar una tarea. ¡Pruébalo ahora mismo!',
+      placement: 'top',
+      spotlightClicks: true,
+    },
+    {
+      target: '#tutorial-photo-button',
+      content: 'O si prefieres, toma una foto de tu agenda física para digitalizarla.',
+      placement: 'top',
+      spotlightClicks: true,
+    },
+    {
+      target: '#nav-week',
+      content: 'Ahora vamos al calendario para organizar tu tiempo.',
+      placement: 'top',
+      spotlightClicks: true,
+    },
+    {
+      target: '#tutorial-block-button',
+      content: '¡Crea tu primer bloque de tiempo aquí! Haz clic y reserva un espacio para enfocarte.',
+      placement: 'bottom',
+      spotlightClicks: true,
+    },
+    {
+      target: '#nav-folders',
+      content: 'Finalmente, organiza todo en carpetas.',
+      placement: 'top',
+      spotlightClicks: true,
+    },
+    {
+      target: '#tutorial-share-button',
+      content: 'Crea tu primera carpeta y compártela para colaborar con otros.',
+      placement: 'bottom',
+      spotlightClicks: true,
+    },
+    {
+      target: 'body',
+      content: '¡Listo! Ya tienes todo para dominar Adonai.',
+      placement: 'center',
+    }
+  ];
+
+  const handleCallback = (data: CallBackProps) => {
     const { action, index, status, type } = data;
 
-    if (status === STATUS.FINISHED || status === STATUS.SKIPPED) {
+    if (status === STATUS.FINISHED || status === STATUS.SKIPPED || action === ACTIONS.CLOSE) {
       setStepIndex(0);
       localStorage.setItem('adonai_tutorial_completed', 'true');
       onFinish();
-      return;
+    } else if (type === EVENTS.STEP_AFTER || type === EVENTS.TARGET_NOT_FOUND) {
+      if (index === 0 && action === ACTIONS.NEXT) {
+        setStepIndex(index + 1);
+      } else if (index === 3 && action === ACTIONS.NEXT) {
+        navigate('/week');
+        setTimeout(() => setStepIndex(index + 1), 800);
+      } else if (index === 5 && action === ACTIONS.NEXT) {
+        navigate('/folders');
+        setTimeout(() => setStepIndex(index + 1), 800);
+      } else if (action === ACTIONS.PREV) {
+        setStepIndex(index - 1);
+      } else if (action === ACTIONS.NEXT) {
+        setStepIndex(index + 1);
+      }
     }
-
-    if (type !== EVENTS.STEP_AFTER && type !== EVENTS.TARGET_NOT_FOUND) {
-      return;
-    }
-
-    if (index === 1 && action === ACTIONS.NEXT) {
-      navigate('/week');
-      window.setTimeout(() => setStepIndex(index + 1), 800);
-      return;
-    }
-
-    if (index === 3 && action === ACTIONS.NEXT) {
-      navigate('/folders');
-      window.setTimeout(() => setStepIndex(index + 1), 800);
-      return;
-    }
-
-    if (action === ACTIONS.PREV) {
-      setStepIndex(Math.max(index - 1, 0));
-      return;
-    }
-
-    setStepIndex(index + 1);
   };
+
+  // Synchronize tutorial with current page to avoid missing targets
+  useEffect(() => {
+    if (!run) return;
+    
+    if (location.pathname === '/week' && stepIndex < 2) {
+      // Logic could be added here if needed to sync index with page load
+    }
+  }, [location.pathname, run, stepIndex]);
 
   return (
     <Joyride
@@ -90,7 +102,12 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
       run={run}
       stepIndex={stepIndex}
       continuous
-      onEvent={handleEvent}
+      showProgress={false}
+      showSkipButton={false}
+      disableOverlayClose={false}
+      disableCloseOnEsc={false}
+      scrollToSteps={true}
+      callback={handleCallback}
       locale={{
         back: 'Atrás',
         close: 'Cerrar',
@@ -98,43 +115,40 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
         next: 'Siguiente',
         skip: 'Saltar',
       }}
-      options={{
-        buttons: ['back', 'primary', 'skip'],
-        overlayClickAction: false,
-        primaryColor: '#4BE277',
-        showProgress: true,
-        skipScroll: true,
-        zIndex: 10000,
-      }}
       styles={{
-        buttonPrimary: {
-          fontSize: '12px',
-          fontWeight: 'bold',
-          padding: '10px 18px',
-          borderRadius: '12px',
+        options: {
+          primaryColor: '#4BE277',
+          zIndex: 10000,
+          overlayColor: 'rgba(0, 0, 0, 0.6)',
+        },
+        buttonNext: {
+          fontSize: '13px',
+          fontWeight: '700',
+          padding: '12px 24px',
+          borderRadius: '16px',
+          backgroundColor: '#4BE277',
+          boxShadow: '0 4px 12px rgba(75, 226, 119, 0.3)',
         },
         buttonBack: {
-          fontSize: '12px',
-          fontWeight: 'bold',
-          color: '#666',
-        },
-        buttonSkip: {
-          fontSize: '12px',
-          fontWeight: 'bold',
-          color: '#666',
+          fontSize: '13px',
+          fontWeight: '600',
+          color: '#888',
+          marginRight: '10px',
         },
         tooltip: {
-          borderRadius: '24px',
-          padding: '15px',
+          borderRadius: '28px',
+          padding: '20px',
+          backgroundColor: '#ffffff',
         },
         tooltipContainer: {
           textAlign: 'left',
         },
         tooltipContent: {
-          fontSize: '15px',
-          padding: '15px 0',
-          lineHeight: '1.4',
-        },
+          fontSize: '16px',
+          padding: '10px 0 20px 0',
+          lineHeight: '1.5',
+          color: '#1A1C1E',
+        }
       }}
     />
   );
