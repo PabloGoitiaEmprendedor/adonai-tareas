@@ -1,9 +1,6 @@
-import { useState, useEffect } from 'react';
-import { Joyride, type Step, type Props as JoyrideProps, STATUS } from 'react-joyride';
-
-type CallBackProps = Parameters<NonNullable<JoyrideProps['callback']>>[0];
-import { useNavigate, useLocation } from 'react-router-dom';
-import { toast } from 'sonner';
+import { useState } from 'react';
+import { Joyride, type Step, type EventData, type Controls, STATUS } from 'react-joyride';
+import { useNavigate } from 'react-router-dom';
 
 interface AppTutorialProps {
   run: boolean;
@@ -12,14 +9,13 @@ interface AppTutorialProps {
 
 const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
   const navigate = useNavigate();
-  const location = useLocation();
   const [stepIndex, setStepIndex] = useState(0);
 
   const steps: Step[] = [
     {
       target: '#global-add-task-button',
       content: '¡Bienvenido! Empecemos por lo básico. Haz clic aquí para crear tu primera tarea. Puedes crear tareas simples o configurar repeticiones diarias, semanales o mensuales.',
-      disableBeacon: true,
+      skipBeacon: true,
       placement: 'left',
     },
     {
@@ -54,17 +50,16 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
     }
   ];
 
-  const handleJoyrideCallback = (data: CallBackProps) => {
-    const { status, type, index, action } = data;
+  const handleEvent = (data: EventData, controls: Controls) => {
+    const { status, type, index } = data;
+    const action = data.action;
 
-    if ([STATUS.FINISHED, STATUS.SKIPPED].includes(status as any)) {
+    if (status === STATUS.FINISHED || status === STATUS.SKIPPED) {
       setStepIndex(0);
       onFinish();
     } else if (type === 'step:after') {
-      // Auto-navigation for steps
       if (index === 1 && action === 'next') {
         navigate('/week');
-        // Small delay to let the page load
         setTimeout(() => setStepIndex(index + 1), 500);
       } else if (index === 3 && action === 'next') {
         navigate('/folders');
@@ -82,8 +77,7 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
       stepIndex={stepIndex}
       continuous
       showProgress
-      showSkipButton
-      callback={handleJoyrideCallback}
+      onEvent={handleEvent}
       locale={{
         back: 'Atrás',
         close: 'Cerrar',
@@ -91,11 +85,9 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
         next: 'Siguiente',
         skip: 'Saltar tutorial',
       }}
+      primaryColor="#4BE277"
+      zIndex={10000}
       styles={{
-        options: {
-          primaryColor: '#4BE277',
-          zIndex: 10000,
-        },
         buttonNext: {
           fontSize: '12px',
           fontWeight: 'bold',
@@ -113,7 +105,7 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
           color: '#666',
         },
         tooltipContainer: {
-          textAlign: 'left',
+          textAlign: 'left' as const,
           borderRadius: '20px',
         },
         tooltipTitle: {
