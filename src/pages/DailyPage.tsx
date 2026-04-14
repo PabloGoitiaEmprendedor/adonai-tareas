@@ -106,6 +106,7 @@ const DailyPage = () => {
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
   const [draggingOverBlockId, setDraggingOverBlockId] = useState<string | null>(null);
+  const [dropIndicator, setDropIndicator] = useState<{ blockId: string | null, globalIdx: number | null } | null>(null);
   const [completingTaskId, setCompletingTaskId] = useState<string | null>(null);
   const captureModalRef = useRef<TaskCaptureModalHandle>(null);
   const hasTrackedDayRef = useRef(false);
@@ -216,13 +217,36 @@ const DailyPage = () => {
     if (dragIdx === null) return;
     
     const task = orderedTasks[dragIdx];
-    if (task.time_block_id !== blockId) {
+    const newOrder = [...orderedTasks];
+    const [moved] = newOrder.splice(dragIdx, 1);
+    
+    // If we have a drop indicator, use its position. Otherwise, append to block.
+    let targetIdx = dropIndicator?.globalIdx;
+    
+    if (targetIdx === null && blockId) {
+      // Append to the end of this block's tasks
+      const blockTasks = orderedTasks.filter(t => t.time_block_id === blockId && t.id !== task.id);
+      if (blockTasks.length > 0) {
+        const lastTask = blockTasks[blockTasks.length - 1];
+        targetIdx = newOrder.findIndex(t => t.id === lastTask.id) + 1;
+      } else {
+        targetIdx = newOrder.length;
+      }
+    }
+
+    if (targetIdx !== undefined && targetIdx !== null) {
+      newOrder.splice(targetIdx, 0, { ...moved, time_block_id: blockId });
+      setOrderedTasks(newOrder.map((t, i) => ({ ...t, sort_order: i })));
+      updateTask.mutate({ id: task.id, time_block_id: blockId, sort_order: targetIdx });
+    } else if (task.time_block_id !== blockId) {
       setOrderedTasks(prev => prev.map(t => t.id === task.id ? { ...t, time_block_id: blockId } : t));
       updateTask.mutate({ id: task.id, time_block_id: blockId });
-      toast.success(blockId ? "Tarea agendada" : "Tarea movida fuera del bloque");
     }
+    
     setDragIdx(null);
     setDraggingOverBlockId(null);
+    setDropIndicator(null);
+    toast.success(blockId ? "Tarea agendada" : "Tarea movida fuera del bloque");
   };
 
   const [touchIdx, setTouchIdx] = useState<number | null>(null);
@@ -314,12 +338,22 @@ const DailyPage = () => {
               return (
                 <div
                   key={block.id}
-                  onDragOver={(e) => { e.preventDefault(); setDraggingOverBlockId(block.id); }}
-                  onDragLeave={() => setDraggingOverBlockId(null)}
+                  onDragOver={(e) => { 
+                    e.preventDefault(); 
+                    setDraggingOverBlockId(block.id);
+                  }}
+                  onDragLeave={(e) => {
+                    // Only clear if we're actually leaving the block
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    if (e.clientX < rect.left || e.clientX >= rect.right || e.clientY < rect.top || e.clientY >= rect.bottom) {
+                      setDraggingOverBlockId(null);
+                      setDropIndicator(null);
+                    }
+                  }}
                   onDrop={(e) => handleDropOnBlock(e, block.id)}
                   className={`rounded-2xl overflow-hidden shadow-sm transition-all duration-300 relative ${
                     draggingOverBlockId === block.id 
-                      ? 'ring-4 ring-primary shadow-[0_0_20px_rgba(var(--primary-rgb),0.4)] scale-[1.02] border-primary' 
+                      ? 'ring-4 ring-primary shadow-[0_0_20px_rgba(var(--primary-rgb),0.5)] scale-[1.01] z-10' 
                       : 'border-transparent'
                   }`}
                   style={{ backgroundColor: `${blockColor}15` }}
@@ -356,14 +390,41 @@ const DailyPage = () => {
                     </div>
                   </div>
 
-                    <div className={`p-3 space-y-2 min-h-[60px] transition-colors ${dragIdx !== null && blockTasks.length === 0 ? 'bg-primary/5' : ''}`}>
+                    <div 
+                      className={`p-3 space-y-2 min-h-[60px] transition-colors ${dragIdx !== null && blockTasks.length === 0 ? 'bg-primary/5' : ''}`}
+                      onDragOver={(e) => {
+                        if (blockTasks.length === 0) {
+                          e.preventDefault();
+                          setDropIndicator({ blockId: block.id, globalIdx: null });
+                        }
+                      }}
+                    >
                     <AnimatePresence mode="popLayout">
                       {blockTasks.map((task) => {
                         const isDone = task.status === 'done';
+                        const globalIdx = orderedTasks.findIndex(t => t.id === task.id);
 
                         return (
+                          <div 
+                            key={task.id} 
+                            className="relative"
+                            onDragOver={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setDropIndicator({ blockId: block.id, globalIdx });
+                            }}
+                          >
+                            {/* Drop Indicator Line */}
+                            {dropIndicator?.blockId === block.id && dropIndicator?.globalIdx === globalIdx && (
+                              <motion.div 
+                                initial={{ scaleX: 0, opacity: 0 }}
+                                animate={{ scaleX: 1, opacity: 1 }}
+                                className="absolute -top-1 left-0 right-0 h-1 bg-primary rounded-full shadow-[0_0_8px_rgba(var(--primary-rgb),0.8)] z-20"
+                                style={{ transformOrigin: 'left' }}
+                              />
+                            )}
+
                           <motion.div
-                            key={task.id}
                             layout
                             initial={{ opacity: 0, x: -10 }}
                             animate={{
@@ -372,12 +433,15 @@ const DailyPage = () => {
                               scale: completingTaskId === task.id ? 0.98 : 1,
                             }}
                             draggable={!isDone}
-                            onDragStart={() => handleDragStart(orderedTasks.findIndex(t => t.id === task.id))}
-                            onDragOver={(e) => handleDragOver(e, orderedTasks.findIndex(t => t.id === task.id))}
-                            onDragEnd={handleDragEnd}
-                            onTouchStart={(e) => !isDone && handleTouchStart(orderedTasks.findIndex(t => t.id === task.id), e)}
+                            onDragStart={() => handleDragStart(globalIdx)}
+                            onDragEnd={() => {
+                              handleDragEnd();
+                              setDropIndicator(null);
+                            }}
+                            onTouchStart={(e) => !isDone && handleTouchStart(globalIdx, e)}
                             onTouchMove={handleTouchMove}
                             onTouchEnd={handleTouchEnd}
+                            onClick={() => setSelectedTask(task)}
                             className={`p-3 rounded-xl flex items-start gap-3 cursor-pointer transition-all border border-black/5 ${
                               isDone ? 'opacity-50 bg-background/40' : dragIdx !== null && orderedTasks[dragIdx]?.id === task.id ? 'bg-surface-container-high scale-[1.02] shadow-lg' : 'bg-background hover:scale-[1.01] shadow-sm'
                             }`}
@@ -424,8 +488,17 @@ const DailyPage = () => {
                               </button>
                             )}
                           </motion.div>
+                        </div>
                         );
                       })}
+                      {/* Drop Indicator at end of block */}
+                      {dropIndicator?.blockId === block.id && dropIndicator?.globalIdx === null && blockTasks.length > 0 && (
+                        <motion.div 
+                          initial={{ scaleX: 0, opacity: 0 }}
+                          animate={{ scaleX: 1, opacity: 1 }}
+                          className="h-1 bg-primary rounded-full shadow-[0_0_8px_rgba(var(--primary-rgb),0.8)] mt-2"
+                        />
+                      )}
                     </AnimatePresence>
                   </div>
                 </div>
