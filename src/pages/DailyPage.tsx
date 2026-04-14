@@ -1,3 +1,4 @@
+// DailyPage with task visibility and toast removal
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useTasks } from '@/hooks/useTasks';
 import { useGoals } from '@/hooks/useGoals';
