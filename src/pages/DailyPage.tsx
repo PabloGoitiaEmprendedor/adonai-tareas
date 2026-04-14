@@ -446,8 +446,12 @@ const DailyPage = () => {
                             onTouchMove={handleTouchMove}
                             onTouchEnd={handleTouchEnd}
                             onClick={() => setSelectedTask(task)}
-                            className={`p-3 rounded-xl flex items-start gap-3 cursor-pointer transition-all border border-black/5 ${
-                              isDone ? 'opacity-50 bg-background/40' : dragIdx !== null && orderedTasks[dragIdx]?.id === task.id ? 'bg-surface-container-high scale-[1.02] shadow-lg' : 'bg-background hover:scale-[1.01] shadow-sm'
+                            className={`p-3 rounded-xl flex items-start gap-3 cursor-pointer transition-all border ${
+                              isDone 
+                                ? 'opacity-40 bg-black/5 grayscale-[0.5] border-transparent' 
+                                : dragIdx !== null && orderedTasks[dragIdx]?.id === task.id 
+                                  ? 'bg-surface-container-high scale-[1.02] shadow-lg border-primary/20' 
+                                  : 'bg-background hover:scale-[1.005] shadow-sm border-black/5'
                             }`}
                           >
                             {isDone || completingTaskId === task.id ? (
@@ -477,8 +481,8 @@ const DailyPage = () => {
                                 <motion.div
                                   initial={{ width: 0 }}
                                   animate={{ width: '100%' }}
-                                  transition={{ duration: 0.5, ease: 'easeInOut' }}
-                                  className="absolute top-1/2 left-0 h-[2px] bg-primary/40 -translate-y-1/2"
+                                  transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+                                  className="absolute top-1/2 left-0 h-[1px] bg-foreground/60 -translate-y-1/2"
                                 />
                               )}
                             </div>
