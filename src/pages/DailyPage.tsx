@@ -105,6 +105,7 @@ const DailyPage = () => {
   const [orderedTasks, setOrderedTasks] = useState<any[]>([]);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
+  const [draggingOverBlockId, setDraggingOverBlockId] = useState<string | null>(null);
   const [completingTaskId, setCompletingTaskId] = useState<string | null>(null);
   const captureModalRef = useRef<TaskCaptureModalHandle>(null);
   const hasTrackedDayRef = useRef(false);
@@ -216,13 +217,12 @@ const DailyPage = () => {
     
     const task = orderedTasks[dragIdx];
     if (task.time_block_id !== blockId) {
-      // Immediate local feedback
       setOrderedTasks(prev => prev.map(t => t.id === task.id ? { ...t, time_block_id: blockId } : t));
-      
       updateTask.mutate({ id: task.id, time_block_id: blockId });
       toast.success(blockId ? "Tarea agendada" : "Tarea movida fuera del bloque");
     }
     setDragIdx(null);
+    setDraggingOverBlockId(null);
   };
 
   const [touchIdx, setTouchIdx] = useState<number | null>(null);
@@ -314,11 +314,25 @@ const DailyPage = () => {
               return (
                 <div
                   key={block.id}
-                  onDragOver={(e) => e.preventDefault()}
+                  onDragOver={(e) => { e.preventDefault(); setDraggingOverBlockId(block.id); }}
+                  onDragLeave={() => setDraggingOverBlockId(null)}
                   onDrop={(e) => handleDropOnBlock(e, block.id)}
-                  className={`rounded-2xl overflow-hidden shadow-sm transition-all ${dragIdx !== null ? 'ring-2 ring-primary/20 scale-[0.99]' : ''}`}
+                  className={`rounded-2xl overflow-hidden shadow-sm transition-all duration-300 relative ${
+                    draggingOverBlockId === block.id 
+                      ? 'ring-4 ring-primary shadow-[0_0_20px_rgba(var(--primary-rgb),0.4)] scale-[1.02] border-primary' 
+                      : 'border-transparent'
+                  }`}
                   style={{ backgroundColor: `${blockColor}15` }}
                 >
+                  {draggingOverBlockId === block.id && (
+                    <motion.div 
+                      layoutId={`glow-${block.id}`}
+                      className="absolute inset-0 bg-primary/10 pointer-events-none"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                    />
+                  )}
                   <div
                     className="px-4 py-3 flex items-center justify-between"
                     style={{ backgroundColor: blockColor, color: '#ffffff' }}
