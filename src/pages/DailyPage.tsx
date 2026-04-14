@@ -391,10 +391,11 @@ const DailyPage = () => {
                   </div>
 
                     <div 
-                      className={`p-3 space-y-2 min-h-[60px] transition-colors ${dragIdx !== null && blockTasks.length === 0 ? 'bg-primary/5' : ''}`}
+                      className={`p-3 pb-8 space-y-2 min-h-[80px] transition-colors ${dragIdx !== null && blockTasks.length === 0 ? 'bg-primary/5' : ''}`}
                       onDragOver={(e) => {
-                        if (blockTasks.length === 0) {
-                          e.preventDefault();
+                        // Default to append at the end if hovering the container
+                        e.preventDefault();
+                        if (draggingOverBlockId === block.id) {
                           setDropIndicator({ blockId: block.id, globalIdx: null });
                         }
                       }}
@@ -492,11 +493,12 @@ const DailyPage = () => {
                         );
                       })}
                       {/* Drop Indicator at end of block */}
-                      {dropIndicator?.blockId === block.id && dropIndicator?.globalIdx === null && blockTasks.length > 0 && (
+                      {dropIndicator?.blockId === block.id && dropIndicator?.globalIdx === null && (
                         <motion.div 
                           initial={{ scaleX: 0, opacity: 0 }}
                           animate={{ scaleX: 1, opacity: 1 }}
-                          className="h-1 bg-primary rounded-full shadow-[0_0_8px_rgba(var(--primary-rgb),0.8)] mt-2"
+                          className={`h-1 bg-primary rounded-full shadow-[0_0_8px_rgba(var(--primary-rgb),0.8)] ${blockTasks.length > 0 ? 'mt-2' : ''}`}
+                          style={{ transformOrigin: 'left' }}
                         />
                       )}
                     </AnimatePresence>
