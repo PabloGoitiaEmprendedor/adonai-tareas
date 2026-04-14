@@ -234,7 +234,7 @@ const WeeklyPage = () => {
         },
         onError: () => setCompletingTaskId(null)
       });
-    }, 500); // Wait 500ms for line animation
+    }, 400); // Wait 400ms for line animation
   };
 
   const handleUncomplete = (task: any, e: React.MouseEvent) => {
@@ -436,8 +436,8 @@ const WeeklyPage = () => {
                             onTouchEnd={handleTouchEnd}
                             onClick={() => setSelectedTask(task)}
                             className={`p-3 rounded-xl flex items-start gap-3 cursor-pointer transition-all border ${
-                              isDone 
-                                ? 'opacity-40 bg-black/5 border-transparent grayscale-[0.2]' 
+                              isDone || completingTaskId === task.id
+                                ? 'bg-transparent border-transparent opacity-60' 
                                 : dragIdx === idx || touchIdx === idx 
                                   ? 'bg-surface-container-high scale-[1.02] shadow-lg border-primary/20' 
                                   : 'bg-background hover:scale-[1.005] shadow-sm border-black/5'
@@ -462,8 +462,8 @@ const WeeklyPage = () => {
                                 <motion.div
                                   initial={{ width: 0 }}
                                   animate={{ width: '100%' }}
-                                  transition={{ delay: 0.1, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-                                  className="absolute top-1/2 left-0 h-[2px] bg-primary/40 -translate-y-1/2"
+                                  transition={{ delay: 0.1, duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+                                  className="absolute top-1/2 left-0 h-[2px] bg-primary/50 -translate-y-1/2"
                                 />
                               )}
                             </div>
@@ -505,8 +505,8 @@ const WeeklyPage = () => {
                       onTouchEnd={handleTouchEnd}
                       onClick={() => setSelectedTask(task)}
                       className={`p-3.5 rounded-xl flex items-start gap-3 cursor-pointer transition-all border ${
-                        isDone 
-                          ? 'opacity-40 bg-black/5 border-transparent grayscale-[0.2]' 
+                        isDone || completingTaskId === task.id
+                          ? 'bg-transparent border-transparent opacity-60' 
                           : dragIdx === idx || touchIdx === idx 
                             ? 'bg-surface-container-high scale-[1.02] shadow-lg border-primary/20' 
                             : 'bg-surface-container-low hover:bg-surface-container-high shadow-sm border-black/5'
@@ -531,8 +531,8 @@ const WeeklyPage = () => {
                           <motion.div
                             initial={{ width: 0 }}
                             animate={{ width: '100%' }}
-                            transition={{ delay: 0.1, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-                            className="absolute top-1/2 left-0 h-[2px] bg-primary/40 -translate-y-1/2"
+                            transition={{ delay: 0.1, duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+                            className="absolute top-1/2 left-0 h-[2px] bg-primary/50 -translate-y-1/2"
                           />
                         )}
                       </div>

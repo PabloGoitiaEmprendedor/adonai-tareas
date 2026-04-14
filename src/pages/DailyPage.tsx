@@ -170,7 +170,7 @@ const DailyPage = () => {
     // Step 1: Trigger local "completing" animation (Check appears -> Line draws)
     setCompletingTaskId(task.id);
 
-    // Step 2: Delay the actual mutation to allow the line animation to visually finish
+    // Step 2: Delay the actual mutation to allow the line animation to visually finish smoothly
     setTimeout(() => {
       // Find if this is the last task
       const remainingTasks = tasks.filter((t: any) => t.status !== 'done' && t.id !== task.id);
@@ -192,7 +192,7 @@ const DailyPage = () => {
         },
         onError: () => setCompletingTaskId(null)
       });
-    }, 500); // 500ms delay matches the line animation duration
+    }, 400); // 400ms delay matches the slightly faster, smoother line animation perfectly
   };
 
   const handleUncomplete = (task: any, e: React.MouseEvent) => {
@@ -451,8 +451,8 @@ const DailyPage = () => {
                             onTouchEnd={handleTouchEnd}
                             onClick={() => setSelectedTask(task)}
                             className={`p-3 rounded-xl flex items-start gap-3 cursor-pointer transition-all border ${
-                              isDone 
-                                ? 'opacity-40 bg-black/5 border-transparent grayscale-[0.2]' 
+                              isDone || completingTaskId === task.id
+                                ? 'bg-transparent border-transparent opacity-60' 
                                 : dragIdx !== null && orderedTasks[dragIdx]?.id === task.id 
                                   ? 'bg-surface-container-high scale-[1.02] shadow-lg border-primary/20' 
                                   : 'bg-background hover:scale-[1.005] shadow-sm border-black/5'
@@ -487,8 +487,8 @@ const DailyPage = () => {
                                 <motion.div
                                   initial={{ width: 0 }}
                                   animate={{ width: '100%' }}
-                                  transition={{ delay: 0.1, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-                                  className="absolute top-1/2 left-0 h-[2px] bg-primary/40 -translate-y-1/2"
+                                  transition={{ delay: 0.1, duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+                                  className="absolute top-1/2 left-0 h-[2px] bg-primary/50 -translate-y-1/2"
                                 />
                               )}
                             </div>
