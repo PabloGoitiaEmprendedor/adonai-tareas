@@ -210,6 +210,18 @@ const DailyPage = () => {
     });
   };
 
+  const handleDropOnBlock = (e: React.DragEvent, blockId: string | null) => {
+    e.preventDefault();
+    if (dragIdx === null) return;
+    
+    const task = orderedTasks[dragIdx];
+    if (task.time_block_id !== blockId) {
+      updateTask.mutate({ id: task.id, time_block_id: blockId });
+      toast.success(blockId ? "Tarea agendada" : "Tarea movida fuera del bloque");
+    }
+    setDragIdx(null);
+  };
+
   const [touchIdx, setTouchIdx] = useState<number | null>(null);
   const [touchY, setTouchY] = useState(0);
   const handleTouchStart = (idx: number, e: React.TouchEvent) => { setTouchIdx(idx); setTouchY(e.touches[0].clientY); };
@@ -299,7 +311,9 @@ const DailyPage = () => {
               return (
                 <div
                   key={block.id}
-                  className="rounded-2xl overflow-hidden shadow-sm transition-all"
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => handleDropOnBlock(e, block.id)}
+                  className={`rounded-2xl overflow-hidden shadow-sm transition-all ${dragIdx !== null ? 'ring-2 ring-primary/20 scale-[0.99]' : ''}`}
                   style={{ backgroundColor: `${blockColor}15` }}
                 >
                   <div
@@ -325,7 +339,7 @@ const DailyPage = () => {
                     </div>
                   </div>
 
-                    <div className="p-3 space-y-2">
+                    <div className={`p-3 space-y-2 min-h-[60px] transition-colors ${dragIdx !== null && blockTasks.length === 0 ? 'bg-primary/5' : ''}`}>
                     <AnimatePresence mode="popLayout">
                       {blockTasks.map((task) => {
                         const isDone = task.status === 'done';
@@ -340,10 +354,15 @@ const DailyPage = () => {
                               x: 0,
                               scale: completingTaskId === task.id ? 0.98 : 1,
                             }}
-                            exit={{ opacity: 0, x: 20, transition: { duration: 0.3 } }}
-                            onClick={() => setSelectedTask(task)}
+                            draggable={!isDone}
+                            onDragStart={() => handleDragStart(orderedTasks.findIndex(t => t.id === task.id))}
+                            onDragOver={(e) => handleDragOver(e, orderedTasks.findIndex(t => t.id === task.id))}
+                            onDragEnd={handleDragEnd}
+                            onTouchStart={(e) => !isDone && handleTouchStart(orderedTasks.findIndex(t => t.id === task.id), e)}
+                            onTouchMove={handleTouchMove}
+                            onTouchEnd={handleTouchEnd}
                             className={`p-3 rounded-xl flex items-start gap-3 cursor-pointer transition-all border border-black/5 ${
-                              isDone ? 'opacity-50 bg-background/40' : 'bg-background hover:scale-[1.01] shadow-sm'
+                              isDone ? 'opacity-50 bg-background/40' : dragIdx !== null && orderedTasks[dragIdx]?.id === task.id ? 'bg-surface-container-high scale-[1.02] shadow-lg' : 'bg-background hover:scale-[1.01] shadow-sm'
                             }`}
                           >
                             {isDone || completingTaskId === task.id ? (
@@ -396,10 +415,14 @@ const DailyPage = () => {
               );
             })}
 
-            {/* Unscheduled Tasks Rendering */}
-            <div className="space-y-2 mt-8">
+            <div 
+              className="space-y-2 mt-8 min-h-[60px]"
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => handleDropOnBlock(e, null)}
+            >
               <AnimatePresence mode="popLayout">
-                {orderedTasks.filter(t => !t.time_block_id).map((task, idx) => {
+                {orderedTasks.filter(t => !t.time_block_id).map((task) => {
+                  const idx = orderedTasks.findIndex(t => t.id === task.id);
                   const isDone = task.status === 'done';
                   return (
                     <motion.div
