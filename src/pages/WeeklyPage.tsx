@@ -157,6 +157,8 @@ const WeeklyPage = () => {
     
     const task = orderedTasks[dragIdx];
     if (task.time_block_id !== blockId) {
+      // Immediate local feedback
+      setOrderedTasks(prev => prev.map(t => t.id === task.id ? { ...t, time_block_id: blockId } : t));
       updateTask.mutate({ id: task.id, time_block_id: blockId });
     }
     setDragIdx(null);

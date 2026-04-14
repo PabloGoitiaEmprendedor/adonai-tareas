@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { format, isSameDay, parseISO, addDays, eachDayOfInterval } from 'date-fns';
+import { toast } from 'sonner';
 
 import type { Database } from '@/integrations/supabase/types';
 
@@ -186,7 +187,6 @@ export const useTasks = (filters?: { date?: string; startDate?: string; endDate?
     mutationFn: async ({ id, ...updates }: { id: string } & TaskUpdate) => {
       if (!user) throw new Error('No user');
       
-      // If it's a virtual task, we first materialize it
       let targetId = id;
       if (id.startsWith('virtual-')) {
         const parsedVirtualTask = parseVirtualTaskId(id);
@@ -202,7 +202,7 @@ export const useTasks = (filters?: { date?: string; startDate?: string; endDate?
           .from('tasks')
           .insert({
             ...template,
-            id: undefined, // Let DB generate ID
+            id: undefined,
             due_date: dueDate,
             recurrence_id: recurrenceId,
             status: updates.status || 'pending',
@@ -227,8 +227,28 @@ export const useTasks = (filters?: { date?: string; startDate?: string; endDate?
         });
       }
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+    onMutate: async ({ id, ...updates }) => {
+      await queryClient.cancelQueries({ queryKey: ['tasks', user?.id] });
+      const previousData = queryClient.getQueryData(['tasks', user?.id, filters]);
+
+      queryClient.setQueryData(['tasks', user?.id, filters], (old: any) => {
+        if (!old) return old;
+        return {
+          ...old,
+          tasks: old.tasks.map((task: any) => 
+            task.id === id ? { ...task, ...updates } : task
+          ),
+        };
+      });
+
+      return { previousData };
+    },
+    onError: (err, variables, context) => {
+      queryClient.setQueryData(['tasks', user?.id, filters], context?.previousData);
+      toast.error("No se pudo actualizar la tarea");
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks', user?.id] });
     },
   });
 
