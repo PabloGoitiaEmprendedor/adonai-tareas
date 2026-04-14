@@ -68,9 +68,9 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   }
 
   return (
-    <NavigationWrapper>
+    <>
       {children}
-    </NavigationWrapper>
+    </>
   );
 };
 
@@ -110,7 +110,9 @@ const App = () => (
       <Sonner position="top-center" duration={2000} />
       <BrowserRouter>
         <AuthProvider>
-          <AppRoutes />
+          <NavigationWrapper>
+            <AppRoutes />
+          </NavigationWrapper>
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
