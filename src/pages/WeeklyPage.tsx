@@ -422,7 +422,7 @@ const WeeklyPage = () => {
                             onClick={() => setSelectedTask(task)}
                             className={`p-3 rounded-xl flex items-start gap-3 cursor-pointer transition-all border ${
                               isDone 
-                                ? 'opacity-40 bg-black/5 grayscale-[0.5] border-transparent' 
+                                ? 'bg-transparent border-transparent opacity-60' 
                                 : dragIdx === idx || touchIdx === idx 
                                   ? 'bg-surface-container-high scale-[1.02] shadow-lg border-primary/20' 
                                   : 'bg-background hover:scale-[1.005] shadow-sm border-black/5'
@@ -436,16 +436,8 @@ const WeeklyPage = () => {
                               <button onClick={(e) => { e.stopPropagation(); handleComplete(task); }}
                                 className="w-5 h-5 rounded border-2 border-outline-variant flex items-center justify-center hover:border-primary flex-shrink-0 mt-0.5" />
                             )}
-                            <div className="flex-1 min-w-0 relative mt-0.5">
-                              <h4 className={`text-sm font-semibold break-words transition-colors ${isDone ? 'text-on-surface-variant' : 'text-foreground'}`}>{task.title}</h4>
-                              {isDone && (
-                                <motion.div
-                                  initial={{ width: 0 }}
-                                  animate={{ width: '100%' }}
-                                  transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-                                  className="absolute top-1/2 left-0 h-[1px] bg-foreground/60 -translate-y-1/2"
-                                />
-                              )}
+                            <div className="flex-1 min-w-0 flex items-center mt-0.5">
+                              <h4 className={`text-sm font-semibold break-words transition-colors ${isDone ? 'text-on-surface-variant line-through' : 'text-foreground'}`}>{task.title}</h4>
                             </div>
                             {!isDone && (
                               <button onClick={(e) => handleStartTimer(task, e)}
@@ -486,7 +478,7 @@ const WeeklyPage = () => {
                       onClick={() => setSelectedTask(task)}
                       className={`p-3.5 rounded-xl flex items-start gap-3 cursor-pointer transition-all border ${
                         isDone 
-                          ? 'opacity-40 bg-black/5 grayscale-[0.5] border-transparent' 
+                          ? 'bg-transparent border-transparent opacity-60' 
                           : dragIdx === idx || touchIdx === idx 
                             ? 'bg-surface-container-high scale-[1.02] shadow-lg border-primary/20' 
                             : 'bg-surface-container-low hover:bg-surface-container-high shadow-sm border-black/5'

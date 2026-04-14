@@ -448,7 +448,7 @@ const DailyPage = () => {
                             onClick={() => setSelectedTask(task)}
                             className={`p-3 rounded-xl flex items-start gap-3 cursor-pointer transition-all border ${
                               isDone 
-                                ? 'opacity-40 bg-black/5 grayscale-[0.5] border-transparent' 
+                                ? 'bg-transparent border-transparent opacity-60' 
                                 : dragIdx !== null && orderedTasks[dragIdx]?.id === task.id 
                                   ? 'bg-surface-container-high scale-[1.02] shadow-lg border-primary/20' 
                                   : 'bg-background hover:scale-[1.005] shadow-sm border-black/5'
@@ -469,22 +469,14 @@ const DailyPage = () => {
                               />
                             )}
 
-                            <div className="flex-1 min-w-0 relative">
+                            <div className="flex-1 min-w-0 flex items-center">
                               <h4
                                 className={`text-sm font-semibold break-words transition-colors ${
-                                  isDone || completingTaskId === task.id ? 'text-on-surface-variant' : 'text-foreground'
+                                  isDone || completingTaskId === task.id ? 'text-on-surface-variant line-through' : 'text-foreground'
                                 }`}
                               >
                                 {task.title}
                               </h4>
-                              {(isDone || completingTaskId === task.id) && (
-                                <motion.div
-                                  initial={{ width: 0 }}
-                                  animate={{ width: '100%' }}
-                                  transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-                                  className="absolute top-1/2 left-0 h-[1px] bg-foreground/60 -translate-y-1/2"
-                                />
-                              )}
                             </div>
 
                             {!isDone && (
