@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles, Brain, Clock, Coffee, Target, ArrowRight, Save, X, Calendar, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -12,10 +12,21 @@ interface AISchedulerModalProps {
   selectedDate: Date;
 }
 
+const PHRASES = [
+  "Priorizando tareas...",
+  "Ordenando tareas...",
+  "Capturando tareas de tu voz...",
+  "Preparando tu calendario...",
+  "Agregando tareas de la foto de tu agenda...",
+  "Organizando tu día...",
+  "Agregando tarea..."
+];
+
 type Step = 'intro' | 'schedule' | 'breaks' | 'focus' | 'generating';
 
 export const AISchedulerModal = ({ open, onClose, selectedDate }: AISchedulerModalProps) => {
   const [step, setStep] = useState<Step>('intro');
+  const [currentPhraseIdx, setCurrentPhraseIdx] = useState(0);
   const [answers, setAnswers] = useState({
     startWork: '09:00',
     endWork: '18:00',
@@ -23,6 +34,16 @@ export const AISchedulerModal = ({ open, onClose, selectedDate }: AISchedulerMod
     focusType: 'balanced', // deep, shallow, balanced
     numBlocks: '4'
   });
+
+  useEffect(() => {
+    let interval: any;
+    if (step === 'generating') {
+      interval = setInterval(() => {
+        setCurrentPhraseIdx((prev) => (prev + 1) % PHRASES.length);
+      }, 2000);
+    }
+    return () => clearInterval(interval);
+  }, [step]);
 
   const { createBlock } = useTimeBlocks(format(selectedDate, 'yyyy-MM-dd'));
 
@@ -68,11 +89,13 @@ export const AISchedulerModal = ({ open, onClose, selectedDate }: AISchedulerMod
         });
         onClose();
         setStep('intro');
+        setCurrentPhraseIdx(0);
       } catch (error) {
         toast.error("Error al generar bloques");
         setStep('intro');
+        setCurrentPhraseIdx(0);
       }
-    }, 2500);
+    }, 8000); // Wait longer to show the beautiful animation sequence
   };
 
   if (!open) return null;
@@ -215,20 +238,55 @@ export const AISchedulerModal = ({ open, onClose, selectedDate }: AISchedulerMod
             {step === 'generating' && (
               <motion.div 
                 key="generating"
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="py-12 flex flex-col items-center gap-6"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="py-12 flex flex-col items-center gap-12"
               >
-                <div className="relative">
-                  <div className="w-20 h-20 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <Brain className="w-8 h-8 text-primary animate-pulse" />
-                  </div>
+                {/* AI Orb Animation */}
+                <div className="relative flex items-center justify-center">
+                  <motion.div
+                    animate={{
+                      scale: [1, 1.2, 1],
+                      opacity: [0.5, 0.8, 0.5],
+                    }}
+                    transition={{
+                      duration: 4,
+                      repeat: Infinity,
+                      ease: "easeInOut"
+                    }}
+                    className="absolute w-40 h-40 bg-primary/20 rounded-full blur-3xl"
+                  />
+                  <motion.div
+                    animate={{
+                      scale: [1, 1.1, 1],
+                      rotate: [0, 90, 180, 270, 360],
+                    }}
+                    transition={{
+                      duration: 8,
+                      repeat: Infinity,
+                      ease: "linear"
+                    }}
+                    className="relative w-24 h-24 rounded-full bg-gradient-to-tr from-primary via-blue-400 to-emerald-400 shadow-[0_0_40px_rgba(var(--primary),0.5)] flex items-center justify-center"
+                  >
+                    <div className="absolute inset-1 bg-black/10 rounded-full backdrop-blur-sm" />
+                    <Sparkles className="w-10 h-10 text-white relative z-10" />
+                  </motion.div>
                 </div>
-                <div className="text-center space-y-2">
-                  <h3 className="text-xl font-bold">Modelando tu día...</h3>
-                  <p className="text-xs text-on-surface-variant animate-pulse px-8">
-                    Analizando patrones de productividad y metas activas para encontrar el balance perfecto.
+
+                <div className="text-center space-y-4 max-w-xs mx-auto">
+                  <AnimatePresence mode="wait">
+                    <motion.p
+                      key={currentPhraseIdx}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      className="text-lg font-bold tracking-tight bg-gradient-to-b from-foreground to-foreground/50 bg-clip-text text-transparent"
+                    >
+                      {PHRASES[currentPhraseIdx]}
+                    </motion.p>
+                  </AnimatePresence>
+                  <p className="text-[10px] uppercase font-black tracking-[0.2em] text-on-surface-variant animate-pulse">
+                    Adonai Artificial Intelligence
                   </p>
                 </div>
               </motion.div>

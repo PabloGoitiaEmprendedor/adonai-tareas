@@ -162,11 +162,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
               </span>
             </div>
           )}
-          {isHome && (
-            <div className="flex-1 flex justify-center">
-              <span className="text-xl font-black italic primary-gradient-text tracking-tighter">Adonai</span>
-            </div>
-          )}
+          {isHome && <div className="flex-1" />}
           <div className="w-10" />
         </header>
 
