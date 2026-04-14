@@ -153,7 +153,6 @@ const OnboardingPage = () => {
 
       // 5. Success (Bug 4 Fix - part 2)
       localStorage.setItem('adonai_onboarding_done', 'true');
-      localStorage.setItem('tutorial_pending', 'true');
       navigate('/');
     } catch (e) {
       console.error(e);
