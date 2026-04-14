@@ -14,6 +14,9 @@ import FAB from '@/components/FAB';
 import TaskCaptureModal, { type TaskCaptureModalHandle } from '@/components/TaskCaptureModal';
 import TaskDetailModal from '@/components/TaskDetailModal';
 import FullscreenTimer from '@/components/FullscreenTimer';
+import { AISchedulerModal } from '@/components/AISchedulerModal';
+import { Button } from '@/components/ui/button';
+import { Sparkles } from 'lucide-react';
 
 const getDynamicGreeting = (
   name: string,
@@ -108,6 +111,7 @@ const DailyPage = () => {
   const [draggingOverBlockId, setDraggingOverBlockId] = useState<string | null>(null);
   const [dropIndicator, setDropIndicator] = useState<{ blockId: string | null, globalIdx: number | null } | null>(null);
   const [completingTaskId, setCompletingTaskId] = useState<string | null>(null);
+  const [aiModalOpen, setAiModalOpen] = useState(false);
   const captureModalRef = useRef<TaskCaptureModalHandle>(null);
   const hasTrackedDayRef = useRef(false);
 
@@ -287,7 +291,17 @@ const DailyPage = () => {
       <div className="max-w-[430px] lg:max-w-4xl mx-auto px-6 pt-2 pb-24 space-y-5">
 
         {/* Dynamic greeting - centered, single line */}
-        <p className="text-center text-sm text-on-surface-variant py-3">{greeting}</p>
+        <div className="flex flex-col items-center gap-1 py-1">
+          <p className="text-center text-sm text-on-surface-variant font-medium">{greeting}</p>
+          <Button 
+            onClick={() => setAiModalOpen(true)} 
+            variant="ghost" 
+            size="sm" 
+            className="h-7 text-[10px] px-3 gap-1.5 rounded-full bg-primary/5 text-primary font-black hover:bg-primary/10 transition-all active:scale-95"
+          >
+             <Sparkles className="w-3 h-3" /> IA Planner
+          </Button>
+        </div>
 
         {orderedTasks.length === 0 && timeBlocks.filter(b => tasks.some(t => t.time_block_id === b.id && t.status !== 'done')).length === 0 ? (
           <motion.div 
@@ -591,6 +605,11 @@ const DailyPage = () => {
           setCaptureOpen(false);
           setActiveBlockId(null);
         }} 
+      />
+      <AISchedulerModal 
+        open={aiModalOpen} 
+        onClose={() => setAiModalOpen(false)} 
+        selectedDate={new Date(today)} 
       />
       <TaskDetailModal task={selectedTask} open={!!selectedTask} onClose={() => setSelectedTask(null)} />
       <FullscreenTimer task={timerTask} open={!!timerTask} onClose={() => setTimerTask(null)} />

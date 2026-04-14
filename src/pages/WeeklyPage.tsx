@@ -18,12 +18,14 @@ import { TimeBlockModal } from '@/components/TimeBlockModal';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { AISchedulerModal } from '@/components/AISchedulerModal';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Sparkles, Brain } from 'lucide-react';
 
 const WeeklyPage = () => {
   const [captureOpen, setCaptureOpen] = useState(false);
@@ -36,6 +38,8 @@ const WeeklyPage = () => {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
   const captureModalRef = useRef<TaskCaptureModalHandle>(null);
+
+  const [aiModalOpen, setAiModalOpen] = useState(false);
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 60000);
@@ -272,8 +276,16 @@ const WeeklyPage = () => {
         </div>
 
         <section className="space-y-3">
-          <div className="flex justify-end items-center px-1">
-            <Button id="tutorial-block-button" onClick={() => setBlockModalOpen(true)} variant="outline" size="sm" className="h-8 text-xs px-3 gap-1.5 rounded-xl border-primary/30 text-primary font-bold hover:bg-primary/5 shadow-sm">
+          <div className="flex justify-end items-center px-1 gap-2">
+            <Button 
+              onClick={() => setAiModalOpen(true)} 
+              variant="outline" 
+              size="sm" 
+              className="h-8 text-xs px-3 gap-1.5 rounded-xl border-primary bg-primary/5 text-primary font-black hover:bg-primary/10 shadow-sm animate-pulse-subtle"
+            >
+               <Sparkles className="w-3.5 h-3.5" /> IA Planner
+            </Button>
+            <Button id="tutorial-block-button" onClick={() => setBlockModalOpen(true)} variant="outline" size="sm" className="h-8 text-xs px-3 gap-1.5 rounded-xl border-outline-variant text-on-surface-variant font-bold hover:bg-surface-container-high shadow-sm">
                <Plus className="w-3.5 h-3.5" /> Nuevo Bloque
             </Button>
           </div>
@@ -500,6 +512,11 @@ const WeeklyPage = () => {
       />
       <TaskDetailModal task={selectedTask} open={!!selectedTask} onClose={() => setSelectedTask(null)} />
       <FullscreenTimer task={timerTask} open={!!timerTask} onClose={() => setTimerTask(null)} />
+      <AISchedulerModal 
+        open={aiModalOpen} 
+        onClose={() => setAiModalOpen(false)} 
+        selectedDate={selectedDay} 
+      />
       <TimeBlockModal 
         open={blockModalOpen} 
         onClose={() => {

@@ -147,22 +147,26 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
       <AppTutorial run={tutorialRun} onFinish={() => setTutorialRun(false)} />
       
       <Sheet open={open} onOpenChange={setOpen}>
-        <header className={`sticky top-0 inset-x-0 h-14 glass-sheet border-b border-outline-variant/10 z-[55] lg:hidden flex items-center justify-between px-4 ${isHome ? 'border-b-0 bg-transparent backdrop-blur-none' : ''}`}>
+        <header className={`sticky top-0 inset-x-0 h-16 bg-background/80 backdrop-blur-xl border-b border-outline-variant/10 z-[55] lg:hidden flex items-center justify-between px-4 transition-shadow duration-300 ${isHome ? 'shadow-none' : 'shadow-sm'}`}>
           <div className="w-10 flex justify-start">
             <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="w-9 h-9 rounded-xl text-foreground hover:text-primary transition-all duration-300">
+              <Button variant="ghost" size="icon" className="w-10 h-10 rounded-2xl text-foreground hover:bg-surface-container-high transition-all">
                 <Menu className="w-5 h-5" />
               </Button>
             </SheetTrigger>
           </div>
           {!isHome && pageTitle && (
             <div className="flex-1 flex justify-center">
-              <span className="text-xs font-black uppercase tracking-[0.3em] primary-gradient-text">
+              <span className="text-sm font-black uppercase tracking-[0.2em] primary-gradient-text">
                 {pageTitle}
               </span>
             </div>
           )}
-          {isHome && <div className="flex-1" />}
+          {isHome && (
+            <div className="flex-1 flex justify-center">
+              <span className="text-xl font-black italic primary-gradient-text tracking-tighter">Adonai</span>
+            </div>
+          )}
           <div className="w-10" />
         </header>
 
@@ -179,7 +183,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
         </SheetContent>
       </Sheet>
 
-      <aside className="hidden lg:flex fixed left-0 top-0 bottom-0 w-64 glass-sheet border-r border-outline-variant/10 z-[50] flex-col">
+      <aside className="hidden lg:flex fixed left-0 top-0 bottom-0 w-72 bg-surface-container-low border-r border-outline-variant/10 z-[50] flex-col shadow-2xl shadow-black/5">
         <SidebarContent 
           user={user} 
           menuItems={menuItems} 
@@ -190,8 +194,10 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
         />
       </aside>
 
-      <main className="pb-20 lg:pb-0 lg:pl-64 min-h-screen transition-all duration-300">
-        {children}
+      <main className="pb-24 lg:pb-12 lg:pl-72 min-h-screen bg-background transition-all duration-500">
+        <div className="max-w-7xl mx-auto px-0 lg:px-4">
+          {children}
+        </div>
       </main>
 
       <BottomNav />
