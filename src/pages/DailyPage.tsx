@@ -170,7 +170,7 @@ const DailyPage = () => {
     // Step 1: Trigger local "completing" animation (Check appears -> Line draws)
     setCompletingTaskId(task.id);
 
-    // Step 2: Delay the actual mutation to allow the line animation to visually finish smoothly
+    // Step 2: Delay the actual mutation to allow the line animation to visually finish
     setTimeout(() => {
       // Find if this is the last task
       const remainingTasks = tasks.filter((t: any) => t.status !== 'done' && t.id !== task.id);
@@ -192,7 +192,7 @@ const DailyPage = () => {
         },
         onError: () => setCompletingTaskId(null)
       });
-    }, 400); // 400ms delay matches the slightly faster, smoother line animation perfectly
+    }, 500); // 500ms delay matches the original slower line animation
   };
 
   const handleUncomplete = (task: any, e: React.MouseEvent) => {
@@ -488,8 +488,8 @@ const DailyPage = () => {
                                 <motion.div
                                   initial={{ width: 0 }}
                                   animate={{ width: '100%' }}
-                                  transition={{ delay: 0.1, duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-                                  className="absolute top-1/2 left-0 h-[2px] bg-primary/50 -translate-y-1/2 z-10 pointer-events-none"
+                                  transition={{ delay: 0.1, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+                                  className="absolute top-1/2 left-0 h-[2px] bg-primary/40 -translate-y-1/2 z-10 pointer-events-none"
                                 />
                               )}
                             </div>

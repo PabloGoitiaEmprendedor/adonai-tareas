@@ -234,7 +234,7 @@ const WeeklyPage = () => {
         },
         onError: () => setCompletingTaskId(null)
       });
-    }, 400); // Wait 400ms for line animation
+    }, 500); // Wait 500ms for line animation
   };
 
   const handleUncomplete = (task: any, e: React.MouseEvent) => {
@@ -465,8 +465,8 @@ const WeeklyPage = () => {
                                 <motion.div
                                   initial={{ width: 0 }}
                                   animate={{ width: '100%' }}
-                                  transition={{ delay: 0.1, duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-                                  className="absolute top-1/2 left-0 h-[2px] bg-primary/50 -translate-y-1/2 z-10 pointer-events-none"
+                                  transition={{ delay: 0.1, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+                                  className="absolute top-1/2 left-0 h-[2px] bg-primary/40 -translate-y-1/2 z-10 pointer-events-none"
                                 />
                               )}
                             </div>
@@ -537,8 +537,8 @@ const WeeklyPage = () => {
                           <motion.div
                             initial={{ width: 0 }}
                             animate={{ width: '100%' }}
-                            transition={{ delay: 0.1, duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-                            className="absolute top-1/2 left-0 h-[2px] bg-primary/50 -translate-y-1/2 z-10 pointer-events-none"
+                            transition={{ delay: 0.1, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+                            className="absolute top-1/2 left-0 h-[2px] bg-primary/40 -translate-y-1/2 z-10 pointer-events-none"
                           />
                         )}
                       </div>
