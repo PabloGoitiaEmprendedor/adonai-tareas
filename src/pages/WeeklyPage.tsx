@@ -104,7 +104,7 @@ const WeeklyPage = () => {
 
   const getTasksForDay = (date: Date) => {
     const dateStr = format(date, 'yyyy-MM-dd');
-    return tasks.filter((t) => t.due_date === dateStr && t.status !== 'done');
+    return tasks.filter((t) => t.due_date === dateStr);
   };
 
   const mainGoal = goals.find((g) => g.id === profile?.main_goal_id);
@@ -125,6 +125,11 @@ const WeeklyPage = () => {
 
   useEffect(() => {
     const sorted = [...selectedDayTasks].sort((a, b) => {
+      // First sort by completion status (active first)
+      const doneA = a.status === 'done' ? 1 : 0;
+      const doneB = b.status === 'done' ? 1 : 0;
+      if (doneA !== doneB) return doneA - doneB;
+
       const orderA = a.sort_order || 0;
       const orderB = b.sort_order || 0;
       if (orderA !== orderB) return orderA - orderB;
@@ -208,17 +213,9 @@ const WeeklyPage = () => {
     }, {
       onSuccess: () => {
         if (isLastTask) {
-          const message = triggerDailyCelebration(profile?.name);
-          toast.success(message, {
-            duration: 6000,
-            icon: '🎉',
-          });
+          triggerDailyCelebration(profile?.name);
         } else {
-          const message = triggerTaskCelebration(task.title, profile?.name);
-          toast.success(message, {
-            duration: 4000,
-            icon: '🚀',
-          });
+          triggerTaskCelebration(task.title, profile?.name);
         }
       }
     });

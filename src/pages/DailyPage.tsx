@@ -130,8 +130,12 @@ const DailyPage = () => {
 
   const sortedTasks = useMemo(() => {
     return tasks
-      .filter((t: any) => t.status !== 'done')
       .sort((a: any, b: any) => {
+        // First sort by completion status (active first)
+        const doneA = a.status === 'done' ? 1 : 0;
+        const doneB = b.status === 'done' ? 1 : 0;
+        if (doneA !== doneB) return doneA - doneB;
+
         const orderA = a.sort_order || 0;
         const orderB = b.sort_order || 0;
         if (orderA !== orderB) return orderA - orderB;
@@ -178,18 +182,12 @@ const DailyPage = () => {
       }, {
         onSuccess: () => {
           setCompletingTaskId(null);
+          // Only show celebration confetti/message on last task if preferred, 
+          // but user said "no quiero que aparezca la notificación arriba"
           if (isLastTask) {
-            const message = triggerDailyCelebration(profile?.name);
-            toast.success(message, {
-              duration: 6000,
-              icon: '🎉',
-            });
+            triggerDailyCelebration(profile?.name);
           } else {
-            const message = triggerTaskCelebration(task.title, profile?.name);
-            toast.success(message, {
-              duration: 4000,
-              icon: '🚀',
-            });
+            triggerTaskCelebration(task.title, profile?.name);
           }
         },
         onError: () => setCompletingTaskId(null)
