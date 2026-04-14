@@ -167,10 +167,10 @@ const DailyPage = () => {
   const handleComplete = async (task: any, e: React.MouseEvent) => {
     e.stopPropagation();
     
-    // Step 1: Trigger local "completing" animation
+    // Step 1: Trigger local "completing" animation (Check appears -> Line draws)
     setCompletingTaskId(task.id);
 
-    // Step 2: Delay the actual mutation to allow animation to play
+    // Step 2: Delay the actual mutation to allow the line animation to visually finish
     setTimeout(() => {
       // Find if this is the last task
       const remainingTasks = tasks.filter((t: any) => t.status !== 'done' && t.id !== task.id);
@@ -183,8 +183,7 @@ const DailyPage = () => {
       }, {
         onSuccess: () => {
           setCompletingTaskId(null);
-          // Only show celebration confetti/message on last task if preferred, 
-          // but user said "no quiero que aparezca la notificación arriba"
+          // Step 3: Trigger confetti immediately after the mutation
           if (isLastTask) {
             triggerDailyCelebration(profile?.name);
           } else {
@@ -193,7 +192,12 @@ const DailyPage = () => {
         },
         onError: () => setCompletingTaskId(null)
       });
-    }, 800); // 800ms for strike + check animation
+    }, 500); // 500ms delay matches the line animation duration
+  };
+
+  const handleUncomplete = (task: any, e: React.MouseEvent) => {
+    e.stopPropagation();
+    updateTask.mutate({ id: task.id, status: 'pending', completed_at: null });
   };
 
   const handleDragStart = (idx: number) => setDragIdx(idx);
@@ -448,7 +452,7 @@ const DailyPage = () => {
                             onClick={() => setSelectedTask(task)}
                             className={`p-3 rounded-xl flex items-start gap-3 cursor-pointer transition-all border ${
                               isDone 
-                                ? 'bg-transparent border-transparent opacity-60' 
+                                ? 'opacity-40 bg-black/5 border-transparent grayscale-[0.2]' 
                                 : dragIdx !== null && orderedTasks[dragIdx]?.id === task.id 
                                   ? 'bg-surface-container-high scale-[1.02] shadow-lg border-primary/20' 
                                   : 'bg-background hover:scale-[1.005] shadow-sm border-black/5'
@@ -458,7 +462,9 @@ const DailyPage = () => {
                               <motion.div
                                 initial={{ scale: 0 }}
                                 animate={{ scale: 1 }}
-                                className="w-5 h-5 rounded bg-primary flex items-center justify-center flex-shrink-0 mt-0.5"
+                                transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                                className="w-5 h-5 rounded bg-primary flex items-center justify-center flex-shrink-0 mt-0.5 cursor-pointer"
+                                onClick={(e) => handleUncomplete(task, e)}
                               >
                                 <Check className="w-3 h-3 text-primary-foreground" />
                               </motion.div>
@@ -469,14 +475,22 @@ const DailyPage = () => {
                               />
                             )}
 
-                            <div className="flex-1 min-w-0 flex items-center">
+                            <div className="flex-1 min-w-0 relative">
                               <h4
                                 className={`text-sm font-semibold break-words transition-colors ${
-                                  isDone || completingTaskId === task.id ? 'text-on-surface-variant line-through' : 'text-foreground'
+                                  isDone || completingTaskId === task.id ? 'text-on-surface-variant' : 'text-foreground'
                                 }`}
                               >
                                 {task.title}
                               </h4>
+                              {(isDone || completingTaskId === task.id) && (
+                                <motion.div
+                                  initial={{ width: 0 }}
+                                  animate={{ width: '100%' }}
+                                  transition={{ delay: 0.1, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+                                  className="absolute top-1/2 left-0 h-[2px] bg-primary/40 -translate-y-1/2"
+                                />
+                              )}
                             </div>
 
                             {!isDone && (

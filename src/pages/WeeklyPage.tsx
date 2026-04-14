@@ -208,23 +208,37 @@ const WeeklyPage = () => {
   };
 
   const handleComplete = (task: any) => {
-    // Find if this is the last task for the selected day
-    const remainingTasks = tasks.filter((t: any) => t.status !== 'done' && t.id !== task.id);
-    const isLastTask = tasks.length > 0 && remainingTasks.length === 0;
+    // Step 1: Trigger local "completing" animation
+    setCompletingTaskId(task.id);
 
-    updateTask.mutate({ 
-      id: task.id, 
-      status: 'done', 
-      completed_at: new Date().toISOString() 
-    }, {
-      onSuccess: () => {
-        if (isLastTask) {
-          triggerDailyCelebration(profile?.name);
-        } else {
-          triggerTaskCelebration(task.title, profile?.name);
-        }
-      }
-    });
+    // Step 2: Wait for line to draw before validating mutation and popping confetti
+    setTimeout(() => {
+      // Find if this is the last task for the selected day
+      const remainingTasks = tasks.filter((t: any) => t.status !== 'done' && t.id !== task.id);
+      const isLastTask = tasks.length > 0 && remainingTasks.length === 0;
+
+      updateTask.mutate({ 
+        id: task.id, 
+        status: 'done', 
+        completed_at: new Date().toISOString() 
+      }, {
+        onSuccess: () => {
+          setCompletingTaskId(null);
+          // Step 3: Trigger confetti
+          if (isLastTask) {
+            triggerDailyCelebration(profile?.name);
+          } else {
+            triggerTaskCelebration(task.title, profile?.name);
+          }
+        },
+        onError: () => setCompletingTaskId(null)
+      });
+    }, 500); // Wait 500ms for line animation
+  };
+
+  const handleUncomplete = (task: any, e: React.MouseEvent) => {
+    e.stopPropagation();
+    updateTask.mutate({ id: task.id, status: 'pending', completed_at: null });
   };
 
   const handleStartTimer = (task: any, e: React.MouseEvent) => {
@@ -422,22 +436,35 @@ const WeeklyPage = () => {
                             onClick={() => setSelectedTask(task)}
                             className={`p-3 rounded-xl flex items-start gap-3 cursor-pointer transition-all border ${
                               isDone 
-                                ? 'bg-transparent border-transparent opacity-60' 
+                                ? 'opacity-40 bg-black/5 border-transparent grayscale-[0.2]' 
                                 : dragIdx === idx || touchIdx === idx 
                                   ? 'bg-surface-container-high scale-[1.02] shadow-lg border-primary/20' 
                                   : 'bg-background hover:scale-[1.005] shadow-sm border-black/5'
                             }`}>
                             {!isDone && <GripVertical className="w-4 h-4 text-on-surface-variant/30 flex-shrink-0 cursor-grab mt-1" />}
-                            {isDone ? (
-                              <div className="w-5 h-5 rounded bg-primary flex items-center justify-center flex-shrink-0 mt-0.5">
+                            {isDone || completingTaskId === task.id ? (
+                              <motion.div 
+                                initial={{ scale: 0 }}
+                                animate={{ scale: 1 }}
+                                transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                                className="w-5 h-5 rounded bg-primary flex items-center justify-center flex-shrink-0 mt-0.5 cursor-pointer"
+                                onClick={(e) => handleUncomplete(task, e)}>
                                 <Check className="w-3 h-3 text-primary-foreground" />
-                              </div>
+                              </motion.div>
                             ) : (
                               <button onClick={(e) => { e.stopPropagation(); handleComplete(task); }}
                                 className="w-5 h-5 rounded border-2 border-outline-variant flex items-center justify-center hover:border-primary flex-shrink-0 mt-0.5" />
                             )}
-                            <div className="flex-1 min-w-0 flex items-center mt-0.5">
-                              <h4 className={`text-sm font-semibold break-words transition-colors ${isDone ? 'text-on-surface-variant line-through' : 'text-foreground'}`}>{task.title}</h4>
+                            <div className="flex-1 min-w-0 relative mt-0.5">
+                              <h4 className={`text-sm font-semibold break-words transition-colors ${isDone || completingTaskId === task.id ? 'text-on-surface-variant' : 'text-foreground'}`}>{task.title}</h4>
+                              {(isDone || completingTaskId === task.id) && (
+                                <motion.div
+                                  initial={{ width: 0 }}
+                                  animate={{ width: '100%' }}
+                                  transition={{ delay: 0.1, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+                                  className="absolute top-1/2 left-0 h-[2px] bg-primary/40 -translate-y-1/2"
+                                />
+                              )}
                             </div>
                             {!isDone && (
                               <button onClick={(e) => handleStartTimer(task, e)}
@@ -478,22 +505,35 @@ const WeeklyPage = () => {
                       onClick={() => setSelectedTask(task)}
                       className={`p-3.5 rounded-xl flex items-start gap-3 cursor-pointer transition-all border ${
                         isDone 
-                          ? 'bg-transparent border-transparent opacity-60' 
+                          ? 'opacity-40 bg-black/5 border-transparent grayscale-[0.2]' 
                           : dragIdx === idx || touchIdx === idx 
                             ? 'bg-surface-container-high scale-[1.02] shadow-lg border-primary/20' 
                             : 'bg-surface-container-low hover:bg-surface-container-high shadow-sm border-black/5'
                       }`}>
                       {!isDone && <GripVertical className="w-4 h-4 text-on-surface-variant/30 flex-shrink-0 cursor-grab mt-0.5" />}
-                      {isDone ? (
-                        <div className="w-5 h-5 rounded bg-primary flex items-center justify-center flex-shrink-0">
+                      {isDone || completingTaskId === task.id ? (
+                        <motion.div 
+                          initial={{ scale: 0 }}
+                          animate={{ scale: 1 }}
+                          transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                          className="w-5 h-5 rounded bg-primary flex items-center justify-center flex-shrink-0 cursor-pointer"
+                          onClick={(e) => handleUncomplete(task, e)}>
                           <Check className="w-3 h-3 text-primary-foreground" />
-                        </div>
+                        </motion.div>
                       ) : (
                         <button onClick={(e) => { e.stopPropagation(); handleComplete(task); }}
                           className="w-5 h-5 rounded border-2 border-outline-variant flex items-center justify-center hover:border-primary flex-shrink-0" />
                       )}
-                      <div className="flex-1 min-w-0 flex items-center">
-                        <h4 className={`text-sm font-semibold break-words ${isDone ? 'text-on-surface-variant line-through' : 'text-foreground'}`}>{task.title}</h4>
+                      <div className="flex-1 min-w-0 relative">
+                        <h4 className={`text-sm font-semibold break-words transition-colors ${isDone || completingTaskId === task.id ? 'text-on-surface-variant' : 'text-foreground'}`}>{task.title}</h4>
+                        {(isDone || completingTaskId === task.id) && (
+                          <motion.div
+                            initial={{ width: 0 }}
+                            animate={{ width: '100%' }}
+                            transition={{ delay: 0.1, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+                            className="absolute top-1/2 left-0 h-[2px] bg-primary/40 -translate-y-1/2"
+                          />
+                        )}
                       </div>
                       {!isDone && (
                         <button onClick={(e) => handleStartTimer(task, e)}
