@@ -334,6 +334,13 @@ Tu trabajo es:`;
       ]);
 
       const cls = result || defaults;
+
+      if ((cls as any).is_date_uncertain) {
+        setPhase('date');
+        isCurrentlySavingRef.current = false;
+        return;
+      }
+
       const finalTitle = cls.refined_title || taskTitle;
       const finalDescription = cls.description || '';
       const finalDate = (cls as any).due_date || date || format(new Date(), 'yyyy-MM-dd');

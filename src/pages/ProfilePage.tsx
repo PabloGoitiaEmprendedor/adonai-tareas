@@ -347,6 +347,23 @@ const ProfilePage = () => {
                 <div className="w-[18px] h-[18px] bg-foreground rounded-full mx-0.5" />
               </button>
             </div>
+
+            {/* Email Notifications Toggle */}
+            <div className="flex items-center justify-between p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-lg bg-surface-container-highest flex items-center justify-center">
+                  <span className="text-lg">📧</span>
+                </div>
+                <div className="flex flex-col">
+                  <span className="font-semibold text-foreground text-sm">Recordatorios por Email</span>
+                  <p className="text-[10px] text-on-surface-variant/60">Recibe alertas de tareas importantes</p>
+                </div>
+              </div>
+              <button onClick={() => updateSettings.mutate({ email_notifications_enabled: !(settings as any)?.email_notifications_enabled })}
+                className={`w-10 h-6 rounded-full transition-colors flex items-center ${(settings as any)?.email_notifications_enabled !== false ? 'bg-primary justify-end' : 'bg-surface-container-highest justify-start'}`}>
+                <div className="w-[18px] h-[18px] bg-foreground rounded-full mx-0.5" />
+              </button>
+            </div>
           </div>
         </section>
 

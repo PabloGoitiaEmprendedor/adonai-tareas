@@ -70,6 +70,7 @@ Tu trabajo es:
 5. Clasificar la tarea automáticamente.
 6. ASIGNAR A UNA CARPETA adecuada (si aplica).
 7. ASIGNAR A UN BLOQUE DE TIEMPO (time_block). SIEMPRE analiza si la tarea corresponde a uno de los BLOQUES DE TIEMPO ACTIVOS (ej. es una reunión y hay un bloque de reuniones, es algo profundo y hay un bloque 'Focus'). Asigna el "time_block_id" existente que mejor encaje. Si la tarea es en una hora específica que no tiene bloque, usa suggest_new_time_block para crear uno. SI LA TAREA ES RECURRENTE (ej. cada lunes), el bloque que sugieras TAMBIÉN debe ser recurrente (is_recurring: true) con los mismos días de la semana. Si la tarea es genérica y no tienes bloques que encajen, déjalo null.
+8. VALIDACIÓN DE FECHA: Si el usuario NO especifica cuándo hacer la tarea (ni hoy, ni mañana, ni recurrente, ni nada), pon 'is_date_uncertain' en true y deja 'due_date' en null. No adivines si no hay pistas claras.
 
 EJEMPLO: El usuario dicta "oye mira necesito que mañana me acuerde de ir al banco a sacar la tarjeta nueva porque la otra se me venció". Resultado:
 - refined_title: "Ir al banco por tarjeta nueva"
@@ -174,9 +175,10 @@ ${existingTasks.map((t: any) => `- ${t.title} (Prioridad: ${t.priority}, Urgenci
                     },
                     required: ["frequency", "interval"],
                   },
+                  is_date_uncertain: { type: "boolean", description: "True si el usuario no mencionó ninguna fecha ni patrón de recurrencia claro." },
                   reasoning: { type: "string", description: "1 oración explicando la clasificación" },
                 },
-                required: ["refined_title", "description", "importance", "urgency", "priority", "estimated_minutes", "reasoning"],
+                required: ["refined_title", "description", "importance", "urgency", "priority", "estimated_minutes", "reasoning", "is_date_uncertain"],
                 additionalProperties: false,
               },
             },

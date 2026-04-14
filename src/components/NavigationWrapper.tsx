@@ -15,19 +15,29 @@ interface NavigationWrapperProps {
 const SidebarContent = ({ user, menuItems, location, handleNavigate, signOut, startTutorial, isSheet = false }: any) => (
   <div className="flex flex-col h-full">
     <div className="p-6 border-b border-outline-variant/10">
+      <div 
+        onClick={() => handleNavigate('/profile')}
+        className="flex items-center gap-3 mb-6 cursor-pointer hover:opacity-80 transition-opacity group"
+      >
+        <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center border border-primary/20 group-hover:bg-primary/20 transition-colors">
+          <User className="w-6 h-6 text-primary" />
+        </div>
+        <div className="flex flex-col min-w-0">
+          <span className="text-sm font-black text-foreground truncate tracking-tight">{user?.email?.split('@')[0] || 'Mi Espacio'}</span>
+          <span className="text-[10px] text-primary font-bold uppercase tracking-wider opacity-60">Configuración</span>
+        </div>
+      </div>
+
       {isSheet ? (
         <SheetHeader>
-          <SheetTitle className="text-left text-2xl font-black primary-gradient-text tracking-tighter">
+          <SheetTitle className="text-left text-xl font-black primary-gradient-text tracking-tighter opacity-40">
             Adonai
           </SheetTitle>
         </SheetHeader>
       ) : (
-        <h2 className="text-left text-2xl font-black primary-gradient-text tracking-tighter">
+        <h2 className="text-left text-xl font-black primary-gradient-text tracking-tighter opacity-40">
           Adonai
         </h2>
-      )}
-      {user?.email && (
-        <p className="text-[10px] text-on-surface-variant/60 truncate italic mt-1">{user.email}</p>
       )}
     </div>
 

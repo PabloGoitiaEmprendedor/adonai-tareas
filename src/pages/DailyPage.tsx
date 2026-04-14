@@ -325,11 +325,7 @@ const DailyPage = () => {
                     </div>
                   </div>
 
-                  <div className="p-3 space-y-2">
-                    {blockTasks.length === 0 && (
-                      <p className="text-sm p-2 text-foreground/50 italic">Área libre (sin tareas agendadas)</p>
-                    )}
-
+                    <div className="p-3 space-y-2">
                     <AnimatePresence mode="popLayout">
                       {blockTasks.map((task) => {
                         const isDone = task.status === 'done';
@@ -402,9 +398,6 @@ const DailyPage = () => {
 
             {/* Unscheduled Tasks Rendering */}
             <div className="space-y-2 mt-8">
-              {timeBlocks.length > 0 && orderedTasks.filter(t => !t.time_block_id).length > 0 && (
-                <h3 className="font-bold text-lg text-foreground px-1 pb-2">Tareas sin bloque asignado</h3>
-              )}
               <AnimatePresence mode="popLayout">
                 {orderedTasks.filter(t => !t.time_block_id).map((task, idx) => {
                   const isDone = task.status === 'done';
