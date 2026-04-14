@@ -110,7 +110,7 @@ const baseSteps: Step[] = [
   },
   {
     target: '#folder-create-confirm',
-    content: 'Confirma la creación. Cuando termine, te mostraré la parte de amigos.',
+    content: 'Confirma la creación. Cuando termine, seguiremos a Metas.',
     blockTargetInteraction: false,
     overlayClickAction: false,
     isFixed: true,
@@ -128,6 +128,12 @@ const existingGoalsSteps: Step[] = [
   {
     target: '#goal-add-button',
     content: 'Desde aquí puedes crear nuevas metas cuando quieras.',
+    blockTargetInteraction: false,
+    overlayClickAction: false,
+  },
+  {
+    target: '#friends-tabs',
+    content: 'Finalmente, en Amigos puedes conectar con tu comunidad para ver qué están compartiendo.',
     blockTargetInteraction: false,
     overlayClickAction: false,
   },
@@ -163,11 +169,17 @@ const firstGoalSteps: Step[] = [
   },
   {
     target: '#goal-create-button',
-    content: 'Crea la meta y terminaremos el tutorial.',
+    content: 'Crea la meta y pasaremos a la sección de Amigos.',
     blockTargetInteraction: false,
     overlayClickAction: false,
     isFixed: true,
     buttons: [],
+  },
+  {
+    target: '#friends-tabs',
+    content: 'Finalmente, en Amigos puedes conectar con tu comunidad para ver qué están compartiendo.',
+    blockTargetInteraction: false,
+    overlayClickAction: false,
   },
   {
     target: 'body',

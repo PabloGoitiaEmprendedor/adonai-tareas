@@ -39,6 +39,11 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
     if (index <= 3) return '/';
     if (index <= 10) return '/week';
     if (index <= 14) return '/folders';
+    
+    const friendsIndex = hasGoals ? 17 : 20;
+    if (index >= friendsIndex && index < friendsIndex + 1) return '/friends';
+    if (index >= friendsIndex + 1) return '/'; // End step
+
     return '/goals';
   };
 
