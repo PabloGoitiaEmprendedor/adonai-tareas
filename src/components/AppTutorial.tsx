@@ -147,18 +147,13 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
       run={run}
       stepIndex={stepIndex}
       continuous
-      scrollToFirstStep
-      onEvent={handleCallback}
-      options={{
-        blockTargetInteraction: false,
-        buttons: ['back', 'close', 'primary', 'skip'],
-        dismissKeyAction: 'close',
-        overlayClickAction: false,
-        overlayColor: 'hsl(var(--background) / 0.6)',
-        primaryColor: 'hsl(var(--primary))',
-        showProgress: false,
-        zIndex: 10000,
-      }}
+      scrollToFirstStep={stepIndex <= 3}
+      disableScrolling={stepIndex > 3}
+      callback={handleCallback}
+      showProgress={false}
+      showSkipButton
+      disableOverlayClose
+      spotlightPadding={10}
       locale={{
         back: 'Atrás',
         close: 'Cerrar',
@@ -167,6 +162,10 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
         skip: 'Saltar',
       }}
       styles={{
+        options: {
+          zIndex: 10000,
+          primaryColor: 'hsl(var(--primary))',
+        },
         buttonPrimary: {
           fontSize: '13px',
           fontWeight: '700',
