@@ -6,6 +6,7 @@ import {
   TUTORIAL_FOLDER_CREATED_EVENT,
   TUTORIAL_GOAL_CREATED_EVENT,
   TUTORIAL_TIME_BLOCK_CREATED_EVENT,
+  dispatchTutorialCloseCaptureModal
 } from '@/lib/tutorialEvents';
 import { getTutorialSteps } from './tutorial/tutorialSteps';
 
@@ -74,6 +75,9 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
       const isManualStep = index === 0 || index === 4 || index === 10 || index === 11 || index === 14 || (!hasGoals && index === goalCreationSaveIndex);
 
       if (!isManualStep) {
+        if (index === 3) {
+          dispatchTutorialCloseCaptureModal();
+        }
         const nextIndex = index + (action === ACTIONS.PREV ? -1 : 1);
         setStepIndex(nextIndex);
       }

@@ -11,6 +11,7 @@ import FAB from '@/components/FAB';
 import TaskCaptureModal, { type TaskCaptureModalHandle } from '@/components/TaskCaptureModal';
 import TaskDetailModal from '@/components/TaskDetailModal';
 import FullscreenTimer from '@/components/FullscreenTimer';
+import { TUTORIAL_CLOSE_CAPTURE_MODAL_EVENT } from '@/lib/tutorialEvents';
 
 const getGreeting = () => {
   const h = new Date().getHours();
@@ -38,6 +39,12 @@ const DashboardPage = () => {
     setCaptureOpen(true);
   }, []);
   useGlobalVoiceCapture(captureModalRef, openCapture);
+
+  useEffect(() => {
+    const handleCloseModal = () => setCaptureOpen(false);
+    window.addEventListener(TUTORIAL_CLOSE_CAPTURE_MODAL_EVENT, handleCloseModal);
+    return () => window.removeEventListener(TUTORIAL_CLOSE_CAPTURE_MODAL_EVENT, handleCloseModal);
+  }, []);
 
   const pendingTasks = tasks.filter((t) => t.status === 'pending');
   const sorted = useEisenhowerSort(pendingTasks);
