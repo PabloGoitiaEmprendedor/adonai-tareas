@@ -47,7 +47,7 @@ const WeeklyPage = () => {
     return h * 60 + m;
   };
 
-  const weekStart = startOfWeek(viewDate, { weekStartsOn: 1 });
+  const weekStart = startOfWeek(selectedDay, { weekStartsOn: 1 });
   const weekEnd = addDays(weekStart, 6);
   const startDate = format(weekStart, 'yyyy-MM-dd');
   const endDate = format(weekEnd, 'yyyy-MM-dd');

@@ -69,7 +69,7 @@ Tu trabajo es:
 4. EXTRAER LA FECHA: Analiza cuidadosamente cuándo el usuario quiere hacer la tarea. "hoy" = ${todayStr}, "mañana" = día siguiente, "el lunes" = próximo lunes, "el 15 de julio" = 2026-07-15, etc. Devuelve la fecha en formato YYYY-MM-DD en el campo due_date.
 5. Clasificar la tarea automáticamente.
 6. ASIGNAR A UNA CARPETA adecuada (si aplica).
-7. ASIGNAR A UN BLOQUE DE TIEMPO (time_block). SIEMPRE analiza si la tarea corresponde a uno de los BLOQUES DE TIEMPO ACTIVOS (ej. es una reunión y hay un bloque de reuniones, es algo profundo y hay un bloque 'Focus'). Asigna el "time_block_id" existente que mejor encaje. Si la tarea es en una hora específica que no tiene bloque, usa suggest_new_time_block para crear uno. Si la tarea es genérica y no tienes bloques que encajen, déjalo null.
+7. ASIGNAR A UN BLOQUE DE TIEMPO (time_block). SIEMPRE analiza si la tarea corresponde a uno de los BLOQUES DE TIEMPO ACTIVOS (ej. es una reunión y hay un bloque de reuniones, es algo profundo y hay un bloque 'Focus'). Asigna el "time_block_id" existente que mejor encaje. Si la tarea es en una hora específica que no tiene bloque, usa suggest_new_time_block para crear uno. SI LA TAREA ES RECURRENTE (ej. cada lunes), el bloque que sugieras TAMBIÉN debe ser recurrente (is_recurring: true) con los mismos días de la semana. Si la tarea es genérica y no tienes bloques que encajen, déjalo null.
 
 EJEMPLO: El usuario dicta "oye mira necesito que mañana me acuerde de ir al banco a sacar la tarjeta nueva porque la otra se me venció". Resultado:
 - refined_title: "Ir al banco por tarjeta nueva"
@@ -156,7 +156,9 @@ ${existingTasks.map((t: any) => `- ${t.title} (Prioridad: ${t.priority}, Urgenci
                       title: { type: "string", description: "Nombre del bloque, ej. 'Bloque Foco', 'Reuniones'" },
                       start_time: { type: "string", description: "HH:MM, ej. '14:00'" },
                       end_time: { type: "string", description: "HH:MM, ej. '16:00'" },
-                      color: { type: "string", description: "Color hex, ej. '#4caf50'" }
+                      color: { type: "string", description: "Color hex, ej. '#4caf50'" },
+                      is_recurring: { type: "boolean", description: "Si el bloque debe repetirse periódicamente" },
+                      days_of_week: { type: "array", items: { type: "number" }, description: "Días de la semana si es recurrente. 0=Dom, 1=Lun, ..., 6=Sab." }
                     },
                     required: ["title", "start_time", "end_time"]
                   },
@@ -237,6 +239,7 @@ ${existingTasks.map((t: any) => `- ${t.title} (Prioridad: ${t.priority}, Urgenci
 
     // Auto-create suggested time block if no returning ID
     if (!classification.time_block_id && classification.suggest_new_time_block) {
+        const isRecBlock = !!classification.suggest_new_time_block.is_recurring;
         const { data: newBlock } = await supabase
           .from("time_blocks")
           .insert({ 
@@ -245,7 +248,9 @@ ${existingTasks.map((t: any) => `- ${t.title} (Prioridad: ${t.priority}, Urgenci
             start_time: classification.suggest_new_time_block.start_time,
             end_time: classification.suggest_new_time_block.end_time,
             color: classification.suggest_new_time_block.color || '#4caf50',
-            block_date: classification.due_date || todayStr
+            block_date: isRecBlock ? null : (classification.due_date || todayStr),
+            is_recurring: isRecBlock,
+            days_of_week: classification.suggest_new_time_block.days_of_week || []
           })
           .select()
           .single();
