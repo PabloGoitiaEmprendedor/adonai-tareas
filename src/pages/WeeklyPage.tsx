@@ -38,6 +38,7 @@ const WeeklyPage = () => {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
   const captureModalRef = useRef<TaskCaptureModalHandle>(null);
+  const [completingTaskId, setCompletingTaskId] = useState<string | null>(null);
 
   const [aiModalOpen, setAiModalOpen] = useState(false);
 
