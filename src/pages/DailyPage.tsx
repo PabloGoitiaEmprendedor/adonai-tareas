@@ -478,17 +478,18 @@ const DailyPage = () => {
                             <div className="flex-1 min-w-0 relative">
                               <h4
                                 className={`text-sm font-semibold break-words transition-colors ${
-                                  isDone || completingTaskId === task.id ? 'text-on-surface-variant' : 'text-foreground'
+                                  isDone ? 'text-on-surface-variant line-through' :
+                                  completingTaskId === task.id ? 'text-on-surface-variant' : 'text-foreground'
                                 }`}
                               >
                                 {task.title}
                               </h4>
-                              {(isDone || completingTaskId === task.id) && (
+                              {completingTaskId === task.id && (
                                 <motion.div
                                   initial={{ width: 0 }}
                                   animate={{ width: '100%' }}
                                   transition={{ delay: 0.1, duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-                                  className="absolute top-1/2 left-0 h-[2px] bg-primary/50 -translate-y-1/2"
+                                  className="absolute top-1/2 left-0 h-[2px] bg-primary/50 -translate-y-1/2 z-10 pointer-events-none"
                                 />
                               )}
                             </div>

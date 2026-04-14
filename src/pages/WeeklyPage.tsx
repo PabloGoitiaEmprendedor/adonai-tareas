@@ -457,13 +457,16 @@ const WeeklyPage = () => {
                                 className="w-5 h-5 rounded border-2 border-outline-variant flex items-center justify-center hover:border-primary flex-shrink-0 mt-0.5" />
                             )}
                             <div className="flex-1 min-w-0 relative mt-0.5">
-                              <h4 className={`text-sm font-semibold break-words transition-colors ${isDone || completingTaskId === task.id ? 'text-on-surface-variant' : 'text-foreground'}`}>{task.title}</h4>
-                              {(isDone || completingTaskId === task.id) && (
+                              <h4 className={`text-sm font-semibold break-words transition-colors ${
+                                isDone ? 'text-on-surface-variant line-through' :
+                                completingTaskId === task.id ? 'text-on-surface-variant' : 'text-foreground'
+                              }`}>{task.title}</h4>
+                              {completingTaskId === task.id && (
                                 <motion.div
                                   initial={{ width: 0 }}
                                   animate={{ width: '100%' }}
                                   transition={{ delay: 0.1, duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-                                  className="absolute top-1/2 left-0 h-[2px] bg-primary/50 -translate-y-1/2"
+                                  className="absolute top-1/2 left-0 h-[2px] bg-primary/50 -translate-y-1/2 z-10 pointer-events-none"
                                 />
                               )}
                             </div>
@@ -526,13 +529,16 @@ const WeeklyPage = () => {
                           className="w-5 h-5 rounded border-2 border-outline-variant flex items-center justify-center hover:border-primary flex-shrink-0" />
                       )}
                       <div className="flex-1 min-w-0 relative">
-                        <h4 className={`text-sm font-semibold break-words transition-colors ${isDone || completingTaskId === task.id ? 'text-on-surface-variant' : 'text-foreground'}`}>{task.title}</h4>
-                        {(isDone || completingTaskId === task.id) && (
+                        <h4 className={`text-sm font-semibold break-words transition-colors ${
+                          isDone ? 'text-on-surface-variant line-through' :
+                          completingTaskId === task.id ? 'text-on-surface-variant' : 'text-foreground'
+                        }`}>{task.title}</h4>
+                        {completingTaskId === task.id && (
                           <motion.div
                             initial={{ width: 0 }}
                             animate={{ width: '100%' }}
                             transition={{ delay: 0.1, duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-                            className="absolute top-1/2 left-0 h-[2px] bg-primary/50 -translate-y-1/2"
+                            className="absolute top-1/2 left-0 h-[2px] bg-primary/50 -translate-y-1/2 z-10 pointer-events-none"
                           />
                         )}
                       </div>
