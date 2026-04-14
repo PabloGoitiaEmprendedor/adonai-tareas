@@ -22,21 +22,19 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
   const hasGoals = goals.length > 0;
   const steps = useMemo(() => getTutorialSteps({ hasGoals }), [hasGoals]);
 
-  const goalCreationStartIndex = 19;
-  const goalCreationSaveIndex = 22;
+  const goalCreationStartIndex = 16;
+  const goalCreationSaveIndex = 19;
   const manualClickDelays: Record<number, number> = {
     0: 250,
-    4: 700,
-    5: 250,
-    12: 250,
+    4: 250,
+    11: 250,
     [goalCreationStartIndex]: 250,
   };
 
   const getRouteForStep = (index: number) => {
-    if (index <= 4) return '/';
-    if (index <= 11) return '/week';
-    if (index <= 15) return '/folders';
-    if (index <= 17) return '/friends';
+    if (index <= 3) return '/';
+    if (index <= 10) return '/week';
+    if (index <= 14) return '/folders';
     return '/goals';
   };
 
@@ -63,7 +61,7 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
     }
 
     if (type === EVENTS.STEP_AFTER) {
-      if (index === 11 || index === 15 || (!hasGoals && index === goalCreationSaveIndex)) {
+      if (index === 10 || index === 14 || (!hasGoals && index === goalCreationSaveIndex)) {
         return;
       }
 
@@ -96,9 +94,8 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
 
       const interactiveTriggers: Record<number, string> = {
         0: 'global-add-task-button',
-        4: 'tutorial-close-capture',
-        5: 'tutorial-block-button',
-        12: 'add-folder-button',
+        4: 'tutorial-block-button',
+        11: 'add-folder-button',
         ...(hasGoals ? {} : { [goalCreationStartIndex]: 'goal-add-button' }),
       };
 
@@ -118,11 +115,11 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
   useEffect(() => {
     if (!run) return;
 
-    const handleTimeBlockCreated = () => advanceToStep(12, 300);
-    const handleFolderCreated = () => advanceToStep(16, 300);
+    const handleTimeBlockCreated = () => advanceToStep(11, 300);
+    const handleFolderCreated = () => advanceToStep(15, 300);
     const handleGoalCreated = () => {
       if (!hasGoals) {
-        advanceToStep(23, 300);
+        advanceToStep(20, 300);
       }
     };
 

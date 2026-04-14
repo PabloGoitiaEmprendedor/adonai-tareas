@@ -24,14 +24,8 @@ const baseSteps: Step[] = [
   },
   {
     target: '#tutorial-photo-button',
-    content: 'Y aquí puedes fotografiar tu agenda para digitalizarla automáticamente.',
+    content: 'Y aquí puedes fotografiar tu agenda para digitalizarla automáticamente. Al darle a Siguiente, iremos al calendario.',
     blockTargetInteraction: true,
-  },
-  {
-    target: '#tutorial-close-capture',
-    content: 'Perfecto. Cierra este panel y te llevo al calendario para seguir con el flujo.',
-    blockTargetInteraction: false,
-    buttons: [],
   },
   {
     target: '#tutorial-block-button',
@@ -91,16 +85,6 @@ const baseSteps: Step[] = [
     content: 'Confirma la creación. Cuando termine, te mostraré la parte de amigos.',
     blockTargetInteraction: false,
     buttons: [],
-  },
-  {
-    target: '#friend-search-input',
-    content: 'Aquí puedes buscar amigos por nombre o email para conectar con ellos.',
-    blockTargetInteraction: false,
-  },
-  {
-    target: '#friends-tabs',
-    content: 'Y aquí ves tus amigos y las solicitudes pendientes en un solo lugar.',
-    blockTargetInteraction: false,
   },
   {
     target: '#goals-overview',
