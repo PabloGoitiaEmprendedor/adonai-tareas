@@ -67,11 +67,11 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
     }
 
     if (type === EVENTS.STEP_AFTER) {
-      const isSpecialStep = index === 0 || index === 4 || index === 10 || index === 11 || index === 14 || (!hasGoals && index === goalCreationSaveIndex);
+      const isManualStep = index === 0 || index === 4 || index === 10 || index === 11 || index === 14 || (!hasGoals && index === goalCreationSaveIndex);
       
-      if (!isSpecialStep) {
+      if (!isManualStep) {
         const nextIndex = index + (action === ACTIONS.PREV ? -1 : 1);
-        setStepIndex(nextIndex);
+        setTimeout(() => setStepIndex(nextIndex), 0);
       }
     }
   };
@@ -86,16 +86,19 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
     }
   }, [run, stepIndex, location.pathname, navigate]);
 
-  // Only reset to step 0 when the tutorial is explicitly started from a "false" to "true" state
-  const [prevRun, setPrevRun] = useState(false);
+  // Reset when starting
   useEffect(() => {
-    if (run && !prevRun) {
-      navigate('/');
-      setStepIndex(0);
-      if (helpers) helpers.goTo(0);
+    if (run) {
+      const isFirstStart = localStorage.getItem('adonai_tutorial_active') !== 'true';
+      if (isFirstStart) {
+        localStorage.setItem('adonai_tutorial_active', 'true');
+        setStepIndex(0);
+        if (helpers) helpers.goTo(0);
+      }
+    } else {
+      localStorage.removeItem('adonai_tutorial_active');
     }
-    setPrevRun(run);
-  }, [run, prevRun, navigate, helpers]);
+  }, [run, helpers]);
 
   useEffect(() => {
     if (!run) return;
@@ -119,8 +122,8 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
       }
     };
 
-    window.addEventListener('mousedown', handleGlobalClick);
-    return () => window.removeEventListener('mousedown', handleGlobalClick);
+    window.addEventListener('click', handleGlobalClick);
+    return () => window.removeEventListener('click', handleGlobalClick);
   }, [run, stepIndex, hasGoals, helpers]);
 
   useEffect(() => {
@@ -149,11 +152,11 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
 
   return (
     <Joyride
-      key={run ? 1 : 0}
       steps={steps}
       run={run}
       stepIndex={stepIndex}
       continuous
+      disableScrolling={stepIndex >= 1 && stepIndex <= 3}
       scrollToFirstStep
       getHelpers={(helpers) => setHelpers(helpers)}
       callback={handleCallback}
