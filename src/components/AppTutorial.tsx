@@ -19,11 +19,14 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
   const location = useLocation();
   const { goals, isLoading } = useGoals();
   const [stepIndex, setStepIndex] = useState(0);
+  const [helpers, setHelpers] = useState<any>(null);
+  
   const hasGoals = goals.length > 0;
   const steps = useMemo(() => getTutorialSteps({ hasGoals }), [hasGoals]);
 
   const goalCreationStartIndex = 16;
   const goalCreationSaveIndex = 19;
+  
   const manualClickDelays: Record<number, number> = {
     0: 250,
     4: 250,
@@ -39,7 +42,10 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
   };
 
   const advanceToStep = (nextStep: number, delay = 0) => {
-    window.setTimeout(() => setStepIndex(nextStep), delay);
+    window.setTimeout(() => {
+      setStepIndex(nextStep);
+      if (helpers) helpers.goTo(nextStep);
+    }, delay);
   };
 
   const handleCallback = (data: EventData) => {
@@ -61,12 +67,12 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
     }
 
     if (type === EVENTS.STEP_AFTER) {
-      if (index === 10 || index === 14 || (!hasGoals && index === goalCreationSaveIndex)) {
-        return;
+      const isSpecialStep = index === 0 || index === 4 || index === 10 || index === 11 || index === 14 || (!hasGoals && index === goalCreationSaveIndex);
+      
+      if (!isSpecialStep) {
+        const nextIndex = index + (action === ACTIONS.PREV ? -1 : 1);
+        setStepIndex(nextIndex);
       }
-
-      const nextIndex = index + (action === ACTIONS.PREV ? -1 : 1);
-      setStepIndex(nextIndex);
     }
   };
 
@@ -86,9 +92,10 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
     if (run && !prevRun) {
       navigate('/');
       setStepIndex(0);
+      if (helpers) helpers.goTo(0);
     }
     setPrevRun(run);
-  }, [run, prevRun, navigate]);
+  }, [run, prevRun, navigate, helpers]);
 
   useEffect(() => {
     if (!run) return;
@@ -100,7 +107,7 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
         0: 'global-add-task-button',
         4: 'tutorial-block-button',
         11: 'add-folder-button',
-        ...(hasGoals ? {} : { [goalCreationStartIndex]: 'goal-add-button' }),
+        ...(!hasGoals ? { [goalCreationStartIndex]: 'goal-add-button' } : {}),
       };
 
       const requiredId = interactiveTriggers[stepIndex];
@@ -114,7 +121,7 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
 
     window.addEventListener('mousedown', handleGlobalClick);
     return () => window.removeEventListener('mousedown', handleGlobalClick);
-  }, [run, stepIndex, hasGoals]);
+  }, [run, stepIndex, hasGoals, helpers]);
 
   useEffect(() => {
     if (!run) return;
@@ -136,7 +143,7 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
       window.removeEventListener(TUTORIAL_FOLDER_CREATED_EVENT, handleFolderCreated);
       window.removeEventListener(TUTORIAL_GOAL_CREATED_EVENT, handleGoalCreated);
     };
-  }, [run, hasGoals]);
+  }, [run, hasGoals, helpers]);
 
   if (!run || isLoading) return null;
 
@@ -147,8 +154,8 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
       run={run}
       stepIndex={stepIndex}
       continuous
-      scrollToFirstStep={stepIndex <= 3}
-      disableScrolling={stepIndex > 3}
+      scrollToFirstStep
+      getHelpers={(helpers) => setHelpers(helpers)}
       callback={handleCallback}
       showProgress={false}
       showSkipButton
