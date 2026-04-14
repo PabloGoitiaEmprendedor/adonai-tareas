@@ -70,6 +70,7 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
     }
   };
 
+  // Ensure we are on the correct route for the current step
   useEffect(() => {
     if (!run) return;
 
@@ -79,12 +80,15 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
     }
   }, [run, stepIndex, location.pathname, navigate]);
 
+  // Only reset to step 0 when the tutorial is explicitly started from a "false" to "true" state
+  const [prevRun, setPrevRun] = useState(false);
   useEffect(() => {
-    if (!run) return;
-
-    navigate('/');
-    setStepIndex(0);
-  }, [run, navigate]);
+    if (run && !prevRun) {
+      navigate('/');
+      setStepIndex(0);
+    }
+    setPrevRun(run);
+  }, [run, prevRun, navigate]);
 
   useEffect(() => {
     if (!run) return;
@@ -138,6 +142,7 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
 
   return (
     <Joyride
+      key={run ? 1 : 0}
       steps={steps}
       run={run}
       stepIndex={stepIndex}
