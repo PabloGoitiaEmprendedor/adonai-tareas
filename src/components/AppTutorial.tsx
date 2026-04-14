@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Joyride, type EventData, ACTIONS, EVENTS, STATUS } from 'react-joyride';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Joyride, type EventData, type Controls, ACTIONS, EVENTS, STATUS } from 'react-joyride';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useGoals } from '@/hooks/useGoals';
 import {
@@ -19,14 +19,14 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
   const location = useLocation();
   const { goals, isLoading } = useGoals();
   const [stepIndex, setStepIndex] = useState(0);
-  const [helpers, setHelpers] = useState<any>(null);
-  
+  const controlsRef = useRef<Controls | null>(null);
+
   const hasGoals = goals.length > 0;
   const steps = useMemo(() => getTutorialSteps({ hasGoals }), [hasGoals]);
 
   const goalCreationStartIndex = 16;
   const goalCreationSaveIndex = 19;
-  
+
   const manualClickDelays: Record<number, number> = {
     0: 250,
     4: 250,
@@ -44,12 +44,16 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
   const advanceToStep = (nextStep: number, delay = 0) => {
     window.setTimeout(() => {
       setStepIndex(nextStep);
-      if (helpers) helpers.goTo(nextStep);
+      controlsRef.current?.go(nextStep);
     }, delay);
   };
 
-  const handleCallback = (data: EventData) => {
+  // react-joyride v3: callback is onEvent(data, controls)
+  const handleEvent = (data: EventData, controls: Controls) => {
     const { action, index, status, type } = data;
+
+    // Store controls reference for external use
+    controlsRef.current = controls;
 
     if (status === STATUS.FINISHED || status === STATUS.SKIPPED || action === ACTIONS.CLOSE) {
       setStepIndex(0);
@@ -68,10 +72,10 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
 
     if (type === EVENTS.STEP_AFTER) {
       const isManualStep = index === 0 || index === 4 || index === 10 || index === 11 || index === 14 || (!hasGoals && index === goalCreationSaveIndex);
-      
+
       if (!isManualStep) {
         const nextIndex = index + (action === ACTIONS.PREV ? -1 : 1);
-        setTimeout(() => setStepIndex(nextIndex), 0);
+        setStepIndex(nextIndex);
       }
     }
   };
@@ -86,20 +90,17 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
     }
   }, [run, stepIndex, location.pathname, navigate]);
 
-  // Reset when starting
+  // Reset when tutorial starts
+  const prevRunRef = useRef(false);
   useEffect(() => {
-    if (run) {
-      const isFirstStart = localStorage.getItem('adonai_tutorial_active') !== 'true';
-      if (isFirstStart) {
-        localStorage.setItem('adonai_tutorial_active', 'true');
-        setStepIndex(0);
-        if (helpers) helpers.goTo(0);
-      }
-    } else {
-      localStorage.removeItem('adonai_tutorial_active');
+    if (run && !prevRunRef.current) {
+      navigate('/');
+      setStepIndex(0);
     }
-  }, [run, helpers]);
+    prevRunRef.current = run;
+  }, [run, navigate]);
 
+  // Handle interactive button clicks (steps where user must click the actual UI)
   useEffect(() => {
     if (!run) return;
 
@@ -124,8 +125,9 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
 
     window.addEventListener('click', handleGlobalClick);
     return () => window.removeEventListener('click', handleGlobalClick);
-  }, [run, stepIndex, hasGoals, helpers]);
+  }, [run, stepIndex, hasGoals]);
 
+  // Handle custom events from creation flows
   useEffect(() => {
     if (!run) return;
 
@@ -146,7 +148,7 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
       window.removeEventListener(TUTORIAL_FOLDER_CREATED_EVENT, handleFolderCreated);
       window.removeEventListener(TUTORIAL_GOAL_CREATED_EVENT, handleGoalCreated);
     };
-  }, [run, hasGoals, helpers]);
+  }, [run, hasGoals]);
 
   if (!run || isLoading) return null;
 
@@ -156,14 +158,8 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
       run={run}
       stepIndex={stepIndex}
       continuous
-      disableScrolling={stepIndex >= 1 && stepIndex <= 3}
       scrollToFirstStep
-      getHelpers={(helpers) => setHelpers(helpers)}
-      callback={handleCallback}
-      showProgress={false}
-      showSkipButton
-      disableOverlayClose
-      spotlightPadding={10}
+      onEvent={handleEvent}
       locale={{
         back: 'Atrás',
         close: 'Cerrar',
