@@ -601,7 +601,7 @@ Tu trabajo es:`;
                 </AnimatePresence>
                 
                 {/* Global File Input */}
-                <input type="file" ref={fileInputRef} hidden accept="image/*" capture="environment" onChange={(e) => {
+                <input type="file" ref={fileInputRef} hidden accept="image/*" onChange={(e) => {
                   const file = e.target.files?.[0];
                   if (file) handleImageSelected(file);
                 }} />
