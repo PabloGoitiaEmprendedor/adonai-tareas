@@ -359,8 +359,8 @@ const ProfilePage = () => {
                   <p className="text-[10px] text-on-surface-variant/60">Recibe alertas de tareas importantes</p>
                 </div>
               </div>
-              <button onClick={() => updateSettings.mutate({ email_notifications_enabled: !(settings as any)?.email_notifications_enabled })}
-                className={`w-10 h-6 rounded-full transition-colors flex items-center ${(settings as any)?.email_notifications_enabled !== false ? 'bg-primary justify-end' : 'bg-surface-container-highest justify-start'}`}>
+              <button onClick={() => updateSettings.mutate({ notifications_enabled: !(settings as any)?.notifications_enabled })}
+                className={`w-10 h-6 rounded-full transition-colors flex items-center ${(settings as any)?.notifications_enabled !== false ? 'bg-primary justify-end' : 'bg-surface-container-highest justify-start'}`}>
                 <div className="w-[18px] h-[18px] bg-foreground rounded-full mx-0.5" />
               </button>
             </div>

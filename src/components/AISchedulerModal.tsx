@@ -77,7 +77,7 @@ export const AISchedulerModal = ({ open, onClose, selectedDate }: AISchedulerMod
               title: titles[i % titles.length],
               start_time: startStr,
               end_time: endStr,
-              date: format(selectedDate, 'yyyy-MM-dd'),
+              block_date: format(selectedDate, 'yyyy-MM-dd'),
               color: i % 2 === 0 ? '#6366f1' : '#ec4899',
             });
           }
