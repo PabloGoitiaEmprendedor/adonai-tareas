@@ -177,7 +177,7 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
         skip: 'Saltar',
       }}
       styles={{
-        zIndex: 10000,
+        overlay: { zIndex: 10000 },
         buttonPrimary: {
           fontSize: '13px',
           fontWeight: '700',
