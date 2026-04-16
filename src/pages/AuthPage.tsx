@@ -20,6 +20,7 @@ const AuthPage = () => {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [appleLoading, setAppleLoading] = useState(false);
   const { signIn, signUp } = useAuth();
   const navigate = useNavigate();
 
@@ -65,6 +66,22 @@ const AuthPage = () => {
       toast.error('Error al conectar con Google');
       console.error(err);
       setGoogleLoading(false);
+    }
+  };
+
+  const handleAppleSignIn = async () => {
+    setAppleLoading(true);
+    try {
+      const result = await lovable.auth.signInWithOAuth("apple", {
+        redirect_uri: window.location.origin,
+      });
+      if (result.error) throw result.error;
+      if (result.redirected) return;
+      navigate('/');
+    } catch (err: any) {
+      toast.error('Error al conectar con Apple');
+      console.error(err);
+      setAppleLoading(false);
     }
   };
 
