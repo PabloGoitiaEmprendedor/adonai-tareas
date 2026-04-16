@@ -87,7 +87,7 @@ const AuthPage = () => {
           </p>
         </div>
 
-        {/* Google Sign In - Primary CTA */}
+        {/* Google Sign In */}
         <button
           onClick={handleGoogleSignIn}
           disabled={googleLoading}
@@ -101,8 +101,24 @@ const AuthPage = () => {
           {googleLoading ? 'Conectando...' : 'Continuar con Google'}
         </button>
 
+        {/* Apple Sign In */}
+        <button
+          onClick={handleAppleSignIn}
+          disabled={appleLoading}
+          className="w-full h-14 rounded-lg bg-surface-container-lowest text-foreground font-semibold text-base flex items-center justify-center gap-3 hover:bg-surface-container-low active:scale-[0.98] transition-all disabled:opacity-50"
+        >
+          {appleLoading ? (
+            <div className="w-5 h-5 border-2 border-foreground border-t-transparent rounded-full animate-spin" />
+          ) : (
+            <svg viewBox="0 0 24 24" className="w-5 h-5 fill-current">
+              <path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/>
+            </svg>
+          )}
+          {appleLoading ? 'Conectando...' : 'Continuar con Apple'}
+        </button>
+
         <p className="text-center text-xs text-on-surface-variant/60">
-          Inicio de sesión seguro con tu cuenta de Google
+          Inicio de sesión seguro con Google o Apple
         </p>
 
         <div className="flex items-center gap-4">

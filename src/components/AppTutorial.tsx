@@ -177,10 +177,7 @@ const AppTutorial = ({ run, onFinish }: AppTutorialProps) => {
         skip: 'Saltar',
       }}
       styles={{
-        options: {
-          zIndex: 10000,
-          primaryColor: 'hsl(var(--primary))',
-        },
+        zIndex: 10000,
         buttonPrimary: {
           fontSize: '13px',
           fontWeight: '700',
