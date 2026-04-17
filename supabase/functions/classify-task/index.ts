@@ -125,7 +125,7 @@ ${existingTasks.map((t: any) => `- ${t.title} (Prioridad: ${t.priority}, Urgenci
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-1.5-flash-002",
+        model: "google/gemini-2.5-flash",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: `Analiza y clasifica esto: "${taskTitle}"${dueDate ? ` (fecha sugerida: ${dueDate})` : ""}` },
