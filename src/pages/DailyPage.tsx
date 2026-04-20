@@ -97,19 +97,13 @@ const getDynamicGreeting = (
 };
 
 const CalendarView = ({ tasks, timeBlocks, onTaskClick }: { tasks: any[], timeBlocks: any[], onTaskClick: (t: any) => void }) => {
-  const hours = Array.from({ length: 18 }, (_, i) => i + 6); // 6am a 11pm
+  const hours = Array.from({ length: 24 }, (_, i) => i);
   const now = new Date();
   const currentMinutes = now.getHours() * 60 + now.getMinutes();
 
-  const getTaskTop = (task: any) => {
-    if (!task.start_time) return null;
-    const [h, m] = task.start_time.split(':').map(Number);
-    return ((h * 60 + m) - 6 * 60) * (64 / 60);
-  };
-
   const getBlockTop = (block: any) => {
-    const [h, m] = block.start_time.split(':').map(Number);
-    return ((h * 60 + m) - 6 * 60) * (64 / 60);
+    const [sh, sm] = block.start_time.split(':').map(Number);
+    return (sh * 60 + sm) * (64 / 60);
   };
 
   const getBlockHeight = (block: any) => {
@@ -118,8 +112,14 @@ const CalendarView = ({ tasks, timeBlocks, onTaskClick }: { tasks: any[], timeBl
     return ((eh * 60 + em) - (sh * 60 + sm)) * (64 / 60);
   };
 
-  const currentTop = (currentMinutes - 6 * 60) * (64 / 60);
-  const totalHeight = 18 * 64;
+  const getTaskTop = (task: any) => {
+    if (!task.start_time) return null;
+    const [h, m] = task.start_time.split(':').map(Number);
+    return (h * 60 + m) * (64 / 60);
+  };
+
+  const currentTop = currentMinutes * (64 / 60);
+  const totalHeight = 24 * 64;
   const tasksInBlocks = tasks.filter(t => t.time_block_id && !t.start_time && t.status !== 'done');
   const tasksWithoutTimeOrBlock = tasks.filter(t => !t.start_time && !t.time_block_id && t.status !== 'done');
   const tasksWithTime = tasks.filter(t => t.start_time && t.status !== 'done');
@@ -152,9 +152,9 @@ const CalendarView = ({ tasks, timeBlocks, onTaskClick }: { tasks: any[], timeBl
         <div className="relative" style={{ height: totalHeight }}>
           {/* Hour lines */}
           {hours.map(hour => (
-            <div key={hour} className="absolute w-full flex items-start" style={{ top: (hour - 6) * 64 }}>
+            <div key={hour} className="absolute w-full flex items-start" style={{ top: hour * 64 }}>
               <span className="w-12 text-[10px] text-on-surface-variant/30 font-bold text-right pr-3 -mt-2">
-                {hour === 12 ? '12pm' : hour < 12 ? `${hour}am` : `${hour - 12}pm`}
+                {hour === 0 ? '12am' : hour === 12 ? '12pm' : hour < 12 ? `${hour}am` : `${hour - 12}pm`}
               </span>
               <div className="flex-1 border-t border-outline-variant/5" />
             </div>
