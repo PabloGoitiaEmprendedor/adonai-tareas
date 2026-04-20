@@ -125,17 +125,20 @@ const CalendarView = ({ tasks, timeBlocks, onTaskClick }: { tasks: any[], timeBl
   const tasksWithTime = tasks.filter(t => t.start_time && t.status !== 'done');
 
   return (
-    <div className="relative overflow-y-auto" style={{ maxHeight: 'calc(100vh - 200px)' }}>
-      {/* Tasks without time or block — pill list above timeline */}
+    <div className="flex flex-col gap-4">
+      {/* "Island" for tasks without time or block — separated from calendar context */}
       {tasksWithoutTimeOrBlock.length > 0 && (
-        <div className="bg-background pb-3 z-20 border-b border-outline-variant/10 mb-4 px-2">
-          <p className="text-[10px] font-bold text-on-surface-variant/40 uppercase tracking-widest mb-2.5 pl-1">Sin hora asignada</p>
+        <div className="bg-surface-container-low/30 rounded-2xl p-4 border border-outline-variant/5">
+          <div className="flex items-center gap-2 mb-3">
+             <div className="w-1 h-3 bg-primary/40 rounded-full" />
+             <p className="text-[10px] font-bold text-on-surface-variant/40 uppercase tracking-[0.15em]">Por agendar</p>
+          </div>
           <div className="flex flex-wrap gap-2">
             {tasksWithoutTimeOrBlock.map(task => (
               <button
                 key={task.id}
                 onClick={() => onTaskClick(task)}
-                className="px-3 py-1.5 rounded-xl bg-surface-container-high text-xs font-bold text-foreground border border-white/5 hover:bg-primary/10 transition-all truncate max-w-[150px]"
+                className="px-3 py-2 rounded-xl bg-background/50 text-[11px] font-bold text-foreground border border-outline-variant/10 hover:border-primary/30 hover:bg-primary/5 transition-all truncate max-w-[200px] shadow-sm"
               >
                 {task.title}
               </button>
@@ -144,71 +147,75 @@ const CalendarView = ({ tasks, timeBlocks, onTaskClick }: { tasks: any[], timeBl
         </div>
       )}
 
-      <div className="relative" style={{ height: totalHeight }}>
-        {/* Hour lines */}
-        {hours.map(hour => (
-          <div key={hour} className="absolute w-full flex items-start" style={{ top: (hour - 6) * 64 }}>
-            <span className="w-12 text-[10px] text-on-surface-variant/50 font-medium text-right pr-3 -mt-2">
-              {hour === 12 ? '12pm' : hour < 12 ? `${hour}am` : `${hour - 12}pm`}
-            </span>
-            <div className="flex-1 border-t border-outline-variant/10" />
-          </div>
-        ))}
-
-        {/* Time blocks */}
-        {timeBlocks.map(block => {
-          const blockTasks = tasksInBlocks.filter(t => t.time_block_id === block.id);
-          return (
-            <div
-              key={block.id}
-              className="absolute left-14 right-2 rounded-lg bg-opacity-20 border-l border-white/10 px-2 py-1.5 flex flex-col gap-1.5"
-              style={{
-                top: getBlockTop(block),
-                height: Math.max(getBlockHeight(block), 24),
-                backgroundColor: `${block.color || '#4BE277'}33`, // Increased opacity for block bg
-                borderLeftColor: block.color || '#4BE277'
-              }}
-            >
-              <p className="text-[10px] font-bold text-white/50 uppercase tracking-tighter truncate">{block.title}</p>
-              
-              <div className="flex flex-wrap gap-1 overflow-hidden">
-                {blockTasks.map(task => (
-                  <button
-                    key={task.id}
-                    onClick={() => onTaskClick(task)}
-                    className="flex-shrink-0 px-2 py-0.5 rounded-md text-[10px] font-bold bg-white/10 text-white border border-white/5 hover:bg-white/20 transition-all truncate max-w-full"
-                  >
-                    {task.title}
-                  </button>
-                ))}
-              </div>
+      {/* The scrollable calendar timeline context */}
+      <div className="relative overflow-y-auto pr-2 custom-scrollbar" style={{ maxHeight: 'calc(100vh - 280px)' }}>
+        <div className="relative" style={{ height: totalHeight }}>
+          {/* Hour lines */}
+          {hours.map(hour => (
+            <div key={hour} className="absolute w-full flex items-start" style={{ top: (hour - 6) * 64 }}>
+              <span className="w-12 text-[10px] text-on-surface-variant/30 font-bold text-right pr-3 -mt-2">
+                {hour === 12 ? '12pm' : hour < 12 ? `${hour}am` : `${hour - 12}pm`}
+              </span>
+              <div className="flex-1 border-t border-outline-variant/5" />
             </div>
-          );
-        })}
+          ))}
 
-        {/* Tasks with start_time */}
-        {tasksWithTime.map(task => (
-          <div
-            key={task.id}
-            onClick={() => onTaskClick(task)}
-            className="absolute left-14 right-0 rounded-lg bg-primary/20 border-l-2 border-primary px-2 py-1 cursor-pointer hover:bg-primary/30 transition-colors"
-            style={{ top: getTaskTop(task) || 0, minHeight: 32 }}
-          >
-            <p className="text-xs font-semibold text-foreground truncate">{task.title}</p>
-          </div>
-        ))}
+          {/* Time blocks */}
+          {timeBlocks.map(block => {
+            const blockTasks = tasksInBlocks.filter(t => t.time_block_id === block.id);
+            return (
+              <div
+                key={block.id}
+                className="absolute left-14 right-2 rounded-2xl bg-opacity-10 border-l-4 px-3 py-2 flex flex-col gap-2 transition-all hover:bg-opacity-20"
+                style={{
+                  top: getBlockTop(block),
+                  height: Math.max(getBlockHeight(block), 32),
+                  backgroundColor: `${block.color || '#4BE277'}15`,
+                  borderLeftColor: block.color || '#4BE277'
+                }}
+              >
+                <div className="flex justify-between items-center opacity-40">
+                  <p className="text-[9px] font-black uppercase tracking-widest truncate">{block.title}</p>
+                </div>
+                
+                <div className="flex flex-wrap gap-1.5 overflow-hidden">
+                  {blockTasks.map(task => (
+                    <button
+                      key={task.id}
+                      onClick={() => onTaskClick(task)}
+                      className="flex-shrink-0 px-2.5 py-1 rounded-lg text-[10px] font-bold bg-white/5 border border-white/5 text-white hover:bg-white/10 transition-all truncate max-w-full"
+                    >
+                      {task.title}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
 
-        {/* Current time indicator */}
-        {currentTop >= 0 && currentTop <= totalHeight && (
-          <div className="absolute left-10 right-0 flex items-center gap-1 z-10" style={{ top: currentTop }}>
-            <div className="w-2 h-2 rounded-full bg-error flex-shrink-0" />
-            <div className="flex-1 border-t-2 border-error" />
-          </div>
-        )}
+          {/* Tasks with start_time */}
+          {tasksWithTime.map(task => (
+            <div
+              key={task.id}
+              onClick={() => onTaskClick(task)}
+              className="absolute left-14 right-4 rounded-xl bg-primary/10 border-l-2 border-primary px-3 py-1.5 cursor-pointer hover:bg-primary/20 transition-all shadow-sm"
+              style={{ top: getTaskTop(task) || 0, minHeight: 40 }}
+            >
+              <p className="text-xs font-bold text-foreground truncate">{task.title}</p>
+            </div>
+          ))}
+
+          {/* Current time indicator */}
+          {currentTop >= 0 && currentTop <= totalHeight && (
+            <div className="absolute left-10 right-0 flex items-center gap-1 z-10" style={{ top: currentTop }}>
+              <div className="w-2 h-2 rounded-full bg-error shadow-[0_0_8px_rgba(255,0,0,0.5)]" />
+              <div className="flex-1 border-t-2 border-error/50" />
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
-};
 
 const DailyPage = () => {
   const today = format(new Date(), 'yyyy-MM-dd');
