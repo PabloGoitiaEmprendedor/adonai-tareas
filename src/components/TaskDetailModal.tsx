@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Play, Clock, Calendar, Flag, Tag, FolderOpen, Trash2, Repeat, Plus, Check } from 'lucide-react';
+import { X, Play, Clock, Calendar, Flag, Tag, FolderOpen, Trash2, Repeat, Plus, Check, Link as LinkIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -28,6 +28,7 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [link, setLink] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [estimatedMinutes, setEstimatedMinutes] = useState(0);
   const [importance, setImportance] = useState(false);
@@ -50,6 +51,7 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
     if (task && open) {
       setTitle(task.title || '');
       setDescription(task.description || '');
+      setLink(task.link || '');
       setDueDate(task.due_date || '');
       setEstimatedMinutes(task.estimated_minutes || 25);
       setImportance(task.importance || false);
