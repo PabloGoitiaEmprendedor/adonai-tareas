@@ -341,13 +341,8 @@ const DailyPage = () => {
 
   const handleSubtaskComplete = async (task: any, subtaskIdx: number, e: React.MouseEvent) => {
     e.stopPropagation();
-    const currentSubtasks = Array.isArray(task.subtasks) ? task.subtasks : [];
-    const newSubtasks = [...currentSubtasks];
-    newSubtasks[subtaskIdx] = { 
-      ...newSubtasks[subtaskIdx], 
-      completed: !newSubtasks[subtaskIdx].completed 
-    };
-    updateTask.mutate({ id: task.id, subtasks: newSubtasks });
+    // Subtasks not yet supported in DB schema — no-op
+    return;
   };
 
   const handleAddSubtask = async (taskId: string, e?: React.FormEvent) => {
@@ -358,9 +353,7 @@ const DailyPage = () => {
     const task = tasks.find(t => t.id === taskId);
     if (!task) return;
 
-    const currentSubtasks = Array.isArray(task.subtasks) ? task.subtasks : [];
-    const newSubtasks = [...currentSubtasks, { title, completed: false }];
-    updateTask.mutate({ id: taskId, subtasks: newSubtasks });
+    // Subtasks not yet supported in DB schema — no-op
     setNewSubtaskInputs(prev => ({ ...prev, [taskId]: '' }));
   };
 
