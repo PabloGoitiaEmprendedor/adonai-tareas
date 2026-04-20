@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Play, Clock, Calendar, Flag, Tag, FolderOpen, Trash2, Repeat, Plus } from 'lucide-react';
+import { X, Play, Clock, Calendar, Flag, Tag, FolderOpen, Trash2, Repeat, Plus, Check } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -129,7 +129,6 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
       folder_id: folderId,
       status,
       recurrence_id: recurrenceId,
-      subtasks,
       ...(status === 'done' ? { completed_at: new Date().toISOString() } : {}),
     });
     toast.success('Tarea actualizada');

@@ -284,7 +284,23 @@ export const useTasks = (filters?: { date?: string; startDate?: string; endDate?
       const { error } = await supabase.from('tasks').update({ status: 'deleted' }).eq('id', id).eq('user_id', user.id);
       if (error) throw error;
     },
-    onSuccess: () => {
+    onMutate: async (id: string) => {
+      await queryClient.cancelQueries({ queryKey: ['tasks', user?.id] });
+      const previousData = queryClient.getQueryData(['tasks', user?.id, filters]);
+      queryClient.setQueryData(['tasks', user?.id, filters], (old: any) => {
+        if (!old) return old;
+        return {
+          ...old,
+          tasks: old.tasks.filter((t: any) => t.id !== id),
+        };
+      });
+      return { previousData };
+    },
+    onError: (_err, _id, context) => {
+      queryClient.setQueryData(['tasks', user?.id, filters], context?.previousData);
+      toast.error('No se pudo mover la tarea a la papelera');
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
     },
   });
