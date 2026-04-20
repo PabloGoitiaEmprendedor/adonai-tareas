@@ -125,20 +125,20 @@ const CalendarView = ({ tasks, timeBlocks, onTaskClick }: { tasks: any[], timeBl
   const tasksWithTime = tasks.filter(t => t.start_time && t.status !== 'done');
 
   return (
-    <div className="flex flex-col gap-4">
-      {/* "Island" for tasks without time or block — separated from calendar context */}
+    <div className="flex flex-col gap-3">
+      {/* "Island" for tasks without time or block — more compact to maximize calendar space */}
       {tasksWithoutTimeOrBlock.length > 0 && (
-        <div className="bg-surface-container-low/30 rounded-2xl p-4 border border-outline-variant/5">
-          <div className="flex items-center gap-2 mb-3">
+        <div className="bg-surface-container-low/30 rounded-2xl p-3 border border-outline-variant/5">
+          <div className="flex items-center gap-2 mb-2">
              <div className="w-1 h-3 bg-primary/40 rounded-full" />
-             <p className="text-[10px] font-bold text-on-surface-variant/40 uppercase tracking-[0.15em]">Por agendar</p>
+             <p className="text-[9px] font-bold text-on-surface-variant/40 uppercase tracking-[0.15em]">Por agendar</p>
           </div>
           <div className="flex flex-wrap gap-2">
             {tasksWithoutTimeOrBlock.map(task => (
               <button
                 key={task.id}
                 onClick={() => onTaskClick(task)}
-                className="px-3 py-2 rounded-xl bg-background/50 text-[11px] font-bold text-foreground border border-outline-variant/10 hover:border-primary/30 hover:bg-primary/5 transition-all truncate max-w-[200px] shadow-sm"
+                className="px-3 py-1.5 rounded-xl bg-background/50 text-[10px] font-bold text-foreground border border-outline-variant/10 hover:border-primary/30 hover:bg-primary/5 transition-all truncate max-w-[200px] shadow-sm"
               >
                 {task.title}
               </button>
@@ -147,8 +147,8 @@ const CalendarView = ({ tasks, timeBlocks, onTaskClick }: { tasks: any[], timeBl
         </div>
       )}
 
-      {/* The scrollable calendar timeline context */}
-      <div className="relative overflow-y-auto pr-2 custom-scrollbar" style={{ maxHeight: 'calc(100vh - 280px)' }}>
+      {/* The scrollable calendar timeline context — maximized vertical space */}
+      <div className="relative overflow-y-auto pr-1 flex-1 custom-scrollbar" style={{ maxHeight: 'calc(100vh - 220px)' }}>
         <div className="relative" style={{ height: totalHeight }}>
           {/* Hour lines */}
           {hours.map(hour => (
