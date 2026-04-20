@@ -6,7 +6,7 @@ import { useGlobalVoiceCapture } from '@/hooks/useGlobalVoiceCapture';
 import { useTimeBlocks } from '@/hooks/useTimeBlocks';
 import { format, startOfWeek, addDays, subDays, isSameDay, addWeeks, subWeeks } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { TrendingUp, Calendar as CalendarIcon, Check, GripVertical, Timer, ChevronLeft, ChevronRight, Filter, Clock, Trash2, MoreVertical, Settings, Edit2, Plus } from 'lucide-react';
+import { TrendingUp, CalendarSearch as CalendarIcon, Check, GripVertical, Timer, ChevronLeft, ChevronRight, Filter, Clock, Trash2, MoreVertical, Settings, Edit2, Plus } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import { triggerTaskCelebration, triggerDailyCelebration } from '@/lib/celebrations';
@@ -301,7 +301,7 @@ const WeeklyPage = () => {
               size="sm" 
               className="h-8 text-xs px-3 gap-1.5 rounded-xl border-primary bg-primary/5 text-primary font-black hover:bg-primary/10 shadow-sm animate-pulse-subtle"
             >
-               <Sparkles className="w-3.5 h-3.5" /> IA Planner
+               <Brain className="w-3.5 h-3.5" /> IA Planner
             </Button>
             <Button id="tutorial-block-button" onClick={() => setBlockModalOpen(true)} variant="outline" size="sm" className="h-8 text-xs px-3 gap-1.5 rounded-xl border-outline-variant text-on-surface-variant font-bold hover:bg-surface-container-high shadow-sm">
                <Plus className="w-3.5 h-3.5" /> Nuevo Bloque
