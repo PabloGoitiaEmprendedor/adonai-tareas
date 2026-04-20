@@ -360,8 +360,14 @@ const DailyPage = () => {
   const handleDeleteTask = (taskId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     if (window.confirm('¿Mover a la papelera?')) {
-      deleteTask.mutate(taskId);
-      toast.success('Tarea movida a la papelera');
+      deleteTask.mutate(taskId, {
+        onSuccess: () => {
+          toast.success('Tarea movida a la papelera');
+        },
+        onError: () => {
+          toast.error('No se pudo mover la tarea a la papelera');
+        },
+      });
     }
   };
 
