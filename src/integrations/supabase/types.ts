@@ -429,6 +429,7 @@ export type Database = {
           goal_id: string | null
           id: string
           importance: boolean | null
+          link: string | null
           priority: string | null
           recurrence_id: string | null
           sort_order: number | null
@@ -450,6 +451,7 @@ export type Database = {
           goal_id?: string | null
           id?: string
           importance?: boolean | null
+          link?: string | null
           priority?: string | null
           recurrence_id?: string | null
           sort_order?: number | null
@@ -471,6 +473,7 @@ export type Database = {
           goal_id?: string | null
           id?: string
           importance?: boolean | null
+          link?: string | null
           priority?: string | null
           recurrence_id?: string | null
           sort_order?: number | null
