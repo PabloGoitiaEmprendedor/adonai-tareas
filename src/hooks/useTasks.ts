@@ -71,14 +71,28 @@ export const useTasks = (filters?: { date?: string; startDate?: string; endDate?
         templates = templateRows || [];
       }
 
-      return { tasks: realTasks, rules, templates: templates || [] };
+      // 4. Fetch ALL materialized recurrent task instances (no date filter)
+      // to correctly suppress virtual generation for any date range
+      let materializedSet = new Set<string>();
+      if (ruleIds.length > 0) {
+        const { data: allMaterialized } = await supabase
+          .from('tasks')
+          .select('recurrence_id, due_date, status')
+          .eq('user_id', user.id)
+          .not('recurrence_id', 'is', null);
+        materializedSet = new Set(
+          (allMaterialized || []).map(t => `${t.recurrence_id}__${t.due_date}`)
+        );
+      }
+
+      return { tasks: realTasks, rules, templates: templates || [], materializedSet };
     },
     enabled: !!user,
   });
 
   const tasks = (() => {
     if (!allData) return [];
-    const { tasks: realTasks, rules, templates } = allData;
+    const { tasks: realTasks, rules, templates, materializedSet } = allData;
     
     let start, end;
     if (filters?.date) {
@@ -93,10 +107,14 @@ export const useTasks = (filters?: { date?: string; startDate?: string; endDate?
 
     const interval = eachDayOfInterval({ start, end });
     const virtualTasks: any[] = [];
+    const todayStr = format(new Date(), 'yyyy-MM-dd');
 
     interval.forEach(day => {
       const dateStr = format(day, 'yyyy-MM-dd');
-      
+
+      // Never generate virtual tasks for past days — if it wasn't done, it's gone
+      if (dateStr < todayStr) return;
+
       rules.forEach(rule => {
         const startDate = parseISO(rule.start_date);
         const template = templates.find(t => t.recurrence_id === rule.id);
@@ -108,31 +126,33 @@ export const useTasks = (filters?: { date?: string; startDate?: string; endDate?
         if (rule.frequency === 'daily') {
           shouldShow = diffDays % (rule.interval || 1) === 0;
         } else if (rule.frequency === 'weekly') {
-          const dayOfWeek = day.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
-          const isCorrectDay = rule.days_of_week?.includes(dayOfWeek) || false;
-          
+          const dayOfWeek = day.getDay();
+          const daysConfig = rule.days_of_week || [];
+          const isCorrectDay = daysConfig.length > 0
+            ? daysConfig.includes(dayOfWeek)
+            : dayOfWeek === startDate.getDay();
           if (isCorrectDay) {
             const weekDiff = Math.floor(diffDays / 7);
             shouldShow = weekDiff % (rule.interval || 1) === 0;
           }
         } else if (rule.frequency === 'monthly') {
-          const isCorrectDay = day.getDate() === rule.day_of_month;
+          const isCorrectDay = day.getDate() === (rule.day_of_month || startDate.getDate());
           if (isCorrectDay) {
             const monthDiff = (day.getFullYear() - startDate.getFullYear()) * 12 + (day.getMonth() - startDate.getMonth());
             shouldShow = monthDiff % (rule.interval || 1) === 0;
           }
         }
 
-
         if (shouldShow) {
-          const existing = realTasks.find(t => t.recurrence_id === rule.id && t.due_date === dateStr);
-          if (!existing) {
+          // Check against ALL materialized instances, not just the current filter range
+          const alreadyExists = materializedSet.has(`${rule.id}__${dateStr}`);
+          if (!alreadyExists) {
             virtualTasks.push({
               ...template,
               id: `virtual-${rule.id}-${dateStr}`,
               due_date: dateStr,
               status: 'pending',
-              isVirtual: true
+              isVirtual: true,
             });
           }
         }

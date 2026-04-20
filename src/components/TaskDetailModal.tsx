@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Play, Clock, Calendar, Flag, Tag, FolderOpen, Trash2, Repeat, Plus } from 'lucide-react';
-
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
 
 import { useTasks } from '@/hooks/useTasks';
 import { useContexts } from '@/hooks/useContexts';
@@ -9,7 +10,6 @@ import { useFolders } from '@/hooks/useFolders';
 import { useRecurrenceRules } from '@/hooks/useRecurrenceRules';
 import { toast } from 'sonner';
 import FullscreenTimer from './FullscreenTimer';
-import { format } from 'date-fns';
 
 
 interface TaskDetailModalProps {
@@ -44,6 +44,7 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
   const [selectedYearDay, setSelectedYearDay] = useState<number | null>(null);
   const [subtasks, setSubtasks] = useState<any[]>([]);
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
+  const [showSubtasks, setShowSubtasks] = useState(false);
 
   useEffect(() => {
     if (task && open) {
@@ -62,6 +63,8 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
       setSelectedYearMonth(null);
       setSelectedYearDay(null);
       setShowRecurrence(false);
+      setSubtasks(task.subtasks || []);
+      setShowSubtasks((task.subtasks?.length || 0) > 0);
     }
   }, [task, open]);
 
@@ -165,6 +168,16 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
     recurrenceFreq === 'monthly' ? `Cada mes${selectedMonthDay ? ` el día ${selectedMonthDay}` : ''}` :
     `Cada año`;
 
+  // Priority pill
+  const priorityLabel = (importance && urgency) ? '🔴 Alta' : importance ? '🟢 Importante' : urgency ? '🟡 Urgente' : 'Normal';
+  const priorityClass = (importance && urgency)
+    ? 'bg-error/20 text-error'
+    : importance
+      ? 'bg-primary/20 text-primary'
+      : urgency
+        ? 'bg-amber-500/20 text-amber-500'
+        : 'bg-surface-container-high text-on-surface-variant';
+
   return (
     <>
       <AnimatePresence>
@@ -180,9 +193,16 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
                 <div className="flex justify-center pt-4 pb-2">
                   <div className="w-12 h-1.5 bg-on-surface-variant/20 rounded-full" />
                 </div>
-                <div className="p-6 space-y-5">
-                  <div className="flex justify-between items-center">
-                    <h2 className="text-lg font-bold text-foreground">Editar tarea</h2>
+                <div className="p-6 space-y-4">
+
+                  {/* 1. Header con pill de prioridad */}
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h2 className="text-base font-bold text-foreground">Editar tarea</h2>
+                      <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${priorityClass}`}>
+                        {priorityLabel}
+                      </span>
+                    </div>
                     <div className="flex items-center gap-3">
                       <button onClick={handleDelete} className="text-on-surface-variant hover:text-error transition-colors">
                         <Trash2 className="w-5 h-5" />
@@ -191,6 +211,7 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
                     </div>
                   </div>
 
+                  {/* 2. Botón Empezar tarea */}
                   {status === 'pending' && (
                     <button onClick={() => setTimerOpen(true)}
                       className="w-full py-3 rounded-xl primary-gradient text-primary-foreground font-bold text-sm flex items-center justify-center gap-2">
@@ -198,27 +219,31 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
                     </button>
                   )}
 
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Nombre</label>
-                    <input value={title} onChange={(e) => setTitle(e.target.value)} className="w-full bg-surface-container-high rounded-lg p-3 text-foreground text-sm focus:outline-none focus:ring-1 focus:ring-primary" />
-                  </div>
+                  {/* 3. Nombre — prominente, sin label */}
+                  <input
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    className="w-full bg-transparent rounded-lg py-2 text-foreground text-lg font-semibold focus:outline-none border-b border-outline-variant/30 focus:border-primary transition-colors"
+                  />
 
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Descripción</label>
-                    <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2} className="w-full bg-surface-container-high rounded-lg p-3 text-foreground text-sm focus:outline-none focus:ring-1 focus:ring-primary resize-none" />
-                  </div>
-
+                  {/* 4. Fecha + Minutos */}
                   <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1.5">
+                    <div className="space-y-1">
                       <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider flex items-center gap-1"><Calendar className="w-3 h-3" /> Fecha</label>
                       <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="w-full bg-surface-container-high rounded-lg p-3 text-foreground text-sm focus:outline-none focus:ring-1 focus:ring-primary" />
+                      {dueDate && (
+                        <p className="text-[10px] text-on-surface-variant/60 pl-1">
+                          {format(new Date(dueDate + 'T12:00'), 'EEEE d MMM', { locale: es })}
+                        </p>
+                      )}
                     </div>
-                    <div className="space-y-1.5">
+                    <div className="space-y-1">
                       <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider flex items-center gap-1"><Clock className="w-3 h-3" /> Minutos</label>
                       <input type="number" min={1} max={480} value={estimatedMinutes} onChange={(e) => setEstimatedMinutes(Number(e.target.value))} className="w-full bg-surface-container-high rounded-lg p-3 text-foreground text-sm focus:outline-none focus:ring-1 focus:ring-primary" />
                     </div>
                   </div>
 
+                  {/* 5. Importante + Urgente */}
                   <div className="grid grid-cols-2 gap-3">
                     <button onClick={() => setImportance(!importance)}
                       className={`p-3 rounded-lg text-sm font-semibold flex items-center gap-2 transition-all ${importance ? 'bg-primary/20 text-primary ring-1 ring-primary/30' : 'bg-surface-container-high text-on-surface-variant'}`}>
@@ -230,6 +255,25 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
                     </button>
                   </div>
 
+                  {/* 6. Descripción auto-ajustable */}
+                  <textarea
+                    value={description}
+                    onChange={(e) => {
+                      setDescription(e.target.value);
+                      e.target.style.height = 'auto';
+                      e.target.style.height = e.target.scrollHeight + 'px';
+                    }}
+                    onFocus={(e) => {
+                      e.target.style.height = 'auto';
+                      e.target.style.height = e.target.scrollHeight + 'px';
+                    }}
+                    rows={1}
+                    style={{ overflow: 'hidden', resize: 'none' }}
+                    placeholder="Añade una descripción..."
+                    className="w-full bg-surface-container-high rounded-lg p-3 text-foreground text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+
+                  {/* 7. Contexto */}
                   <div className="space-y-1.5">
                     <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider flex items-center gap-1"><Tag className="w-3 h-3" /> Contexto</label>
                     <div className="flex flex-wrap gap-2">
@@ -242,6 +286,7 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
                     </div>
                   </div>
 
+                  {/* 8. Carpeta */}
                   <div className="space-y-1.5">
                     <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider flex items-center gap-1"><FolderOpen className="w-3 h-3" /> Carpeta</label>
                     <div className="flex flex-wrap gap-2">
@@ -259,7 +304,7 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
                     </div>
                   </div>
 
-                  {/* Recurrence Section */}
+                  {/* 9. Repetición — colapsable */}
                   <div className="space-y-2">
                     <button id="tutorial-recurrence-toggle" onClick={() => setShowRecurrence(!showRecurrence)}
                       className={`w-full p-3 rounded-xl text-sm font-bold flex items-center justify-between transition-all ${recurrenceFreq !== 'none' ? 'bg-primary/20 text-primary ring-1 ring-primary/30' : 'bg-surface-container-high text-on-surface-variant'}`}>
@@ -378,37 +423,47 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
                     </AnimatePresence>
                   </div>
 
-                  <div className="space-y-3 pt-2">
-                    <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Subtareas</label>
-                    <div className="space-y-2">
-                      {subtasks.map((st, i) => (
-                        <div key={i} className="flex items-center gap-3 p-2 bg-surface-container-high rounded-lg">
-                          <div className="w-4 h-4 rounded border border-outline-variant" />
-                          <span className="text-sm text-foreground">{st.title}</span>
-                        </div>
-                      ))}
-                      <div className="flex gap-2">
-                        <input value={newSubtaskTitle} onChange={(e) => setNewSubtaskTitle(e.target.value)}
-                          placeholder="Añadir subtarea..."
-                          className="flex-1 bg-surface-container-high rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary border-none"
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' && newSubtaskTitle.trim()) {
+                  {/* 10. Subtareas — colapsables */}
+                  <div className="space-y-2">
+                    <button
+                      onClick={() => setShowSubtasks(!showSubtasks)}
+                      className="w-full flex items-center justify-between text-xs font-bold text-on-surface-variant uppercase tracking-wider py-1"
+                    >
+                      <span className="flex items-center gap-1"><Plus className="w-3 h-3" /> Subtareas{subtasks.length > 0 ? ` (${subtasks.length})` : ''}</span>
+                      <span className={`transition-transform text-xs ${showSubtasks ? 'rotate-180' : ''}`}>▾</span>
+                    </button>
+                    {showSubtasks && (
+                      <div className="space-y-2">
+                        {subtasks.map((st, i) => (
+                          <div key={i} className="flex items-center gap-3 p-2 bg-surface-container-high rounded-lg">
+                            <div className="w-4 h-4 rounded border border-outline-variant" />
+                            <span className="text-sm text-foreground">{st.title}</span>
+                          </div>
+                        ))}
+                        <div className="flex gap-2">
+                          <input value={newSubtaskTitle} onChange={(e) => setNewSubtaskTitle(e.target.value)}
+                            placeholder="Añadir subtarea..."
+                            className="flex-1 bg-surface-container-high rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary border-none"
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && newSubtaskTitle.trim()) {
+                                setSubtasks([...subtasks, { title: newSubtaskTitle.trim() }]);
+                                setNewSubtaskTitle('');
+                              }
+                            }} />
+                          <button onClick={() => {
+                            if (newSubtaskTitle.trim()) {
                               setSubtasks([...subtasks, { title: newSubtaskTitle.trim() }]);
                               setNewSubtaskTitle('');
                             }
-                          }} />
-                        <button onClick={() => {
-                          if (newSubtaskTitle.trim()) {
-                            setSubtasks([...subtasks, { title: newSubtaskTitle.trim() }]);
-                            setNewSubtaskTitle('');
-                          }
-                        }} className="p-2 rounded-lg bg-primary/10 text-primary">
-                          <Plus className="w-5 h-5 text-primary" strokeWidth={3} />
-                        </button>
+                          }} className="p-2 rounded-lg bg-primary/10 text-primary">
+                            <Plus className="w-5 h-5 text-primary" strokeWidth={3} />
+                          </button>
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
 
+                  {/* 11. Estado */}
                   <div className="space-y-1.5">
                     <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Estado</label>
                     <div className="flex gap-2">
@@ -421,6 +476,7 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
                     </div>
                   </div>
 
+                  {/* 12. Guardar */}
                   <button onClick={handleSave} className="w-full py-3.5 rounded-xl primary-gradient text-primary-foreground font-bold text-sm">
                     Guardar cambios
                   </button>

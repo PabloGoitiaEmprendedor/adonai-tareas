@@ -7,7 +7,7 @@ import { useStreaks } from '@/hooks/useStreaks';
 import { useGlobalVoiceCapture } from '@/hooks/useGlobalVoiceCapture';
 import { useTimeBlocks } from '@/hooks/useTimeBlocks';
 import { format } from 'date-fns';
-import { Check, Plus, GripVertical, Timer, Clock } from 'lucide-react';
+import { Check, Plus, GripVertical, Timer, Clock, List, CalendarDays } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { triggerTaskCelebration, triggerDailyCelebration } from '@/lib/celebrations';
@@ -95,6 +95,103 @@ const getDynamicGreeting = (
   return greetings[seed % greetings.length];
 };
 
+const CalendarView = ({ tasks, timeBlocks, onTaskClick }: { tasks: any[], timeBlocks: any[], onTaskClick: (t: any) => void }) => {
+  const hours = Array.from({ length: 18 }, (_, i) => i + 6); // 6am a 11pm
+  const now = new Date();
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+  const getTaskTop = (task: any) => {
+    if (!task.start_time) return null;
+    const [h, m] = task.start_time.split(':').map(Number);
+    return ((h * 60 + m) - 6 * 60) * (64 / 60);
+  };
+
+  const getBlockTop = (block: any) => {
+    const [h, m] = block.start_time.split(':').map(Number);
+    return ((h * 60 + m) - 6 * 60) * (64 / 60);
+  };
+
+  const getBlockHeight = (block: any) => {
+    const [sh, sm] = block.start_time.split(':').map(Number);
+    const [eh, em] = block.end_time.split(':').map(Number);
+    return ((eh * 60 + em) - (sh * 60 + sm)) * (64 / 60);
+  };
+
+  const currentTop = (currentMinutes - 6 * 60) * (64 / 60);
+  const totalHeight = 18 * 64;
+  const tasksWithoutTime = tasks.filter(t => !t.start_time && t.status !== 'done');
+  const tasksWithTime = tasks.filter(t => t.start_time && t.status !== 'done');
+
+  return (
+    <div className="relative overflow-y-auto" style={{ maxHeight: 'calc(100vh - 200px)' }}>
+      {/* Tasks without time — pill list above timeline */}
+      {tasksWithoutTime.length > 0 && (
+        <div className="sticky top-0 bg-background/90 backdrop-blur-sm pb-2 z-20 border-b border-outline-variant/10 mb-2">
+          <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider mb-2 pl-2">Sin hora asignada</p>
+          <div className="flex flex-wrap gap-1.5 px-2">
+            {tasksWithoutTime.map(task => (
+              <button
+                key={task.id}
+                onClick={() => onTaskClick(task)}
+                className="px-2.5 py-1 rounded-full bg-surface-container-high text-xs font-medium text-foreground hover:bg-primary/15 transition-colors truncate max-w-[150px]"
+              >
+                {task.title}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="relative" style={{ height: totalHeight }}>
+        {/* Hour lines */}
+        {hours.map(hour => (
+          <div key={hour} className="absolute w-full flex items-start" style={{ top: (hour - 6) * 64 }}>
+            <span className="w-12 text-[10px] text-on-surface-variant/50 font-medium text-right pr-3 -mt-2">
+              {hour === 12 ? '12pm' : hour < 12 ? `${hour}am` : `${hour - 12}pm`}
+            </span>
+            <div className="flex-1 border-t border-outline-variant/10" />
+          </div>
+        ))}
+
+        {/* Time blocks */}
+        {timeBlocks.map(block => (
+          <div
+            key={block.id}
+            className="absolute left-14 right-0 rounded-lg opacity-40 px-2 py-1"
+            style={{
+              top: getBlockTop(block),
+              height: Math.max(getBlockHeight(block), 24),
+              backgroundColor: block.color || '#4BE277',
+            }}
+          >
+            <p className="text-[10px] font-bold text-white truncate">{block.title}</p>
+          </div>
+        ))}
+
+        {/* Tasks with start_time */}
+        {tasksWithTime.map(task => (
+          <div
+            key={task.id}
+            onClick={() => onTaskClick(task)}
+            className="absolute left-14 right-0 rounded-lg bg-primary/20 border-l-2 border-primary px-2 py-1 cursor-pointer hover:bg-primary/30 transition-colors"
+            style={{ top: getTaskTop(task) || 0, minHeight: 32 }}
+          >
+            <p className="text-xs font-semibold text-foreground truncate">{task.title}</p>
+          </div>
+        ))}
+
+        {/* Current time indicator */}
+        {currentTop >= 0 && currentTop <= totalHeight && (
+          <div className="absolute left-10 right-0 flex items-center gap-1 z-10" style={{ top: currentTop }}>
+            <div className="w-2 h-2 rounded-full bg-error flex-shrink-0" />
+            <div className="flex-1 border-t-2 border-error" />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 const DailyPage = () => {
   const today = format(new Date(), 'yyyy-MM-dd');
 
@@ -115,6 +212,14 @@ const DailyPage = () => {
   const [aiModalOpen, setAiModalOpen] = useState(false);
   const captureModalRef = useRef<TaskCaptureModalHandle>(null);
   const hasTrackedDayRef = useRef(false);
+  const [viewMode, setViewMode] = useState<'agenda' | 'calendar'>(() => {
+    return (localStorage.getItem('adonai_daily_view') as 'agenda' | 'calendar') || 'agenda';
+  });
+
+  const handleSetView = (mode: 'agenda' | 'calendar') => {
+    setViewMode(mode);
+    localStorage.setItem('adonai_daily_view', mode);
+  };
 
   const openCapture = useCallback(() => setCaptureOpen(true), []);
   const openCaptureInVoiceMode = useCallback(() => {
@@ -296,7 +401,37 @@ const DailyPage = () => {
         {/* Dynamic greeting - centered, single line */}
         <p className="text-center text-sm text-on-surface-variant py-3">{greeting}</p>
 
-        {orderedTasks.length === 0 && timeBlocks.filter(b => tasks.some(t => t.time_block_id === b.id && t.status !== 'done')).length === 0 ? (
+        {/* View toggle: Agenda / Calendar */}
+        <div className="flex items-center justify-end gap-1 py-1">
+          <button
+            onClick={() => handleSetView('agenda')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              viewMode === 'agenda'
+                ? 'bg-primary/15 text-primary'
+                : 'text-on-surface-variant hover:bg-surface-container-high'
+            }`}
+          >
+            <List className="w-3.5 h-3.5" /> Agenda
+          </button>
+          <button
+            onClick={() => handleSetView('calendar')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              viewMode === 'calendar'
+                ? 'bg-primary/15 text-primary'
+                : 'text-on-surface-variant hover:bg-surface-container-high'
+            }`}
+          >
+            <CalendarDays className="w-3.5 h-3.5" /> Calendario
+          </button>
+        </div>
+
+        {viewMode === 'calendar' ? (
+          <CalendarView
+            tasks={orderedTasks}
+            timeBlocks={timeBlocks}
+            onTaskClick={setSelectedTask}
+          />
+        ) : orderedTasks.length === 0 && timeBlocks.filter(b => tasks.some(t => t.time_block_id === b.id && t.status !== 'done')).length === 0 ? (
           <motion.div 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
