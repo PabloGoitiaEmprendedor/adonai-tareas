@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Play, Clock, Calendar, Flag, Tag, FolderOpen, Trash2, Repeat, Plus, Check } from 'lucide-react';
+import { X, Play, Clock, Calendar, Flag, Tag, FolderOpen, Trash2, Repeat, Plus, Check, Link as LinkIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -28,6 +28,7 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [link, setLink] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [estimatedMinutes, setEstimatedMinutes] = useState(0);
   const [importance, setImportance] = useState(false);
@@ -50,6 +51,7 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
     if (task && open) {
       setTitle(task.title || '');
       setDescription(task.description || '');
+      setLink(task.link || '');
       setDueDate(task.due_date || '');
       setEstimatedMinutes(task.estimated_minutes || 25);
       setImportance(task.importance || false);
@@ -129,6 +131,7 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
       folder_id: folderId,
       status,
       recurrence_id: recurrenceId,
+      link: link.trim() || null,
       ...(status === 'done' ? { completed_at: new Date().toISOString() } : {}),
     });
     toast.success('Tarea actualizada');
@@ -272,6 +275,18 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
                     placeholder="Añade una descripción..."
                     className="w-full bg-surface-container-high rounded-lg p-3 text-foreground text-sm focus:outline-none focus:ring-1 focus:ring-primary"
                   />
+
+                  {/* Link / URL */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider flex items-center gap-1"><LinkIcon className="w-3 h-3" /> Link</label>
+                    <input
+                      type="url"
+                      value={link}
+                      onChange={(e) => setLink(e.target.value)}
+                      placeholder="https://..."
+                      className="w-full bg-surface-container-high rounded-lg p-3 text-foreground text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
 
                   {/* 7. Contexto */}
                   <div className="space-y-1.5">
