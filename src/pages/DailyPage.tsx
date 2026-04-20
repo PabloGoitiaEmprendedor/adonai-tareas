@@ -663,30 +663,33 @@ const DailyPage = () => {
                                 initial={{ scale: 0 }}
                                 animate={{ scale: 1 }}
                                 transition={{ type: "spring", stiffness: 400, damping: 25 }}
-                                className="w-5 h-5 rounded bg-primary flex items-center justify-center flex-shrink-0 mt-0.5 cursor-pointer"
+                                className="w-8 h-8 rounded-full bg-primary flex items-center justify-center flex-shrink-0 cursor-pointer"
                                 onClick={(e) => handleUncomplete(task, e)}
                               >
-                                <Check className="w-3 h-3 text-primary-foreground" />
+                                <Check className="w-5 h-5 text-primary-foreground" strokeWidth={3} />
                               </motion.div>
                             ) : (
                               <button
                                 onClick={(e) => handleComplete(task, e)}
-                                className="w-5 h-5 rounded border-2 border-outline-variant flex items-center justify-center hover:border-primary flex-shrink-0 mt-0.5"
-                              />
+                                className="w-8 h-8 rounded-full border-2 border-outline-variant flex items-center justify-center hover:border-primary flex-shrink-0 transition-all group"
+                              >
+                                <div className="w-4 h-4 rounded-full bg-primary/0 group-hover:bg-primary/10 transition-all" />
+                              </button>
                             )}
 
-                            <div className="flex-1 min-w-0 relative">
+                            <div className="flex-1 min-w-0 relative flex flex-col justify-center min-h-[32px]">
                               <h4
-                                className={`text-sm font-semibold break-words transition-colors ${
-                                  isDone ? 'text-on-surface-variant line-through' :
-                                  completingTaskId === task.id ? 'text-on-surface-variant' : 'text-foreground'
+                                className={`text-base font-bold tracking-tight transition-colors ${
+                                  isDone || completingTaskId === task.id 
+                                    ? 'text-on-surface-variant/50' 
+                                    : 'text-foreground'
                                 }`}
                               >
                                 {task.title}
                               </h4>
-                              {completingTaskId === task.id && (
+                              {(isDone || completingTaskId === task.id) && (
                                 <motion.div
-                                  initial={{ width: 0 }}
+                                  initial={completingTaskId === task.id ? { width: 0 } : { width: '100%' }}
                                   animate={{ width: '100%' }}
                                   transition={{ delay: 0.1, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
                                   className="absolute top-1/2 left-0 h-[1.5px] bg-white/60 -translate-y-1/2 z-10 pointer-events-none"
@@ -820,25 +823,29 @@ const DailyPage = () => {
                         <motion.div 
                           initial={{ scale: 0 }}
                           animate={{ scale: 1 }}
-                          className="w-5 h-5 rounded bg-primary flex items-center justify-center flex-shrink-0 mt-0.5"
+                          className="w-8 h-8 rounded-full bg-primary flex items-center justify-center flex-shrink-0 cursor-pointer"
+                          onClick={(e) => handleUncomplete(task, e)}
                         >
-                          <Check className="w-3 h-3 text-primary-foreground" />
+                          <Check className="w-5 h-5 text-primary-foreground" strokeWidth={3} />
                         </motion.div>
                       ) : (
                         <button onClick={(e) => handleComplete(task, e)}
-                          className="w-5 h-5 rounded border-2 border-outline-variant flex items-center justify-center hover:border-primary flex-shrink-0 mt-0.5" />
+                          className="w-8 h-8 rounded-full border-2 border-outline-variant flex items-center justify-center hover:border-primary flex-shrink-0 transition-all group">
+                          <div className="w-4 h-4 rounded-full bg-primary/0 group-hover:bg-primary/10 transition-all" />
+                        </button>
                       )}
-                      <div className="flex-1 min-w-0 relative">
-                        <h4 className={`text-sm font-semibold break-words transition-colors ${
-                          isDone || completingTaskId === task.id ? 'text-on-surface-variant' : 'text-foreground'
+                      <div className="flex-1 min-w-0 relative flex flex-col justify-center min-h-[32px]">
+                        <h4 className={`text-base font-bold tracking-tight transition-colors ${
+                          isDone || completingTaskId === task.id ? 'text-on-surface-variant/50' : 'text-foreground'
                         }`}>
                           {task.title}
                         </h4>
                         {(isDone || completingTaskId === task.id) && (
                           <motion.div 
-                            initial={{ width: 0 }}
+                            initial={completingTaskId === task.id ? { width: 0 } : { width: '100%' }}
                             animate={{ width: '100%' }}
-                            className="absolute top-1/2 left-0 h-[1.5px] bg-white/60 -translate-y-1/2"
+                            transition={{ delay: 0.1, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+                            className="absolute top-1/2 left-0 h-[1.5px] bg-white/60 -translate-y-1/2 pointer-events-none"
                           />
                         )}
 
