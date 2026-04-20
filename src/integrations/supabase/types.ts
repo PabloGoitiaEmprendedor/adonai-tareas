@@ -434,6 +434,7 @@ export type Database = {
           sort_order: number | null
           source_type: string | null
           status: string | null
+          subtasks: Json | null
           time_block_id: string | null
           title: string
           urgency: boolean | null
@@ -455,6 +456,7 @@ export type Database = {
           sort_order?: number | null
           source_type?: string | null
           status?: string | null
+          subtasks?: Json | null
           time_block_id?: string | null
           title: string
           urgency?: boolean | null
@@ -476,6 +478,7 @@ export type Database = {
           sort_order?: number | null
           source_type?: string | null
           status?: string | null
+          subtasks?: Json | null
           time_block_id?: string | null
           title?: string
           urgency?: boolean | null

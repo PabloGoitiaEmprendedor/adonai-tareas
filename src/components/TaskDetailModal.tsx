@@ -129,6 +129,7 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
       folder_id: folderId,
       status,
       recurrence_id: recurrenceId,
+      subtasks,
       ...(status === 'done' ? { completed_at: new Date().toISOString() } : {}),
     });
     toast.success('Tarea actualizada');
@@ -435,9 +436,30 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
                     {showSubtasks && (
                       <div className="space-y-2">
                         {subtasks.map((st, i) => (
-                          <div key={i} className="flex items-center gap-3 p-2 bg-surface-container-high rounded-lg">
-                            <div className="w-4 h-4 rounded border border-outline-variant" />
-                            <span className="text-sm text-foreground">{st.title}</span>
+                          <div key={i} className="flex items-center gap-3 p-2 bg-surface-container-high rounded-lg group">
+                            <button
+                              onClick={() => {
+                                const newSubtasks = [...subtasks];
+                                newSubtasks[i] = { ...newSubtasks[i], completed: !newSubtasks[i].completed };
+                                setSubtasks(newSubtasks);
+                              }}
+                              className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${
+                                st.completed ? 'bg-primary border-primary' : 'border-outline-variant hover:border-primary'
+                              }`}
+                            >
+                              {st.completed && <Check className="w-2.5 h-2.5 text-primary-foreground" />}
+                            </button>
+                            <span className={`text-sm flex-1 ${st.completed ? 'text-on-surface-variant line-through' : 'text-foreground'}`}>
+                              {st.title}
+                            </span>
+                            <button
+                              onClick={() => {
+                                setSubtasks(subtasks.filter((_, idx) => idx !== i));
+                              }}
+                              className="opacity-0 group-hover:opacity-100 p-1 text-on-surface-variant hover:text-red-500 transition-all"
+                            >
+                              <Plus className="w-4 h-4 rotate-45" />
+                            </button>
                           </div>
                         ))}
                         <div className="flex gap-2">

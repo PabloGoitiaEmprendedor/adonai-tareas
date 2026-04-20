@@ -6,8 +6,9 @@ import { useProfile } from '@/hooks/useProfile';
 import { useStreaks } from '@/hooks/useStreaks';
 import { useGlobalVoiceCapture } from '@/hooks/useGlobalVoiceCapture';
 import { useTimeBlocks } from '@/hooks/useTimeBlocks';
+import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
-import { Check, Plus, GripVertical, Timer, Clock, List, CalendarDays } from 'lucide-react';
+import { Check, Plus, GripVertical, Timer, Clock, List, CalendarDays, ChevronDown, Trash2, Flame } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { triggerTaskCelebration, triggerDailyCelebration } from '@/lib/celebrations';
@@ -195,11 +196,14 @@ const CalendarView = ({ tasks, timeBlocks, onTaskClick }: { tasks: any[], timeBl
 const DailyPage = () => {
   const today = format(new Date(), 'yyyy-MM-dd');
 
-  const { tasks, updateTask } = useTasks({ date: today });
+  const { tasks, updateTask, deleteTask } = useTasks({ date: today });
   const { timeBlocks } = useTimeBlocks(today);
   const { goals } = useGoals();
   const { profile } = useProfile();
-  const { trackDayActive } = useStreaks();
+  const { metrics, trackDayActive } = useStreaks();
+  const [expandedSubtasks, setExpandedSubtasks] = useState<Record<string, boolean>>({});
+  const [newSubtaskInputs, setNewSubtaskInputs] = useState<Record<string, string>>({});
+  const streakCount = metrics?.streak_current || 0;
   const [captureOpen, setCaptureOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<any>(null);
   const [timerTask, setTimerTask] = useState<any>(null);
@@ -305,6 +309,44 @@ const DailyPage = () => {
     updateTask.mutate({ id: task.id, status: 'pending', completed_at: null });
   };
 
+  const toggleSubtaskExpand = (taskId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setExpandedSubtasks(prev => ({ ...prev, [taskId]: !prev[taskId] }));
+  };
+
+  const handleSubtaskComplete = async (task: any, subtaskIdx: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const currentSubtasks = Array.isArray(task.subtasks) ? task.subtasks : [];
+    const newSubtasks = [...currentSubtasks];
+    newSubtasks[subtaskIdx] = { 
+      ...newSubtasks[subtaskIdx], 
+      completed: !newSubtasks[subtaskIdx].completed 
+    };
+    updateTask.mutate({ id: task.id, subtasks: newSubtasks });
+  };
+
+  const handleAddSubtask = async (taskId: string, e?: React.FormEvent) => {
+    e?.preventDefault();
+    const title = newSubtaskInputs[taskId]?.trim();
+    if (!title) return;
+
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
+
+    const currentSubtasks = Array.isArray(task.subtasks) ? task.subtasks : [];
+    const newSubtasks = [...currentSubtasks, { title, completed: false }];
+    updateTask.mutate({ id: taskId, subtasks: newSubtasks });
+    setNewSubtaskInputs(prev => ({ ...prev, [taskId]: '' }));
+  };
+
+  const handleDeleteTask = (taskId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (window.confirm('¿Mover a la papelera?')) {
+      deleteTask.mutate(taskId);
+      toast.success('Tarea movida a la papelera');
+    }
+  };
+
   const handleDragStart = (idx: number) => setDragIdx(idx);
   const handleDragOver = (e: React.DragEvent, idx: number) => {
     e.preventDefault();
@@ -401,28 +443,38 @@ const DailyPage = () => {
         {/* Dynamic greeting - centered, single line */}
         <p className="text-center text-sm text-on-surface-variant py-3">{greeting}</p>
 
-        {/* View toggle: Agenda / Calendar */}
-        <div className="flex items-center justify-end gap-1 py-1">
-          <button
-            onClick={() => handleSetView('agenda')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-              viewMode === 'agenda'
-                ? 'bg-primary/15 text-primary'
-                : 'text-on-surface-variant hover:bg-surface-container-high'
-            }`}
-          >
-            <List className="w-3.5 h-3.5" /> Agenda
-          </button>
-          <button
-            onClick={() => handleSetView('calendar')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-              viewMode === 'calendar'
-                ? 'bg-primary/15 text-primary'
-                : 'text-on-surface-variant hover:bg-surface-container-high'
-            }`}
-          >
-            <CalendarDays className="w-3.5 h-3.5" /> Calendario
-          </button>
+        {/* View toggle: Agenda / Calendar + Streak */}
+        <div className="flex items-center justify-between py-1">
+          {/* Streak badge */}
+          {streakCount > 0 ? (
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-orange-500/10 border border-orange-500/20">
+              <Flame className="w-3.5 h-3.5 text-orange-500" />
+              <span className="text-xs font-black text-orange-500 tabular-nums">{streakCount}</span>
+            </div>
+          ) : <div />}
+
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => handleSetView('agenda')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                viewMode === 'agenda'
+                  ? 'bg-primary/15 text-primary'
+                  : 'text-on-surface-variant hover:bg-surface-container-high'
+              }`}
+            >
+              <List className="w-3.5 h-3.5" /> Agenda
+            </button>
+            <button
+              onClick={() => handleSetView('calendar')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                viewMode === 'calendar'
+                  ? 'bg-primary/15 text-primary'
+                  : 'text-on-surface-variant hover:bg-surface-container-high'
+              }`}
+            >
+              <CalendarDays className="w-3.5 h-3.5" /> Calendario
+            </button>
+          </div>
         </div>
 
         {viewMode === 'calendar' ? (
@@ -627,16 +679,82 @@ const DailyPage = () => {
                                   className="absolute top-1/2 left-0 h-[2px] bg-primary/40 -translate-y-1/2 z-10 pointer-events-none"
                                 />
                               )}
+
+                              {/* Inline Subtasks List */}
+                              {!isDone && (
+                                <div className="mt-1">
+                                  <button
+                                    onClick={(e) => toggleSubtaskExpand(task.id, e)}
+                                    className="text-[10px] uppercase tracking-wider font-bold text-on-surface-variant/60 hover:text-primary flex items-center gap-1 py-1"
+                                  >
+                                    <Plus className="w-2.5 h-2.5" /> 
+                                    Subtareas {Array.isArray(task.subtasks) && task.subtasks.length > 0 ? `(${task.subtasks.length})` : ''}
+                                    <ChevronDown className={`w-2.5 h-2.5 transition-transform ${expandedSubtasks[task.id] ? 'rotate-180' : ''}`} />
+                                  </button>
+
+                                  <AnimatePresence>
+                                    {expandedSubtasks[task.id] && (
+                                      <motion.div
+                                        initial={{ height: 0, opacity: 0 }}
+                                        animate={{ height: 'auto', opacity: 1 }}
+                                        exit={{ height: 0, opacity: 0 }}
+                                        className="overflow-hidden space-y-1 ml-1"
+                                      >
+                                        {Array.isArray(task.subtasks) && task.subtasks.map((st: any, i: number) => (
+                                          <div key={i} className="flex items-center gap-2 py-0.5 group">
+                                            <button
+                                              onClick={(e) => handleSubtaskComplete(task, i, e)}
+                                              className={`w-3.5 h-3.5 rounded border flex items-center justify-center transition-colors ${
+                                                st.completed ? 'bg-primary border-primary' : 'border-outline-variant hover:border-primary'
+                                              }`}
+                                            >
+                                              {st.completed && <Check className="w-2 h-2 text-primary-foreground" />}
+                                            </button>
+                                            <span className={`text-xs ${st.completed ? 'text-on-surface-variant/50 line-through' : 'text-on-surface-variant/80'}`}>
+                                              {st.title}
+                                            </span>
+                                          </div>
+                                        ))}
+                                        {/* Add Subtask Input */}
+                                        <form 
+                                          onSubmit={(e) => handleAddSubtask(task.id, e)}
+                                          onClick={(e) => e.stopPropagation()}
+                                          className="flex items-center gap-2 py-1"
+                                        >
+                                          <div className="w-3.5 h-3.5 flex-shrink-0" />
+                                          <input
+                                            type="text"
+                                            placeholder="Nueva subtarea..."
+                                            value={newSubtaskInputs[task.id] || ''}
+                                            onChange={(e) => setNewSubtaskInputs(prev => ({ ...prev, [task.id]: e.target.value }))}
+                                            className="bg-transparent border-none p-0 text-xs text-primary focus:ring-0 placeholder:text-on-surface-variant/30 w-full"
+                                          />
+                                        </form>
+                                      </motion.div>
+                                    )}
+                                  </AnimatePresence>
+                                </div>
+                              )}
                             </div>
 
-                            {!isDone && (
-                              <button
-                                onClick={(e) => handleStartTimer(task, e)}
-                                className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center hover:bg-primary/20 flex-shrink-0 transition-colors"
-                              >
-                                <Timer className="w-3.5 h-3.5 text-primary" />
-                              </button>
-                            )}
+                            <div className="flex items-center gap-1 flex-shrink-0">
+                              {!isDone && (
+                                <>
+                                  <button
+                                    onClick={(e) => handleStartTimer(task, e)}
+                                    className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center hover:bg-primary/20 transition-colors"
+                                  >
+                                    <Timer className="w-3.5 h-3.5 text-primary" />
+                                  </button>
+                                  <button
+                                    onClick={(e) => handleDeleteTask(task.id, e)}
+                                    className="w-8 h-8 rounded-full bg-red-500/10 flex items-center justify-center hover:bg-red-500/20 transition-colors group"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5 text-red-500/60 group-hover:text-red-500" />
+                                  </button>
+                                </>
+                              )}
+                            </div>
                           </motion.div>
                         </div>
                         );
@@ -714,13 +832,77 @@ const DailyPage = () => {
                             className="absolute top-1/2 left-0 h-[2px] bg-primary/40 -translate-y-1/2"
                           />
                         )}
+
+                        {/* Inline Subtasks List (General List) */}
+                        {!isDone && (
+                          <div className="mt-1">
+                            <button
+                              onClick={(e) => toggleSubtaskExpand(task.id, e)}
+                              className="text-[10px] uppercase tracking-wider font-bold text-on-surface-variant/60 hover:text-primary flex items-center gap-1 py-1"
+                            >
+                              <Plus className="w-2.5 h-2.5" /> 
+                              Subtareas {Array.isArray(task.subtasks) && task.subtasks.length > 0 ? `(${task.subtasks.length})` : ''}
+                              <ChevronDown className={`w-2.5 h-2.5 transition-transform ${expandedSubtasks[task.id] ? 'rotate-180' : ''}`} />
+                            </button>
+
+                            <AnimatePresence>
+                              {expandedSubtasks[task.id] && (
+                                <motion.div
+                                  initial={{ height: 0, opacity: 0 }}
+                                  animate={{ height: 'auto', opacity: 1 }}
+                                  exit={{ height: 0, opacity: 0 }}
+                                  className="overflow-hidden space-y-1 ml-1"
+                                >
+                                  {Array.isArray(task.subtasks) && task.subtasks.map((st: any, i: number) => (
+                                    <div key={i} className="flex items-center gap-2 py-0.5 group">
+                                      <button
+                                        onClick={(e) => handleSubtaskComplete(task, i, e)}
+                                        className={`w-3.5 h-3.5 rounded border flex items-center justify-center transition-colors ${
+                                          st.completed ? 'bg-primary border-primary' : 'border-outline-variant hover:border-primary'
+                                        }`}
+                                      >
+                                        {st.completed && <Check className="w-2 h-2 text-primary-foreground" />}
+                                      </button>
+                                      <span className={`text-xs ${st.completed ? 'text-on-surface-variant/50 line-through' : 'text-on-surface-variant/80'}`}>
+                                        {st.title}
+                                      </span>
+                                    </div>
+                                  ))}
+                                  {/* Add Subtask Input */}
+                                  <form 
+                                    onSubmit={(e) => handleAddSubtask(task.id, e)}
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="flex items-center gap-2 py-1"
+                                  >
+                                    <div className="w-3.5 h-3.5 flex-shrink-0" />
+                                    <input
+                                      type="text"
+                                      placeholder="Nueva subtarea..."
+                                      value={newSubtaskInputs[task.id] || ''}
+                                      onChange={(e) => setNewSubtaskInputs(prev => ({ ...prev, [task.id]: e.target.value }))}
+                                      className="bg-transparent border-none p-0 text-xs text-primary focus:ring-0 placeholder:text-on-surface-variant/30 w-full"
+                                    />
+                                  </form>
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
+                          </div>
+                        )}
                       </div>
-                      {!isDone && (
-                        <button onClick={(e) => handleStartTimer(task, e)}
-                          className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center hover:bg-primary/20 flex-shrink-0 transition-colors">
-                          <Timer className="w-3.5 h-3.5 text-primary" />
-                        </button>
-                      )}
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        {!isDone && (
+                          <>
+                            <button onClick={(e) => handleStartTimer(task, e)}
+                              className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center hover:bg-primary/20 transition-colors">
+                              <Timer className="w-3.5 h-3.5 text-primary" />
+                            </button>
+                            <button onClick={(e) => handleDeleteTask(task.id, e)}
+                              className="w-8 h-8 rounded-full bg-red-500/10 flex items-center justify-center hover:bg-red-500/20 transition-colors group">
+                              <Trash2 className="w-3.5 h-3.5 text-red-500/60 group-hover:text-red-500" />
+                            </button>
+                          </>
+                        )}
+                      </div>
                     </motion.div>
                   );
                 })}
