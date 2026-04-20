@@ -216,6 +216,7 @@ const CalendarView = ({ tasks, timeBlocks, onTaskClick }: { tasks: any[], timeBl
       </div>
     </div>
   );
+};
 
 const DailyPage = () => {
   const today = format(new Date(), 'yyyy-MM-dd');
