@@ -447,10 +447,23 @@ const DailyPage = () => {
         <div className="flex items-center justify-between py-1">
           {/* Streak badge */}
           {streakCount > 0 ? (
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-orange-500/10 border border-orange-500/20">
-              <Flame className="w-3.5 h-3.5 text-orange-500" />
-              <span className="text-xs font-black text-orange-500 tabular-nums">{streakCount}</span>
-            </div>
+            <motion.div 
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              whileHover={{ scale: 1.05 }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-orange-500/10 border border-orange-500/20 shadow-[0_0_12px_rgba(249,115,22,0.15)] ring-1 ring-orange-500/5"
+            >
+              <motion.div
+                animate={{ 
+                  scale: [1, 1.2, 1],
+                  filter: ["brightness(1)", "brightness(1.5)", "brightness(1)"]
+                }}
+                transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+              >
+                <Flame className="w-3.5 h-3.5 text-orange-500 fill-orange-500/20" />
+              </motion.div>
+              <span className="text-[13px] font-black leading-none text-orange-600 dark:text-orange-400 tabular-nums">{streakCount}</span>
+            </motion.div>
           ) : <div />}
 
           <div className="flex items-center gap-1">
@@ -676,20 +689,22 @@ const DailyPage = () => {
                                   initial={{ width: 0 }}
                                   animate={{ width: '100%' }}
                                   transition={{ delay: 0.1, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-                                  className="absolute top-1/2 left-0 h-[2px] bg-primary/40 -translate-y-1/2 z-10 pointer-events-none"
+                                  className="absolute top-1/2 left-0 h-[1.5px] bg-white/60 -translate-y-1/2 z-10 pointer-events-none"
                                 />
                               )}
 
-                              {/* Inline Subtasks List */}
+                              {/* Inline Subtasks List - Minimalist */}
                               {!isDone && (
-                                <div className="mt-1">
+                                <div className="mt-1.5 flex flex-col items-start">
                                   <button
                                     onClick={(e) => toggleSubtaskExpand(task.id, e)}
-                                    className="text-[10px] uppercase tracking-wider font-bold text-on-surface-variant/60 hover:text-primary flex items-center gap-1 py-1"
+                                    className="text-[10px] uppercase font-bold text-on-surface-variant/40 hover:text-primary transition-colors flex items-center gap-1.5"
                                   >
-                                    <Plus className="w-2.5 h-2.5" /> 
-                                    Subtareas {Array.isArray(task.subtasks) && task.subtasks.length > 0 ? `(${task.subtasks.length})` : ''}
-                                    <ChevronDown className={`w-2.5 h-2.5 transition-transform ${expandedSubtasks[task.id] ? 'rotate-180' : ''}`} />
+                                    {Array.isArray(task.subtasks) && task.subtasks.length > 0 ? (
+                                      <span className="bg-primary/10 text-primary px-1.5 py-0.5 rounded-full">{task.subtasks.length}</span>
+                                    ) : null}
+                                    Subtareas
+                                    <ChevronDown className={`w-3 h-3 transition-transform ${expandedSubtasks[task.id] ? 'rotate-180' : ''}`} />
                                   </button>
 
                                   <AnimatePresence>
@@ -698,36 +713,38 @@ const DailyPage = () => {
                                         initial={{ height: 0, opacity: 0 }}
                                         animate={{ height: 'auto', opacity: 1 }}
                                         exit={{ height: 0, opacity: 0 }}
-                                        className="overflow-hidden space-y-1 ml-1"
+                                        className="overflow-hidden w-full pl-2 mt-2 border-l-2 border-outline-variant/10 space-y-1.5"
                                       >
                                         {Array.isArray(task.subtasks) && task.subtasks.map((st: any, i: number) => (
-                                          <div key={i} className="flex items-center gap-2 py-0.5 group">
+                                          <div key={i} className="flex items-center gap-2.5 group">
                                             <button
                                               onClick={(e) => handleSubtaskComplete(task, i, e)}
-                                              className={`w-3.5 h-3.5 rounded border flex items-center justify-center transition-colors ${
-                                                st.completed ? 'bg-primary border-primary' : 'border-outline-variant hover:border-primary'
+                                              className={`w-3.5 h-3.5 rounded-full border transition-all ${
+                                                st.completed ? 'bg-primary border-primary' : 'border-outline-variant/50 hover:border-primary'
                                               }`}
                                             >
-                                              {st.completed && <Check className="w-2 h-2 text-primary-foreground" />}
+                                              {st.completed && <Check className="w-2.5 h-2.5 text-primary-foreground mx-auto" />}
                                             </button>
-                                            <span className={`text-xs ${st.completed ? 'text-on-surface-variant/50 line-through' : 'text-on-surface-variant/80'}`}>
+                                            <span className={`text-[11px] font-medium transition-colors ${st.completed ? 'text-on-surface-variant/40 line-through' : 'text-on-surface-variant/80'}`}>
                                               {st.title}
                                             </span>
                                           </div>
                                         ))}
-                                        {/* Add Subtask Input */}
+                                        {/* Minimalist Subtask Input */}
                                         <form 
                                           onSubmit={(e) => handleAddSubtask(task.id, e)}
                                           onClick={(e) => e.stopPropagation()}
-                                          className="flex items-center gap-2 py-1"
+                                          className="flex items-center gap-2 py-0.5"
                                         >
-                                          <div className="w-3.5 h-3.5 flex-shrink-0" />
+                                          <div className="w-3.5 h-3.5 flex items-center justify-center">
+                                            <Plus className="w-2.5 h-2.5 text-on-surface-variant/30" />
+                                          </div>
                                           <input
                                             type="text"
                                             placeholder="Nueva subtarea..."
                                             value={newSubtaskInputs[task.id] || ''}
                                             onChange={(e) => setNewSubtaskInputs(prev => ({ ...prev, [task.id]: e.target.value }))}
-                                            className="bg-transparent border-none p-0 text-xs text-primary focus:ring-0 placeholder:text-on-surface-variant/30 w-full"
+                                            className="bg-transparent border-none p-0 text-[11px] text-primary focus:ring-0 placeholder:text-on-surface-variant/20 w-full"
                                           />
                                         </form>
                                       </motion.div>
@@ -739,20 +756,12 @@ const DailyPage = () => {
 
                             <div className="flex items-center gap-1 flex-shrink-0">
                               {!isDone && (
-                                <>
-                                  <button
-                                    onClick={(e) => handleStartTimer(task, e)}
-                                    className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center hover:bg-primary/20 transition-colors"
-                                  >
-                                    <Timer className="w-3.5 h-3.5 text-primary" />
-                                  </button>
-                                  <button
-                                    onClick={(e) => handleDeleteTask(task.id, e)}
-                                    className="w-8 h-8 rounded-full bg-red-500/10 flex items-center justify-center hover:bg-red-500/20 transition-colors group"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5 text-red-500/60 group-hover:text-red-500" />
-                                  </button>
-                                </>
+                                <button
+                                  onClick={(e) => handleStartTimer(task, e)}
+                                  className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center hover:bg-primary/20 transition-colors"
+                                >
+                                  <Timer className="w-3.5 h-3.5 text-primary" />
+                                </button>
                               )}
                             </div>
                           </motion.div>
@@ -829,20 +838,22 @@ const DailyPage = () => {
                           <motion.div 
                             initial={{ width: 0 }}
                             animate={{ width: '100%' }}
-                            className="absolute top-1/2 left-0 h-[2px] bg-primary/40 -translate-y-1/2"
+                            className="absolute top-1/2 left-0 h-[1.5px] bg-white/60 -translate-y-1/2"
                           />
                         )}
 
-                        {/* Inline Subtasks List (General List) */}
+                        {/* Inline Subtasks List - Minimalist */}
                         {!isDone && (
-                          <div className="mt-1">
+                          <div className="mt-1.5 flex flex-col items-start">
                             <button
                               onClick={(e) => toggleSubtaskExpand(task.id, e)}
-                              className="text-[10px] uppercase tracking-wider font-bold text-on-surface-variant/60 hover:text-primary flex items-center gap-1 py-1"
+                              className="text-[10px] uppercase font-bold text-on-surface-variant/40 hover:text-primary transition-colors flex items-center gap-1.5"
                             >
-                              <Plus className="w-2.5 h-2.5" /> 
-                              Subtareas {Array.isArray(task.subtasks) && task.subtasks.length > 0 ? `(${task.subtasks.length})` : ''}
-                              <ChevronDown className={`w-2.5 h-2.5 transition-transform ${expandedSubtasks[task.id] ? 'rotate-180' : ''}`} />
+                              {Array.isArray(task.subtasks) && task.subtasks.length > 0 ? (
+                                <span className="bg-primary/10 text-primary px-1.5 py-0.5 rounded-full">{task.subtasks.length}</span>
+                              ) : null}
+                              Subtareas
+                              <ChevronDown className={`w-3 h-3 transition-transform ${expandedSubtasks[task.id] ? 'rotate-180' : ''}`} />
                             </button>
 
                             <AnimatePresence>
@@ -851,36 +862,38 @@ const DailyPage = () => {
                                   initial={{ height: 0, opacity: 0 }}
                                   animate={{ height: 'auto', opacity: 1 }}
                                   exit={{ height: 0, opacity: 0 }}
-                                  className="overflow-hidden space-y-1 ml-1"
+                                  className="overflow-hidden w-full pl-2 mt-2 border-l-2 border-outline-variant/10 space-y-1.5"
                                 >
                                   {Array.isArray(task.subtasks) && task.subtasks.map((st: any, i: number) => (
-                                    <div key={i} className="flex items-center gap-2 py-0.5 group">
+                                    <div key={i} className="flex items-center gap-2.5 group">
                                       <button
                                         onClick={(e) => handleSubtaskComplete(task, i, e)}
-                                        className={`w-3.5 h-3.5 rounded border flex items-center justify-center transition-colors ${
-                                          st.completed ? 'bg-primary border-primary' : 'border-outline-variant hover:border-primary'
+                                        className={`w-3.5 h-3.5 rounded-full border transition-all ${
+                                          st.completed ? 'bg-primary border-primary' : 'border-outline-variant/50 hover:border-primary'
                                         }`}
                                       >
-                                        {st.completed && <Check className="w-2 h-2 text-primary-foreground" />}
+                                        {st.completed && <Check className="w-2.5 h-2.5 text-primary-foreground mx-auto" />}
                                       </button>
-                                      <span className={`text-xs ${st.completed ? 'text-on-surface-variant/50 line-through' : 'text-on-surface-variant/80'}`}>
+                                      <span className={`text-[11px] font-medium transition-colors ${st.completed ? 'text-on-surface-variant/40 line-through' : 'text-on-surface-variant/80'}`}>
                                         {st.title}
                                       </span>
                                     </div>
                                   ))}
-                                  {/* Add Subtask Input */}
+                                  {/* Minimalist Subtask Input */}
                                   <form 
                                     onSubmit={(e) => handleAddSubtask(task.id, e)}
                                     onClick={(e) => e.stopPropagation()}
-                                    className="flex items-center gap-2 py-1"
+                                    className="flex items-center gap-2 py-0.5"
                                   >
-                                    <div className="w-3.5 h-3.5 flex-shrink-0" />
+                                    <div className="w-3.5 h-3.5 flex items-center justify-center">
+                                      <Plus className="w-2.5 h-2.5 text-on-surface-variant/30" />
+                                    </div>
                                     <input
                                       type="text"
                                       placeholder="Nueva subtarea..."
                                       value={newSubtaskInputs[task.id] || ''}
                                       onChange={(e) => setNewSubtaskInputs(prev => ({ ...prev, [task.id]: e.target.value }))}
-                                      className="bg-transparent border-none p-0 text-xs text-primary focus:ring-0 placeholder:text-on-surface-variant/30 w-full"
+                                      className="bg-transparent border-none p-0 text-[11px] text-primary focus:ring-0 placeholder:text-on-surface-variant/20 w-full"
                                     />
                                   </form>
                                 </motion.div>
@@ -891,16 +904,10 @@ const DailyPage = () => {
                       </div>
                       <div className="flex items-center gap-1 flex-shrink-0">
                         {!isDone && (
-                          <>
-                            <button onClick={(e) => handleStartTimer(task, e)}
-                              className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center hover:bg-primary/20 transition-colors">
-                              <Timer className="w-3.5 h-3.5 text-primary" />
-                            </button>
-                            <button onClick={(e) => handleDeleteTask(task.id, e)}
-                              className="w-8 h-8 rounded-full bg-red-500/10 flex items-center justify-center hover:bg-red-500/20 transition-colors group">
-                              <Trash2 className="w-3.5 h-3.5 text-red-500/60 group-hover:text-red-500" />
-                            </button>
-                          </>
+                          <button onClick={(e) => handleStartTimer(task, e)}
+                            className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center hover:bg-primary/20 transition-colors">
+                            <Timer className="w-3.5 h-3.5 text-primary" />
+                          </button>
                         )}
                       </div>
                     </motion.div>
