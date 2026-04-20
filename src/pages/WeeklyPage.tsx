@@ -457,10 +457,17 @@ const WeeklyPage = () => {
                                 className="w-5 h-5 rounded border-2 border-outline-variant flex items-center justify-center hover:border-primary flex-shrink-0 mt-0.5" />
                             )}
                             <div className="flex-1 min-w-0 relative mt-0.5">
-                              <h4 className={`text-sm font-semibold break-words transition-colors ${
+                              <h4 className={`text-sm font-semibold break-words transition-colors flex items-center gap-1.5 ${
                                 isDone ? 'text-on-surface-variant line-through' :
                                 completingTaskId === task.id ? 'text-on-surface-variant' : 'text-foreground'
-                              }`}>{task.title}</h4>
+                              }`}>
+                                <span className="break-words">{task.title}</span>
+                                {task.link && (
+                                  <a href={task.link} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-primary hover:opacity-80 flex-shrink-0" aria-label="Abrir link">
+                                    <LinkIcon className="w-3.5 h-3.5" />
+                                  </a>
+                                )}
+                              </h4>
                               {completingTaskId === task.id && (
                                 <motion.div
                                   initial={{ width: 0 }}
@@ -529,10 +536,17 @@ const WeeklyPage = () => {
                           className="w-5 h-5 rounded border-2 border-outline-variant flex items-center justify-center hover:border-primary flex-shrink-0" />
                       )}
                       <div className="flex-1 min-w-0 relative">
-                        <h4 className={`text-sm font-semibold break-words transition-colors ${
+                        <h4 className={`text-sm font-semibold break-words transition-colors flex items-center gap-1.5 ${
                           isDone ? 'text-on-surface-variant line-through' :
                           completingTaskId === task.id ? 'text-on-surface-variant' : 'text-foreground'
-                        }`}>{task.title}</h4>
+                        }`}>
+                          <span className="break-words">{task.title}</span>
+                          {task.link && (
+                            <a href={task.link} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-primary hover:opacity-80 flex-shrink-0" aria-label="Abrir link">
+                              <LinkIcon className="w-3.5 h-3.5" />
+                            </a>
+                          )}
+                        </h4>
                         {completingTaskId === task.id && (
                           <motion.div
                             initial={{ width: 0 }}
