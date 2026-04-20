@@ -128,14 +128,14 @@ const CalendarView = ({ tasks, timeBlocks, onTaskClick }: { tasks: any[], timeBl
     <div className="relative overflow-y-auto" style={{ maxHeight: 'calc(100vh - 200px)' }}>
       {/* Tasks without time or block — pill list above timeline */}
       {tasksWithoutTimeOrBlock.length > 0 && (
-        <div className="sticky top-0 bg-background/90 backdrop-blur-sm pb-2 z-20 border-b border-outline-variant/10 mb-2">
-          <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider mb-2 pl-2">Sin hora asignada</p>
-          <div className="flex flex-wrap gap-1.5 px-2">
+        <div className="bg-background pb-3 z-20 border-b border-outline-variant/10 mb-4 px-2">
+          <p className="text-[10px] font-bold text-on-surface-variant/40 uppercase tracking-widest mb-2.5 pl-1">Sin hora asignada</p>
+          <div className="flex flex-wrap gap-2">
             {tasksWithoutTimeOrBlock.map(task => (
               <button
                 key={task.id}
                 onClick={() => onTaskClick(task)}
-                className="px-2.5 py-1 rounded-full bg-surface-container-high text-xs font-medium text-foreground hover:bg-primary/15 transition-colors truncate max-w-[150px]"
+                className="px-3 py-1.5 rounded-xl bg-surface-container-high text-xs font-bold text-foreground border border-white/5 hover:bg-primary/10 transition-all truncate max-w-[150px]"
               >
                 {task.title}
               </button>
@@ -696,22 +696,22 @@ const DailyPage = () => {
 
                             <div className="flex-1 min-w-0 relative flex flex-col justify-center min-h-[32px]">
                               <h4
-                                className={`text-base font-bold tracking-tight transition-colors ${
+                                className={`text-base font-bold tracking-tight transition-colors w-fit relative ${
                                   isDone || completingTaskId === task.id 
                                     ? 'text-on-surface-variant/50' 
                                     : 'text-foreground'
                                 }`}
                               >
-                                {task.title}
+                                <span>{task.title}</span>
+                                {(isDone || completingTaskId === task.id) && (
+                                  <motion.div
+                                    initial={completingTaskId === task.id ? { width: 0 } : { width: '100.5%' }}
+                                    animate={{ width: '100.5%' }}
+                                    transition={{ delay: 0.1, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+                                    className="absolute top-[52%] left-[-0.5%] h-[2px] bg-white/40 z-10 pointer-events-none rounded-full"
+                                  />
+                                )}
                               </h4>
-                              {(isDone || completingTaskId === task.id) && (
-                                <motion.div
-                                  initial={completingTaskId === task.id ? { width: 0 } : { width: '100%' }}
-                                  animate={{ width: '100%' }}
-                                  transition={{ delay: 0.1, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-                                  className="absolute top-1/2 left-0 h-[1.5px] bg-white/60 -translate-y-1/2 z-10 pointer-events-none"
-                                />
-                              )}
 
                               {/* Inline Subtasks List - Minimalist */}
                               {!isDone && (

@@ -87,7 +87,7 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
     if (recurrenceFreq !== 'none') {
       // Delete old rule if exists
       if (task.recurrence_id) {
-        try { await deleteRule.mutateAsync(task.recurrence_id); } catch {}
+        try { await deleteRule.mutateAsync(task.recurrence_id); } catch { }
       }
 
       const ruleData: any = {
@@ -112,7 +112,7 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
       }
     } else if (task.recurrence_id) {
       // Remove recurrence
-      try { await deleteRule.mutateAsync(task.recurrence_id); } catch {}
+      try { await deleteRule.mutateAsync(task.recurrence_id); } catch { }
       recurrenceId = null;
     }
 
@@ -165,9 +165,9 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
 
   const recurrenceLabel = recurrenceFreq === 'none' ? 'Sin repetición' :
     recurrenceFreq === 'daily' ? 'Todos los días' :
-    recurrenceFreq === 'weekly' ? `Cada semana${selectedWeekDays.length > 0 ? '' : ''}` :
-    recurrenceFreq === 'monthly' ? `Cada mes${selectedMonthDay ? ` el día ${selectedMonthDay}` : ''}` :
-    `Cada año`;
+      recurrenceFreq === 'weekly' ? `Cada semana${selectedWeekDays.length > 0 ? '' : ''}` :
+        recurrenceFreq === 'monthly' ? `Cada mes${selectedMonthDay ? ` el día ${selectedMonthDay}` : ''}` :
+          `Cada año`;
 
   // Priority pill
   const priorityLabel = (importance && urgency) ? '🔴 Alta' : importance ? '🟢 Importante' : urgency ? '🟡 Urgente' : 'Normal';
@@ -352,11 +352,10 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
                                 <div className="flex justify-between gap-1">
                                   {weekDayLabels.map(({ label, value }) => (
                                     <button key={value} onClick={() => toggleWeekDay(value)}
-                                      className={`w-9 h-9 rounded-full text-[11px] font-bold transition-all ${
-                                        selectedWeekDays.includes(value)
+                                      className={`w-9 h-9 rounded-full text-[11px] font-bold transition-all ${selectedWeekDays.includes(value)
                                           ? 'bg-primary text-primary-foreground shadow-md'
                                           : 'bg-surface-container-high text-on-surface-variant hover:bg-primary/10'
-                                      }`}>
+                                        }`}>
                                       {label}
                                     </button>
                                   ))}
@@ -371,11 +370,10 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
                                 <div className="grid grid-cols-7 gap-1">
                                   {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
                                     <button key={day} onClick={() => setSelectedMonthDay(day)}
-                                      className={`py-1.5 rounded-lg text-[11px] font-bold transition-all ${
-                                        selectedMonthDay === day
+                                      className={`py-1.5 rounded-lg text-[11px] font-bold transition-all ${selectedMonthDay === day
                                           ? 'bg-primary text-primary-foreground shadow-md'
                                           : 'bg-surface-container-high text-on-surface-variant hover:bg-primary/10'
-                                      }`}>
+                                        }`}>
                                       {day}
                                     </button>
                                   ))}
@@ -391,11 +389,10 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
                                   <div className="grid grid-cols-4 gap-1">
                                     {MONTH_NAMES.map((m, i) => (
                                       <button key={i} onClick={() => setSelectedYearMonth(i)}
-                                        className={`py-1.5 rounded-lg text-[10px] font-bold transition-all ${
-                                          selectedYearMonth === i
+                                        className={`py-1.5 rounded-lg text-[10px] font-bold transition-all ${selectedYearMonth === i
                                             ? 'bg-primary text-primary-foreground shadow-md'
                                             : 'bg-surface-container-high text-on-surface-variant hover:bg-primary/10'
-                                        }`}>
+                                          }`}>
                                         {m}
                                       </button>
                                     ))}
@@ -406,11 +403,10 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
                                   <div className="grid grid-cols-7 gap-1">
                                     {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
                                       <button key={day} onClick={() => setSelectedYearDay(day)}
-                                        className={`py-1.5 rounded-lg text-[11px] font-bold transition-all ${
-                                          selectedYearDay === day
+                                        className={`py-1.5 rounded-lg text-[11px] font-bold transition-all ${selectedYearDay === day
                                             ? 'bg-primary text-primary-foreground shadow-md'
                                             : 'bg-surface-container-high text-on-surface-variant hover:bg-primary/10'
-                                        }`}>
+                                          }`}>
                                         {day}
                                       </button>
                                     ))}
@@ -443,9 +439,8 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
                                 newSubtasks[i] = { ...newSubtasks[i], completed: !newSubtasks[i].completed };
                                 setSubtasks(newSubtasks);
                               }}
-                              className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${
-                                st.completed ? 'bg-primary border-primary' : 'border-outline-variant hover:border-primary'
-                              }`}
+                              className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${st.completed ? 'bg-primary border-primary' : 'border-outline-variant hover:border-primary'
+                                }`}
                             >
                               {st.completed && <Check className="w-2.5 h-2.5 text-primary-foreground" />}
                             </button>
