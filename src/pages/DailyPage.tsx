@@ -8,7 +8,7 @@ import { useGlobalVoiceCapture } from '@/hooks/useGlobalVoiceCapture';
 import { useTimeBlocks } from '@/hooks/useTimeBlocks';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
-import { Check, Plus, GripVertical, Timer, Clock, List, CalendarDays, ChevronDown, Trash2, Flame } from 'lucide-react';
+import { Check, Plus, GripVertical, Timer, Clock, List, CalendarDays, ChevronDown, Trash2, Flame, Link as LinkIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { triggerTaskCelebration, triggerDailyCelebration } from '@/lib/celebrations';
@@ -859,10 +859,22 @@ const DailyPage = () => {
                         </button>
                       )}
                       <div className="flex-1 min-w-0 relative flex flex-col justify-center min-h-[32px]">
-                        <h4 className={`text-base font-bold tracking-tight transition-colors ${
+                        <h4 className={`text-base font-bold tracking-tight transition-colors flex items-center gap-1.5 ${
                           isDone || completingTaskId === task.id ? 'text-on-surface-variant/50' : 'text-foreground'
                         }`}>
-                          {task.title}
+                          <span className="truncate">{task.title}</span>
+                          {task.link && (
+                            <a
+                              href={task.link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="text-primary hover:opacity-80 flex-shrink-0"
+                              aria-label="Abrir link"
+                            >
+                              <LinkIcon className="w-3.5 h-3.5" />
+                            </a>
+                          )}
                         </h4>
                         {(isDone || completingTaskId === task.id) && (
                           <motion.div 
