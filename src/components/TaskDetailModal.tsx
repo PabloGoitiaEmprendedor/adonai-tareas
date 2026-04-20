@@ -131,6 +131,7 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
       folder_id: folderId,
       status,
       recurrence_id: recurrenceId,
+      link: link.trim() || null,
       ...(status === 'done' ? { completed_at: new Date().toISOString() } : {}),
     });
     toast.success('Tarea actualizada');
@@ -274,6 +275,18 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
                     placeholder="Añade una descripción..."
                     className="w-full bg-surface-container-high rounded-lg p-3 text-foreground text-sm focus:outline-none focus:ring-1 focus:ring-primary"
                   />
+
+                  {/* Link / URL */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider flex items-center gap-1"><LinkIcon className="w-3 h-3" /> Link</label>
+                    <input
+                      type="url"
+                      value={link}
+                      onChange={(e) => setLink(e.target.value)}
+                      placeholder="https://..."
+                      className="w-full bg-surface-container-high rounded-lg p-3 text-foreground text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
 
                   {/* 7. Contexto */}
                   <div className="space-y-1.5">
