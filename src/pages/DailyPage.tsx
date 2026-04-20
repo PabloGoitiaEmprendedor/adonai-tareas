@@ -120,17 +120,18 @@ const CalendarView = ({ tasks, timeBlocks, onTaskClick }: { tasks: any[], timeBl
 
   const currentTop = (currentMinutes - 6 * 60) * (64 / 60);
   const totalHeight = 18 * 64;
-  const tasksWithoutTime = tasks.filter(t => !t.start_time && t.status !== 'done');
+  const tasksInBlocks = tasks.filter(t => t.time_block_id && !t.start_time && t.status !== 'done');
+  const tasksWithoutTimeOrBlock = tasks.filter(t => !t.start_time && !t.time_block_id && t.status !== 'done');
   const tasksWithTime = tasks.filter(t => t.start_time && t.status !== 'done');
 
   return (
     <div className="relative overflow-y-auto" style={{ maxHeight: 'calc(100vh - 200px)' }}>
-      {/* Tasks without time — pill list above timeline */}
-      {tasksWithoutTime.length > 0 && (
+      {/* Tasks without time or block — pill list above timeline */}
+      {tasksWithoutTimeOrBlock.length > 0 && (
         <div className="sticky top-0 bg-background/90 backdrop-blur-sm pb-2 z-20 border-b border-outline-variant/10 mb-2">
           <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider mb-2 pl-2">Sin hora asignada</p>
           <div className="flex flex-wrap gap-1.5 px-2">
-            {tasksWithoutTime.map(task => (
+            {tasksWithoutTimeOrBlock.map(task => (
               <button
                 key={task.id}
                 onClick={() => onTaskClick(task)}
@@ -155,19 +156,35 @@ const CalendarView = ({ tasks, timeBlocks, onTaskClick }: { tasks: any[], timeBl
         ))}
 
         {/* Time blocks */}
-        {timeBlocks.map(block => (
-          <div
-            key={block.id}
-            className="absolute left-14 right-0 rounded-lg opacity-40 px-2 py-1"
-            style={{
-              top: getBlockTop(block),
-              height: Math.max(getBlockHeight(block), 24),
-              backgroundColor: block.color || '#4BE277',
-            }}
-          >
-            <p className="text-[10px] font-bold text-white truncate">{block.title}</p>
-          </div>
-        ))}
+        {timeBlocks.map(block => {
+          const blockTasks = tasksInBlocks.filter(t => t.time_block_id === block.id);
+          return (
+            <div
+              key={block.id}
+              className="absolute left-14 right-2 rounded-lg bg-opacity-20 border-l border-white/10 px-2 py-1.5 flex flex-col gap-1.5"
+              style={{
+                top: getBlockTop(block),
+                height: Math.max(getBlockHeight(block), 24),
+                backgroundColor: `${block.color || '#4BE277'}33`, // Increased opacity for block bg
+                borderLeftColor: block.color || '#4BE277'
+              }}
+            >
+              <p className="text-[10px] font-bold text-white/50 uppercase tracking-tighter truncate">{block.title}</p>
+              
+              <div className="flex flex-wrap gap-1 overflow-hidden">
+                {blockTasks.map(task => (
+                  <button
+                    key={task.id}
+                    onClick={() => onTaskClick(task)}
+                    className="flex-shrink-0 px-2 py-0.5 rounded-md text-[10px] font-bold bg-white/10 text-white border border-white/5 hover:bg-white/20 transition-all truncate max-w-full"
+                  >
+                    {task.title}
+                  </button>
+                ))}
+              </div>
+            </div>
+          );
+        })}
 
         {/* Tasks with start_time */}
         {tasksWithTime.map(task => (
