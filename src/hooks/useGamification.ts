@@ -114,7 +114,7 @@ export const useGamification = () => {
             duration: 4000,
           });
           // Add bonus XP
-          await supabase.rpc('noop' as any).then(() => {}, () => {});
+          
           const { data: m2 } = await supabase
             .from('experiment_metrics')
             .select('xp_total, level')
