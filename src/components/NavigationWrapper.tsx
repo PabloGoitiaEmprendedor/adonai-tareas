@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { FolderOpen, Users, User, Calendar, LogOut, Settings, Bell, HelpCircle, Menu, Trash2, Home, Target } from 'lucide-react';
+import { FolderOpen, Users, User, Calendar, LogOut, Settings, Bell, HelpCircle, Menu, Trash2, Home, Target, Trophy } from 'lucide-react';
 
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { useAuth } from '@/contexts/AuthContext';
@@ -127,6 +127,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
     { label: 'Hoy', icon: Home, path: '/' },
     { label: 'Calendario', icon: Calendar, path: '/week' },
     { label: 'Carpetas', icon: FolderOpen, path: '/folders' },
+    { label: 'Logros', icon: Trophy, path: '/achievements' },
     { label: 'Amigos', icon: Users, path: '/friends' },
     { label: 'Metas', icon: Target, path: '/goals' },
     { label: 'Perfil', icon: User, path: '/profile' },
@@ -146,6 +147,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
       case '/friends': return 'Amigos';
       case '/profile': return 'Perfil';
       case '/trash': return 'Historial';
+      case '/achievements': return 'Logros';
       default: return 'Adonai';
     }
   };
