@@ -292,6 +292,39 @@ export type Database = {
         }
         Relationships: []
       }
+      notion_tokens: {
+        Row: {
+          access_token: string
+          bot_id: string | null
+          created_at: string | null
+          id: string
+          updated_at: string | null
+          user_id: string
+          workspace_id: string | null
+          workspace_name: string | null
+        }
+        Insert: {
+          access_token: string
+          bot_id?: string | null
+          created_at?: string | null
+          id?: string
+          updated_at?: string | null
+          user_id: string
+          workspace_id?: string | null
+          workspace_name?: string | null
+        }
+        Update: {
+          access_token?: string
+          bot_id?: string | null
+          created_at?: string | null
+          id?: string
+          updated_at?: string | null
+          user_id?: string
+          workspace_id?: string | null
+          workspace_name?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           accent_color: string | null
@@ -391,6 +424,7 @@ export type Database = {
           focus_level: string | null
           id: string
           notifications_enabled: boolean | null
+          notion_connected: boolean | null
           reminder_style: string | null
           user_id: string
           voice_enabled: boolean | null
@@ -401,6 +435,7 @@ export type Database = {
           focus_level?: string | null
           id?: string
           notifications_enabled?: boolean | null
+          notion_connected?: boolean | null
           reminder_style?: string | null
           user_id: string
           voice_enabled?: boolean | null
@@ -411,6 +446,7 @@ export type Database = {
           focus_level?: string | null
           id?: string
           notifications_enabled?: boolean | null
+          notion_connected?: boolean | null
           reminder_style?: string | null
           user_id?: string
           voice_enabled?: boolean | null
