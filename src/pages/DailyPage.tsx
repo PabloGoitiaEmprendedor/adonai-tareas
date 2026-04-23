@@ -19,6 +19,9 @@ import TaskDetailModal from '@/components/TaskDetailModal';
 import FullscreenTimer from '@/components/FullscreenTimer';
 import { AISchedulerModal } from '@/components/AISchedulerModal';
 import { TimeBlockModal } from '@/components/TimeBlockModal';
+import GamificationBar from '@/components/GamificationBar';
+import SubtasksSection from '@/components/SubtasksSection';
+import { useGamification } from '@/hooks/useGamification';
 import { Button } from '@/components/ui/button';
 import { Sparkles } from 'lucide-react';
 
@@ -229,6 +232,7 @@ const DailyPage = () => {
   const { goals } = useGoals();
   const { profile } = useProfile();
   const { metrics, trackDayActive } = useStreaks();
+  const { checkAndUnlock } = useGamification();
   const [expandedSubtasks, setExpandedSubtasks] = useState<Record<string, boolean>>({});
   const [newSubtaskInputs, setNewSubtaskInputs] = useState<Record<string, string>>({});
   const streakCount = metrics?.streak_current || 0;
@@ -342,6 +346,8 @@ const DailyPage = () => {
       }, {
         onSuccess: () => {
           setCompletingTaskId(null);
+          // Award XP / unlock achievements
+          checkAndUnlock.mutate({ type: 'task_completed' });
           // Step 3: Trigger confetti immediately after the mutation
           if (isLastTask) {
             triggerDailyCelebration(profile?.name);
