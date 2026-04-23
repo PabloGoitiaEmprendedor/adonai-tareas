@@ -17,6 +17,7 @@ import TaskCaptureModal, { type TaskCaptureModalHandle } from '@/components/Task
 import TaskDetailModal from '@/components/TaskDetailModal';
 import FullscreenTimer from '@/components/FullscreenTimer';
 import { AISchedulerModal } from '@/components/AISchedulerModal';
+import { TimeBlockModal } from '@/components/TimeBlockModal';
 import { Button } from '@/components/ui/button';
 import { Sparkles } from 'lucide-react';
 
@@ -223,6 +224,7 @@ const DailyPage = () => {
 
   const { tasks, updateTask, deleteTask } = useTasks({ date: today });
   const { timeBlocks } = useTimeBlocks(today);
+  const { createTask } = useTasks();
   const { goals } = useGoals();
   const { profile } = useProfile();
   const { metrics, trackDayActive } = useStreaks();
@@ -239,15 +241,37 @@ const DailyPage = () => {
   const [dropIndicator, setDropIndicator] = useState<{ blockId: string | null, globalIdx: number | null } | null>(null);
   const [completingTaskId, setCompletingTaskId] = useState<string | null>(null);
   const [aiModalOpen, setAiModalOpen] = useState(false);
+  const [blockModalOpen, setBlockModalOpen] = useState(false);
+  const [quickAddTitle, setQuickAddTitle] = useState('');
+  const [currentTime, setCurrentTime] = useState(new Date());
   const captureModalRef = useRef<TaskCaptureModalHandle>(null);
   const hasTrackedDayRef = useRef(false);
   const [viewMode, setViewMode] = useState<'agenda' | 'calendar'>(() => {
     return (localStorage.getItem('adonai_daily_view') as 'agenda' | 'calendar') || 'agenda';
   });
 
-  const handleSetView = (mode: 'agenda' | 'calendar') => {
-    setViewMode(mode);
-    localStorage.setItem('adonai_daily_view', mode);
+  const toggleView = () => {
+    const next = viewMode === 'agenda' ? 'calendar' : 'agenda';
+    setViewMode(next);
+    localStorage.setItem('adonai_daily_view', next);
+  };
+
+  useEffect(() => {
+    const t = setInterval(() => setCurrentTime(new Date()), 30_000);
+    return () => clearInterval(t);
+  }, []);
+
+  const handleQuickAdd = (e: React.FormEvent) => {
+    e.preventDefault();
+    const title = quickAddTitle.trim();
+    if (!title) return;
+    createTask.mutate(
+      { title, due_date: today, source_type: 'text' },
+      {
+        onSuccess: () => setQuickAddTitle(''),
+        onError: () => toast.error('No se pudo crear la tarea'),
+      }
+    );
   };
 
   const openCapture = useCallback(() => setCaptureOpen(true), []);
