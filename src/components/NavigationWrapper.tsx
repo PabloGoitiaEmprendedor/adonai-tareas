@@ -105,6 +105,16 @@ const SidebarContent = ({ user, menuItems, location, handleNavigate, signOut, st
 const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
   const [open, setOpen] = useState(false);
   const [tutorialRun, setTutorialRun] = useState(false);
+  const [desktopSidebarOpen, setDesktopSidebarOpen] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return true;
+    const saved = localStorage.getItem('adonai_sidebar_open');
+    return saved === null ? true : saved === '1';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('adonai_sidebar_open', desktopSidebarOpen ? '1' : '0');
+  }, [desktopSidebarOpen]);
+
   const { signOut, user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -179,7 +189,20 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
         </SheetContent>
       </Sheet>
 
-      <aside className="hidden lg:flex fixed left-0 top-0 bottom-0 w-72 bg-surface-container-low border-r border-outline-variant/10 z-[50] flex-col shadow-2xl shadow-black/5">
+      {/* Desktop: floating hamburger trigger always visible */}
+      <button
+        onClick={() => setDesktopSidebarOpen(v => !v)}
+        aria-label={desktopSidebarOpen ? 'Ocultar menú' : 'Mostrar menú'}
+        className="hidden lg:flex fixed top-4 left-4 z-[60] w-10 h-10 items-center justify-center rounded-xl bg-surface-container-high/80 backdrop-blur-md border border-outline-variant/20 hover:bg-surface-container-highest text-foreground shadow-sm transition-all"
+      >
+        <Menu className="w-5 h-5" />
+      </button>
+
+      <aside
+        className={`hidden lg:flex fixed left-0 top-0 bottom-0 w-72 bg-surface-container-low border-r border-outline-variant/10 z-[55] flex-col shadow-2xl shadow-black/5 transition-transform duration-300 ${
+          desktopSidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
         <SidebarContent 
           user={user} 
           menuItems={menuItems} 
@@ -190,7 +213,11 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
         />
       </aside>
 
-      <main className="pb-24 lg:pb-12 lg:pl-72 min-h-screen bg-background transition-all duration-500">
+      <main
+        className={`pb-24 lg:pb-12 min-h-screen bg-background transition-[padding] duration-300 ${
+          desktopSidebarOpen ? 'lg:pl-72' : 'lg:pl-0'
+        }`}
+      >
         <div className="max-w-7xl mx-auto px-0 lg:px-4">
           {children}
         </div>
