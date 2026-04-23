@@ -130,6 +130,13 @@
   .primary-gradient {
     background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--primary-container)) 100%);
   }
+  .primary-gradient-text {
+    background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--primary-container)) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+  }
   .glass-sheet {
     background: hsla(var(--surface-container), 0.8);
     backdrop-filter: blur(24px);

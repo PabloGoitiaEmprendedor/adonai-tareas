@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      achievements: {
+        Row: {
+          category: string
+          code: string
+          created_at: string
+          description: string
+          icon: string
+          id: string
+          name: string
+          xp_reward: number
+        }
+        Insert: {
+          category?: string
+          code: string
+          created_at?: string
+          description: string
+          icon?: string
+          id?: string
+          name: string
+          xp_reward?: number
+        }
+        Update: {
+          category?: string
+          code?: string
+          created_at?: string
+          description?: string
+          icon?: string
+          id?: string
+          name?: string
+          xp_reward?: number
+        }
+        Relationships: []
+      }
       contexts: {
         Row: {
           color: string | null
@@ -78,12 +111,15 @@ export type Database = {
           day_3_used: boolean | null
           id: string
           last_active_date: string | null
+          level: number
           streak_current: number | null
           streak_max: number | null
+          tasks_completed_total: number
           updated_at: string
           user_activated: boolean | null
           user_id: string
           user_retained: boolean | null
+          xp_total: number
         }
         Insert: {
           day_1_used?: boolean | null
@@ -91,12 +127,15 @@ export type Database = {
           day_3_used?: boolean | null
           id?: string
           last_active_date?: string | null
+          level?: number
           streak_current?: number | null
           streak_max?: number | null
+          tasks_completed_total?: number
           updated_at?: string
           user_activated?: boolean | null
           user_id: string
           user_retained?: boolean | null
+          xp_total?: number
         }
         Update: {
           day_1_used?: boolean | null
@@ -104,12 +143,15 @@ export type Database = {
           day_3_used?: boolean | null
           id?: string
           last_active_date?: string | null
+          level?: number
           streak_current?: number | null
           streak_max?: number | null
+          tasks_completed_total?: number
           updated_at?: string
           user_activated?: boolean | null
           user_id?: string
           user_retained?: boolean | null
+          xp_total?: number
         }
         Relationships: []
       }
@@ -466,6 +508,7 @@ export type Database = {
           id: string
           importance: boolean | null
           link: string | null
+          parent_task_id: string | null
           priority: string | null
           recurrence_id: string | null
           sort_order: number | null
@@ -488,6 +531,7 @@ export type Database = {
           id?: string
           importance?: boolean | null
           link?: string | null
+          parent_task_id?: string | null
           priority?: string | null
           recurrence_id?: string | null
           sort_order?: number | null
@@ -510,6 +554,7 @@ export type Database = {
           id?: string
           importance?: boolean | null
           link?: string | null
+          parent_task_id?: string | null
           priority?: string | null
           recurrence_id?: string | null
           sort_order?: number | null
@@ -540,6 +585,13 @@ export type Database = {
             columns: ["goal_id"]
             isOneToOne: false
             referencedRelation: "goals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_parent_task_id_fkey"
+            columns: ["parent_task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
             referencedColumns: ["id"]
           },
           {
@@ -623,6 +675,35 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      user_achievements: {
+        Row: {
+          achievement_id: string
+          id: string
+          unlocked_at: string
+          user_id: string
+        }
+        Insert: {
+          achievement_id: string
+          id?: string
+          unlocked_at?: string
+          user_id: string
+        }
+        Update: {
+          achievement_id?: string
+          id?: string
+          unlocked_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_achievements_achievement_id_fkey"
+            columns: ["achievement_id"]
+            isOneToOne: false
+            referencedRelation: "achievements"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_context: {
         Row: {
