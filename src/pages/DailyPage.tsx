@@ -759,63 +759,9 @@ const DailyPage = () => {
                                 )}
                               </h4>
 
-                              {/* Inline Subtasks List - Minimalist */}
                               {!isDone && (
-                                <div className="mt-1.5 flex flex-col items-start">
-                                  <button
-                                    onClick={(e) => toggleSubtaskExpand(task.id, e)}
-                                    className="text-[10px] uppercase font-bold text-on-surface-variant/40 hover:text-primary transition-colors flex items-center gap-1.5"
-                                  >
-                                    {Array.isArray(task.subtasks) && task.subtasks.length > 0 ? (
-                                      <span className="bg-primary/10 text-primary px-1.5 py-0.5 rounded-full">{task.subtasks.length}</span>
-                                    ) : null}
-                                    Subtareas
-                                    <ChevronDown className={`w-3 h-3 transition-transform ${expandedSubtasks[task.id] ? 'rotate-180' : ''}`} />
-                                  </button>
-
-                                  <AnimatePresence>
-                                    {expandedSubtasks[task.id] && (
-                                      <motion.div
-                                        initial={{ height: 0, opacity: 0 }}
-                                        animate={{ height: 'auto', opacity: 1 }}
-                                        exit={{ height: 0, opacity: 0 }}
-                                        className="overflow-hidden w-full pl-2 mt-2 border-l-2 border-outline-variant/10 space-y-1.5"
-                                      >
-                                        {Array.isArray(task.subtasks) && task.subtasks.map((st: any, i: number) => (
-                                          <div key={i} className="flex items-center gap-2.5 group">
-                                            <button
-                                              onClick={(e) => handleSubtaskComplete(task, i, e)}
-                                              className={`w-3.5 h-3.5 rounded-full border transition-all ${
-                                                st.completed ? 'bg-primary border-primary' : 'border-outline-variant/50 hover:border-primary'
-                                              }`}
-                                            >
-                                              {st.completed && <Check className="w-2.5 h-2.5 text-primary-foreground mx-auto" />}
-                                            </button>
-                                            <span className={`text-[11px] font-medium transition-colors ${st.completed ? 'text-on-surface-variant/40 line-through' : 'text-on-surface-variant/80'}`}>
-                                              {st.title}
-                                            </span>
-                                          </div>
-                                        ))}
-                                        {/* Minimalist Subtask Input */}
-                                        <form 
-                                          onSubmit={(e) => handleAddSubtask(task.id, e)}
-                                          onClick={(e) => e.stopPropagation()}
-                                          className="flex items-center gap-2 py-0.5"
-                                        >
-                                          <div className="w-3.5 h-3.5 flex items-center justify-center">
-                                            <Plus className="w-2.5 h-2.5 text-on-surface-variant/30" />
-                                          </div>
-                                          <input
-                                            type="text"
-                                            placeholder="Nueva subtarea..."
-                                            value={newSubtaskInputs[task.id] || ''}
-                                            onChange={(e) => setNewSubtaskInputs(prev => ({ ...prev, [task.id]: e.target.value }))}
-                                            className="bg-transparent border-none p-0 text-[11px] text-primary focus:ring-0 placeholder:text-on-surface-variant/20 w-full"
-                                          />
-                                        </form>
-                                      </motion.div>
-                                    )}
-                                  </AnimatePresence>
+                                <div className="mt-1.5">
+                                  <SubtasksSection parentTaskId={task.id} compact />
                                 </div>
                               )}
                             </div>
