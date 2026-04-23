@@ -46,6 +46,9 @@ export const useTasks = (filters?: { date?: string; startDate?: string; endDate?
         query = query.neq('status', 'deleted');
       }
 
+      // Exclude subtasks from main list — they are loaded per-parent via useSubtasks
+      query = query.is('parent_task_id', null);
+
       const { data: realTasks, error: tasksError } = await query.order('due_date', { ascending: true });
       if (tasksError) throw tasksError;
 
@@ -179,6 +182,7 @@ export const useTasks = (filters?: { date?: string; startDate?: string; endDate?
       recurrence_id?: string | null;
       time_block_id?: string | null;
       link?: string | null;
+      parent_task_id?: string | null;
     }) => {
       if (!user) throw new Error('No user');
       const { data, error } = await supabase

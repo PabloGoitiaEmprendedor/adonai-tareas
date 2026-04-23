@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { format, subDays } from 'date-fns';
 import type { Database } from '@/integrations/supabase/types';
+import { toast } from 'sonner';
 
 type MetricsUpdate = Database['public']['Tables']['experiment_metrics']['Update'];
 
@@ -71,9 +72,39 @@ export const useStreaks = () => {
         .from('experiment_metrics')
         .update(updates)
         .eq('user_id', user.id);
+
+      // Unlock streak achievements
+      const finalStreak = updates.streak_current ?? metrics.streak_current ?? 0;
+      const streakCodes: string[] = [];
+      if (finalStreak >= 3) streakCodes.push('streak_3');
+      if (finalStreak >= 7) streakCodes.push('streak_7');
+      if (finalStreak >= 30) streakCodes.push('streak_30');
+
+      if (streakCodes.length > 0) {
+        const { data: existing } = await supabase
+          .from('user_achievements')
+          .select('achievement_id, achievements(code)')
+          .eq('user_id', user.id);
+        const have = new Set((existing || []).map((e: any) => e.achievements?.code));
+        const toUnlock = streakCodes.filter(c => !have.has(c));
+        if (toUnlock.length > 0) {
+          const { data: catalog } = await supabase
+            .from('achievements').select('*').in('code', toUnlock);
+          for (const ach of catalog || []) {
+            const { error } = await supabase.from('user_achievements').insert({
+              user_id: user.id,
+              achievement_id: ach.id,
+            });
+            if (!error) {
+              toast.success(`🏆 ${ach.name}`, { description: ach.description });
+            }
+          }
+        }
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['experiment_metrics'] });
+      queryClient.invalidateQueries({ queryKey: ['user_achievements'] });
     },
   });
 
