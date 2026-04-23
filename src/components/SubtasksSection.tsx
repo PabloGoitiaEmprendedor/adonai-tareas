@@ -1,36 +1,63 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Check, Plus, X, ChevronDown } from 'lucide-react';
+import { X, ChevronRight } from 'lucide-react';
 import { useSubtasks } from '@/hooks/useSubtasks';
+import { Check } from 'lucide-react';
 
 interface Props {
   parentTaskId: string | null | undefined;
   defaultOpen?: boolean;
   compact?: boolean;
+  isOpen?: boolean;
+  hideToggle?: boolean;
 }
 
 /**
- * Subtask list with proper indentation, optimistic toggling, quick-create input.
+ * Subtask list with "> NAME" minimalist pattern.
+ * Collapsed: shows ">" chevron with count.
+ * Expanded: shows subtasks and inline create input — cursor auto-focuses.
  * Used inside TaskDetailModal and inline on DailyPage cards.
  */
-export const SubtasksSection = ({ parentTaskId, defaultOpen = false, compact = false }: Props) => {
+export const SubtasksSection = ({ parentTaskId, defaultOpen = false, compact = false, isOpen, hideToggle = false }: Props) => {
   const { subtasks, createSubtask, toggleSubtask, deleteSubtask } = useSubtasks(parentTaskId);
-  const [open, setOpen] = useState(defaultOpen || subtasks.length > 0);
+  const [internalOpen, setInternalOpen] = useState(defaultOpen || subtasks.length > 0);
+  const open = isOpen !== undefined ? isOpen : internalOpen;
+  const setOpen = (o: boolean | ((prev: boolean) => boolean)) => {
+    if (typeof o === 'function') {
+      setInternalOpen(prev => o(prev));
+    } else {
+      setInternalOpen(o);
+    }
+  };
   const [draft, setDraft] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const isVirtual = !parentTaskId || parentTaskId.startsWith('virtual-');
+
+  // Auto-focus input when section opens
+  useEffect(() => {
+    if (open && inputRef.current) {
+      setTimeout(() => inputRef.current?.focus(), 100);
+    }
+  }, [open]);
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     e.stopPropagation();
     const t = draft.trim();
     if (!t || isVirtual) return;
-    createSubtask.mutate(t, { onSuccess: () => setDraft('') });
+    createSubtask.mutate(t, {
+      onSuccess: () => {
+        setDraft('');
+        // Re-focus after creating so user can keep adding
+        setTimeout(() => inputRef.current?.focus(), 50);
+      }
+    });
   };
 
   if (isVirtual) {
     return compact ? null : (
-      <p className="text-[11px] text-on-surface-variant/50 italic">
+      <p className="text-[11px] text-on-surface-variant/40 italic font-medium">
         Las subtareas se habilitan al guardar la tarea recurrente.
       </p>
     );
@@ -39,23 +66,36 @@ export const SubtasksSection = ({ parentTaskId, defaultOpen = false, compact = f
   const completed = subtasks.filter(s => s.status === 'done').length;
 
   return (
-    <div className={compact ? '' : 'space-y-2'}>
-      <button
-        type="button"
-        onClick={(e) => { e.stopPropagation(); setOpen(o => !o); }}
-        className="w-full flex items-center justify-between text-[11px] font-black uppercase tracking-[0.15em] text-on-surface-variant/60 hover:text-primary transition-colors py-1"
-      >
-        <span className="flex items-center gap-1.5">
-          <Plus className="w-3 h-3" />
-          Subtareas
-          {subtasks.length > 0 && (
-            <span className="bg-primary/15 text-primary px-1.5 py-0.5 rounded-full normal-case tracking-normal text-[10px]">
-              {completed}/{subtasks.length}
-            </span>
+    <div className={compact ? 'mt-2' : 'space-y-2'}>
+      {!hideToggle && (
+      <div className="flex items-center gap-2 mb-1">
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); setOpen(o => !o); }}
+          className="flex items-center gap-1.5 text-on-surface-variant/40 hover:text-primary transition-all"
+        >
+          {open ? (
+            <div className="flex items-center gap-1">
+              <ChevronRight className="w-3.5 h-3.5 rotate-90 text-primary" />
+              {subtasks.length > 0 && (
+                <span className="text-[10px] font-black text-primary/60">
+                  {completed}/{subtasks.length}
+                </span>
+              )}
+            </div>
+          ) : (
+            <div className="flex items-center gap-1">
+              <span className="text-[14px] font-black">{">"}</span>
+              {subtasks.length > 0 && (
+                <span className="text-[10px] font-black opacity-60">
+                  {completed}/{subtasks.length}
+                </span>
+              )}
+            </div>
           )}
-        </span>
-        <ChevronDown className={`w-3.5 h-3.5 transition-transform ${open ? 'rotate-180' : ''}`} />
-      </button>
+        </button>
+      </div>
+      )}
 
       <AnimatePresence initial={false}>
         {open && (
@@ -65,57 +105,83 @@ export const SubtasksSection = ({ parentTaskId, defaultOpen = false, compact = f
             exit={{ height: 0, opacity: 0 }}
             className="overflow-hidden"
           >
-            <div className="pl-4 ml-1 border-l-2 border-primary/20 space-y-1.5 py-1">
+            <div className="pl-4 space-y-3 py-2">
               {subtasks.map((st) => {
                 const done = st.status === 'done';
                 return (
-                  <div key={st.id} className="flex items-center gap-2.5 group">
-                    <button
-                      type="button"
+                  <motion.div 
+                    layout
+                    key={st.id} 
+                    className="flex items-center gap-3 group relative"
+                  >
+                    {/* Checkbox */}
+                    <div className="relative flex-shrink-0">
+                      {done ? (
+                        <motion.div 
+                          initial={{ scale: 0, rotate: -45 }}
+                          animate={{ scale: 1, rotate: 0 }}
+                          transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                          className="w-10 h-10 rounded-[14px] bg-primary flex items-center justify-center cursor-pointer shadow-sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleSubtask.mutate({ id: st.id, done: !done });
+                          }}
+                        >
+                          <Check className="w-6 h-6 text-primary-foreground stroke-[3]" />
+                        </motion.div>
+                      ) : (
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleSubtask.mutate({ id: st.id, done: !done });
+                          }}
+                          className="w-10 h-10 rounded-[14px] border-2 border-outline/40 flex items-center justify-center hover:border-primary hover:bg-primary/10 transition-all active:scale-75 group/check shadow-sm bg-surface"
+                        >
+                          <div className="w-4 h-4 rounded-[6px] bg-primary scale-0 group-hover/check:scale-100 transition-transform duration-300" />
+                        </button>
+                      )}
+                    </div>
+
+
+                    {/* Task text */}
+                    <span 
                       onClick={(e) => {
                         e.stopPropagation();
                         toggleSubtask.mutate({ id: st.id, done: !done });
                       }}
-                      className={`w-4 h-4 rounded-full border-2 flex items-center justify-center transition-all flex-shrink-0 ${
-                        done ? 'bg-primary border-primary' : 'border-outline-variant/60 hover:border-primary'
+                      className={`flex-1 text-lg font-black tracking-tight font-headline cursor-pointer transition-all leading-tight ${
+                        done ? 'text-on-surface-variant/30 line-through' : 'text-foreground'
                       }`}
                     >
-                      {done && <Check className="w-2.5 h-2.5 text-primary-foreground" strokeWidth={3} />}
-                    </button>
-                    <span className={`flex-1 text-[12px] font-medium transition-colors ${
-                      done ? 'text-on-surface-variant/40 line-through' : 'text-foreground'
-                    }`}>
                       {st.title}
                     </span>
+
+                    {/* Delete button */}
                     <button
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
                         deleteSubtask.mutate(st.id);
                       }}
-                      className="opacity-0 group-hover:opacity-100 text-on-surface-variant/50 hover:text-error transition-all"
-                      aria-label="Eliminar subtarea"
+                      className="opacity-0 group-hover:opacity-100 text-on-surface-variant/10 hover:text-red-500 transition-all p-2 absolute right-0 bg-card rounded-md"
                     >
-                      <X className="w-3 h-3" />
+                      <X className="w-4 h-4" />
                     </button>
-                  </div>
+                  </motion.div>
                 );
               })}
 
-              <form onSubmit={submit} onClick={(e) => e.stopPropagation()} className="flex items-center gap-2 pt-1">
-                <Plus className="w-3 h-3 text-on-surface-variant/40 flex-shrink-0" />
+              {/* Always show the input directly — no two-step reveal */}
+              <form onSubmit={submit} onClick={(e) => e.stopPropagation()} className="flex items-center gap-3 pt-2">
+                <div className="w-10 h-10 rounded-[14px] border-2 border-outline/40 flex items-center justify-center shadow-sm bg-surface flex-shrink-0 opacity-50" />
                 <input
+                  ref={inputRef}
                   type="text"
                   value={draft}
                   onChange={(e) => setDraft(e.target.value)}
                   placeholder="Nueva subtarea…"
-                  className="flex-1 bg-transparent border-none p-0 text-[12px] text-foreground focus:outline-none focus:ring-0 placeholder:text-on-surface-variant/30"
+                  className="flex-1 bg-transparent border-none p-0 text-lg font-black tracking-tight font-headline text-foreground focus:outline-none focus:ring-0 placeholder:text-on-surface-variant/20"
                 />
-                {draft.trim() && (
-                  <button type="submit" className="text-[10px] uppercase font-black tracking-wider text-primary px-1.5 py-0.5 rounded hover:bg-primary/10">
-                    Añadir
-                  </button>
-                )}
               </form>
             </div>
           </motion.div>
@@ -124,5 +190,6 @@ export const SubtasksSection = ({ parentTaskId, defaultOpen = false, compact = f
     </div>
   );
 };
+
 
 export default SubtasksSection;

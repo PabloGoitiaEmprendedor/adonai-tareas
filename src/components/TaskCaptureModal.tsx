@@ -11,6 +11,7 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { dispatchVoiceCaptureClosed, dispatchVoiceCaptureOpened } from '@/lib/voiceEvents';
 import { AISphere } from './AISphere';
+import { useGoals } from '@/hooks/useGoals';
 
 interface TaskCaptureModalProps {
   open: boolean;
@@ -30,8 +31,10 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
   const { isRecording, transcript, confidence, voiceFallback, isSupported, startRecording, stopRecording, resetTranscript } = useVoiceCapture();
   const { createTask } = useTasks();
   const { classifyTask } = useTaskClassifier();
+  const { goals, createGoal } = useGoals();
 
-  const [phase, setPhase] = useState<'select' | 'input' | 'date' | 'saving' | 'image_date'>('select');
+  const [phase, setPhase] = useState<'select' | 'input' | 'date' | 'goal' | 'saving' | 'image_date'>('select');
+  const [selectedGoalId, setSelectedGoalId] = useState<string | null>(null);
   const [title, setTitle] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [sourceType, setSourceType] = useState<'voice' | 'text' | 'image'>('text');
@@ -145,7 +148,8 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
       }
     }
 
-    await runClassificationAndSave(parsedTitle, parsedDate, sourceForClassification || parsedTitle, rawTitle);
+    // Go to goal selection phase instead of saving
+    setPhase('goal');
   }, [title, dueDate, sourceType]);
 
   useEffect(() => {
@@ -299,6 +303,10 @@ Tu trabajo es:`;
   };
 
   const handleDateDone = async () => {
+    setPhase('goal');
+  };
+
+  const handleGoalDone = async () => {
     await runClassificationAndSave(title, dueDate, classificationSource || title, classificationSource || title);
   };
 
@@ -353,7 +361,7 @@ Tu trabajo es:`;
         importance: cls.importance,
         source_type: sourceType,
         context_id: cls.context_id,
-        goal_id: goalId || null,
+        goal_id: selectedGoalId || goalId || null,
         folder_id: folderId || cls.folder_id || null,
         recurrence_id: cls.recurrence_id || null,
         estimated_minutes: cls.estimated_minutes || defaults.estimated_minutes,
@@ -516,6 +524,34 @@ Tu trabajo es:`;
                           className="flex-1 py-3 rounded-lg bg-surface-container-high text-foreground font-semibold text-sm">Mañana</button>
                         <button onClick={handleDateDone}
                           className="flex-1 py-3 rounded-lg bg-surface-container-high text-foreground font-semibold text-sm">Usar fecha</button>
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {phase === 'goal' && (
+                    <motion.div key="goal" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} className="w-full space-y-6">
+                      <div className="text-center">
+                        <span className="text-xs uppercase tracking-[0.2em] font-bold text-on-surface-variant">Meta</span>
+                        <h2 className="text-lg font-medium text-foreground mt-1">¿A qué meta pertenece esta tarea?</h2>
+                      </div>
+                      
+                      <div className="flex flex-col gap-2 max-h-[200px] overflow-y-auto pr-2">
+                        <button
+                          onClick={() => { setSelectedGoalId(null); handleGoalDone(); }}
+                          className={`w-full text-left p-4 rounded-xl transition-all ${selectedGoalId === null ? 'bg-primary text-primary-foreground font-bold shadow-md' : 'bg-surface-container-high hover:bg-surface-container-highest text-foreground'}`}
+                        >
+                          Ninguna (Saltar)
+                        </button>
+                        
+                        {goals.map(g => (
+                          <button
+                            key={g.id}
+                            onClick={() => { setSelectedGoalId(g.id); handleGoalDone(); }}
+                            className={`w-full text-left p-4 rounded-xl transition-all ${selectedGoalId === g.id ? 'bg-primary text-primary-foreground font-bold shadow-md' : 'bg-surface-container-high hover:bg-surface-container-highest text-foreground'}`}
+                          >
+                            {g.title}
+                          </button>
+                        ))}
                       </div>
                     </motion.div>
                   )}

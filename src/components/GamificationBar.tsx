@@ -18,47 +18,47 @@ export const GamificationBar = () => {
       className="block group"
       aria-label="Ver logros y progreso"
     >
-      <div className="flex items-center gap-3 p-3 rounded-2xl bg-surface-container-low border border-outline-variant/10 hover:border-primary/30 transition-all">
+      <div className="flex items-center gap-3 p-3 rounded-2xl bg-surface-container-highest border-2 border-outline-variant/40 hover:border-primary/50 transition-all shadow-sm">
         {/* Streak */}
-        <div className="flex items-center gap-1.5 px-2 py-1 rounded-xl bg-orange-500/10">
+        <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-orange-500/35 border border-orange-500/30">
           <motion.div
             animate={{ scale: streak > 0 ? [1, 1.15, 1] : 1 }}
             transition={{ duration: 2, repeat: Infinity }}
           >
-            <Flame className="w-3.5 h-3.5 text-orange-500" />
+            <Flame className="w-4 h-4 text-orange-500" />
           </motion.div>
-          <span className="text-[12px] font-black tabular-nums text-orange-600 dark:text-orange-400">
+          <span className="text-[13px] font-black tabular-nums text-orange-600 dark:text-orange-400">
             {streak}
           </span>
         </div>
 
         {/* Level + XP bar */}
         <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between mb-1">
+          <div className="flex items-center justify-between mb-1.5">
             <div className="flex items-center gap-1.5">
-              <Star className="w-3 h-3 text-primary fill-primary/30" />
-              <span className="text-[10px] font-black uppercase tracking-wider text-foreground">
+              <Star className="w-3.5 h-3.5 text-primary fill-primary/50" />
+              <span className="text-[11px] font-black uppercase tracking-wider text-foreground">
                 Nivel {level}
               </span>
             </div>
-            <span className="text-[9px] font-bold tabular-nums text-on-surface-variant/60">
+            <span className="text-[10px] font-bold tabular-nums text-on-surface-variant/80">
               {current}/{needed} XP
             </span>
           </div>
-          <div className="h-1.5 bg-surface-container-high rounded-full overflow-hidden">
+          <div className="h-2.5 bg-surface-container-highest rounded-full overflow-hidden border border-outline-variant/20">
             <motion.div
               initial={{ width: 0 }}
               animate={{ width: `${percent}%` }}
               transition={{ duration: 0.6, ease: 'easeOut' }}
-              className="h-full primary-gradient rounded-full"
+              className="h-full primary-gradient rounded-full shadow-[0_0_8px_rgba(var(--primary-rgb,101,163,13),0.5)]"
             />
           </div>
         </div>
 
         {/* Trophies count */}
-        <div className="flex items-center gap-1.5 px-2 py-1 rounded-xl bg-primary/10 group-hover:bg-primary/20 transition-colors">
-          <Trophy className="w-3.5 h-3.5 text-primary" />
-          <span className="text-[12px] font-black tabular-nums text-primary">
+        <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-primary/25 border border-primary/20 group-hover:bg-primary/35 transition-colors">
+          <Trophy className="w-4 h-4 text-primary" />
+          <span className="text-[13px] font-black tabular-nums text-primary">
             {unlocked.length}
           </span>
         </div>

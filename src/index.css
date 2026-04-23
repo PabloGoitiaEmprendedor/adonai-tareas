@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Fraunces:opsz,wght@9..144,400;9..144,700;9..144,900&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,92 +6,60 @@
 
 @layer base {
   :root {
-    --background: 142 15% 98.5%;
-    --foreground: 0 0% 9%;
-    --card: 0 0% 98%;
-    --card-foreground: 0 0% 9%;
+    /* Notioneers Palette: 
+       Cream: #F5F0D9 -> 50 46% 90%
+       Mint: #E9F7EF -> 145 41% 94%
+       Lime: #C3F53C -> 76 90% 60%
+       Forest: #405143 -> 130 11% 28%
+    */
+    --background: 50 46% 90%;
+    --foreground: 130 11% 28%;
+    --card: 0 0% 100%;
+    --card-foreground: 130 11% 28%;
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 9%;
-    --primary: 142 71% 45%;
-    --primary-foreground: 144 100% 98%;
-    --primary-container: 142 71% 35%;
-    --secondary: 0 0% 20%;
-    --secondary-foreground: 0 0% 98%;
-    --secondary-container: 0 0% 92%;
-    --muted: 0 0% 96%;
-    --muted-foreground: 0 0% 45%;
-    --accent: 0 0% 96%;
-    --accent-foreground: 0 0% 9%;
+    --popover-foreground: 130 11% 28%;
+    
+    --primary: 76 90% 60%;
+    --primary-foreground: 130 11% 28%;
+    --primary-container: 145 41% 94%;
+    
+    --secondary: 145 41% 94%;
+    --secondary-foreground: 130 11% 28%;
+    --secondary-container: 145 40% 85%;
+    
+    --muted: 50 20% 95%;
+    --muted-foreground: 130 10% 50%;
+    
+    --accent: 76 90% 60%;
+    --accent-foreground: 130 11% 28%;
+    
     --destructive: 0 84% 60%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 0 0% 90%;
-    --input: 0 0% 95%;
-    --ring: 142 71% 45%;
-    --radius: 1.25rem;
+    --destructive-foreground: 0 0% 100%;
+    
+    --border: 50 20% 80%;
+    --input: 50 20% 80%;
+    --ring: 76 90% 60%;
+    --radius: 2rem;
 
-    /* Adonai surface system - Light */
-    --surface: 142 15% 98.5%;
-    --surface-dim: 142 10% 96%;
+    /* Adonai surface system mapped to Notioneers */
+    --surface: 0 0% 100%;
+    --surface-dim: 50 46% 90%;
     --surface-container-lowest: 0 0% 100%;
-    --surface-container-low: 142 10% 95%;
-    --surface-container: 142 10% 93%;
-    --surface-container-high: 0 0% 92%;
-    --surface-container-highest: 0 0% 89%;
-    --on-surface: 0 0% 9%;
-    --on-surface-variant: 0 0% 25%;
-    --outline: 0 0% 60%;
-    --outline-variant: 0 0% 85%;
+    --surface-container-low: 50 30% 95%;
+    --surface-container: 50 46% 90%;
+    --surface-container-high: 50 40% 85%;
+    --surface-container-highest: 50 30% 80%;
+    --on-surface: 130 11% 28%;
+    --on-surface-variant: 130 10% 50%;
+    --outline: 50 20% 75%;
+    --outline-variant: 50 20% 85%;
 
     --error: 0 84% 60%;
     --error-container: 0 100% 95%;
-    --on-error: 0 100% 20%;
+    --on-error: 0 0% 100%;
 
-    --tertiary: 12 80% 50%;
-    --tertiary-container: 8 90% 90%;
-  }
-
-  .dark {
-    --background: 0 0% 7.5%;
-    --foreground: 20 7% 89%;
-    --card: 0 0% 12.5%;
-    --card-foreground: 20 7% 89%;
-    --popover: 0 0% 10%;
-    --popover-foreground: 20 7% 89%;
-    --primary: 141 72% 59%;
-    --primary-foreground: 144 100% 10%;
-    --primary-container: 145 72% 45%;
-    --secondary: 0 0% 78%;
-    --secondary-foreground: 0 0% 12%;
-    --secondary-container: 0 0% 28%;
-    --muted: 0 0% 16.5%;
-    --muted-foreground: 100 10% 73%;
-    --accent: 0 0% 16.5%;
-    --accent-foreground: 20 7% 89%;
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 120 10% 24%;
-    --input: 0 0% 12%;
-    --ring: 141 72% 59%;
-
-    /* Adonai surface system */
-    --surface: 0 0% 7.5%;
-    --surface-dim: 0 0% 7.5%;
-    --surface-container-lowest: 0 0% 5.5%;
-    --surface-container-low: 0 0% 10.6%;
-    --surface-container: 0 0% 12.5%;
-    --surface-container-high: 0 0% 16.5%;
-    --surface-container-highest: 0 0% 21%;
-    --on-surface: 20 7% 89%;
-    --on-surface-variant: 100 10% 73%;
-    --outline: 120 7% 53%;
-    --outline-variant: 120 10% 26%;
-
-    --error: 0 73% 84%;
-    --error-container: 0 100% 29%;
-    --on-error: 0 100% 20%;
-
-    --tertiary: 12 100% 83%;
-    --tertiary-container: 8 100% 74%;
+    --tertiary: 145 41% 94%;
+    --tertiary-container: 145 50% 85%;
   }
 }
 
@@ -107,7 +75,11 @@
   body {
     @apply bg-background text-foreground;
   }
-
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Fraunces', serif;
+    font-weight: 900;
+  }
+}
   /* Style scrollbars globally */
   ::-webkit-scrollbar {
     width: 5px;
@@ -123,7 +95,6 @@
   ::-webkit-scrollbar-thumb:hover {
     background: hsla(var(--primary), 0.3);
   }
-}
 
 
 @layer utilities {

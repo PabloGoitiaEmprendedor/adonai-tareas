@@ -3,28 +3,21 @@ import { useTasks } from '@/hooks/useTasks';
 import { useGoals } from '@/hooks/useGoals';
 import { useProfile } from '@/hooks/useProfile';
 import { useGlobalVoiceCapture } from '@/hooks/useGlobalVoiceCapture';
-import { useTimeBlocks } from '@/hooks/useTimeBlocks';
-import { format, startOfWeek, addDays, subDays, isSameDay, addWeeks, subWeeks } from 'date-fns';
+import { format, startOfWeek, addDays, subDays, isSameDay } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { TrendingUp, CalendarSearch as CalendarIcon, Check, GripVertical, Timer, ChevronLeft, ChevronRight, Filter, Clock, Trash2, MoreVertical, Settings, Edit2, Plus, Link as LinkIcon } from 'lucide-react';
+import { TrendingUp, CalendarSearch as CalendarIcon, Check, GripVertical, Timer, Plus, Link as LinkIcon } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { toast } from 'sonner';
 import { triggerTaskCelebration, triggerDailyCelebration } from '@/lib/celebrations';
 import FAB from '@/components/FAB';
 import TaskCaptureModal, { type TaskCaptureModalHandle } from '@/components/TaskCaptureModal';
 import TaskDetailModal from '@/components/TaskDetailModal';
 import FullscreenTimer from '@/components/FullscreenTimer';
-import { TimeBlockModal } from '@/components/TimeBlockModal';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { AISchedulerModal } from '@/components/AISchedulerModal';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import SubtasksSection from '@/components/SubtasksSection';
+import { TaskCard } from '@/components/TaskCard';
 import { Sparkles, Brain } from 'lucide-react';
 
 const WeeklyPage = () => {
@@ -33,10 +26,7 @@ const WeeklyPage = () => {
   const [selectedDay, setSelectedDay] = useState<Date>(new Date());
   const [selectedTask, setSelectedTask] = useState<any>(null);
   const [timerTask, setTimerTask] = useState<any>(null);
-  const [blockModalOpen, setBlockModalOpen] = useState(false);
-  const [editingBlock, setEditingBlock] = useState<any>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
   const captureModalRef = useRef<TaskCaptureModalHandle>(null);
   const [completingTaskId, setCompletingTaskId] = useState<string | null>(null);
 
@@ -47,11 +37,6 @@ const WeeklyPage = () => {
     return () => clearInterval(timer);
   }, []);
 
-  const timeToMinutes = (timeStr: string) => {
-    const [h, m] = timeStr.split(':').map(Number);
-    return h * 60 + m;
-  };
-
   const weekStart = startOfWeek(selectedDay, { weekStartsOn: 1 });
   const weekEnd = addDays(weekStart, 6);
   const startDate = format(weekStart, 'yyyy-MM-dd');
@@ -60,7 +45,6 @@ const WeeklyPage = () => {
   const { tasks, updateTask } = useTasks({ startDate, endDate });
   const { goals } = useGoals();
   const { profile } = useProfile();
-  const { timeBlocks, deleteBlock } = useTimeBlocks(format(selectedDay, 'yyyy-MM-dd'));
 
   const openCapture = useCallback(() => setCaptureOpen(true), []);
   const openCaptureInVoiceMode = useCallback(() => {
@@ -77,16 +61,9 @@ const WeeklyPage = () => {
     if (isSameDay(date, addDays(today, 1))) return 'Mañana';
     if (isSameDay(date, subDays(today, 1))) return 'Ayer';
     
-    const diff = Math.floor((date.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-    if (diff > 1 && diff < 7) {
-      return `Próximo ${format(date, 'EEEE', { locale: es })}`;
-    }
-    
     return format(date, 'EEEE d MMM', { locale: es });
   };
 
-  const handlePrevDay = () => setSelectedDay(subDays(selectedDay, 1));
-  const handleNextDay = () => setSelectedDay(addDays(selectedDay, 1));
   const handleSelectDate = (date: Date | undefined) => {
     if (date) {
       setViewDate(date);
@@ -94,23 +71,12 @@ const WeeklyPage = () => {
     }
   };
 
-  const dayNames = ['D', 'L', 'M', 'M', 'J', 'V', 'S'];
-
-  const getDateLabel = (date: Date) => {
-    if (isSameDay(date, today)) return 'Hoy';
-    if (isSameDay(date, addDays(today, 1))) return 'Mañana';
-    if (isSameDay(date, subDays(today, 1))) return 'Ayer';
-    return format(date, 'EEEE', { locale: es });
-  };
+  const dayNames = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 
   const getTasksForDay = (date: Date) => {
     const dateStr = format(date, 'yyyy-MM-dd');
     return tasks.filter((t) => t.due_date === dateStr);
   };
-
-  const mainGoal = goals.find((g) => g.id === profile?.main_goal_id);
-  const totalCompleted = tasks.filter((t) => t.status === 'done').length;
-  const totalPlanned = tasks.length;
 
   const weeklyData = days.map((d) => {
     const dayTasks = getTasksForDay(d);
@@ -119,14 +85,14 @@ const WeeklyPage = () => {
     return { date: d, completed, total, pct: total > 0 ? Math.round((completed / total) * 100) : 0 };
   });
 
-  const weekRange = `${format(weekStart, 'd')} — ${format(addDays(weekStart, 6), 'd MMMM', { locale: es })}`;
+  const totalCompleted = tasks.filter((t) => t.status === 'done').length;
+  const totalPlanned = tasks.length;
 
   const selectedDayTasks = getTasksForDay(selectedDay);
   const [orderedTasks, setOrderedTasks] = useState<any[]>([]);
 
   useEffect(() => {
     const sorted = [...selectedDayTasks].sort((a, b) => {
-      // First sort by completion status (active first)
       const doneA = a.status === 'done' ? 1 : 0;
       const doneB = b.status === 'done' ? 1 : 0;
       if (doneA !== doneB) return doneA - doneB;
@@ -167,19 +133,6 @@ const WeeklyPage = () => {
     });
   };
 
-  const handleDropOnBlock = (e: React.DragEvent, blockId: string | null) => {
-    e.preventDefault();
-    if (dragIdx === null) return;
-    
-    const task = orderedTasks[dragIdx];
-    if (task.time_block_id !== blockId) {
-      // Immediate local feedback
-      setOrderedTasks(prev => prev.map(t => t.id === task.id ? { ...t, time_block_id: blockId } : t));
-      updateTask.mutate({ id: task.id, time_block_id: blockId });
-    }
-    setDragIdx(null);
-  };
-
   const [touchIdx, setTouchIdx] = useState<number | null>(null);
   const [touchY, setTouchY] = useState(0);
   const handleTouchStart = (idx: number, e: React.TouchEvent) => { setTouchIdx(idx); setTouchY(e.touches[0].clientY); };
@@ -209,14 +162,10 @@ const WeeklyPage = () => {
   };
 
   const handleComplete = (task: any) => {
-    // Step 1: Trigger local "completing" animation
     setCompletingTaskId(task.id);
-
-    // Step 2: Wait for line to draw before validating mutation and popping confetti
     setTimeout(() => {
-      // Find if this is the last task for the selected day
-      const remainingTasks = tasks.filter((t: any) => t.status !== 'done' && t.id !== task.id);
-      const isLastTask = tasks.length > 0 && remainingTasks.length === 0;
+      const remainingTasks = selectedDayTasks.filter((t: any) => t.status !== 'done' && t.id !== task.id);
+      const isLastTask = selectedDayTasks.length > 0 && remainingTasks.length === 0;
 
       updateTask.mutate({ 
         id: task.id, 
@@ -225,7 +174,6 @@ const WeeklyPage = () => {
       }, {
         onSuccess: () => {
           setCompletingTaskId(null);
-          // Step 3: Trigger confetti
           if (isLastTask) {
             triggerDailyCelebration(profile?.name);
           } else {
@@ -234,7 +182,7 @@ const WeeklyPage = () => {
         },
         onError: () => setCompletingTaskId(null)
       });
-    }, 500); // Wait 500ms for line animation
+    }, 500);
   };
 
   const handleUncomplete = (task: any, e: React.MouseEvent) => {
@@ -247,340 +195,213 @@ const WeeklyPage = () => {
     setTimerTask(task);
   };
 
+  // TaskCard component replaces inline rendering
+
   return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-[430px] lg:max-w-4xl mx-auto px-6 pt-4 pb-24 space-y-6">
-        <div className="flex justify-between items-center bg-surface-container-low p-2 rounded-2xl border border-outline-variant/10">
-          <Sheet>
-             <SheetTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl hover:bg-surface-container-high transition-all">
-                  <CalendarIcon className="w-5 h-5 text-primary" />
-                </Button>
-             </SheetTrigger>
-             <SheetContent side="bottom" className="rounded-t-[32px] p-6 glass-sheet h-auto">
-                <div className="space-y-6">
-                  <div className="flex justify-between items-center px-2">
-                    <h3 className="text-lg font-bold">Seleccionar fecha</h3>
-                    <Filter className="w-4 h-4 text-primary" />
-                  </div>
-                  <div className="flex justify-center bg-surface-container px-2 py-4 rounded-[28px]">
-                    <CalendarComponent
-                      mode="single"
-                      selected={selectedDay}
-                      onSelect={handleSelectDate}
-                      initialFocus
-                      locale={es}
-                    />
-                  </div>
-                </div>
-             </SheetContent>
-          </Sheet>
-
-          <div className="flex items-center gap-1">
-            <Button variant="ghost" size="icon" onClick={handlePrevDay} className="h-9 w-9 rounded-xl">
-              <ChevronLeft className="w-5 h-5" />
-            </Button>
-            
-            <span className="text-sm font-bold capitalize min-w-[160px] text-center">
-              {getDayStatusLabel(selectedDay)}
-            </span>
-
-            <Button variant="ghost" size="icon" onClick={handleNextDay} className="h-9 w-9 rounded-xl">
-              <ChevronRight className="w-5 h-5" />
-            </Button>
-          </div>
-
-          <div className="w-9" />
-        </div>
-
-        <section className="space-y-3">
-          <div className="flex justify-end items-center px-1 gap-2">
-            <Button 
-              onClick={() => setAiModalOpen(true)} 
-              variant="outline" 
-              size="sm" 
-              className="h-8 text-xs px-3 gap-1.5 rounded-xl border-primary bg-primary/5 text-primary font-black hover:bg-primary/10 shadow-sm animate-pulse-subtle"
-            >
-               <Brain className="w-3.5 h-3.5" /> IA Planner
-            </Button>
-            <Button id="tutorial-block-button" onClick={() => setBlockModalOpen(true)} variant="outline" size="sm" className="h-8 text-xs px-3 gap-1.5 rounded-xl border-outline-variant text-on-surface-variant font-bold hover:bg-surface-container-high shadow-sm">
-               <Plus className="w-3.5 h-3.5" /> Nuevo Bloque
-            </Button>
-          </div>
-
-          {orderedTasks.length === 0 && timeBlocks.length === 0 ? (
-            <div className="bg-surface-container-low p-5 rounded-lg text-center space-y-3">
-              <p className="text-on-surface-variant text-sm">Sin tareas para este día.</p>
-              <button onClick={openCapture} className="text-primary text-sm font-semibold">+ Añadir tarea</button>
+    <div className="min-h-screen bg-background selection:bg-primary/20">
+      <div className="max-w-[430px] lg:max-w-4xl mx-auto px-6 pt-8 pb-32 space-y-10">
+        
+        {/* Header Section */}
+        <header className="space-y-8 animate-in fade-in slide-in-from-top-4 duration-700">
+          <div className="flex justify-between items-end px-1">
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                <p className="text-[10px] font-black uppercase tracking-[0.3em] text-on-surface-variant/40">Planificación</p>
+              </div>
+              <h1 className="text-4xl font-black font-headline tracking-tight text-foreground leading-none">
+                Weekly <span className="text-primary/80 italic">Focus</span>
+              </h1>
             </div>
-          ) : (
-            <div className="space-y-6">
+            <div className="flex gap-3">
+              <Button 
+                onClick={() => setAiModalOpen(true)} 
+                variant="outline" 
+                size="sm" 
+                className="h-11 px-6 gap-3 rounded-[22px] border-primary/20 bg-primary/5 text-foreground font-black hover:bg-primary/10 transition-all group overflow-hidden relative shadow-lg shadow-primary/5 border-2"
+              >
+                <div className="absolute inset-0 bg-primary/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
+                <Sparkles className="w-4 h-4 relative z-10 text-primary" />
+                <span className="relative z-10">IA Planner</span>
+              </Button>
               
-              {/* Time Blocks Rendering */}
-              {timeBlocks.map((block) => {
-                const blockTasks = orderedTasks.filter(t => t.time_block_id === block.id);
-                const formatTime = (t: string) => {
-                  if (!t) return '';
-                  const [h, m] = t.split(':').map(Number);
-                  const ampm = h >= 12 ? 'pm' : 'am';
-                  const h12 = h % 12 || 12;
-                  return `${h12}:${m.toString().padStart(2, '0')}${ampm}`;
-                }; 
-                const blockColor = block.color || '#2196F3'; 
+              <Sheet>
+                <SheetTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-11 w-11 rounded-[22px] bg-surface-container-low hover:bg-surface-container-high transition-all shadow-md border border-outline-variant/5">
+                    <CalendarIcon className="w-4.5 h-4.5 text-primary" />
+                  </Button>
+                </SheetTrigger>
+                <SheetContent side="bottom" className="rounded-t-[48px] p-10 glass-sheet h-auto border-none shadow-2xl">
+                  <div className="space-y-8 max-w-md mx-auto">
+                    <SheetHeader className="text-center">
+                      <SheetTitle className="text-3xl font-black font-headline text-foreground tracking-tight">Seleccionar Fecha</SheetTitle>
+                    </SheetHeader>
+                    <div className="flex justify-center bg-surface-container-low p-8 rounded-[40px] border border-outline-variant/10 shadow-inner">
+                      <CalendarComponent
+                        mode="single"
+                        selected={selectedDay}
+                        onSelect={handleSelectDate}
+                        initialFocus
+                        locale={es}
+                        className="rounded-[32px]"
+                      />
+                    </div>
+                  </div>
+                </SheetContent>
+              </Sheet>
+            </div>
+          </div>
+
+          {/* Bento Stats & Day Picker Card */}
+          <div className="bg-surface-container-low/80 backdrop-blur-md p-8 rounded-[48px] border border-outline-variant/10 space-y-8 shadow-2xl relative overflow-hidden group transition-all">
+            <div className="absolute -top-12 -right-12 p-4 opacity-[0.03] pointer-events-none group-hover:opacity-[0.07] transition-all duration-700 group-hover:rotate-12 group-hover:scale-110">
+              <Brain className="w-64 h-64 text-foreground" />
+            </div>
+            
+            <div className="grid grid-cols-7 gap-2 relative z-10">
+              {days.map((day, idx) => {
+                const isSelected = isSameDay(day, selectedDay);
+                const isToday = isSameDay(day, today);
+                const data = weeklyData[idx];
                 
                 return (
-                  <div 
-                    key={block.id} 
-                    onDragOver={(e) => e.preventDefault()}
-                    onDrop={(e) => handleDropOnBlock(e, block.id)}
-                    className="rounded-2xl overflow-hidden shadow-sm transition-all"
-                    style={{ backgroundColor: `${blockColor}15` }}
+                  <button
+                    key={idx}
+                    onClick={() => setSelectedDay(day)}
+                    className={`flex flex-col items-center gap-3 p-3.5 transition-all relative rounded-[28px] group/day ${
+                      isSelected 
+                        ? 'bg-primary text-primary-foreground shadow-2xl shadow-primary/40 scale-110 z-10' 
+                        : 'hover:bg-surface-container-high hover:scale-[1.05] bg-surface-container/50'
+                    }`}
                   >
-                    <div 
-                      className="px-4 py-3 flex items-center justify-between group"
-                      style={{ backgroundColor: blockColor, color: '#ffffff' }}
-                    >
-                      <h3 className="font-bold text-lg tracking-tight flex items-center gap-2">
-                        {block.title}
-                      </h3>
-                      <div className="flex items-center gap-3">
-                        <div className="flex items-center gap-1">
-                          <div className="flex items-center gap-1.5 text-[10px] font-bold bg-black/20 px-2 py-1 rounded-md">
-                            <Clock className="w-3 h-3" />
-                            {formatTime(block.start_time)} - {formatTime(block.end_time)}
-                          </div>
-                          
-                          <button 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setActiveBlockId(block.id);
-                              setCaptureOpen(true);
-                            }}
-                            className="bg-white/20 hover:bg-white/30 p-1 rounded-lg transition-colors"
-                          >
-                            <Plus className="w-4 h-4" />
-                          </button>
-                        </div>
-                        
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <button className="hover:bg-white/20 p-1.5 rounded-lg transition-colors">
-                              <MoreVertical className="w-4 h-4" />
-                            </button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="glass-sheet rounded-xl border-outline-variant/30">
-                            <DropdownMenuItem 
-                              onClick={() => {
-                                setEditingBlock(block);
-                                setBlockModalOpen(true);
-                              }}
-                              className="gap-2 font-medium"
-                            >
-                              <Edit2 className="w-4 h-4" /> Editar
-                            </DropdownMenuItem>
-                            <DropdownMenuItem 
-                              onClick={() => {
-                                if (confirm('¿Eliminar este bloque de tiempo?')) {
-                                  deleteBlock.mutate(block.id);
-                                }
-                              }}
-                              className="gap-2 font-medium text-destructive focus:text-destructive"
-                            >
-                              <Trash2 className="w-4 h-4" /> Eliminar
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
+                    <span className={`text-[9px] font-black uppercase tracking-widest ${isSelected ? 'text-primary-foreground/70' : 'text-on-surface-variant/40'}`}>
+                      {dayNames[day.getDay()]}
+                    </span>
+                    <div className="relative">
+                      <span className={`text-lg font-black leading-none ${isSelected ? 'text-primary-foreground' : 'text-foreground'}`}>
+                        {format(day, 'd')}
+                      </span>
+                      {isToday && !isSelected && (
+                        <div className="absolute -top-1 -right-1 w-1.5 h-1.5 bg-primary rounded-full ring-2 ring-surface-container-low" />
+                      )}
                     </div>
                     
-                    <div className="p-3 space-y-2 relative">
-                      {/* Time Indicator Line */}
-                      {(() => {
-                        if (!isSameDay(selectedDay, today)) return null;
-                        
-                        const nowMinutes = currentTime.getHours() * 60 + currentTime.getMinutes();
-                        const startMin = timeToMinutes(block.start_time);
-                        const endMin = timeToMinutes(block.end_time);
-                        
-                        if (nowMinutes >= startMin && nowMinutes <= endMin) {
-                          const percent = ((nowMinutes - startMin) / (endMin - startMin)) * 100;
-                          return (
-                            <div 
-                              className="absolute left-0 right-0 z-10 flex items-center pointer-events-none"
-                              style={{ top: `${percent}%` }}
-                            >
-                              <div className="w-full h-[2px] bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]" />
-                              <div className="absolute -left-1 w-2.5 h-2.5 bg-red-500 rounded-full shadow-lg" />
-                              <span className="absolute -left-12 text-[10px] font-bold text-red-500 bg-background/80 px-1 rounded">
-                                {format(currentTime, 'HH:mm')}
-                              </span>
-                            </div>
-                          );
-                        }
-                        return null;
-                      })()}
-
-                      {blockTasks.length === 0 && (
-                        <p className="text-sm p-2 text-foreground/50 italic">Área libre (sin tareas agendadas)</p>
+                    <div className="h-1.5 flex gap-0.5 items-end">
+                      {data.total > 0 && (
+                        <div className={`w-6 h-1 rounded-full overflow-hidden ${isSelected ? 'bg-primary-foreground/20' : 'bg-outline-variant/20'}`}>
+                          <div 
+                            className={`h-full transition-all duration-500 ${isSelected ? 'bg-primary-foreground' : 'bg-primary'}`}
+                            style={{ width: `${data.pct}%` }}
+                          />
+                        </div>
                       )}
-                      {blockTasks.map((task, idx) => {
-                        const isDone = task.status === 'done';
-                        return (
-                          <motion.div key={task.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
-                            draggable={!isDone}
-                            onDragStart={() => handleDragStart(idx)}
-                            onDragOver={(e) => handleDragOver(e, idx)}
-                            onDragEnd={handleDragEnd}
-                            onTouchStart={(e) => !isDone && handleTouchStart(idx, e)}
-                            onTouchMove={handleTouchMove}
-                            onTouchEnd={handleTouchEnd}
-                            onClick={() => setSelectedTask(task)}
-                            className={`p-3 rounded-xl flex items-start gap-3 cursor-pointer transition-all border ${
-                              isDone || completingTaskId === task.id
-                                ? 'bg-transparent border-transparent opacity-60' 
-                                : dragIdx === idx || touchIdx === idx 
-                                  ? 'bg-surface-container-high scale-[1.02] shadow-lg border-primary/20' 
-                                  : 'bg-background hover:scale-[1.005] shadow-sm border-black/5'
-                            }`}>
-                            {!isDone && <GripVertical className="w-4 h-4 text-on-surface-variant/30 flex-shrink-0 cursor-grab mt-1" />}
-                            {isDone || completingTaskId === task.id ? (
-                              <motion.div 
-                                initial={{ scale: 0 }}
-                                animate={{ scale: 1 }}
-                                transition={{ type: "spring", stiffness: 400, damping: 25 }}
-                                className="w-5 h-5 rounded bg-primary flex items-center justify-center flex-shrink-0 mt-0.5 cursor-pointer"
-                                onClick={(e) => handleUncomplete(task, e)}>
-                                <Check className="w-3 h-3 text-primary-foreground" />
-                              </motion.div>
-                            ) : (
-                              <button onClick={(e) => { e.stopPropagation(); handleComplete(task); }}
-                                className="w-5 h-5 rounded border-2 border-outline-variant flex items-center justify-center hover:border-primary flex-shrink-0 mt-0.5" />
-                            )}
-                            <div className="flex-1 min-w-0 relative mt-0.5">
-                              <h4 className={`text-sm font-semibold break-words transition-colors flex items-center gap-1.5 ${
-                                isDone ? 'text-on-surface-variant line-through' :
-                                completingTaskId === task.id ? 'text-on-surface-variant' : 'text-foreground'
-                              }`}>
-                                <span className="break-words">{task.title}</span>
-                                {task.link && (
-                                  <a href={task.link} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-primary hover:opacity-80 flex-shrink-0" aria-label="Abrir link">
-                                    <LinkIcon className="w-3.5 h-3.5" />
-                                  </a>
-                                )}
-                              </h4>
-                              {completingTaskId === task.id && (
-                                <motion.div
-                                  initial={{ width: 0 }}
-                                  animate={{ width: '100%' }}
-                                  transition={{ delay: 0.1, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-                                  className="absolute top-1/2 left-0 h-[2px] bg-primary/40 -translate-y-1/2 z-10 pointer-events-none"
-                                />
-                              )}
-                            </div>
-                            {!isDone && (
-                              <button onClick={(e) => handleStartTimer(task, e)}
-                                className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center hover:bg-primary/20 flex-shrink-0 transition-colors">
-                                <Timer className="w-3.5 h-3.5 text-primary" />
-                              </button>
-                            )}
-                          </motion.div>
-                        );
-                      })}
                     </div>
-                  </div>
+                  </button>
                 );
               })}
+            </div>
 
-              {/* Unscheduled Tasks */}
-              <div 
-                className="space-y-2 mt-8 min-h-[50px]"
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={(e) => handleDropOnBlock(e, null)}
-              >
-                {orderedTasks.filter(t => !t.time_block_id).length > 0 && (
-                  <h3 className="text-xs font-bold text-on-surface-variant uppercase tracking-wider px-2 mb-3">
-                    Tareas sin bloque ({orderedTasks.filter(t => !t.time_block_id).length})
-                  </h3>
-                )}
-                {orderedTasks.filter(t => !t.time_block_id).map((task, idx) => {
-                  const isDone = task.status === 'done';
-                  return (
-                    <motion.div key={task.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
-                      draggable={!isDone}
-                      onDragStart={() => handleDragStart(idx)}
-                      onDragOver={(e) => handleDragOver(e, idx)}
-                      onDragEnd={handleDragEnd}
-                      onTouchStart={(e) => !isDone && handleTouchStart(idx, e)}
-                      onTouchMove={handleTouchMove}
-                      onTouchEnd={handleTouchEnd}
-                      onClick={() => setSelectedTask(task)}
-                      className={`p-3.5 rounded-xl flex items-start gap-3 cursor-pointer transition-all border ${
-                        isDone || completingTaskId === task.id
-                          ? 'bg-transparent border-transparent opacity-60' 
-                          : dragIdx === idx || touchIdx === idx 
-                            ? 'bg-surface-container-high scale-[1.02] shadow-lg border-primary/20' 
-                            : 'bg-surface-container-low hover:bg-surface-container-high shadow-sm border-black/5'
-                      }`}>
-                      {!isDone && <GripVertical className="w-4 h-4 text-on-surface-variant/30 flex-shrink-0 cursor-grab mt-0.5" />}
-                      {isDone || completingTaskId === task.id ? (
-                        <motion.div 
-                          initial={{ scale: 0 }}
-                          animate={{ scale: 1 }}
-                          transition={{ type: "spring", stiffness: 400, damping: 25 }}
-                          className="w-5 h-5 rounded bg-primary flex items-center justify-center flex-shrink-0 cursor-pointer"
-                          onClick={(e) => handleUncomplete(task, e)}>
-                          <Check className="w-3 h-3 text-primary-foreground" />
-                        </motion.div>
-                      ) : (
-                        <button onClick={(e) => { e.stopPropagation(); handleComplete(task); }}
-                          className="w-5 h-5 rounded border-2 border-outline-variant flex items-center justify-center hover:border-primary flex-shrink-0" />
-                      )}
-                      <div className="flex-1 min-w-0 relative">
-                        <h4 className={`text-sm font-semibold break-words transition-colors flex items-center gap-1.5 ${
-                          isDone ? 'text-on-surface-variant line-through' :
-                          completingTaskId === task.id ? 'text-on-surface-variant' : 'text-foreground'
-                        }`}>
-                          <span className="break-words">{task.title}</span>
-                          {task.link && (
-                            <a href={task.link} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-primary hover:opacity-80 flex-shrink-0" aria-label="Abrir link">
-                              <LinkIcon className="w-3.5 h-3.5" />
-                            </a>
-                          )}
-                        </h4>
-                        {completingTaskId === task.id && (
-                          <motion.div
-                            initial={{ width: 0 }}
-                            animate={{ width: '100%' }}
-                            transition={{ delay: 0.1, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-                            className="absolute top-1/2 left-0 h-[2px] bg-primary/40 -translate-y-1/2 z-10 pointer-events-none"
-                          />
-                        )}
-                      </div>
-                      {!isDone && (
-                        <button onClick={(e) => handleStartTimer(task, e)}
-                          className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center hover:bg-primary/20 flex-shrink-0 transition-colors">
-                          <Timer className="w-3.5 h-3.5 text-primary" />
-                        </button>
-                      )}
-                    </motion.div>
-                  );
-                })}
+            <div className="flex items-center justify-between px-6 py-5 bg-surface-container/60 rounded-[36px] border border-outline-variant/10 backdrop-blur-sm relative z-10 shadow-sm transition-all hover:bg-surface-container-high/60">
+              <div className="flex items-center gap-5">
+                <div className="w-14 h-14 rounded-[22px] bg-primary/10 flex items-center justify-center shadow-inner relative group/icon">
+                  <div className="absolute inset-0 bg-primary/20 rounded-[22px] scale-0 group-hover/icon:scale-110 transition-transform duration-500 opacity-0 group-hover/icon:opacity-100" />
+                  <TrendingUp className="w-7 h-7 text-primary relative z-10" />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant/50">Rendimiento Semanal</p>
+                  <p className="text-xl font-black text-foreground">
+                    {totalCompleted} <span className="text-on-surface-variant/30 font-bold mx-1">/</span> <span className="text-on-surface-variant/40 font-bold">{totalPlanned} tareas</span>
+                  </p>
+                </div>
               </div>
+              <div className="flex flex-col items-end gap-3">
+                <div className="flex items-baseline gap-1">
+                  <span className="text-2xl font-black text-primary leading-none">
+                    {totalPlanned > 0 ? Math.round((totalCompleted / totalPlanned) * 100) : 0}
+                  </span>
+                  <span className="text-xs font-black text-primary/60 uppercase">%</span>
+                </div>
+                <div className="w-32 h-2.5 bg-outline-variant/20 rounded-full overflow-hidden shadow-inner p-[1px]">
+                  <motion.div 
+                    initial={{ width: 0 }}
+                    animate={{ width: `${totalPlanned > 0 ? (totalCompleted / totalPlanned) * 100 : 0}%` }}
+                    transition={{ duration: 1, ease: "circOut" }}
+                    className="h-full primary-gradient rounded-full shadow-[0_0_15px_rgba(195,245,60,0.4)]"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <section className="space-y-10">
+          <div className="flex justify-between items-center px-2">
+             <div className="flex items-center gap-4">
+               <div className="w-12 h-12 rounded-[22px] bg-surface-container-low flex items-center justify-center shadow-md border border-outline-variant/5">
+                 <Timer className="w-6 h-6 text-primary" />
+               </div>
+               <div className="space-y-0.5">
+                 <h2 className="text-3xl font-black font-headline text-foreground tracking-tight">
+                   {getDayStatusLabel(selectedDay)}
+                 </h2>
+                 <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/40">Foco del Día</p>
+               </div>
+             </div>
+          </div>
+
+          {orderedTasks.length === 0 ? (
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }} 
+              animate={{ opacity: 1, scale: 1, y: 0 }} 
+              className="bg-surface-container-low/50 p-16 rounded-[60px] text-center border-2 border-dashed border-outline-variant/20 space-y-8 shadow-sm backdrop-blur-sm"
+            >
+              <div className="w-24 h-24 bg-card rounded-[36px] mx-auto flex items-center justify-center shadow-xl border border-outline-variant/10 relative overflow-hidden group">
+                <div className="absolute inset-0 bg-primary/5 scale-0 group-hover:scale-150 transition-transform duration-1000 rounded-full" />
+                <CalendarIcon className="w-12 h-12 text-outline-variant/40 relative z-10" />
+              </div>
+              <div className="space-y-3">
+                <p className="text-3xl font-black font-headline text-foreground">Hoja en Blanco</p>
+                <p className="text-on-surface-variant/60 text-base font-medium max-w-[280px] mx-auto">Toda una jornada para diseñar a tu manera. ¿Por dónde empezamos?</p>
+              </div>
+              <Button onClick={openCapture} variant="outline" className="h-14 rounded-[28px] border-2 border-primary text-primary font-black hover:bg-primary hover:text-primary-foreground px-10 transition-all hover:scale-105 active:scale-95 shadow-lg shadow-primary/10">
+                + Crear primera tarea
+              </Button>
+            </motion.div>
+          ) : (
+            <div className="grid gap-5">
+              {orderedTasks.map((task, idx) => (
+                <TaskCard
+                  key={task.id}
+                  task={task}
+                  taskIdx={idx}
+                  isDone={task.status === 'done'}
+                  completingTaskId={completingTaskId}
+                  dragIdx={dragIdx}
+                  touchIdx={touchIdx}
+                  handleDragStart={handleDragStart}
+                  handleDragOver={handleDragOver}
+                  handleDragEnd={handleDragEnd}
+                  handleTouchStart={handleTouchStart}
+                  handleTouchMove={handleTouchMove}
+                  handleTouchEnd={handleTouchEnd}
+                  setSelectedTask={setSelectedTask}
+                  handleComplete={handleComplete}
+                  handleUncomplete={handleUncomplete}
+                  handleStartTimer={handleStartTimer}
+                  view="weekly"
+                />
+              ))}
             </div>
           )}
         </section>
 
       </div>
 
-      <FAB onClick={() => { setActiveBlockId(null); setCaptureOpen(true); }} />
+      <FAB onClick={() => setCaptureOpen(true)} />
       <TaskCaptureModal 
         ref={captureModalRef} 
         open={captureOpen} 
-        timeBlockId={activeBlockId}
-        onClose={() => {
-          setCaptureOpen(false);
-          setActiveBlockId(null);
-        }} 
+        onClose={() => setCaptureOpen(false)} 
       />
       <TaskDetailModal task={selectedTask} open={!!selectedTask} onClose={() => setSelectedTask(null)} />
       <FullscreenTimer task={timerTask} open={!!timerTask} onClose={() => setTimerTask(null)} />
@@ -588,15 +409,6 @@ const WeeklyPage = () => {
         open={aiModalOpen} 
         onClose={() => setAiModalOpen(false)} 
         selectedDate={selectedDay} 
-      />
-      <TimeBlockModal 
-        open={blockModalOpen} 
-        onClose={() => {
-          setBlockModalOpen(false);
-          setEditingBlock(null);
-        }} 
-        selectedDate={selectedDay} 
-        block={editingBlock}
       />
     </div>
   );

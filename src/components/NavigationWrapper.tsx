@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { FolderOpen, Users, User, Calendar, LogOut, Settings, Bell, HelpCircle, Menu, Trash2, Home, Target, Trophy } from 'lucide-react';
 
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import BottomNav from './BottomNav';
@@ -12,30 +12,42 @@ interface NavigationWrapperProps {
   children: React.ReactNode;
 }
 
-const SidebarContent = ({ user, menuItems, location, handleNavigate, signOut, startTutorial, isSheet = false }: any) => (
-  <div className="flex flex-col h-full">
-    <div className="p-6 border-b border-outline-variant/10">
+const SidebarContent = ({ user, menuItems, location, handleNavigate, signOut, startTutorial, isSheet, toggleSidebar }: any) => (
+  <div className="flex flex-col h-full bg-zinc-900 text-zinc-100">
+    <div className="p-6 border-b border-zinc-800 flex items-center justify-between gap-4">
       <div 
         onClick={() => handleNavigate('/profile')}
-        className="flex items-center gap-3 mb-6 cursor-pointer hover:opacity-80 transition-opacity group"
+        className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity group flex-1 min-w-0"
       >
-        <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center border border-primary/20 group-hover:bg-primary/20 transition-colors">
+        <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center border border-white/10 group-hover:bg-white/10 transition-colors flex-shrink-0">
           <User className="w-6 h-6 text-primary" />
         </div>
         <div className="flex flex-col min-w-0">
-          <span className="text-sm font-black text-foreground truncate tracking-tight">{user?.email?.split('@')[0] || 'Mi Espacio'}</span>
-          <span className="text-[10px] text-primary font-bold uppercase tracking-wider opacity-60">Configuración</span>
+          <span className="text-sm font-black text-white truncate tracking-tight">{user?.email?.split('@')[0] || 'Mi Espacio'}</span>
+          <span className="text-[10px] text-primary font-bold uppercase tracking-wider opacity-80">Configuración</span>
         </div>
       </div>
 
+      {!isSheet && (
+        <button 
+          onClick={toggleSidebar}
+          className="w-10 h-10 flex items-center justify-center rounded-xl hover:bg-white/10 text-zinc-400 transition-colors flex-shrink-0"
+          aria-label="Cerrar menú"
+        >
+          <Menu className="w-5 h-5" />
+        </button>
+      )}
+    </div>
+    
+    <div className="px-6 py-2">
       {isSheet ? (
-        <SheetHeader>
-          <SheetTitle className="text-left text-xl font-black primary-gradient-text tracking-tighter opacity-40">
+        <SheetHeader className="p-0">
+          <SheetTitle className="text-left text-xl font-black text-white tracking-tighter opacity-80">
             Adonai
           </SheetTitle>
         </SheetHeader>
       ) : (
-        <h2 className="text-left text-xl font-black primary-gradient-text tracking-tighter opacity-40">
+        <h2 className="text-left text-xl font-black text-white tracking-tighter opacity-80">
           Adonai
         </h2>
       )}
@@ -51,8 +63,8 @@ const SidebarContent = ({ user, menuItems, location, handleNavigate, signOut, st
             onClick={() => handleNavigate(item.path)}
             className={`w-full justify-start gap-4 h-12 rounded-xl transition-all duration-300 ${
               location.pathname === item.path 
-                ? 'bg-primary/10 text-primary font-bold shadow-sm' 
-                : 'text-on-surface-variant/80 hover:bg-surface-container-high'
+                ? 'bg-primary/20 text-primary font-bold shadow-sm' 
+                : 'text-zinc-400 hover:bg-white/5 hover:text-white'
             }`}
           >
             <item.icon className={`w-5 h-5 ${location.pathname === item.path ? 'text-primary' : ''}`} />
@@ -64,8 +76,8 @@ const SidebarContent = ({ user, menuItems, location, handleNavigate, signOut, st
           onClick={() => handleNavigate('/trash')}
           className={`w-full justify-start gap-4 h-12 rounded-xl transition-all duration-300 ${
             location.pathname === '/trash' 
-              ? 'bg-primary/10 text-primary font-bold shadow-sm' 
-              : 'text-on-surface-variant/80 hover:bg-surface-container-high'
+              ? 'bg-primary/20 text-primary font-bold shadow-sm' 
+              : 'text-zinc-400 hover:bg-white/5 hover:text-white'
           }`}
         >
           <Trash2 className={`w-5 h-5 ${location.pathname === '/trash' ? 'text-primary' : ''}`} />
@@ -74,26 +86,26 @@ const SidebarContent = ({ user, menuItems, location, handleNavigate, signOut, st
       </div>
 
       <div className="mt-8 px-6">
-        <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-on-surface-variant/40 mb-4">Ajustes</p>
+        <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500 mb-4">Ajustes</p>
         <div className="space-y-1">
-           <Button variant="ghost" className="w-full justify-start gap-4 h-11 text-on-surface-variant/60 hover:text-foreground">
+           <Button variant="ghost" className="w-full justify-start gap-4 h-11 text-zinc-400 hover:text-white hover:bg-white/5">
             <Bell className="w-4 h-4" /> <span className="text-xs">Notificaciones</span>
           </Button>
-          <Button onClick={() => handleNavigate('/profile')} variant="ghost" className="w-full justify-start gap-4 h-11 text-on-surface-variant/60 hover:text-foreground">
+          <Button onClick={() => handleNavigate('/profile')} variant="ghost" className="w-full justify-start gap-4 h-11 text-zinc-400 hover:text-white hover:bg-white/5">
             <Settings className="w-4 h-4" /> <span className="text-xs">Preferencias</span>
           </Button>
-          <Button onClick={startTutorial} variant="ghost" className="w-full justify-start gap-4 h-11 text-on-surface-variant/60 hover:text-foreground">
+          <Button onClick={startTutorial} variant="ghost" className="w-full justify-start gap-4 h-11 text-zinc-400 hover:text-white hover:bg-white/5">
             <HelpCircle className="w-4 h-4" /> <span className="text-xs">Guía rápida</span>
           </Button>
         </div>
       </div>
     </div>
 
-    <div className="p-6 border-t border-outline-variant/10">
+    <div className="p-6 border-t border-zinc-800">
       <Button 
         onClick={() => signOut()} 
         variant="ghost" 
-        className="w-full justify-start gap-4 h-12 text-error hover:text-error hover:bg-error/5 rounded-xl font-semibold transition-colors"
+        className="w-full justify-start gap-4 h-12 text-red-400 hover:text-red-300 hover:bg-red-400/10 rounded-xl font-semibold transition-colors"
       >
         <LogOut className="w-5 h-5" />
         <span>Cerrar sesión</span>
@@ -119,13 +131,9 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
   const navigate = useNavigate();
   const location = useLocation();
 
-
-
-  const isHome = location.pathname === '/';
-
   const menuItems = [
     { label: 'Hoy', icon: Home, path: '/' },
-    { label: 'Calendario', icon: Calendar, path: '/week' },
+    { label: 'Planificación', icon: Calendar, path: '/week' },
     { label: 'Carpetas', icon: FolderOpen, path: '/folders' },
     { label: 'Logros', icon: Trophy, path: '/achievements' },
     { label: 'Amigos', icon: Users, path: '/friends' },
@@ -138,46 +146,16 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
     setOpen(false);
   };
 
-  const getPageTitle = (path: string) => {
-    switch (path) {
-      case '/': return '';
-      case '/week': return 'Calendario';
-      case '/goals': return 'Metas';
-      case '/folders': return 'Carpetas';
-      case '/friends': return 'Amigos';
-      case '/profile': return 'Perfil';
-      case '/trash': return 'Historial';
-      case '/achievements': return 'Logros';
-      default: return 'Adonai';
-    }
-  };
-
-  const pageTitle = getPageTitle(location.pathname);
+  // For /mini popup window — render children without any navigation chrome
+  if (location.pathname === '/mini') {
+    return <>{children}</>;
+  }
 
   return (
     <div className="min-h-screen bg-background">
       <AppTutorial run={tutorialRun} onFinish={() => setTutorialRun(false)} />
       
       <Sheet open={open} onOpenChange={setOpen}>
-        <header className={`sticky top-0 inset-x-0 h-16 bg-background/80 backdrop-blur-xl border-b border-outline-variant/10 z-[55] lg:hidden flex items-center justify-between px-4 transition-shadow duration-300 ${isHome ? 'shadow-none' : 'shadow-sm'}`}>
-          <div className="w-10 flex justify-start">
-            <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="w-10 h-10 rounded-2xl text-foreground hover:bg-surface-container-high transition-all">
-                <Menu className="w-5 h-5" />
-              </Button>
-            </SheetTrigger>
-          </div>
-          {!isHome && pageTitle && (
-            <div className="flex-1 flex justify-center">
-              <span className="text-sm font-black uppercase tracking-[0.2em] primary-gradient-text">
-                {pageTitle}
-              </span>
-            </div>
-          )}
-          {isHome && <div className="flex-1" />}
-          <div className="w-10" />
-        </header>
-
         <SheetContent side="left" className="w-[280px] glass-sheet border-r-outline-variant/20 p-0">
           <SidebarContent 
             user={user} 
@@ -187,21 +165,30 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
             signOut={signOut} 
             startTutorial={() => { setTutorialRun(true); setOpen(false); }}
             isSheet 
+            toggleSidebar={() => setOpen(false)}
           />
         </SheetContent>
       </Sheet>
 
-      {/* Desktop: floating hamburger trigger always visible */}
-      <button
-        onClick={() => setDesktopSidebarOpen(v => !v)}
-        aria-label={desktopSidebarOpen ? 'Ocultar menú' : 'Mostrar menú'}
-        className="hidden lg:flex fixed top-4 left-4 z-[60] w-10 h-10 items-center justify-center rounded-xl bg-surface-container-high/80 backdrop-blur-md border border-outline-variant/20 hover:bg-surface-container-highest text-foreground shadow-sm transition-all"
-      >
-        <Menu className="w-5 h-5" />
-      </button>
+      {/* Floating hamburger trigger - ONLY visible when ALL sidebars are CLOSED */}
+      {!desktopSidebarOpen && !open && (
+        <button
+          onClick={() => {
+            if (window.innerWidth < 1024) {
+              setOpen(true);
+            } else {
+              setDesktopSidebarOpen(true);
+            }
+          }}
+          aria-label="Mostrar menú"
+          className="fixed top-4 left-4 z-40 w-10 h-10 flex items-center justify-center rounded-xl bg-surface-container-high/80 backdrop-blur-md border border-outline-variant/20 text-foreground shadow-sm transition-all active:scale-90 hover:bg-surface-container-highest"
+        >
+          <Menu className="w-5 h-5" />
+        </button>
+      )}
 
       <aside
-        className={`hidden lg:flex fixed left-0 top-0 bottom-0 w-72 bg-surface-container-low border-r border-outline-variant/10 z-[55] flex-col shadow-2xl shadow-black/5 transition-transform duration-300 ${
+        className={`hidden lg:flex fixed left-0 top-0 bottom-0 w-72 bg-zinc-900 border-r border-zinc-800 z-[55] flex-col shadow-2xl transition-transform duration-300 ${
           desktopSidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
@@ -212,6 +199,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
           handleNavigate={handleNavigate} 
           signOut={signOut} 
           startTutorial={() => setTutorialRun(true)}
+          toggleSidebar={() => setDesktopSidebarOpen(false)}
         />
       </aside>
 

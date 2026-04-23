@@ -167,17 +167,17 @@ const ProfilePage = () => {
 
         {/* Stats */}
         <section className="grid grid-cols-3 gap-2">
-          <div className="bg-surface-container-low p-4 rounded-lg text-center">
+          <div className="bg-surface-container-high p-4 rounded-lg text-center">
             <Flame className="w-6 h-6 text-primary mx-auto mb-1" />
             <div className="text-2xl font-extrabold">{metrics?.streak_current || 0}</div>
             <p className="text-[10px] text-on-surface-variant uppercase tracking-wider">Racha</p>
           </div>
-          <div className="bg-surface-container-low p-4 rounded-lg text-center">
+          <div className="bg-surface-container-high p-4 rounded-lg text-center">
             <CalendarDays className="w-6 h-6 text-primary mx-auto mb-1" />
             <div className="text-2xl font-extrabold">{metrics?.streak_max || 0}</div>
             <p className="text-[10px] text-on-surface-variant uppercase tracking-wider">Máx racha</p>
           </div>
-          <div className="bg-surface-container-low p-4 rounded-lg text-center">
+          <div className="bg-surface-container-high p-4 rounded-lg text-center">
             <CheckCircle2 className="w-6 h-6 text-primary mx-auto mb-1" />
             <div className="text-2xl font-extrabold">{completedTotal}</div>
             <p className="text-[10px] text-on-surface-variant uppercase tracking-wider">Hechas</p>

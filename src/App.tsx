@@ -18,6 +18,7 @@ import PrivacyPolicyPage from "./pages/PrivacyPolicyPage";
 import TermsOfServicePage from "./pages/TermsOfServicePage";
 import TrashPage from "./pages/TrashPage";
 import AchievementsPage from "./pages/AchievementsPage";
+import MiniTasksPage from "./pages/MiniTasksPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -29,26 +30,8 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { profile, isLoading: profileLoading } = useProfile();
 
   useEffect(() => {
-    const applyTheme = (theme: string) => {
-      if (theme === 'system') {
-        const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        document.documentElement.classList.toggle('dark', isDark);
-      } else {
-        document.documentElement.classList.toggle('dark', theme === 'dark');
-      }
-    };
-
-    if (profile?.theme) {
-      applyTheme(profile.theme);
-      
-      if (profile.theme === 'system') {
-        const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-        const handleChange = () => applyTheme('system');
-        mediaQuery.addEventListener('change', handleChange);
-        return () => mediaQuery.removeEventListener('change', handleChange);
-      }
-    }
-  }, [profile?.theme]);
+    document.documentElement.classList.remove('dark');
+  }, []);
 
 
   if (loading || profileLoading) {
@@ -88,6 +71,7 @@ const AppRoutes = () => {
 
   return (
     <Routes>
+      <Route path="/mini" element={<MiniTasksPage />} />
       <Route path="/auth" element={user ? <Navigate to="/" replace /> : <AuthPage />} />
       <Route path="/onboarding" element={user ? <OnboardingPage /> : <Navigate to="/auth" replace />} />
       <Route path="/" element={<ProtectedRoute><DailyPage /></ProtectedRoute>} />

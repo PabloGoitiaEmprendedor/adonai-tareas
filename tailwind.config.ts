@@ -75,16 +75,26 @@ export default {
           DEFAULT: "hsl(var(--tertiary))",
           container: "hsl(var(--tertiary-container))",
         },
+        // Notioneers inspired palette
+        notion: {
+          lime: "#C3F53C",
+          forest: "#405143",
+          cream: "#F5F0D9",
+          mint: "#E9F7EF",
+        }
       },
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 4px)",
         sm: "calc(var(--radius) - 8px)",
+        xl: "1.5rem",
+        "2xl": "2rem",
+        "3xl": "2.5rem",
         DEFAULT: "var(--radius)",
       },
       fontFamily: {
         sans: ["Inter", "sans-serif"],
-        headline: ["Inter", "sans-serif"],
+        headline: ["Recoleta", "Inter", "sans-serif"],
         body: ["Inter", "sans-serif"],
         label: ["Inter", "sans-serif"],
       },
