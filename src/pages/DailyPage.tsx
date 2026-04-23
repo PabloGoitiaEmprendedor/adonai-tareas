@@ -8,6 +8,7 @@ import { useGlobalVoiceCapture } from '@/hooks/useGlobalVoiceCapture';
 import { useTimeBlocks } from '@/hooks/useTimeBlocks';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
 import { Check, Plus, GripVertical, Timer, Clock, List, CalendarDays, ChevronDown, Trash2, Flame, Link as LinkIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
@@ -495,7 +496,7 @@ const DailyPage = () => {
               {format(currentTime, 'HH:mm')}
             </span>
             <span className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant/50 mt-1">
-              {format(currentTime, "EEEE d 'de' MMMM", { locale: (require('date-fns/locale') as any).es }).toString()}
+              {format(currentTime, "EEEE d 'de' MMMM", { locale: es })}
             </span>
           </div>
 
