@@ -527,6 +527,9 @@ const DailyPage = () => {
         {/* Dynamic greeting */}
         <p className="text-sm text-on-surface-variant">{greeting}</p>
 
+        {/* Gamification: streak + level + XP + trophies */}
+        <GamificationBar />
+
         {/* Action row: cambiar vista + nuevo bloque */}
         <div className="flex items-center justify-end gap-2">
           <Button
