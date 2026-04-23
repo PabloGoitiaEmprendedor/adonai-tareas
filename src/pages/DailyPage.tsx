@@ -991,6 +991,33 @@ const DailyPage = () => {
             
           </div>
         )}
+
+        {/* Quick add input — siempre visible al final */}
+        {viewMode === 'agenda' && (
+          <form
+            onSubmit={handleQuickAdd}
+            className="flex items-center gap-2 mt-2 p-2 rounded-2xl bg-surface-container-low border border-outline-variant/20 focus-within:border-primary/40 transition-colors"
+          >
+            <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+              <Plus className="w-4 h-4 text-primary" strokeWidth={2.5} />
+            </div>
+            <input
+              type="text"
+              value={quickAddTitle}
+              onChange={(e) => setQuickAddTitle(e.target.value)}
+              placeholder="Nueva tarea para hoy…"
+              className="flex-1 bg-transparent border-none focus:outline-none focus:ring-0 text-sm font-medium text-foreground placeholder:text-on-surface-variant/40"
+            />
+            {quickAddTitle.trim() && (
+              <button
+                type="submit"
+                className="text-[11px] font-bold uppercase tracking-wider text-primary px-2 py-1 rounded-md hover:bg-primary/10"
+              >
+                Añadir
+              </button>
+            )}
+          </form>
+        )}
       </div>
 
       <FAB onClick={() => { setActiveBlockId(null); setCaptureOpen(true); }} />
@@ -1010,6 +1037,11 @@ const DailyPage = () => {
       />
       <TaskDetailModal task={selectedTask} open={!!selectedTask} onClose={() => setSelectedTask(null)} />
       <FullscreenTimer task={timerTask} open={!!timerTask} onClose={() => setTimerTask(null)} />
+      <TimeBlockModal
+        open={blockModalOpen}
+        onClose={() => setBlockModalOpen(false)}
+        selectedDate={new Date(today)}
+      />
     </div>
   );
 };
