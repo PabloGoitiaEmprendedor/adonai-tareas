@@ -488,54 +488,59 @@ const DailyPage = () => {
     <div className="min-h-screen bg-background text-foreground">
       <div className="max-w-[430px] lg:max-w-4xl mx-auto px-6 pt-2 pb-24 space-y-5">
 
-        {/* Dynamic greeting - centered, single line */}
-        <p className="text-center text-sm text-on-surface-variant py-3">{greeting}</p>
+        {/* Top header: hora actual + racha */}
+        <div className="flex items-center justify-between pt-2">
+          <div className="flex flex-col leading-none">
+            <span className="text-[34px] font-black tracking-tight tabular-nums text-foreground">
+              {format(currentTime, 'HH:mm')}
+            </span>
+            <span className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant/50 mt-1">
+              {format(currentTime, "EEEE d 'de' MMMM", { locale: (require('date-fns/locale') as any).es }).toString()}
+            </span>
+          </div>
 
-        {/* View toggle: Agenda / Calendar + Streak */}
-        <div className="flex items-center justify-between py-1">
-          {/* Streak badge */}
-          {streakCount > 0 ? (
-            <motion.div 
+          {streakCount > 0 && (
+            <motion.div
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               whileHover={{ scale: 1.05 }}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-orange-500/10 border border-orange-500/20 shadow-[0_0_12px_rgba(249,115,22,0.15)] ring-1 ring-orange-500/5"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-orange-500/10 border border-orange-500/20"
             >
               <motion.div
-                animate={{ 
-                  scale: [1, 1.2, 1],
-                  filter: ["brightness(1)", "brightness(1.5)", "brightness(1)"]
-                }}
-                transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                animate={{ scale: [1, 1.2, 1] }}
+                transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
               >
                 <Flame className="w-3.5 h-3.5 text-orange-500 fill-orange-500/20" />
               </motion.div>
               <span className="text-[13px] font-black leading-none text-orange-600 dark:text-orange-400 tabular-nums">{streakCount}</span>
             </motion.div>
-          ) : <div />}
+          )}
+        </div>
 
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => handleSetView('agenda')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                viewMode === 'agenda'
-                  ? 'bg-primary/15 text-primary'
-                  : 'text-on-surface-variant hover:bg-surface-container-high'
-              }`}
-            >
-              <List className="w-3.5 h-3.5" /> Agenda
-            </button>
-            <button
-              onClick={() => handleSetView('calendar')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                viewMode === 'calendar'
-                  ? 'bg-primary/15 text-primary'
-                  : 'text-on-surface-variant hover:bg-surface-container-high'
-              }`}
-            >
-              <CalendarDays className="w-3.5 h-3.5" /> Calendario
-            </button>
-          </div>
+        {/* Dynamic greeting */}
+        <p className="text-sm text-on-surface-variant">{greeting}</p>
+
+        {/* Action row: cambiar vista + nuevo bloque */}
+        <div className="flex items-center justify-end gap-2">
+          <Button
+            onClick={() => setBlockModalOpen(true)}
+            variant="outline"
+            size="sm"
+            className="h-8 text-xs px-3 gap-1.5 rounded-xl border-outline-variant text-on-surface-variant font-bold hover:bg-surface-container-high"
+          >
+            <Plus className="w-3.5 h-3.5" /> Bloque
+          </Button>
+          <button
+            onClick={toggleView}
+            className="h-8 px-3 rounded-xl border border-outline-variant/40 bg-surface-container-low hover:bg-surface-container-high text-xs font-bold text-on-surface-variant flex items-center gap-1.5 transition-all"
+            aria-label="Cambiar vista"
+          >
+            {viewMode === 'agenda' ? (
+              <><CalendarDays className="w-3.5 h-3.5" /> Calendario</>
+            ) : (
+              <><List className="w-3.5 h-3.5" /> Agenda</>
+            )}
+          </button>
         </div>
 
         {viewMode === 'calendar' ? (
