@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { FolderOpen, Users, User, Calendar, LogOut, Settings, Bell, HelpCircle, Menu, Trash2, Home, Target, Trophy } from 'lucide-react';
+import { FolderOpen, Users, User, Calendar, LogOut, Settings, Bell, HelpCircle, Menu, Trash2, Home, Target, Trophy, Download } from 'lucide-react';
 
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useAuth } from '@/contexts/AuthContext';
@@ -214,6 +214,32 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
       </main>
 
       <BottomNav />
+      
+      {/* Download Desktop App Button - Only visible in Browser */}
+      {!window.electronAPI && (
+        <div className="fixed top-4 right-4 z-[60] flex items-center gap-2">
+          <Button
+            onClick={() => window.open('https://github.com/PabloGoitiaEmprendedor/adonai-tareas/releases', '_blank')}
+            variant="outline"
+            className="hidden md:flex items-center gap-2 bg-zinc-900/50 backdrop-blur-md border-zinc-800 text-zinc-300 hover:text-primary hover:border-primary/50 h-10 rounded-xl transition-all shadow-lg group"
+          >
+            <div className="w-6 h-6 rounded-lg bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+              <Download className="w-3.5 h-3.5 text-primary" />
+            </div>
+            <span className="text-xs font-bold tracking-tight">Descargar App</span>
+          </Button>
+          
+          {/* Mobile version (Icon only) */}
+          <Button
+            onClick={() => window.open('https://github.com/PabloGoitiaEmprendedor/adonai-tareas/releases', '_blank')}
+            size="icon"
+            variant="outline"
+            className="md:hidden bg-zinc-900/50 backdrop-blur-md border-zinc-800 text-zinc-300 h-10 w-10 rounded-xl shadow-lg"
+          >
+            <Download className="w-5 h-5 text-primary" />
+          </Button>
+        </div>
+      )}
     </div>
   );
 };

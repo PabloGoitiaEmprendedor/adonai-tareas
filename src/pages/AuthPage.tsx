@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -48,8 +48,12 @@ const AuthPage = () => {
   const handleGoogleSignIn = async () => {
     setGoogleLoading(true);
     try {
+      // In Electron, we want to redirect back to the web version first,
+      // and then the web version will "bridge" the session back to the app.
+      const redirectUri = window.location.origin;
+      
       const result = await lovable.auth.signInWithOAuth("google", {
-        redirect_uri: window.location.origin,
+        redirect_uri: redirectUri,
       });
 
       if (result.error) {
@@ -60,7 +64,6 @@ const AuthPage = () => {
         return;
       }
 
-      // Session set — navigate
       navigate('/');
     } catch (err: any) {
       toast.error('Error al conectar con Google');
@@ -68,6 +71,20 @@ const AuthPage = () => {
       setGoogleLoading(false);
     }
   };
+
+  // Bridge session back to Desktop App if we are on the web and just logged in
+  useEffect(() => {
+    const handleAuthBridge = async () => {
+      const hash = window.location.hash;
+      if (hash && hash.includes('access_token=') && !window.electronAPI) {
+        // We are on the web, and we have a session in the URL.
+        // Let's try to "ping" the desktop app to see if it wants this session.
+        console.log("Bridging session to desktop app...");
+        window.location.assign(`adonai-tasks://${hash}`);
+      }
+    };
+    handleAuthBridge();
+  }, []);
 
   const handleAppleSignIn = async () => {
     setAppleLoading(true);
