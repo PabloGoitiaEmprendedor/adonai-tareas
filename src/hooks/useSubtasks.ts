@@ -11,6 +11,14 @@ export const useSubtasks = (parentId: string | null | undefined) => {
   const { data: subtasks = [], isLoading } = useQuery({
     queryKey: ['subtasks', parentId],
     queryFn: async () => {
+      // Listener para invalidar desde otras ventanas
+      const api = (window as any).electronAPI;
+      if (api?.onInvalidateQueries) {
+        api.onInvalidateQueries(() => {
+          qc.invalidateQueries({ queryKey: ['subtasks'] });
+          qc.invalidateQueries({ queryKey: ['tasks'] });
+        });
+      }
       if (!enabled) return [];
       const { data, error } = await supabase
         .from('tasks')
@@ -45,6 +53,7 @@ export const useSubtasks = (parentId: string | null | undefined) => {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['subtasks', parentId] });
       qc.invalidateQueries({ queryKey: ['tasks'] });
+      (window as any).electronAPI?.syncData?.();
     },
   });
 
@@ -72,6 +81,7 @@ export const useSubtasks = (parentId: string | null | undefined) => {
     },
     onSettled: () => {
       qc.invalidateQueries({ queryKey: ['subtasks', parentId] });
+      (window as any).electronAPI?.syncData?.();
     },
   });
 
@@ -82,6 +92,7 @@ export const useSubtasks = (parentId: string | null | undefined) => {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['subtasks', parentId] });
+      (window as any).electronAPI?.syncData?.();
     },
   });
 

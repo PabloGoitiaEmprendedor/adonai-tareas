@@ -1,50 +1,206 @@
 /**
- * MiniTasksPage — Standalone popup task list.
- * Opens as a resizable, movable browser popup via window.open().
- * Shows today's tasks and lets the user check them off directly.
- * Shares the same Supabase session so auth works automatically.
+ * MiniTasksPage — Floating pill widget.
+ * - Pill (3 dots) colapsa/expande al hacer clic
+ * - Panel expandido: reloj, barra de progreso, tareas con subtareas
+ * - Sin botón X — se cierra desde la app base
+ * - Fondo transparente real (ventana Electron con transparent: true)
  */
 import { useState, useEffect, useMemo } from 'react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useTasks } from '@/hooks/useTasks';
+import { useSubtasks } from '@/hooks/useSubtasks';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Check, Flame, RefreshCw } from 'lucide-react';
+import { Check, MoreHorizontal, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import '../index.css';
 
-const miniQueryClient = new QueryClient();
+// ─── Colores del panel ───────────────────────────────────────────────────────
+const C = {
+  bg: '#18181B',
+  border: 'rgba(255,255,255,0.09)',
+  text: '#F4F4F5',
+  muted: 'rgba(255,255,255,0.35)',
+  accent: '#A3E635',
+  accentBg: 'rgba(163,230,53,0.13)',
+  taskBg: 'rgba(255,255,255,0.05)',
+  taskBorder: 'rgba(255,255,255,0.07)',
+  subBg: 'rgba(255,255,255,0.03)',
+};
 
+// ─── Fila de subtarea ────────────────────────────────────────────────────────
+const SubtaskRow = ({ sub, onToggle }: { sub: any; onToggle: (sub: any) => void }) => {
+  const isDone = sub.status === 'done';
+  return (
+    <div
+      onClick={() => onToggle(sub)}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 8,
+        padding: '6px 8px 6px 28px',
+        borderRadius: 8, cursor: 'pointer',
+        background: C.subBg,
+        marginBottom: 2,
+        opacity: isDone ? 0.45 : 1,
+      }}
+    >
+      <div style={{
+        width: 18, height: 18, borderRadius: 5, flexShrink: 0,
+        background: isDone ? C.accent : 'transparent',
+        border: `2px solid ${isDone ? C.accent : 'rgba(255,255,255,0.2)'}`,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}>
+        {isDone && <Check style={{ width: 10, height: 10, color: '#000', strokeWidth: 3 }} />}
+      </div>
+      <span style={{
+        fontSize: 12, color: isDone ? C.muted : C.text,
+        textDecoration: isDone ? 'line-through' : 'none',
+        fontWeight: 500, lineHeight: 1.3,
+      }}>
+        {sub.title}
+      </span>
+    </div>
+  );
+};
+
+// ─── Fila de tarea con subtareas ─────────────────────────────────────────────
+const TaskRow = ({
+  task,
+  onToggle,
+}: {
+  task: any;
+  onToggle: (task: any) => void;
+}) => {
+  const isDone = task.status === 'done';
+  const [open, setOpen] = useState(false);
+  const { subtasks, toggleSubtask } = useSubtasks(task.id);
+  const hasSubtasks = subtasks.length > 0;
+  const doneSubCount = subtasks.filter((s: any) => s.status === 'done').length;
+
+  return (
+    <motion.div
+      layout
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, scale: 0.95 }}
+      style={{ marginBottom: 4 }}
+    >
+      <div
+        style={{
+          display: 'flex', alignItems: 'center', gap: 10,
+          padding: '10px 10px',
+          borderRadius: 12, cursor: 'pointer',
+          background: isDone ? 'transparent' : C.taskBg,
+          border: `1px solid ${isDone ? 'transparent' : C.taskBorder}`,
+          opacity: isDone ? 0.45 : 1,
+        }}
+      >
+        {/* Checkbox */}
+        <div
+          onClick={() => onToggle(task)}
+          style={{
+            width: 26, height: 26, borderRadius: 8, flexShrink: 0,
+            background: isDone ? C.accent : 'transparent',
+            border: `2px solid ${isDone ? C.accent : 'rgba(255,255,255,0.22)'}`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}
+        >
+          {isDone && <Check style={{ width: 13, height: 13, color: '#000', strokeWidth: 3 }} />}
+        </div>
+
+        {/* Title */}
+        <span
+          onClick={() => onToggle(task)}
+          style={{
+            flex: 1, fontSize: 13, fontWeight: 600, lineHeight: 1.3,
+            color: isDone ? C.muted : C.text,
+            textDecoration: isDone ? 'line-through' : 'none',
+          }}
+        >
+          {task.title}
+        </span>
+
+        {/* Subtask toggle */}
+        {hasSubtasks && (
+          <div
+            onClick={() => setOpen(o => !o)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 3,
+              padding: '2px 6px', borderRadius: 6,
+              background: C.accentBg, cursor: 'pointer', flexShrink: 0,
+            }}
+          >
+            <span style={{ fontSize: 10, fontWeight: 700, color: C.accent }}>
+              {doneSubCount}/{subtasks.length}
+            </span>
+            <ChevronRight style={{
+              width: 11, height: 11, color: C.accent,
+              transform: open ? 'rotate(90deg)' : 'none',
+              transition: 'transform 0.2s',
+            }} />
+          </div>
+        )}
+      </div>
+
+      <AnimatePresence>
+        {open && hasSubtasks && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            style={{ overflow: 'hidden', paddingTop: 2 }}
+          >
+            {subtasks.map((sub: any) => (
+              <SubtaskRow
+                key={sub.id}
+                sub={sub}
+                onToggle={(s) => toggleSubtask.mutate({ id: s.id, done: s.status !== 'done' })}
+              />
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
+  );
+};
+
+// ─── Componente principal ────────────────────────────────────────────────────
 const MiniTaskList = () => {
   const { user, loading } = useAuth();
   const today = format(new Date(), 'yyyy-MM-dd');
   const { tasks, updateTask, isLoading } = useTasks({ date: today });
   const [completingId, setCompletingId] = useState<string | null>(null);
-  const [currentTime, setCurrentTime] = useState(new Date());
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [now, setNow] = useState(new Date());
 
+  // Reloj en tiempo real
   useEffect(() => {
-    const t = setInterval(() => setCurrentTime(new Date()), 60_000);
+    const t = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(t);
   }, []);
 
-  const sortedTasks = useMemo(() => {
-    return [...tasks].sort((a: any, b: any) => {
-      const doneA = a.status === 'done' ? 1 : 0;
-      const doneB = b.status === 'done' ? 1 : 0;
-      if (doneA !== doneB) return doneA - doneB;
-      const orderA = a.sort_order || 0;
-      const orderB = b.sort_order || 0;
-      return orderA - orderB;
-    });
-  }, [tasks]);
+  // Fondo transparente real
+  useEffect(() => {
+    document.documentElement.style.cssText += ';background:transparent!important';
+    document.body.style.cssText += ';background:transparent!important';
+    const root = document.getElementById('root');
+    if (root) root.style.cssText += ';background:transparent!important';
+  }, []);
+
+  const sortedTasks = useMemo(() =>
+    [...tasks].sort((a: any, b: any) => {
+      if (a.status === 'done' && b.status !== 'done') return 1;
+      if (b.status === 'done' && a.status !== 'done') return -1;
+      return (a.sort_order || 0) - (b.sort_order || 0);
+    }),
+    [tasks]
+  );
 
   const completedCount = tasks.filter((t: any) => t.status === 'done').length;
   const totalCount = tasks.length;
+  const progress = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
 
   const handleToggle = (task: any) => {
-    const isDone = task.status === 'done';
-    if (isDone) {
+    if (task.status === 'done') {
       updateTask.mutate({ id: task.id, status: 'pending', completed_at: null });
     } else {
       setCompletingId(task.id);
@@ -53,156 +209,165 @@ const MiniTaskList = () => {
           { id: task.id, status: 'done', completed_at: new Date().toISOString() },
           { onSettled: () => setCompletingId(null) }
         );
-      }, 400);
+      }, 350);
     }
   };
 
-  if (loading || isLoading) {
+  // ── PILL colapsada: flotando arriba-centro de la ventana transparente ──
+  if (!isExpanded) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
-
-  if (!user) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-6">
-        <div className="text-center space-y-3">
-          <p className="text-lg font-black text-foreground">Sesión no encontrada</p>
-          <p className="text-sm text-on-surface-variant/60">
-            Abre la app principal primero para iniciar sesión.
-          </p>
+      <div style={{
+        width: '100%',
+        height: '100%',
+        display: 'flex',
+        alignItems: 'flex-start',
+        justifyContent: 'center',
+        paddingTop: 10,
+        pointerEvents: 'none',
+      }}>
+        <div
+          style={{
+            width: 64, height: 32, borderRadius: 999,
+            background: C.bg,
+            border: `1px solid ${C.border}`,
+            boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            userSelect: 'none',
+            pointerEvents: 'all',
+            WebkitAppRegion: 'drag',
+          } as any}
+        >
+          <div
+            onClick={() => setIsExpanded(true)}
+            style={{
+              WebkitAppRegion: 'no-drag',
+              width: '100%', height: '100%',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              borderRadius: 999, cursor: 'pointer',
+            } as any}
+          >
+            <MoreHorizontal style={{ width: 20, height: 20, color: 'rgba(255,255,255,0.75)' }} />
+          </div>
         </div>
       </div>
     );
   }
 
+  // ── EXPANDED ────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-background text-foreground select-none">
-      {/* Drag handle area — the top bar */}
-      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-md border-b border-border/30 px-4 py-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Flame className="w-4 h-4 text-primary" />
-            <span className="text-xs font-black uppercase tracking-[0.15em] text-foreground">
-              Mis Tareas
-            </span>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/40">
-              {format(currentTime, "EEE d MMM", { locale: es })}
-            </span>
-            <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-primary/15">
-              <span className="text-[11px] font-black tabular-nums text-primary">
-                {completedCount}/{totalCount}
-              </span>
-            </div>
-          </div>
+    <div style={{
+      width: '100%', height: '100%',
+      background: C.bg,
+      borderRadius: 20,
+      border: `1px solid ${C.border}`,
+      boxShadow: '0 12px 48px rgba(0,0,0,0.6)',
+      display: 'flex', flexDirection: 'column',
+      overflow: 'hidden',
+      fontFamily: 'system-ui, -apple-system, sans-serif',
+      color: C.text,
+    }}>
+
+      {/* ── Top: 3 puntos + reloj (arrastrable) ── */}
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '10px 16px 6px',
+        WebkitAppRegion: 'drag',
+        flexShrink: 0,
+      } as any}>
+
+        {/* 3 puntos — clic para colapsar */}
+        <div
+          onClick={() => setIsExpanded(false)}
+          style={{
+            WebkitAppRegion: 'no-drag',
+            width: 52, height: 26, borderRadius: 999,
+            background: 'rgba(255,255,255,0.07)',
+            border: `1px solid ${C.border}`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            cursor: 'pointer',
+          } as any}
+          title="Colapsar"
+        >
+          <MoreHorizontal style={{ width: 16, height: 16, color: 'rgba(255,255,255,0.5)' }} />
         </div>
 
-        {/* Progress bar */}
-        {totalCount > 0 && (
-          <div className="h-1.5 bg-surface-container-highest rounded-full overflow-hidden mt-2">
-            <motion.div
-              initial={{ width: 0 }}
-              animate={{ width: `${totalCount > 0 ? (completedCount / totalCount) * 100 : 0}%` }}
-              transition={{ duration: 0.5, ease: 'easeOut' }}
-              className="h-full primary-gradient rounded-full"
-            />
+        {/* Reloj */}
+        <div style={{ textAlign: 'right', WebkitAppRegion: 'drag' } as any}>
+          <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.03em', color: C.text, lineHeight: 1 }}>
+            {format(now, 'h:mm')}
+            <span style={{ fontSize: 13, fontWeight: 600, color: C.muted, marginLeft: 3 }}>
+              {format(now, 'a')}
+            </span>
           </div>
-        )}
+          <div style={{ fontSize: 10, color: C.muted, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+            {format(now, 'EEE d MMM', { locale: es })}
+          </div>
+        </div>
       </div>
 
-      {/* Task list */}
-      <div className="px-3 py-2 space-y-1.5">
-        {sortedTasks.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <span className="text-4xl mb-3">🎉</span>
-            <p className="text-sm font-black text-foreground">¡Día despejado!</p>
-            <p className="text-xs text-on-surface-variant/50 mt-1">No tienes tareas para hoy.</p>
+      {/* ── Barra de progreso ── */}
+      {totalCount > 0 && (
+        <div style={{ height: 3, background: 'rgba(255,255,255,0.06)', flexShrink: 0, margin: '0 0 2px' }}>
+          <motion.div
+            initial={{ width: 0 }}
+            animate={{ width: `${progress}%` }}
+            transition={{ duration: 0.5, ease: 'easeOut' }}
+            style={{ height: '100%', background: C.accent }}
+          />
+        </div>
+      )}
+
+      {/* ── Lista de tareas ── */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '6px 10px 10px' }}>
+        {loading || isLoading ? (
+          <div style={{ display: 'flex', justifyContent: 'center', padding: 20 }}>
+            <div style={{
+              width: 20, height: 20,
+              border: `2px solid ${C.accent}`,
+              borderTopColor: 'transparent',
+              borderRadius: '50%',
+              animation: 'spin 0.8s linear infinite',
+            }} />
+          </div>
+        ) : !user ? (
+          <p style={{ textAlign: 'center', fontSize: 12, color: C.muted, padding: 16 }}>
+            Abre la app principal primero.
+          </p>
+        ) : sortedTasks.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: 24 }}>
+            <span style={{ fontSize: 28 }}>🎉</span>
+            <p style={{ fontSize: 12, fontWeight: 800, marginTop: 8, color: C.text }}>¡Día despejado!</p>
           </div>
         ) : (
           <AnimatePresence mode="popLayout">
-            {sortedTasks.map((task: any) => {
-              const isDone = task.status === 'done';
-              const isCompleting = completingId === task.id;
-
-              return (
-                <motion.div
-                  key={task.id}
-                  layout
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{
-                    opacity: isCompleting ? 0.3 : 1,
-                    y: 0,
-                    scale: isCompleting ? 0.97 : 1,
-                  }}
-                  exit={{ opacity: 0, scale: 0.9 }}
-                  onClick={() => handleToggle(task)}
-                  className={`flex items-center gap-3 px-3 py-3 rounded-2xl cursor-pointer transition-all border ${
-                    isDone
-                      ? 'bg-transparent border-transparent opacity-50'
-                      : 'bg-card border-outline-variant/10 hover:border-primary/30 shadow-sm'
-                  }`}
-                >
-                  {/* Checkbox */}
-                  <div className="flex-shrink-0">
-                    {isDone || isCompleting ? (
-                      <motion.div
-                        initial={{ scale: 0, rotate: -45 }}
-                        animate={{ scale: 1, rotate: 0 }}
-                        transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                        className="w-8 h-8 rounded-xl bg-primary flex items-center justify-center shadow-sm"
-                      >
-                        <Check className="w-4 h-4 text-primary-foreground stroke-[3]" />
-                      </motion.div>
-                    ) : (
-                      <div className="w-8 h-8 rounded-xl border-2 border-outline/40 flex items-center justify-center hover:border-primary hover:bg-primary/10 transition-all bg-surface group/check">
-                        <div className="w-3 h-3 rounded-md bg-primary scale-0 group-hover/check:scale-100 transition-transform duration-300" />
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Task title — full text, no truncation */}
-                  <span
-                    className={`flex-1 text-sm font-bold leading-snug transition-all ${
-                      isDone || isCompleting
-                        ? 'text-on-surface-variant/30 line-through'
-                        : 'text-foreground'
-                    }`}
-                  >
-                    {task.title}
-                  </span>
-                </motion.div>
-              );
-            })}
+            {sortedTasks.map((task: any) => (
+              <TaskRow
+                key={task.id}
+                task={completingId === task.id ? { ...task, status: 'done' } : task}
+                onToggle={handleToggle}
+              />
+            ))}
           </AnimatePresence>
         )}
-      </div>
 
-      {/* All done celebration */}
-      {totalCount > 0 && completedCount === totalCount && (
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="mx-3 mt-4 p-4 rounded-2xl bg-primary/10 border border-primary/20 text-center"
-        >
-          <span className="text-2xl">🏆</span>
-          <p className="text-sm font-black text-primary mt-1">¡Todo completado!</p>
-          <p className="text-[10px] text-on-surface-variant/50 mt-0.5">Disfruta tu tiempo libre.</p>
-        </motion.div>
-      )}
+        {totalCount > 0 && completedCount === totalCount && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            style={{
+              margin: '6px 0', padding: '10px',
+              borderRadius: 12, textAlign: 'center',
+              background: C.accentBg, border: `1px solid rgba(163,230,53,0.2)`,
+            }}
+          >
+            <span style={{ fontSize: 20 }}>🏆</span>
+            <p style={{ fontSize: 12, fontWeight: 800, color: C.accent, marginTop: 4 }}>¡Todo completado!</p>
+          </motion.div>
+        )}
+      </div>
     </div>
   );
 };
 
-const MiniTasksPage = () => (
-  <QueryClientProvider client={miniQueryClient}>
-    <AuthProvider>
-      <MiniTaskList />
-    </AuthProvider>
-  </QueryClientProvider>
-);
-
+const MiniTasksPage = () => <MiniTaskList />;
 export default MiniTasksPage;

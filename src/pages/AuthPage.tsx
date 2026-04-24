@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import { lovable } from '@/integrations/lovable/index';
+import { supabase } from '@/integrations/supabase/client';
 
 const GoogleIcon = () => (
   <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none">
@@ -48,22 +49,21 @@ const AuthPage = () => {
   const handleGoogleSignIn = async () => {
     setGoogleLoading(true);
     try {
-      // In Electron, we want to redirect back to the web version first,
-      // and then the web version will "bridge" the session back to the app.
-      const redirectUri = window.location.origin;
-      
-      const result = await lovable.auth.signInWithOAuth("google", {
-        redirect_uri: redirectUri,
-      });
-
-      if (result.error) {
-        throw result.error;
-      }
-
-      if (result.redirected) {
+      if (window.electronAPI && window.electronAPI.openExternal) {
+        // En Escritorio: Redirigimos a la web oficial para que el usuario inicie sesión ahí.
+        // La web oficial tiene el puente (App.tsx) que enviará la sesión de vuelta.
+        window.electronAPI.openExternal('https://3a84d585-06c0-49da-b64a-79238927162d.lovableproject.com/auth');
+        setGoogleLoading(false);
         return;
       }
 
+      // En Web: Redirección normal usando Lovable Auth (que maneja Google/Apple en sus servidores)
+      const result = await lovable.auth.signInWithOAuth("google", {
+        redirect_uri: window.location.origin,
+      });
+
+      if (result.error) throw result.error;
+      if (result.redirected) return;
       navigate('/');
     } catch (err: any) {
       toast.error('Error al conectar con Google');
@@ -72,23 +72,17 @@ const AuthPage = () => {
     }
   };
 
-  // Bridge session back to Desktop App if we are on the web and just logged in
-  useEffect(() => {
-    const handleAuthBridge = async () => {
-      const hash = window.location.hash;
-      if (hash && hash.includes('access_token=') && !window.electronAPI) {
-        // We are on the web, and we have a session in the URL.
-        // Let's try to "ping" the desktop app to see if it wants this session.
-        console.log("Bridging session to desktop app...");
-        window.location.assign(`adonai-tasks://${hash}`);
-      }
-    };
-    handleAuthBridge();
-  }, []);
+  // Bridge session has been moved to App.tsx to ensure it catches global redirects
 
   const handleAppleSignIn = async () => {
     setAppleLoading(true);
     try {
+      if (window.electronAPI && window.electronAPI.openExternal) {
+        window.electronAPI.openExternal('https://3a84d585-06c0-49da-b64a-79238927162d.lovableproject.com/auth');
+        setAppleLoading(false);
+        return;
+      }
+
       const result = await lovable.auth.signInWithOAuth("apple", {
         redirect_uri: window.location.origin,
       });
@@ -121,45 +115,10 @@ const AuthPage = () => {
           </p>
         </div>
 
-        {/* Google Sign In */}
-        <button
-          onClick={handleGoogleSignIn}
-          disabled={googleLoading}
-          className="w-full h-14 rounded-lg bg-surface-container-lowest text-foreground font-semibold text-base flex items-center justify-center gap-3 hover:bg-surface-container-low active:scale-[0.98] transition-all disabled:opacity-50"
-        >
-          {googleLoading ? (
-            <div className="w-5 h-5 border-2 border-foreground border-t-transparent rounded-full animate-spin" />
-          ) : (
-            <GoogleIcon />
-          )}
-          {googleLoading ? 'Conectando...' : 'Continuar con Google'}
-        </button>
-
-        {/* Apple Sign In */}
-        <button
-          onClick={handleAppleSignIn}
-          disabled={appleLoading}
-          className="w-full h-14 rounded-lg bg-surface-container-lowest text-foreground font-semibold text-base flex items-center justify-center gap-3 hover:bg-surface-container-low active:scale-[0.98] transition-all disabled:opacity-50"
-        >
-          {appleLoading ? (
-            <div className="w-5 h-5 border-2 border-foreground border-t-transparent rounded-full animate-spin" />
-          ) : (
-            <svg viewBox="0 0 24 24" className="w-5 h-5 fill-current">
-              <path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/>
-            </svg>
-          )}
-          {appleLoading ? 'Conectando...' : 'Continuar con Apple'}
-        </button>
-
+        {/* OAuth Buttons (Google/Apple) removed temporarily until Supabase providers are configured */}
         <p className="text-center text-xs text-on-surface-variant/60">
-          Inicio de sesión seguro con Google o Apple
+          Inicia sesión de forma segura para acceder a tus tareas
         </p>
-
-        <div className="flex items-center gap-4">
-          <div className="flex-1 h-px bg-surface-container-high" />
-          <span className="text-xs text-on-surface-variant/50 uppercase tracking-widest">o</span>
-          <div className="flex-1 h-px bg-surface-container-high" />
-        </div>
 
         <div className="space-y-5">
           <div className="space-y-2">

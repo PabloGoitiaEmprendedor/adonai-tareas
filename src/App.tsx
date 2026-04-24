@@ -111,22 +111,22 @@ const AppRoutes = () => {
 
 const App = () => {
   useEffect(() => {
-    // Handle Deep Linking for Electron
+    // 1. Send session back to Desktop if we are on the Web and just logged in via OAuth
+    const hash = window.location.hash;
+    if (hash && hash.includes('access_token=') && !window.electronAPI) {
+      console.log("Bridging session to desktop app...");
+      // Intentamos enviar la sesión a la app de escritorio
+      window.location.assign(`adonai-tasks://${hash}`);
+    }
+
+    // 2. Handle Deep Linking for Electron (Receiving the session from the Web)
     if (window.electronAPI?.onDeepLink) {
       window.electronAPI.onDeepLink(async (url: string) => {
         console.log("Received deep link:", url);
         
-        // Convert the adonai-tasks:// link to something Supabase can parse
-        // Usually Supabase expects the hash part of the URL
-        const hash = url.split('#')[1];
-        if (hash) {
-          const { data, error } = await supabase.auth.getSession();
-          if (error) console.error("Error getting session:", error);
-          
-          // Supabase auto-handles the hash if we are on the same page,
-          // but for Electron we might need to manually trigger the session update
-          // using the access_token and refresh_token from the hash
-          const params = new URLSearchParams(hash);
+        const hashPart = url.split('#')[1];
+        if (hashPart) {
+          const params = new URLSearchParams(hashPart);
           const access_token = params.get("access_token");
           const refresh_token = params.get("refresh_token");
           

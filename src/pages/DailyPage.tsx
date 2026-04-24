@@ -342,14 +342,14 @@ const DailyPage = () => {
           {/* Mini Widget toggle */}
           <button
             onClick={toggleMiniWidget}
-            className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-2xl border-2 transition-all text-sm font-black tracking-tight ${
+            className={`w-full flex items-center justify-center gap-3 px-5 py-4 rounded-[20px] transition-all duration-300 font-black tracking-tight text-base shadow-lg hover:shadow-xl active:scale-[0.98] ${
               miniWidgetOpen
-                ? 'bg-primary/20 border-primary/40 text-primary'
-                : 'bg-surface-container-high border-outline-variant/30 text-on-surface-variant/60 hover:border-primary/30 hover:text-primary'
+                ? 'bg-primary text-primary-foreground border-2 border-primary/50 ring-4 ring-primary/20'
+                : 'bg-white dark:bg-surface-container-highest border-2 border-black/5 dark:border-white/10 text-foreground hover:border-primary/50'
             }`}
           >
-            <ExternalLink className="w-4 h-4" />
-            {miniWidgetOpen ? 'Cerrar Mini Widget' : 'Abrir Mini Widget'}
+            <ExternalLink className={`w-5 h-5 ${miniWidgetOpen ? 'opacity-80' : 'text-primary'}`} />
+            {miniWidgetOpen ? 'Cerrar Pestaña Flotante' : 'Desplegar Pestaña Flotante'}
           </button>
         </div>
 

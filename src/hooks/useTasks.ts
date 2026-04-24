@@ -27,6 +27,13 @@ export const useTasks = (filters?: { date?: string; startDate?: string; endDate?
   const { data: allData, isLoading } = useQuery({
     queryKey: ['tasks', user?.id, filters],
     queryFn: async () => {
+      // Listener para invalidar desde otras ventanas
+      const api = (window as any).electronAPI;
+      if (api?.onInvalidateQueries) {
+        api.onInvalidateQueries(() => {
+          queryClient.invalidateQueries({ queryKey: ['tasks'] });
+        });
+      }
       if (!user) return { tasks: [], rules: [], templates: [] };
       
       // 1. Fetch real tasks
@@ -205,6 +212,7 @@ export const useTasks = (filters?: { date?: string; startDate?: string; endDate?
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      (window as any).electronAPI?.syncData?.();
     },
   });
 
@@ -274,6 +282,7 @@ export const useTasks = (filters?: { date?: string; startDate?: string; endDate?
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks', user?.id] });
+      (window as any).electronAPI?.syncData?.();
     },
   });
 
@@ -307,6 +316,7 @@ export const useTasks = (filters?: { date?: string; startDate?: string; endDate?
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      (window as any).electronAPI?.syncData?.();
     },
   });
 

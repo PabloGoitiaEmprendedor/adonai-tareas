@@ -18,9 +18,9 @@ export const GamificationBar = () => {
       className="block group"
       aria-label="Ver logros y progreso"
     >
-      <div className="flex items-center gap-3 p-3 rounded-2xl bg-surface-container-highest border-2 border-outline-variant/40 hover:border-primary/50 transition-all shadow-sm">
+      <div className="flex items-center gap-3 p-3 rounded-2xl bg-white dark:bg-surface-container-highest border border-black/5 dark:border-white/10 hover:border-primary/30 transition-all shadow-md hover:shadow-lg">
         {/* Streak */}
-        <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-orange-500/35 border border-orange-500/30">
+        <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-orange-50 dark:bg-orange-500/10 border border-orange-200 dark:border-orange-500/20">
           <motion.div
             animate={{ scale: streak > 0 ? [1, 1.15, 1] : 1 }}
             transition={{ duration: 2, repeat: Infinity }}
@@ -41,11 +41,11 @@ export const GamificationBar = () => {
                 Nivel {level}
               </span>
             </div>
-            <span className="text-[10px] font-bold tabular-nums text-on-surface-variant/80">
+            <span className="text-[10px] font-bold tabular-nums text-foreground/80">
               {current}/{needed} XP
             </span>
           </div>
-          <div className="h-2.5 bg-surface-container-highest rounded-full overflow-hidden border border-outline-variant/20">
+          <div className="h-2.5 bg-black/10 dark:bg-white/10 rounded-full overflow-hidden border border-black/5 dark:border-white/5">
             <motion.div
               initial={{ width: 0 }}
               animate={{ width: `${percent}%` }}
@@ -56,7 +56,7 @@ export const GamificationBar = () => {
         </div>
 
         {/* Trophies count */}
-        <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-primary/25 border border-primary/20 group-hover:bg-primary/35 transition-colors">
+        <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-primary/10 border border-primary/20 group-hover:bg-primary/20 transition-colors">
           <Trophy className="w-4 h-4 text-primary" />
           <span className="text-[13px] font-black tabular-nums text-primary">
             {unlocked.length}
