@@ -19,6 +19,7 @@ import GamificationBar from '@/components/GamificationBar';
 import SubtasksSection from '@/components/SubtasksSection';
 import { useGamification } from '@/hooks/useGamification';
 import { TaskCard } from '@/components/TaskCard';
+import MiniTaskWidget from '@/components/MiniTaskWidget';
 
 const getDynamicGreeting = (
   name: string,
@@ -116,11 +117,18 @@ const DailyPage = () => {
   const [currentTime, setCurrentTime] = useState(new Date());
   const captureModalRef = useRef<TaskCaptureModalHandle>(null);
   const hasTrackedDayRef = useRef(false);
-  const miniWindowRef = useRef<Window | null>(null);
-  const [miniWindowOpen, setMiniWindowOpen] = useState(false);
+  const [miniWidgetOpen, setMiniWidgetOpen] = useState(false);
 
   useEffect(() => {
     const t = setInterval(() => setCurrentTime(new Date()), 30_000);
+    
+    // Electron IPC listener
+    if (window.electronAPI) {
+      window.electronAPI.onMiniWindowClosed(() => {
+        setMiniWidgetOpen(false);
+      });
+    }
+    
     return () => clearInterval(t);
   }, []);
 
@@ -150,29 +158,14 @@ const DailyPage = () => {
     trackDayActive.mutate();
   }, [trackDayActive]);
 
-  // Toggle floating mini-window
-  const toggleMiniWindow = useCallback(() => {
-    if (miniWindowRef.current && !miniWindowRef.current.closed) {
-      miniWindowRef.current.close();
-      miniWindowRef.current = null;
-      setMiniWindowOpen(false);
+  // Toggle floating mini-window (Electron independent window)
+  const toggleMiniWidget = useCallback(() => {
+    if (window.electronAPI) {
+      window.electronAPI.toggleMiniWindow();
+      setMiniWidgetOpen(prev => !prev);
     } else {
-      const w = window.open(
-        '/mini',
-        'adonai_mini',
-        'width=360,height=600,resizable=yes,scrollbars=yes,toolbar=no,menubar=no,location=no,status=no'
-      );
-      miniWindowRef.current = w;
-      setMiniWindowOpen(true);
-
-      // Detect when user closes the popup manually
-      const check = setInterval(() => {
-        if (!miniWindowRef.current || miniWindowRef.current.closed) {
-          clearInterval(check);
-          miniWindowRef.current = null;
-          setMiniWindowOpen(false);
-        }
-      }, 500);
+      // Fallback for browser if not running in Electron
+      setMiniWidgetOpen(prev => !prev);
     }
   }, []);
 
@@ -346,17 +339,17 @@ const DailyPage = () => {
         <div className="pt-2 space-y-3">
           <GamificationBar />
 
-          {/* Mini Window toggle */}
+          {/* Mini Widget toggle */}
           <button
-            onClick={toggleMiniWindow}
+            onClick={toggleMiniWidget}
             className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-2xl border-2 transition-all text-sm font-black tracking-tight ${
-              miniWindowOpen
+              miniWidgetOpen
                 ? 'bg-primary/20 border-primary/40 text-primary'
                 : 'bg-surface-container-high border-outline-variant/30 text-on-surface-variant/60 hover:border-primary/30 hover:text-primary'
             }`}
           >
             <ExternalLink className="w-4 h-4" />
-            {miniWindowOpen ? 'Cerrar Mini Ventana' : 'Abrir Mini Ventana'}
+            {miniWidgetOpen ? 'Cerrar Mini Widget' : 'Abrir Mini Widget'}
           </button>
         </div>
 
@@ -459,6 +452,9 @@ const DailyPage = () => {
       />
       <TaskDetailModal task={selectedTask} open={!!selectedTask} onClose={() => setSelectedTask(null)} />
       <FullscreenTimer task={timerTask} open={!!timerTask} onClose={() => setTimerTask(null)} />
+      {!window.electronAPI && (
+        <MiniTaskWidget isOpen={miniWidgetOpen} onClose={() => setMiniWidgetOpen(false)} />
+      )}
     </div>
   );
 };
