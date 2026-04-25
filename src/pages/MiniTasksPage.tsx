@@ -14,6 +14,7 @@ import { es } from 'date-fns/locale';
 import { Check, MoreHorizontal, ChevronRight, Timer, Pause, Plus } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import TaskCaptureModal from '@/components/TaskCaptureModal';
+import TaskDetailModal from '@/components/TaskDetailModal';
 import { useGamification } from '@/hooks/useGamification';
 import { triggerTaskCelebration, triggerDailyCelebration } from '@/lib/celebrations';
 import { useProfile } from '@/hooks/useProfile';
@@ -71,8 +72,8 @@ const SubtaskRowRaw = ({ sub, onToggle }: { sub: any; onToggle: (sub: any) => vo
 const SubtaskRow = memo(SubtaskRowRaw);
 
 // ─── Task Row ────────────────────────────────────────────────────────────────
-const TaskRowRaw = ({ task, onToggle, activeTimerId, onTimerToggle }: {
-  task: any; onToggle: (task: any) => void;
+const TaskRowRaw = ({ task, onToggle, onDetail, activeTimerId, onTimerToggle }: {
+  task: any; onToggle: (task: any) => void; onDetail: (task: any) => void;
   activeTimerId: string | null; onTimerToggle: (taskId: string, estimatedMinutes?: number) => void;
 }) => {
   const isDone = task.status === 'done';
@@ -100,7 +101,7 @@ const TaskRowRaw = ({ task, onToggle, activeTimerId, onTimerToggle }: {
         }}>
           {isDone && <Check style={{ width: 13, height: 13, color: '#000', strokeWidth: 3 }} />}
         </div>
-        <span onClick={() => onToggle(task)} style={{
+        <span onClick={() => onDetail(task)} style={{
           flex: 1, fontSize: 13, fontWeight: 600, lineHeight: 1.3,
           color: isDone ? C.muted : C.text,
           textDecoration: isDone ? 'line-through' : 'none',
@@ -206,6 +207,8 @@ const MiniTaskList = () => {
   const [activeTimerId, setActiveTimerId] = useState<string | null>(null);
   const [timerSeconds, setTimerSeconds] = useState(0);
   const [captureOpen, setCaptureOpen] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<any>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const { onMouseDown: onDragMouseDown, hasMovedRef } = useDragWindow();
@@ -515,6 +518,7 @@ const MiniTaskList = () => {
               <TaskRow key={task.id}
                 task={completingId === task.id ? { ...task, status: 'done' } : task}
                 onToggle={handleToggle}
+                onDetail={(t) => { setSelectedTask(t); setDetailOpen(true); }}
                 activeTimerId={activeTimerId}
                 onTimerToggle={handleTimerToggle} />
             ))}
@@ -531,6 +535,7 @@ const MiniTaskList = () => {
       </div>
 
       <TaskCaptureModal open={captureOpen} onClose={() => setCaptureOpen(false)} />
+      <TaskDetailModal task={selectedTask} open={detailOpen} onClose={() => setDetailOpen(false)} />
     </div>
   );
 };

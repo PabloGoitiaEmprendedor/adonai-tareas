@@ -26,9 +26,9 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 
-type StepType = 'welcome' | 'context_basic' | 'context_work' | 'style' | 'input' | 'ready';
+type StepType = 'welcome' | 'context_work' | 'ready';
 
-const steps: StepType[] = ['welcome', 'context_basic', 'context_work', 'style', 'input', 'ready'];
+const steps: StepType[] = ['welcome', 'context_work', 'ready'];
 
 const OnboardingPage = () => {
   const navigate = useNavigate();
@@ -239,117 +239,6 @@ const OnboardingPage = () => {
               </div>
             )}
 
-            {/* STEP: CONTEXT BASIC */}
-            {currentStep === 'context_basic' && (
-              <div className="space-y-8">
-                <div className="space-y-2">
-                  <h2 className="text-3xl font-extrabold tracking-tight text-foreground">Cuentáme sobre ti</h2>
-                  <p className="text-on-surface-variant">Esto me ayuda a personalizar tus recordatorios y sugerencias.</p>
-                </div>
-
-                <div className="space-y-6">
-                  {/* Location */}
-                  <div className="space-y-2">
-                    <label className="text-sm font-bold flex items-center gap-2">
-                      <MapPin className="w-4 h-4 text-primary" /> ¿Dónde vives? <OptionalLabel />
-                    </label>
-                    <input 
-                      value={location}
-                      onChange={(e) => setLocation(e.target.value)}
-                      placeholder="Ciudad, País"
-                      className="w-full bg-surface-container-low rounded-xl px-4 h-12 outline-none focus:ring-2 focus:ring-primary/20 text-base"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    {/* Gender */}
-                    <div className="space-y-2">
-                      <label className="text-sm font-bold">Género <OptionalLabel /></label>
-                      <select 
-                        value={gender}
-                        onChange={(e) => setGender(e.target.value)}
-                        className="w-full bg-surface-container-low rounded-xl px-4 h-12 outline-none"
-                      >
-                        <option value="">Seleccionar</option>
-                        <option value="male">Hombre</option>
-                        <option value="female">Mujer</option>
-                        <option value="other">Otro</option>
-                      </select>
-                    </div>
-
-                    {/* Age Range */}
-                    <div className="space-y-2">
-                      <label className="text-sm font-bold">Edad <OptionalLabel /></label>
-                      <select 
-                        value={ageRange}
-                        onChange={(e) => setAgeRange(e.target.value)}
-                        className="w-full bg-surface-container-low rounded-xl px-4 h-12 outline-none"
-                      >
-                        <option value="">Seleccionar</option>
-                        <option value="18-24">18-24</option>
-                        <option value="25-34">25-34</option>
-                        <option value="35-44">35-44</option>
-                        <option value="45+">45+</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  {/* Energy Patterns */}
-                  <div className="space-y-2">
-                    <label className="text-sm font-bold flex items-center gap-2">
-                      <Zap className="w-4 h-4 text-primary" /> ¿Cuándo eres más productivo? <OptionalLabel />
-                    </label>
-                    <div className="grid grid-cols-3 gap-2">
-                      {[
-                        { id: 'morning', label: 'Mañana' },
-                        { id: 'afternoon', label: 'Tarde' },
-                        { id: 'night', label: 'Noche' },
-                      ].map((opt) => (
-                        <button
-                          key={opt.id}
-                          onClick={() => setEnergyPatterns(opt.id === energyPatterns ? '' : opt.id)}
-                          className={`h-12 rounded-xl text-sm font-medium transition-all ${
-                            energyPatterns === opt.id ? 'bg-primary text-primary-foreground' : 'bg-surface-container-low'
-                          }`}
-                        >
-                          {opt.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Stress Level */}
-                  <div className="space-y-2">
-                    <label className="text-sm font-bold flex items-center gap-2">
-                      <Smile className="w-4 h-4 text-primary" /> Nivel de estrés <OptionalLabel />
-                    </label>
-                    <div className="flex gap-2">
-                      {['Bajo', 'Medio', 'Alto'].map((level) => (
-                        <button
-                          key={level}
-                          onClick={() => setStressLevel(level === stressLevel ? '' : level)}
-                          className={`flex-1 h-12 rounded-xl text-sm font-medium transition-all ${
-                            stressLevel === level ? 'bg-primary text-primary-foreground' : 'bg-surface-container-low'
-                          }`}
-                        >
-                          {level}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-3 pt-4">
-                  <button onClick={next} className="w-full h-16 bg-primary text-primary-foreground rounded-2xl font-bold text-lg flex items-center justify-center gap-2 transition-all">
-                    Continuar <ArrowRight className="w-5 h-5" />
-                  </button>
-                  <button onClick={next} className="w-full py-3 text-sm text-on-surface-variant/60 hover:text-on-surface-variant transition-colors">
-                    Saltar este paso
-                  </button>
-                </div>
-              </div>
-            )}
-
             {/* STEP: CONTEXT WORK */}
             {currentStep === 'context_work' && (
               <div className="space-y-8">
@@ -371,56 +260,6 @@ const OnboardingPage = () => {
                       className="w-full bg-surface-container-low rounded-xl px-4 h-12 outline-none focus:ring-2 focus:ring-primary/20 text-base border border-transparent focus:border-primary/30"
                     />
                   </div>
-
-                  {/* Industry */}
-                  <div className="space-y-2">
-                    <label className="text-sm font-bold">Industria o área <OptionalLabel /></label>
-                    <input 
-                      value={industry}
-                      onChange={(e) => setIndustry(e.target.value)}
-                      placeholder="Ej: Tecnología, Salud, Arte"
-                      className="w-full bg-surface-container-low rounded-xl px-4 h-12 outline-none focus:ring-2 focus:ring-primary/20 text-base"
-                    />
-                  </div>
-
-                  {/* Work Hours */}
-                  <div className="space-y-2">
-                    <label className="text-sm font-bold flex items-center gap-2">
-                      <Clock className="w-4 h-4 text-primary" /> Horario de trabajo <OptionalLabel />
-                    </label>
-                    <input 
-                      value={workHours}
-                      onChange={(e) => setWorkHours(e.target.value)}
-                      placeholder="Ej: 9:00-17:00"
-                      className="w-full bg-surface-container-low rounded-xl px-4 h-12 outline-none focus:ring-2 focus:ring-primary/20 text-base"
-                    />
-                  </div>
-
-                  {/* Biggest Challenge */}
-                  <div className="space-y-2">
-                    <label className="text-sm font-bold flex items-center gap-2">
-                      <AlertCircle className="w-4 h-4 text-primary" /> Tu mayor reto ahora <OptionalLabel />
-                    </label>
-                    <textarea 
-                      value={biggestChallenge}
-                      onChange={(e) => setBiggestChallenge(e.target.value)}
-                      placeholder="¿Qué es lo que más te cuesta organizar hoy?"
-                      className="w-full bg-surface-container-low rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-primary/20 text-base min-h-[80px] resize-none"
-                    />
-                  </div>
-
-                  {/* Hobbies */}
-                  <div className="space-y-2">
-                    <label className="text-sm font-bold flex items-center gap-2">
-                      <Heart className="w-4 h-4 text-primary" /> Intereses y hobbies <OptionalLabel />
-                    </label>
-                    <input 
-                      value={hobbies}
-                      onChange={(e) => setHobbies(e.target.value)}
-                      placeholder="Ej: Correr, Leer, Videojuegos"
-                      className="w-full bg-surface-container-low rounded-xl px-4 h-12 outline-none focus:ring-2 focus:ring-primary/20 text-base"
-                    />
-                  </div>
                 </div>
 
                 <div className="flex gap-4 pt-4">
@@ -438,87 +277,6 @@ const OnboardingPage = () => {
               </div>
             )}
 
-            {/* STEP: STYLE */}
-            {currentStep === 'style' && (
-              <div className="space-y-8">
-                <div className="space-y-2">
-                  <h2 className="text-3xl font-extrabold tracking-tight text-foreground">Tu estilo personal</h2>
-                  <p className="text-on-surface-variant">¿Cómo prefieres que organice tu información?</p>
-                </div>
-
-                <div className="grid grid-cols-1 gap-4">
-                  {[
-                    { id: 'simple', label: 'Modo Simple', desc: 'Limpio y directo, enfocado en lo esencial.', icon: <Layout className="w-6 h-6" /> },
-                    { id: 'professional', label: 'Modo Profesional', desc: 'Detallado, con métricas y carpetas avanzadas.', icon: <Briefcase className="w-6 h-6" /> },
-                    { id: 'minimalist', label: 'Modo Zen', desc: 'Máxima simplicidad, sin distracciones.', icon: <Heart className="w-6 h-6" /> },
-                  ].map((style) => (
-                    <button
-                      key={style.id}
-                      onClick={() => setWorkStyle(style.id)}
-                      className={`p-6 rounded-2xl text-left border-2 transition-all flex items-start gap-4 ${
-                        workStyle === style.id ? 'border-primary bg-primary/5' : 'border-surface-container-highest bg-surface-container-low'
-                      }`}
-                    >
-                      <div className={`p-3 rounded-xl ${workStyle === style.id ? 'bg-primary text-primary-foreground' : 'bg-surface-container-highest text-on-surface-variant'}`}>
-                        {style.icon}
-                      </div>
-                      <div>
-                        <h3 className="font-bold text-lg">{style.label}</h3>
-                        <p className="text-sm text-on-surface-variant">{style.desc}</p>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-
-                <div className="flex gap-4 pt-4">
-                  <button onClick={back} className="px-6 h-16 bg-surface-container-low rounded-2xl font-bold flex items-center justify-center">
-                    Atrás
-                  </button>
-                  <button onClick={next} className="flex-1 h-16 bg-primary text-primary-foreground rounded-2xl font-bold text-lg flex items-center justify-center gap-2 transition-all">
-                    Siguiente <ArrowRight className="w-5 h-5" />
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* STEP: INPUT */}
-            {currentStep === 'input' && (
-              <div className="space-y-8">
-                <div className="space-y-2 text-center">
-                  <h2 className="text-3xl font-extrabold tracking-tight text-foreground">¿Cómo quieres que te escuche?</h2>
-                  <p className="text-on-surface-variant">Adonai puede procesar voz y texto para agendar tus tareas.</p>
-                </div>
-
-                <div className="flex flex-col gap-4">
-                  {[
-                    { id: 'voice', label: 'Solo Voz', desc: 'Perfecto para cuando estás en movimiento.', icon: <Mic className="w-8 h-8" /> },
-                    { id: 'text', label: 'Solo Teclado', desc: 'Escribe tus tareas de forma tradicional.', icon: <Keyboard className="w-8 h-8" /> },
-                    { id: 'both', label: 'Modo Híbrido', desc: 'Usa voz o texto según el momento.', icon: <div className="flex gap-1"><Mic className="w-5 h-5" /><Keyboard className="w-5 h-5" /></div> },
-                  ].map((opt) => (
-                    <button
-                      key={opt.id}
-                      onClick={() => setPreferredInput(opt.id)}
-                      className={`p-6 rounded-3xl text-center border-2 transition-all flex flex-col items-center gap-3 ${
-                        preferredInput === opt.id ? 'border-primary bg-primary/5' : 'border-surface-container-highest bg-surface-container-low'
-                      }`}
-                    >
-                      <div className={`p-4 rounded-full ${preferredInput === opt.id ? 'bg-primary text-primary-foreground' : 'bg-surface-container-highest text-on-surface-variant'}`}>
-                        {opt.icon}
-                      </div>
-                      <div>
-                        <h3 className="font-bold text-xl">{opt.label}</h3>
-                        <p className="text-sm text-on-surface-variant">{opt.desc}</p>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-
-                <div className="flex gap-4 pt-4">
-                  <button onClick={back} className="px-6 h-16 bg-surface-container-low rounded-2xl font-bold flex items-center justify-center">
-                    Atrás
-                  </button>
-                  <button onClick={next} className="flex-1 h-16 bg-primary text-primary-foreground rounded-2xl font-bold text-lg flex items-center justify-center gap-2 transition-all">
-                    Ver resumen <ArrowRight className="w-5 h-5" />
                   </button>
                 </div>
               </div>

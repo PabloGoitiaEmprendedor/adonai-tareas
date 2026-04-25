@@ -36,6 +36,7 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
   const [reviewImportance, setReviewImportance] = useState(false);
   const [reviewUrgency, setReviewUrgency] = useState(false);
   const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [sourceType, setSourceType] = useState<'voice' | 'text' | 'image'>('text');
   const [showTextInput, setShowTextInput] = useState(true);
@@ -110,6 +111,7 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
     // Default to the selection screen
     setPhase('select');
     setTitle('');
+    setDescription('');
     resetTranscript();
     setShowTextInput(true);
     setSourceType('text');
@@ -127,6 +129,7 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
     if (!rawTitle) { toast.error('Escribe o dicta una tarea'); return; }
 
     let parsedTitle = rawTitle;
+    let parsedDescription = description;
     let parsedDate = dueDate;
     let parsedEstimatedMinutes: number | null = null;
     const sourceForClassification = rawTitle;
@@ -319,13 +322,14 @@ Tu trabajo es:`;
   // Fast, no-AI save. Uses exactly what the user typed/picked.
   const saveTaskQuick = async (opts: {
     title: string;
+    description?: string;
     dueDate: string;
     goalId: string | null;
     importance: boolean;
     urgency: boolean;
     isImageLoop?: boolean;
   }) => {
-    const { title: taskTitle, dueDate: date, goalId: chosenGoalId, importance, urgency, isImageLoop } = opts;
+    const { title: taskTitle, description: taskDesc, dueDate: date, goalId: chosenGoalId, importance, urgency, isImageLoop } = opts;
 
     if (isCurrentlySavingRef.current && !isImageLoop) return;
     if (!isImageLoop) {
@@ -344,6 +348,7 @@ Tu trabajo es:`;
         urgency,
         importance,
         source_type: sourceType,
+        description: taskDesc || null,
         context_id: null,
         goal_id: chosenGoalId || goalId || null,
         folder_id: folderId || null,
@@ -383,6 +388,7 @@ Tu trabajo es:`;
   const handleReviewDone = async () => {
     await saveTaskQuick({
       title: title.trim(),
+      description: description.trim(),
       dueDate,
       goalId: selectedGoalId,
       importance: reviewImportance,
@@ -464,15 +470,61 @@ Tu trabajo es:`;
                         </p>
                       )}
                       {!isRecording && showTextInput && (
-                        <div className="w-full text-center min-h-[60px]">
-                          <input autoFocus value={title} onChange={(e) => setTitle(e.target.value)}
-                            placeholder="¿Qué necesitas hacer?"
-                            className="w-full text-xl text-center bg-transparent text-foreground placeholder:text-on-surface-variant/40 focus:outline-none border-none"
-                            onKeyDown={(e) => { if (e.key === 'Enter') handleTitleDone(); }} />
+                        <div className="w-full space-y-4">
+                          <div className="w-full text-center min-h-[40px]">
+                            <label className="block text-[10px] uppercase tracking-widest font-bold text-on-surface-variant/40 mb-1">Título</label>
+                            <input 
+                              autoFocus 
+                              value={title} 
+                              onChange={(e) => setTitle(e.target.value)}
+                              placeholder="¿Qué necesitas hacer?"
+                              className="w-full text-xl text-center bg-transparent text-foreground placeholder:text-on-surface-variant/40 focus:outline-none border-none font-bold"
+                              onKeyDown={(e) => { 
+                                if (e.key === 'Enter') {
+                                  // If no description, save immediately. If there is description, maybe move focus?
+                                  // For now, let's follow user: if no description, save.
+                                  if (!description.trim()) {
+                                    handleTitleDone();
+                                  }
+                                } 
+                              }} 
+                            />
+                          </div>
+
+                          <div className="w-full text-center">
+                            <label className="block text-[10px] uppercase tracking-widest font-bold text-on-surface-variant/40 mb-1">Descripción</label>
+                            <textarea 
+                              value={description} 
+                              onChange={(e) => setDescription(e.target.value)}
+                              placeholder="Añade detalles si lo necesitas..."
+                              className="w-full text-sm text-center bg-surface-container-high/50 rounded-xl p-3 text-foreground placeholder:text-on-surface-variant/40 focus:outline-none border-none resize-none min-h-[80px]"
+                            />
+                          </div>
+
+                          {goals.filter(g => g.status === 'in_progress').length > 0 && (
+                            <div className="w-full space-y-2">
+                              <label className="block text-[10px] uppercase tracking-widest font-bold text-on-surface-variant/40 text-center">Meta</label>
+                              <div className="flex flex-wrap justify-center gap-2">
+                                {goals.filter(g => g.status === 'in_progress').map((goal) => (
+                                  <button 
+                                    key={goal.id} 
+                                    onClick={() => setSelectedGoalId(goal.id === selectedGoalId ? null : goal.id)}
+                                    className={`px-3 py-1.5 rounded-full text-[10px] font-bold transition-all ${
+                                      selectedGoalId === goal.id 
+                                        ? 'bg-primary text-primary-foreground shadow-lg' 
+                                        : 'bg-surface-container-high text-on-surface-variant/60 hover:bg-surface-container-highest'
+                                    }`}
+                                  >
+                                    {goal.title}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       )}
                       <p className="text-[11px] text-on-surface-variant/60 text-center">
-                        Escribe o dicta tu tarea. Rápido y directo.
+                        Escribe o dicta tu tarea. El Enter en descripción no guarda la tarea.
                       </p>
                       <div className="flex gap-3">
                         {!showTextInput && (
@@ -495,7 +547,7 @@ Tu trabajo es:`;
                               <Camera className="w-6 h-6 text-foreground" />
                             </button>
                             {(title || showTextInput) && (
-                              <button onClick={() => handleTitleDone()} className="px-6 py-3 rounded-full primary-gradient text-primary-foreground font-bold text-sm">Crear</button>
+                              <button onClick={() => handleTitleDone()} className="px-6 py-3 rounded-full primary-gradient text-primary-foreground font-bold text-sm">Guardar</button>
                             )}
                           </>
                         )}

@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Play, Clock, Calendar, Flag, FolderOpen, Trash2, Repeat, Link as LinkIcon } from 'lucide-react';
+import { X, Play, Clock, Calendar, Flag, FolderOpen, Trash2, Repeat, Target, Link as LinkIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 import { useTasks } from '@/hooks/useTasks';
 import { useFolders } from '@/hooks/useFolders';
 import { useRecurrenceRules } from '@/hooks/useRecurrenceRules';
+import { useGoals } from '@/hooks/useGoals';
 import { toast } from 'sonner';
 import FullscreenTimer from './FullscreenTimer';
 import SubtasksSection from './SubtasksSection';
@@ -23,6 +24,7 @@ const MONTH_NAMES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Se
 const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
   const { updateTask, deleteTask } = useTasks();
   const { folders } = useFolders();
+  const { goals } = useGoals();
   const { createRule, deleteRule } = useRecurrenceRules();
 
   const [title, setTitle] = useState('');
@@ -34,6 +36,7 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
   const [urgency, setUrgency] = useState(false);
   const [contextId, setContextId] = useState<string | null>(null);
   const [folderId, setFolderId] = useState<string | null>(null);
+  const [goalId, setGoalId] = useState<string | null>(null);
   const [status, setStatus] = useState('pending');
   const [timerOpen, setTimerOpen] = useState(false);
   const [showRecurrence, setShowRecurrence] = useState(false);
@@ -57,6 +60,7 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
       setUrgency(task.urgency || false);
       setContextId(task.context_id || null);
       setFolderId(task.folder_id || null);
+      setGoalId(task.goal_id || null);
       setStatus(task.status || 'pending');
       setRecurrenceFreq('none');
       setSelectedWeekDays([]);
@@ -128,6 +132,7 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
       priority,
       context_id: contextId,
       folder_id: folderId,
+      goal_id: goalId,
       status,
       recurrence_id: recurrenceId,
       link: link.trim() || null,
@@ -306,6 +311,25 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
                       ))}
                     </div>
                   </div>
+
+                  {/* 8.5 Meta (Goal) */}
+                  {goals.length > 0 && (
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider flex items-center gap-1"><Target className="w-3 h-3" /> Meta</label>
+                      <div className="flex flex-wrap gap-2">
+                        <button onClick={() => setGoalId(null)}
+                          className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${!goalId ? 'bg-primary/20 text-primary ring-1 ring-primary/30' : 'bg-surface-container-high text-on-surface-variant'}`}>
+                          Sin meta
+                        </button>
+                        {goals.filter(g => g.status === 'in_progress').map((goal) => (
+                          <button key={goal.id} onClick={() => setGoalId(goal.id === goalId ? null : goal.id)}
+                            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${goalId === goal.id ? 'bg-primary/20 text-primary ring-1 ring-primary/30' : 'bg-surface-container-high text-on-surface-variant'}`}>
+                            {goal.title}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   {/* 9. Repetición — colapsable */}
                   <div className="space-y-2">
