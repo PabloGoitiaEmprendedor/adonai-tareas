@@ -172,6 +172,53 @@ const MiniTaskList = () => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [now, setNow] = useState(new Date());
 
+  // ── Drag Logic (Manual) ──
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [hasMoved, setHasMoved] = useState(false);
+
+  const onDragMouseDown = (e: React.MouseEvent) => {
+    if (e.button !== 0) return; // Solo click izquierdo
+    setIsDragging(true);
+    setHasMoved(false);
+    setDragStart({ x: e.screenX, y: e.screenY });
+  };
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDragging) return;
+      const dx = e.screenX - dragStart.x;
+      const dy = e.screenY - dragStart.y;
+      
+      if (Math.abs(dx) > 2 || Math.abs(dy) > 2) {
+        setHasMoved(true);
+        if ((window as any).electronAPI?.moveWindow) {
+          (window as any).electronAPI.moveWindow(dx, dy);
+          setDragStart({ x: e.screenX, y: e.screenY });
+        }
+      }
+    };
+
+    const handleMouseUp = () => {
+      setIsDragging(false);
+    };
+
+    if (isDragging) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+    }
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDragging, dragStart]);
+
+  const handleToggleExpand = (e: React.MouseEvent) => {
+    if (!hasMoved) {
+      setIsExpanded(!isExpanded);
+    }
+  };
+
   // Reloj en tiempo real
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 1000);
@@ -238,7 +285,8 @@ const MiniTaskList = () => {
           } as any}
         >
           <div
-            onClick={() => setIsExpanded(true)}
+            onMouseDown={onDragMouseDown}
+            onClick={handleToggleExpand}
             style={{
               WebkitAppRegion: 'no-drag',
               width: '100%', height: '100%',
@@ -277,7 +325,8 @@ const MiniTaskList = () => {
 
         {/* 3 puntos — clic para colapsar */}
         <div
-          onClick={() => setIsExpanded(false)}
+          onMouseDown={onDragMouseDown}
+          onClick={handleToggleExpand}
           style={{
             WebkitAppRegion: 'no-drag',
             width: 52, height: 26, borderRadius: 999,
@@ -368,6 +417,7 @@ const MiniTaskList = () => {
     </div>
   );
 };
+
 
 const MiniTasksPage = () => <MiniTaskList />;
 export default MiniTasksPage;
