@@ -44,7 +44,8 @@ export const TaskCard = ({
   view
 }: TaskCardProps) => {
   const { subtasks } = useSubtasks(task.id);
-  const [subtasksOpen, setSubtasksOpen] = useState(subtasks.length > 0);
+  // Subtasks stay collapsed by default — user must explicitly open with the chevron
+  const [subtasksOpen, setSubtasksOpen] = useState(false);
 
   const completedSubtasks = subtasks.filter(s => s.status === 'done').length;
   const hasSubtasks = subtasks.length > 0;
@@ -73,15 +74,15 @@ export const TaskCard = ({
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
       onClick={() => setSelectedTask(task)}
-      className={`p-5 rounded-[32px] flex items-start gap-5 cursor-pointer transition-all border-2 group/task ${
+      className={`p-4 rounded-[28px] flex items-start gap-4 cursor-pointer transition-all border group/task ${
         isDone || completingTaskId === task.id
           ? 'bg-transparent border-transparent opacity-40' 
           : dragIdx === taskIdx || touchIdx === taskIdx 
-            ? 'bg-card scale-[1.03] shadow-2xl border-primary z-30' 
-            : 'bg-card hover:border-primary/30 shadow-sm border-outline-variant/10'
+            ? 'bg-card scale-[1.02] shadow-lg border-primary z-30' 
+            : 'bg-card hover:border-on-surface-variant/30 border-outline-variant'
       }`}
     >
-      {!isDone && <GripVertical className="w-5 h-5 mt-2.5 text-on-surface-variant/20 flex-shrink-0 cursor-grab active:cursor-grabbing group-hover/task:text-primary/30 transition-colors" />}
+      {!isDone && <GripVertical className="w-4 h-4 mt-3 text-on-surface-variant/30 flex-shrink-0 cursor-grab active:cursor-grabbing group-hover/task:text-on-surface-variant/60 transition-colors" />}
       
       {/* Checkbox */}
       <div className="relative flex-shrink-0">
@@ -97,9 +98,9 @@ export const TaskCard = ({
           </motion.div>
         ) : (
           <button onClick={(e) => { e.stopPropagation(); handleComplete(task, e); }}
-            className="w-10 h-10 rounded-[14px] border-2 border-outline/40 flex items-center justify-center hover:border-primary hover:bg-primary/10 transition-all active:scale-75 group/check shadow-sm bg-surface"
+            className="w-9 h-9 rounded-[12px] border-2 border-outline flex items-center justify-center hover:border-primary hover:bg-primary/10 transition-all active:scale-75 group/check bg-surface"
           >
-            <div className="w-4 h-4 rounded-[6px] bg-primary scale-0 group-hover/check:scale-100 transition-transform duration-300" />
+            <div className="w-3.5 h-3.5 rounded-[6px] bg-primary scale-0 group-hover/check:scale-100 transition-transform duration-300" />
           </button>
         )}
       </div>
@@ -169,10 +170,12 @@ export const TaskCard = ({
       
       <div className="flex items-center gap-1 flex-shrink-0">
         {!isDone && (
-          <button onClick={(e) => handleStartTimer(task, e)}
-            className="w-11 h-11 rounded-[16px] bg-primary flex items-center justify-center hover:bg-primary/90 transition-all shadow-sm active:scale-90 border border-transparent group/timer"
+          <button
+            onClick={(e) => handleStartTimer(task, e)}
+            className="w-9 h-9 rounded-[12px] border border-outline-variant text-on-surface-variant flex items-center justify-center hover:border-primary hover:text-foreground transition-all active:scale-90 bg-transparent"
+            aria-label="Iniciar temporizador"
           >
-            <Timer className="w-5 h-5 text-primary-foreground" />
+            <Timer className="w-4 h-4" />
           </button>
         )}
       </div>
