@@ -9,7 +9,7 @@ export const useProfile = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
-  const { data: profile, isLoading } = useQuery({
+  const { data: profile, isLoading, error } = useQuery({
     queryKey: ['profile', user?.id],
     queryFn: async () => {
       if (!user) return null;
@@ -38,5 +38,5 @@ export const useProfile = () => {
     },
   });
 
-  return { profile, isLoading, updateProfile };
+  return { profile, isLoading, error, updateProfile };
 };
