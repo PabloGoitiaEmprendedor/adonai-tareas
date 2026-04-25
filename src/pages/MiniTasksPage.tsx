@@ -240,6 +240,9 @@ const MiniTaskList = () => {
     }
   }, [activeTimerId, isExpanded]);
 
+  // Save pill position before expanding so we can restore it on collapse
+  const savedPillPos = useRef<{ x: number; y: number } | null>(null);
+
   // Smart expand
   const handleToggleExpand = useCallback(async () => {
     if (hasMovedRef.current) return;
@@ -250,8 +253,11 @@ const MiniTaskList = () => {
     }
 
     if (!isExpanded) {
+      // EXPANDING — save pill position first
       const pos = await api.getMiniPosition();
       if (!pos) { setIsExpanded(true); return; }
+      savedPillPos.current = { x: pos.x, y: pos.y };
+
       const pillCX = pos.x + pos.w / 2;
       const spaceRight = (pos.screenX + pos.screenW) - pillCX;
       const spaceLeft = pillCX - pos.screenX;
@@ -272,11 +278,15 @@ const MiniTaskList = () => {
       api.setMiniBounds({ x: panelX, y: panelY, w: PANEL_W, h: PANEL_H });
       setIsExpanded(true);
     } else {
-      const pos = await api.getMiniPosition();
-      if (pos) {
-        const pillW = activeTimerId ? PILL_TIMER_W : PILL_W;
-        const pillX = pos.x + (pos.w - pillW) / 2;
-        api.setMiniBounds({ x: pillX, y: pos.y, w: pillW, h: PILL_H });
+      // COLLAPSING — restore to saved pill position
+      const pillW = activeTimerId ? PILL_TIMER_W : PILL_W;
+      if (savedPillPos.current) {
+        api.setMiniBounds({ x: savedPillPos.current.x, y: savedPillPos.current.y, w: pillW, h: PILL_H });
+      } else {
+        const pos = await api.getMiniPosition();
+        if (pos) {
+          api.setMiniBounds({ x: pos.x, y: pos.y, w: pillW, h: PILL_H });
+        }
       }
       setIsExpanded(false);
     }
