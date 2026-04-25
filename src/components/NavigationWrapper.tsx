@@ -219,7 +219,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
       {!window.electronAPI && (
         <div className="fixed top-4 right-4 z-[60] flex items-center gap-2">
           <Button
-            onClick={() => { window.location.href = 'https://github.com/PabloGoitiaEmprendedor/adonai-tareas/releases/download/v1.0.0/Adonai.Tasks.Setup.1.0.0.exe'; }}
+            onClick={() => { window.location.href = 'https://github.com/PabloGoitiaEmprendedor/adonai-tareas/releases/download/v1.0.1/Adonai.Tasks.Setup.1.0.1.exe'; }}
             variant="outline"
             className="hidden md:flex items-center gap-2 bg-zinc-900/50 backdrop-blur-md border-zinc-800 text-zinc-300 hover:text-primary hover:border-primary/50 h-10 rounded-xl transition-all shadow-lg group"
           >
@@ -231,7 +231,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
           
           {/* Mobile version (Icon only) */}
           <Button
-            onClick={() => { window.location.href = 'https://github.com/PabloGoitiaEmprendedor/adonai-tareas/releases/download/v1.0.0/Adonai.Tasks.Setup.1.0.0.exe'; }}
+            onClick={() => { window.location.href = 'https://github.com/PabloGoitiaEmprendedor/adonai-tareas/releases/download/v1.0.1/Adonai.Tasks.Setup.1.0.1.exe'; }}
             size="icon"
             variant="outline"
             className="md:hidden bg-zinc-900/50 backdrop-blur-md border-zinc-800 text-zinc-300 h-10 w-10 rounded-xl shadow-lg"

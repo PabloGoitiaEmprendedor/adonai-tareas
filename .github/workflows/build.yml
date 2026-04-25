@@ -6,6 +6,9 @@ on:
       - 'v*' # Se activa cuando creas un tag que empieza con v (ej: v1.0.1)
   workflow_dispatch: # Permite activarlo manualmente desde la pestaña Actions de GitHub
 
+permissions:
+  contents: write
+
 jobs:
   release:
     runs-on: windows-latest
@@ -25,5 +28,5 @@ jobs:
 
       - name: Build and Publish
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npm run electron:build

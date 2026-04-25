@@ -1,7 +1,7 @@
 {
   "name": "adonai-tasks",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.0.1",
   "type": "module",
   "main": "electron/main.cjs",
   "repository": {
@@ -11,7 +11,7 @@
   "scripts": {
     "electron:dev": "concurrently \"npm run dev\" \"wait-on http://localhost:8080 && electron .\"",
     "electron:start": "electron .",
-    "electron:build": "npm run build && electron-builder",
+    "electron:build": "npm run build && electron-builder --publish always",
     "dev": "vite",
     "build": "vite build",
     "build:dev": "vite build --mode development",
@@ -131,7 +131,8 @@
     },
     "nsis": {
       "oneClick": false,
-      "allowToChangeInstallationDirectory": true
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "Adonai.Tasks.Setup.${version}.${ext}"
     },
     "publish": [
       {
