@@ -79,7 +79,8 @@ ipcMain.on('toggle-mini-window', () => {
       transparent: true,
       alwaysOnTop: true,
       skipTaskbar: true,
-      resizable: true,
+      resizable: false,
+      hasShadow: false,
       webPreferences: {
         nodeIntegration: false,
         contextIsolation: true,
@@ -113,11 +114,22 @@ ipcMain.on('set-ignore-mouse-events', (event, ignore, options) => {
   if (win) win.setIgnoreMouseEvents(ignore, options);
 });
 
+// Move window with screen-edge clamping
 ipcMain.on('move-mini-window', (event, dx, dy) => {
-  if (miniWindow) {
-    const bounds = miniWindow.getBounds();
-    miniWindow.setPosition(bounds.x + dx, bounds.y + dy);
-  }
+  if (!miniWindow) return;
+  const { screen } = require('electron');
+  const bounds = miniWindow.getBounds();
+  const display = screen.getDisplayNearestPoint({ x: bounds.x, y: bounds.y });
+  const workArea = display.workArea;
+
+  let newX = bounds.x + dx;
+  let newY = bounds.y + dy;
+
+  // Clamp so the window never goes outside the screen
+  newX = Math.max(workArea.x, Math.min(newX, workArea.x + workArea.width - bounds.width));
+  newY = Math.max(workArea.y, Math.min(newY, workArea.y + workArea.height - bounds.height));
+
+  miniWindow.setPosition(newX, newY);
 });
 
 ipcMain.on('sync-data', () => {

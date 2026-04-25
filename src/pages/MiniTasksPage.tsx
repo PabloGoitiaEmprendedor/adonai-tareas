@@ -4,8 +4,10 @@
  * - Panel expandido: reloj, barra de progreso, tareas con subtareas
  * - Sin botón X — se cierra desde la app base
  * - Fondo transparente real (ventana Electron con transparent: true)
+ * - Arrastrable desde la barra superior o los 3 puntos
+ * - Bordes redondeados en todas las esquinas
  */
-import { useState, useEffect, useMemo, memo } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback, memo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTasks } from '@/hooks/useTasks';
 import { useSubtasks } from '@/hooks/useSubtasks';
@@ -165,6 +167,42 @@ const TaskRowRaw = ({
 };
 const TaskRow = memo(TaskRowRaw);
 
+// ─── Hook de arrastre reutilizable ──────────────────────────────────────────
+function useDragWindow() {
+  const isDraggingRef = useRef(false);
+  const startRef = useRef({ x: 0, y: 0 });
+  const hasMovedRef = useRef(false);
+
+  useEffect(() => {
+    const onMove = (e: MouseEvent) => {
+      if (!isDraggingRef.current) return;
+      const dx = e.screenX - startRef.current.x;
+      const dy = e.screenY - startRef.current.y;
+      if (Math.abs(dx) > 2 || Math.abs(dy) > 2) {
+        hasMovedRef.current = true;
+        (window as any).electronAPI?.moveWindow?.(dx, dy);
+        startRef.current = { x: e.screenX, y: e.screenY };
+      }
+    };
+    const onUp = () => { isDraggingRef.current = false; };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    return () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+  }, []);
+
+  const onMouseDown = useCallback((e: React.MouseEvent) => {
+    if (e.button !== 0) return;
+    isDraggingRef.current = true;
+    hasMovedRef.current = false;
+    startRef.current = { x: e.screenX, y: e.screenY };
+  }, []);
+
+  return { onMouseDown, hasMovedRef };
+}
+
 // ─── Componente principal ────────────────────────────────────────────────────
 const MiniTaskList = () => {
   const { user, loading } = useAuth();
@@ -174,52 +212,13 @@ const MiniTaskList = () => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [now, setNow] = useState(new Date());
 
-  // ── Drag Logic (Manual) ──
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-  const [hasMoved, setHasMoved] = useState(false);
+  const { onMouseDown: onDragMouseDown, hasMovedRef } = useDragWindow();
 
-  const onDragMouseDown = (e: React.MouseEvent) => {
-    if (e.button !== 0) return; // Solo click izquierdo
-    setIsDragging(true);
-    setHasMoved(false);
-    setDragStart({ x: e.screenX, y: e.screenY });
-  };
-
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!isDragging) return;
-      const dx = e.screenX - dragStart.x;
-      const dy = e.screenY - dragStart.y;
-      
-      if (Math.abs(dx) > 2 || Math.abs(dy) > 2) {
-        setHasMoved(true);
-        if ((window as any).electronAPI?.moveWindow) {
-          (window as any).electronAPI.moveWindow(dx, dy);
-          setDragStart({ x: e.screenX, y: e.screenY });
-        }
-      }
-    };
-
-    const handleMouseUp = () => {
-      setIsDragging(false);
-    };
-
-    if (isDragging) {
-      window.addEventListener('mousemove', handleMouseMove);
-      window.addEventListener('mouseup', handleMouseUp);
+  const handleToggleExpand = useCallback(() => {
+    if (!hasMovedRef.current) {
+      setIsExpanded(prev => !prev);
     }
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [isDragging, dragStart]);
-
-  const handleToggleExpand = (e: React.MouseEvent) => {
-    if (!hasMoved) {
-      setIsExpanded(!isExpanded);
-    }
-  };
+  }, [hasMovedRef]);
 
   // Reloj en tiempo real
   useEffect(() => {
@@ -235,22 +234,16 @@ const MiniTaskList = () => {
     if (root) root.style.cssText += ';background:transparent!important';
     
     // Por defecto, ignorar eventos del mouse para permitir clicks atrás
-    if ((window as any).electronAPI?.setIgnoreMouseEvents) {
-      (window as any).electronAPI.setIgnoreMouseEvents(true, { forward: true });
-    }
+    (window as any).electronAPI?.setIgnoreMouseEvents?.(true, { forward: true });
   }, []);
 
-  const handleMouseEnterUI = () => {
-    if ((window as any).electronAPI?.setIgnoreMouseEvents) {
-      (window as any).electronAPI.setIgnoreMouseEvents(false);
-    }
-  };
+  const handleMouseEnterUI = useCallback(() => {
+    (window as any).electronAPI?.setIgnoreMouseEvents?.(false);
+  }, []);
 
-  const handleMouseLeaveUI = () => {
-    if ((window as any).electronAPI?.setIgnoreMouseEvents) {
-      (window as any).electronAPI.setIgnoreMouseEvents(true, { forward: true });
-    }
-  };
+  const handleMouseLeaveUI = useCallback(() => {
+    (window as any).electronAPI?.setIgnoreMouseEvents?.(true, { forward: true });
+  }, []);
 
   const sortedTasks = useMemo(() =>
     [...tasks].sort((a: any, b: any) => {
@@ -265,7 +258,7 @@ const MiniTaskList = () => {
   const totalCount = tasks.length;
   const progress = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
 
-  const handleToggle = (task: any) => {
+  const handleToggle = useCallback((task: any) => {
     if (task.status === 'done') {
       updateTask.mutate({ id: task.id, status: 'pending', completed_at: null });
     } else {
@@ -277,23 +270,21 @@ const MiniTaskList = () => {
         );
       }, 350);
     }
-  };
+  }, [updateTask]);
 
-  // ── PILL colapsada: flotando arriba-centro de la ventana transparente ──
+  // ── PILL colapsada ──
   if (!isExpanded) {
     return (
       <div style={{
-        width: '100%',
-        height: '100%',
-        display: 'flex',
-        alignItems: 'flex-start',
-        justifyContent: 'center',
-        paddingTop: 10,
-        pointerEvents: 'none',
+        width: '100%', height: '100%',
+        display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
+        paddingTop: 10, pointerEvents: 'none',
       }}>
         <div
           onMouseEnter={handleMouseEnterUI}
           onMouseLeave={handleMouseLeaveUI}
+          onMouseDown={onDragMouseDown}
+          onClick={handleToggleExpand}
           style={{
             width: 64, height: 32, borderRadius: 999,
             background: C.bg,
@@ -302,28 +293,16 @@ const MiniTaskList = () => {
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             userSelect: 'none',
             pointerEvents: 'all',
-            WebkitAppRegion: 'drag',
-            willChange: 'transform, opacity',
-          } as any}
+            cursor: 'grab',
+          }}
         >
-          <div
-            onMouseDown={onDragMouseDown}
-            onClick={handleToggleExpand}
-            style={{
-              WebkitAppRegion: 'no-drag',
-              width: '100%', height: '100%',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              borderRadius: 999, cursor: 'pointer',
-            } as any}
-          >
-            <MoreHorizontal style={{ width: 20, height: 20, color: 'rgba(255,255,255,0.75)' }} />
-          </div>
+          <MoreHorizontal style={{ width: 20, height: 20, color: 'rgba(255,255,255,0.75)' }} />
         </div>
       </div>
     );
   }
 
-  // ── EXPANDED ────────────────────────────────────────────────────────────────
+  // ── EXPANDED ──
   return (
     <div 
       onMouseEnter={handleMouseEnterUI}
@@ -338,37 +317,37 @@ const MiniTaskList = () => {
         overflow: 'hidden',
         fontFamily: 'system-ui, -apple-system, sans-serif',
         color: C.text,
-        willChange: 'transform, opacity',
       }}
     >
 
-      {/* ── Top: 3 puntos + reloj (arrastrable) ── */}
-      <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '10px 16px 6px',
-        WebkitAppRegion: 'drag',
-        flexShrink: 0,
-      } as any}>
-
+      {/* ── Top bar: draggable from anywhere in this row ── */}
+      <div
+        onMouseDown={onDragMouseDown}
+        style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '10px 16px 6px',
+          flexShrink: 0,
+          cursor: 'grab',
+          userSelect: 'none',
+        }}
+      >
         {/* 3 puntos — clic para colapsar */}
         <div
-          onMouseDown={onDragMouseDown}
           onClick={handleToggleExpand}
           style={{
-            WebkitAppRegion: 'no-drag',
             width: 52, height: 26, borderRadius: 999,
             background: 'rgba(255,255,255,0.07)',
             border: `1px solid ${C.border}`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             cursor: 'pointer',
-          } as any}
+          }}
           title="Colapsar"
         >
           <MoreHorizontal style={{ width: 16, height: 16, color: 'rgba(255,255,255,0.5)' }} />
         </div>
 
         {/* Reloj */}
-        <div style={{ textAlign: 'right', WebkitAppRegion: 'drag' } as any}>
+        <div style={{ textAlign: 'right' }}>
           <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.03em', color: C.text, lineHeight: 1 }}>
             {format(now, 'h:mm')}
             <span style={{ fontSize: 13, fontWeight: 600, color: C.muted, marginLeft: 3 }}>
