@@ -49,7 +49,16 @@ export const TaskCard = ({
 
   const completedSubtasks = subtasks.filter(s => s.status === 'done').length;
   const hasSubtasks = subtasks.length > 0;
-  const score = (task.urgency ? 2 : 0) + (task.importance ? 1 : 0);
+
+  // Eisenhower quadrant color (subtle dot, not a loud accent)
+  // urg+imp = green, urg = orange, imp = yellow, none = gray
+  const quadrantColor = task.urgency && task.importance
+    ? 'bg-emerald-500'
+    : task.urgency
+      ? 'bg-orange-500'
+      : task.importance
+        ? 'bg-yellow-400'
+        : 'bg-on-surface-variant/30';
 
   return (
     <motion.div
@@ -98,7 +107,10 @@ export const TaskCard = ({
 
       <div className="flex-1 min-w-0 relative flex flex-col justify-center min-h-[44px]">
         <div className="flex items-center gap-2 mb-1">
-          {score >= 2 && <div className="w-2 h-2 rounded-full bg-error shadow-[0_0_10px_rgba(255,82,82,0.6)] animate-pulse" title="Urgente" />}
+          <div
+            className={`w-2 h-2 rounded-full ${quadrantColor} flex-shrink-0`}
+            aria-hidden
+          />
           
           {/* Subtasks Toggle directly to the left of the title */}
           <button
