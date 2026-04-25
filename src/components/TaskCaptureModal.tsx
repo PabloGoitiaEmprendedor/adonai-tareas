@@ -1,10 +1,9 @@
 import { useState, useEffect, forwardRef, useImperativeHandle, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mic, X, Square, Sparkles, Camera, Type } from 'lucide-react';
+import { Mic, X, Square, Camera, Type, Check } from 'lucide-react';
 import { useVoiceCapture } from '@/hooks/useVoiceCapture';
 import { parseVoiceTranscript } from '@/hooks/useVoiceParser';
 import { useTasks } from '@/hooks/useTasks';
-import { useTaskClassifier } from '@/hooks/useTaskClassifier';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -30,11 +29,12 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
   const { user } = useAuth();
   const { isRecording, transcript, confidence, voiceFallback, isSupported, startRecording, stopRecording, resetTranscript } = useVoiceCapture();
   const { createTask } = useTasks();
-  const { classifyTask } = useTaskClassifier();
-  const { goals, createGoal } = useGoals();
+  const { goals } = useGoals();
 
-  const [phase, setPhase] = useState<'select' | 'input' | 'date' | 'goal' | 'saving' | 'image_date'>('select');
+  const [phase, setPhase] = useState<'select' | 'input' | 'date' | 'review' | 'saving' | 'image_date'>('select');
   const [selectedGoalId, setSelectedGoalId] = useState<string | null>(null);
+  const [reviewImportance, setReviewImportance] = useState(false);
+  const [reviewUrgency, setReviewUrgency] = useState(false);
   const [title, setTitle] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [sourceType, setSourceType] = useState<'voice' | 'text' | 'image'>('text');
@@ -97,6 +97,9 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
     setDueDate(format(new Date(), 'yyyy-MM-dd'));
     setClassificationSource('');
     setFallbackEstimatedMinutes(null);
+    setSelectedGoalId(null);
+    setReviewImportance(false);
+    setReviewUrgency(false);
 
     // If triggered by a voice-specific UI action
     if (requestedVoiceOpenRef.current) {
@@ -148,15 +151,15 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
       }
     }
 
-    // Go to goal selection phase instead of saving
-    setPhase('goal');
+    // Skip AI — go directly to the quick review (goal + Eisenhower) screen
+    setPhase('review');
   }, [title, dueDate, sourceType]);
 
   useEffect(() => {
     if (transcript && !isRecording && sourceType === 'voice' && !voiceProcessedRef.current) {
       voiceProcessedRef.current = true;
       setTitle(transcript);
-      setPhase('saving');
+      // Don't jump to "saving" — we no longer call the AI here.
       handleTitleDone(transcript);
     }
     
@@ -283,7 +286,14 @@ Tu trabajo es:`;
       const date = task.assigned_date || task.detected_date || format(new Date(), 'yyyy-MM-dd');
       
       try {
-        await runClassificationAndSave(task.raw_text, date, task.raw_text, task.raw_text, true);
+        await saveTaskQuick({
+          title: task.raw_text,
+          dueDate: date,
+          goalId: null,
+          importance: false,
+          urgency: false,
+          isImageLoop: true,
+        });
         createdCount++;
       } catch (e) {
         console.error("Error creating task from image:", e);
@@ -303,87 +313,59 @@ Tu trabajo es:`;
   };
 
   const handleDateDone = async () => {
-    setPhase('goal');
+    setPhase('review');
   };
 
-  const handleGoalDone = async () => {
-    await runClassificationAndSave(title, dueDate, classificationSource || title, classificationSource || title);
-  };
+  // Fast, no-AI save. Uses exactly what the user typed/picked.
+  const saveTaskQuick = async (opts: {
+    title: string;
+    dueDate: string;
+    goalId: string | null;
+    importance: boolean;
+    urgency: boolean;
+    isImageLoop?: boolean;
+  }) => {
+    const { title: taskTitle, dueDate: date, goalId: chosenGoalId, importance, urgency, isImageLoop } = opts;
 
-  const runClassificationAndSave = async (taskTitle: string, date: string, classificationInput: string, originalTranscript: string, isImageLoop = false) => {
     if (isCurrentlySavingRef.current && !isImageLoop) return;
     if (!isImageLoop) {
       isCurrentlySavingRef.current = true;
       setPhase('saving');
-      setSavingMessage('Analizando y creando tarea...');
+      setSavingMessage('Creando tarea...');
     }
 
-    const defaults = {
-      refined_title: taskTitle,
-      description: '',
-      importance: false,
-      urgency: false,
-      priority: 'medium' as const,
-      estimated_minutes: fallbackEstimatedMinutes || 30,
-      context_id: null,
-      goal_id: null,
-      folder_id: null,
-      recurrence_id: null,
-      created_new_folder: null,
-      due_date: null as string | null,
-    };
-
-    const classificationPromise = classifyTask(classificationInput, date);
+    const priority = importance && urgency ? 'high' : importance || urgency ? 'medium' : 'low';
+    const finalDate = date || format(new Date(), 'yyyy-MM-dd');
 
     try {
-      const result = await Promise.race([
-        classificationPromise,
-        new Promise<null>((resolve) => setTimeout(() => resolve(null), 7000)),
-      ]);
-
-      const cls = result || defaults;
-
-      if ((cls as any).is_date_uncertain) {
-        setPhase('date');
-        isCurrentlySavingRef.current = false;
-        return;
-      }
-
-      const finalTitle = cls.refined_title || taskTitle;
-      const finalDescription = cls.description || '';
-      const finalDate = (cls as any).due_date || date || format(new Date(), 'yyyy-MM-dd');
-
       const task = await createTask.mutateAsync({
-        title: finalTitle,
-        description: finalDescription || undefined,
-        priority: cls.priority,
-        urgency: cls.urgency,
-        importance: cls.importance,
+        title: taskTitle,
+        priority,
+        urgency,
+        importance,
         source_type: sourceType,
-        context_id: cls.context_id,
-        goal_id: selectedGoalId || goalId || null,
-        folder_id: folderId || cls.folder_id || null,
-        recurrence_id: cls.recurrence_id || null,
-        estimated_minutes: cls.estimated_minutes || defaults.estimated_minutes,
+        context_id: null,
+        goal_id: chosenGoalId || goalId || null,
+        folder_id: folderId || null,
+        recurrence_id: null,
+        estimated_minutes: fallbackEstimatedMinutes || 30,
         due_date: finalDate,
         time_block_id: timeBlockId || null,
       });
 
-      if (cls.created_new_folder) {
-        toast.info(`📁 Carpeta "${cls.created_new_folder}" creada`);
-      }
-
       if (sourceType === 'voice' && user) {
         await supabase.from('voice_inputs').insert({
           user_id: user.id,
-          transcript: originalTranscript,
+          transcript: classificationSource || taskTitle,
           parsed_task_id: task.id,
           confidence,
         });
       }
 
-      toast.success('Tarea creada');
-      if (!isImageLoop) handleClose();
+      if (!isImageLoop) {
+        toast.success('Tarea creada');
+        handleClose();
+      }
       return task;
     } catch (err) {
       if (!isImageLoop) {
@@ -396,6 +378,16 @@ Tu trabajo es:`;
         isCurrentlySavingRef.current = false;
       }
     }
+  };
+
+  const handleReviewDone = async () => {
+    await saveTaskQuick({
+      title: title.trim(),
+      dueDate,
+      goalId: selectedGoalId,
+      importance: reviewImportance,
+      urgency: reviewUrgency,
+    });
   };
 
   if (!open) return null;
