@@ -13,7 +13,8 @@ function createMainWindow() {
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 800,
-    backgroundColor: '#F5F5E9',
+    title: 'Adonai — Productividad inteligente',
+    backgroundColor: '#F8F9FA',
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
