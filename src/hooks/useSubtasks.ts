@@ -11,14 +11,6 @@ export const useSubtasks = (parentId: string | null | undefined) => {
   const { data: subtasks = [], isLoading } = useQuery({
     queryKey: ['subtasks', parentId],
     queryFn: async () => {
-      // Listener para invalidar desde otras ventanas
-      const api = (window as any).electronAPI;
-      if (api?.onInvalidateQueries) {
-        api.onInvalidateQueries(() => {
-          qc.invalidateQueries({ queryKey: ['subtasks'] });
-          qc.invalidateQueries({ queryKey: ['tasks'] });
-        });
-      }
       if (!enabled) return [];
       const { data, error } = await supabase
         .from('tasks')

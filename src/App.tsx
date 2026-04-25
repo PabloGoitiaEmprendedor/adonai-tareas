@@ -140,6 +140,16 @@ const App = () => {
         }
       });
     }
+
+    // 3. Global Query Invalidation listener for multi-window sync
+    if (window.electronAPI?.onInvalidateQueries) {
+      window.electronAPI.onInvalidateQueries(() => {
+        console.log("Global sync: Invalidate queries");
+        queryClient.invalidateQueries({ queryKey: ['tasks'] });
+        queryClient.invalidateQueries({ queryKey: ['subtasks'] });
+        queryClient.invalidateQueries({ queryKey: ['profile'] });
+      });
+    }
   }, []);
 
   return (

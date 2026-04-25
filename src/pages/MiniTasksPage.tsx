@@ -5,7 +5,7 @@
  * - Sin botón X — se cierra desde la app base
  * - Fondo transparente real (ventana Electron con transparent: true)
  */
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, memo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTasks } from '@/hooks/useTasks';
 import { useSubtasks } from '@/hooks/useSubtasks';
@@ -29,7 +29,7 @@ const C = {
 };
 
 // ─── Fila de subtarea ────────────────────────────────────────────────────────
-const SubtaskRow = ({ sub, onToggle }: { sub: any; onToggle: (sub: any) => void }) => {
+const SubtaskRowRaw = ({ sub, onToggle }: { sub: any; onToggle: (sub: any) => void }) => {
   const isDone = sub.status === 'done';
   return (
     <div
@@ -61,9 +61,10 @@ const SubtaskRow = ({ sub, onToggle }: { sub: any; onToggle: (sub: any) => void 
     </div>
   );
 };
+const SubtaskRow = memo(SubtaskRowRaw);
 
 // ─── Fila de tarea con subtareas ─────────────────────────────────────────────
-const TaskRow = ({
+const TaskRowRaw = ({
   task,
   onToggle,
 }: {
@@ -162,6 +163,7 @@ const TaskRow = ({
     </motion.div>
   );
 };
+const TaskRow = memo(TaskRowRaw);
 
 // ─── Componente principal ────────────────────────────────────────────────────
 const MiniTaskList = () => {
@@ -225,13 +227,30 @@ const MiniTaskList = () => {
     return () => clearInterval(t);
   }, []);
 
-  // Fondo transparente real
+  // Fondo transparente real y configuración de eventos del mouse
   useEffect(() => {
     document.documentElement.style.cssText += ';background:transparent!important';
     document.body.style.cssText += ';background:transparent!important';
     const root = document.getElementById('root');
     if (root) root.style.cssText += ';background:transparent!important';
+    
+    // Por defecto, ignorar eventos del mouse para permitir clicks atrás
+    if ((window as any).electronAPI?.setIgnoreMouseEvents) {
+      (window as any).electronAPI.setIgnoreMouseEvents(true, { forward: true });
+    }
   }, []);
+
+  const handleMouseEnterUI = () => {
+    if ((window as any).electronAPI?.setIgnoreMouseEvents) {
+      (window as any).electronAPI.setIgnoreMouseEvents(false);
+    }
+  };
+
+  const handleMouseLeaveUI = () => {
+    if ((window as any).electronAPI?.setIgnoreMouseEvents) {
+      (window as any).electronAPI.setIgnoreMouseEvents(true, { forward: true });
+    }
+  };
 
   const sortedTasks = useMemo(() =>
     [...tasks].sort((a: any, b: any) => {
@@ -273,6 +292,8 @@ const MiniTaskList = () => {
         pointerEvents: 'none',
       }}>
         <div
+          onMouseEnter={handleMouseEnterUI}
+          onMouseLeave={handleMouseLeaveUI}
           style={{
             width: 64, height: 32, borderRadius: 999,
             background: C.bg,
@@ -282,6 +303,7 @@ const MiniTaskList = () => {
             userSelect: 'none',
             pointerEvents: 'all',
             WebkitAppRegion: 'drag',
+            willChange: 'transform, opacity',
           } as any}
         >
           <div
@@ -303,17 +325,22 @@ const MiniTaskList = () => {
 
   // ── EXPANDED ────────────────────────────────────────────────────────────────
   return (
-    <div style={{
-      width: '100%', height: '100%',
-      background: C.bg,
-      borderRadius: 20,
-      border: `1px solid ${C.border}`,
-      boxShadow: '0 12px 48px rgba(0,0,0,0.6)',
-      display: 'flex', flexDirection: 'column',
-      overflow: 'hidden',
-      fontFamily: 'system-ui, -apple-system, sans-serif',
-      color: C.text,
-    }}>
+    <div 
+      onMouseEnter={handleMouseEnterUI}
+      onMouseLeave={handleMouseLeaveUI}
+      style={{
+        width: '100%', height: '100%',
+        background: C.bg,
+        borderRadius: 20,
+        border: `1px solid ${C.border}`,
+        boxShadow: '0 12px 48px rgba(0,0,0,0.6)',
+        display: 'flex', flexDirection: 'column',
+        overflow: 'hidden',
+        fontFamily: 'system-ui, -apple-system, sans-serif',
+        color: C.text,
+        willChange: 'transform, opacity',
+      }}
+    >
 
       {/* ── Top: 3 puntos + reloj (arrastrable) ── */}
       <div style={{
