@@ -187,11 +187,13 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
           <>
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/60 z-[60]" onClick={onClose} />
             <motion.div
-              initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
-              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="fixed inset-x-0 bottom-0 z-[70] px-4 pb-8 max-h-[90vh] overflow-y-auto"
+              initial={{ opacity: 0, scale: 0.96, y: 12 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96, y: 12 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 240 }}
+              className="fixed inset-0 z-[70] flex items-center justify-center p-4 pointer-events-none"
             >
-              <div className="mx-auto max-w-[430px] glass-sheet rounded-2xl overflow-hidden shadow-2xl">
+              <div className="mx-auto w-full max-w-[440px] max-h-[90vh] overflow-y-auto bg-card border border-outline-variant rounded-3xl shadow-2xl pointer-events-auto">
                 <div className="flex justify-center pt-4 pb-2">
                   <div className="w-12 h-1.5 bg-on-surface-variant/20 rounded-full" />
                 </div>

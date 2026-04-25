@@ -183,20 +183,28 @@ const DailyPage = () => {
     setMiniWidgetOpen(prev => !prev);
   }, []);
 
-  const sortedTasks = useMemo(() => {
-    return tasks
-      .sort((a: any, b: any) => {
-        const doneA = a.status === 'done' ? 1 : 0;
-        const doneB = b.status === 'done' ? 1 : 0;
-        if (doneA !== doneB) return doneA - doneB;
+  // Eisenhower quadrant rank: lower = shown first
+  // 0 = urgent + important (green)
+  // 1 = urgent only        (orange)
+  // 2 = important only     (yellow)
+  // 3 = neither            (gray)
+  const quadrantRank = (t: any) =>
+    t.urgency && t.importance ? 0
+    : t.urgency ? 1
+    : t.importance ? 2
+    : 3;
 
-        const orderA = a.sort_order || 0;
-        const orderB = b.sort_order || 0;
-        if (orderA !== orderB) return orderA - orderB;
-        const scoreA = (a.urgency ? 2 : 0) + (a.importance ? 1 : 0);
-        const scoreB = (b.urgency ? 2 : 0) + (b.importance ? 1 : 0);
-        return scoreB - scoreA;
-      });
+  const sortedTasks = useMemo(() => {
+    return [...tasks].sort((a: any, b: any) => {
+      const doneA = a.status === 'done' ? 1 : 0;
+      const doneB = b.status === 'done' ? 1 : 0;
+      if (doneA !== doneB) return doneA - doneB;
+
+      const rankDiff = quadrantRank(a) - quadrantRank(b);
+      if (rankDiff !== 0) return rankDiff;
+
+      return (a.sort_order || 0) - (b.sort_order || 0);
+    });
   }, [tasks]);
 
   useEffect(() => {

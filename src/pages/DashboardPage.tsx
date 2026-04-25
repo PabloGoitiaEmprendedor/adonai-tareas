@@ -50,13 +50,15 @@ const DashboardPage = () => {
   const sorted = useEisenhowerSort(pendingTasks);
 
   useEffect(() => {
+    const quadrantRank = (t: any) =>
+      t.urgency && t.importance ? 0
+      : t.urgency ? 1
+      : t.importance ? 2
+      : 3;
     const allTasks = [...tasks].sort((a, b) => {
-      const orderA = a.sort_order || 0;
-      const orderB = b.sort_order || 0;
-      if (orderA !== orderB) return orderA - orderB;
-      const scoreA = (a.urgency ? 2 : 0) + (a.importance ? 1 : 0);
-      const scoreB = (b.urgency ? 2 : 0) + (b.importance ? 1 : 0);
-      return scoreB - scoreA;
+      const rankDiff = quadrantRank(a) - quadrantRank(b);
+      if (rankDiff !== 0) return rankDiff;
+      return (a.sort_order || 0) - (b.sort_order || 0);
     });
     setOrderedTasks(allTasks);
   }, [tasks]);

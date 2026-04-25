@@ -1,10 +1,9 @@
 import { useState, useEffect, forwardRef, useImperativeHandle, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mic, X, Square, Sparkles, Camera, Type } from 'lucide-react';
+import { Mic, X, Square, Camera, Type, Check } from 'lucide-react';
 import { useVoiceCapture } from '@/hooks/useVoiceCapture';
 import { parseVoiceTranscript } from '@/hooks/useVoiceParser';
 import { useTasks } from '@/hooks/useTasks';
-import { useTaskClassifier } from '@/hooks/useTaskClassifier';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -30,11 +29,12 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
   const { user } = useAuth();
   const { isRecording, transcript, confidence, voiceFallback, isSupported, startRecording, stopRecording, resetTranscript } = useVoiceCapture();
   const { createTask } = useTasks();
-  const { classifyTask } = useTaskClassifier();
-  const { goals, createGoal } = useGoals();
+  const { goals } = useGoals();
 
-  const [phase, setPhase] = useState<'select' | 'input' | 'date' | 'goal' | 'saving' | 'image_date'>('select');
+  const [phase, setPhase] = useState<'select' | 'input' | 'date' | 'review' | 'saving' | 'image_date'>('select');
   const [selectedGoalId, setSelectedGoalId] = useState<string | null>(null);
+  const [reviewImportance, setReviewImportance] = useState(false);
+  const [reviewUrgency, setReviewUrgency] = useState(false);
   const [title, setTitle] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [sourceType, setSourceType] = useState<'voice' | 'text' | 'image'>('text');
@@ -97,6 +97,9 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
     setDueDate(format(new Date(), 'yyyy-MM-dd'));
     setClassificationSource('');
     setFallbackEstimatedMinutes(null);
+    setSelectedGoalId(null);
+    setReviewImportance(false);
+    setReviewUrgency(false);
 
     // If triggered by a voice-specific UI action
     if (requestedVoiceOpenRef.current) {
@@ -148,15 +151,15 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
       }
     }
 
-    // Go to goal selection phase instead of saving
-    setPhase('goal');
+    // Skip AI — go directly to the quick review (goal + Eisenhower) screen
+    setPhase('review');
   }, [title, dueDate, sourceType]);
 
   useEffect(() => {
     if (transcript && !isRecording && sourceType === 'voice' && !voiceProcessedRef.current) {
       voiceProcessedRef.current = true;
       setTitle(transcript);
-      setPhase('saving');
+      // Don't jump to "saving" — we no longer call the AI here.
       handleTitleDone(transcript);
     }
     
@@ -283,7 +286,14 @@ Tu trabajo es:`;
       const date = task.assigned_date || task.detected_date || format(new Date(), 'yyyy-MM-dd');
       
       try {
-        await runClassificationAndSave(task.raw_text, date, task.raw_text, task.raw_text, true);
+        await saveTaskQuick({
+          title: task.raw_text,
+          dueDate: date,
+          goalId: null,
+          importance: false,
+          urgency: false,
+          isImageLoop: true,
+        });
         createdCount++;
       } catch (e) {
         console.error("Error creating task from image:", e);
@@ -303,87 +313,59 @@ Tu trabajo es:`;
   };
 
   const handleDateDone = async () => {
-    setPhase('goal');
+    setPhase('review');
   };
 
-  const handleGoalDone = async () => {
-    await runClassificationAndSave(title, dueDate, classificationSource || title, classificationSource || title);
-  };
+  // Fast, no-AI save. Uses exactly what the user typed/picked.
+  const saveTaskQuick = async (opts: {
+    title: string;
+    dueDate: string;
+    goalId: string | null;
+    importance: boolean;
+    urgency: boolean;
+    isImageLoop?: boolean;
+  }) => {
+    const { title: taskTitle, dueDate: date, goalId: chosenGoalId, importance, urgency, isImageLoop } = opts;
 
-  const runClassificationAndSave = async (taskTitle: string, date: string, classificationInput: string, originalTranscript: string, isImageLoop = false) => {
     if (isCurrentlySavingRef.current && !isImageLoop) return;
     if (!isImageLoop) {
       isCurrentlySavingRef.current = true;
       setPhase('saving');
-      setSavingMessage('Analizando y creando tarea...');
+      setSavingMessage('Creando tarea...');
     }
 
-    const defaults = {
-      refined_title: taskTitle,
-      description: '',
-      importance: false,
-      urgency: false,
-      priority: 'medium' as const,
-      estimated_minutes: fallbackEstimatedMinutes || 30,
-      context_id: null,
-      goal_id: null,
-      folder_id: null,
-      recurrence_id: null,
-      created_new_folder: null,
-      due_date: null as string | null,
-    };
-
-    const classificationPromise = classifyTask(classificationInput, date);
+    const priority = importance && urgency ? 'high' : importance || urgency ? 'medium' : 'low';
+    const finalDate = date || format(new Date(), 'yyyy-MM-dd');
 
     try {
-      const result = await Promise.race([
-        classificationPromise,
-        new Promise<null>((resolve) => setTimeout(() => resolve(null), 7000)),
-      ]);
-
-      const cls = result || defaults;
-
-      if ((cls as any).is_date_uncertain) {
-        setPhase('date');
-        isCurrentlySavingRef.current = false;
-        return;
-      }
-
-      const finalTitle = cls.refined_title || taskTitle;
-      const finalDescription = cls.description || '';
-      const finalDate = (cls as any).due_date || date || format(new Date(), 'yyyy-MM-dd');
-
       const task = await createTask.mutateAsync({
-        title: finalTitle,
-        description: finalDescription || undefined,
-        priority: cls.priority,
-        urgency: cls.urgency,
-        importance: cls.importance,
+        title: taskTitle,
+        priority,
+        urgency,
+        importance,
         source_type: sourceType,
-        context_id: cls.context_id,
-        goal_id: selectedGoalId || goalId || null,
-        folder_id: folderId || cls.folder_id || null,
-        recurrence_id: cls.recurrence_id || null,
-        estimated_minutes: cls.estimated_minutes || defaults.estimated_minutes,
+        context_id: null,
+        goal_id: chosenGoalId || goalId || null,
+        folder_id: folderId || null,
+        recurrence_id: null,
+        estimated_minutes: fallbackEstimatedMinutes || 30,
         due_date: finalDate,
         time_block_id: timeBlockId || null,
       });
 
-      if (cls.created_new_folder) {
-        toast.info(`📁 Carpeta "${cls.created_new_folder}" creada`);
-      }
-
       if (sourceType === 'voice' && user) {
         await supabase.from('voice_inputs').insert({
           user_id: user.id,
-          transcript: originalTranscript,
+          transcript: classificationSource || taskTitle,
           parsed_task_id: task.id,
           confidence,
         });
       }
 
-      toast.success('Tarea creada');
-      if (!isImageLoop) handleClose();
+      if (!isImageLoop) {
+        toast.success('Tarea creada');
+        handleClose();
+      }
       return task;
     } catch (err) {
       if (!isImageLoop) {
@@ -398,6 +380,16 @@ Tu trabajo es:`;
     }
   };
 
+  const handleReviewDone = async () => {
+    await saveTaskQuick({
+      title: title.trim(),
+      dueDate,
+      goalId: selectedGoalId,
+      importance: reviewImportance,
+      urgency: reviewUrgency,
+    });
+  };
+
   if (!open) return null;
 
   const waveformBars = [4, 8, 12, 14, 10, 16, 12, 14, 6, 10, 14, 8, 4];
@@ -408,11 +400,13 @@ Tu trabajo es:`;
         <>
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/60 z-[60]" onClick={handleClose} />
           <motion.div
-            initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
-            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className="fixed inset-x-0 bottom-0 z-[70] px-4 pb-8"
+            initial={{ opacity: 0, scale: 0.96, y: 12 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.96, y: 12 }}
+            transition={{ type: 'spring', damping: 25, stiffness: 240 }}
+            className="fixed inset-0 z-[70] flex items-center justify-center p-4 pointer-events-none"
           >
-            <div className="mx-auto max-w-[430px] glass-sheet rounded-2xl overflow-hidden shadow-2xl">
+            <div className="mx-auto w-full max-w-[440px] max-h-[90vh] overflow-y-auto bg-card border border-outline-variant rounded-3xl shadow-2xl pointer-events-auto">
               <div className="flex justify-center pt-4 pb-2">
                 <div className="w-12 h-1.5 bg-on-surface-variant/20 rounded-full" />
               </div>
@@ -478,7 +472,7 @@ Tu trabajo es:`;
                         </div>
                       )}
                       <p className="text-[11px] text-on-surface-variant/60 text-center">
-                        💡 Di lo que necesitas. La IA lo analiza y crea la tarea con un nombre claro.
+                        Escribe o dicta tu tarea. Rápido y directo.
                       </p>
                       <div className="flex gap-3">
                         {!showTextInput && (
@@ -528,31 +522,64 @@ Tu trabajo es:`;
                     </motion.div>
                   )}
 
-                  {phase === 'goal' && (
-                    <motion.div key="goal" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} className="w-full space-y-6">
+                  {phase === 'review' && (
+                    <motion.div key="review" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} className="w-full space-y-5">
                       <div className="text-center">
-                        <span className="text-xs uppercase tracking-[0.2em] font-bold text-on-surface-variant">Meta</span>
-                        <h2 className="text-lg font-medium text-foreground mt-1">¿A qué meta pertenece esta tarea?</h2>
+                        <span className="text-[10px] uppercase tracking-[0.25em] font-black text-on-surface-variant">Casi listo</span>
+                        <h2 className="text-lg font-bold text-foreground mt-1 truncate px-2">"{title}"</h2>
                       </div>
-                      
-                      <div className="flex flex-col gap-2 max-h-[200px] overflow-y-auto pr-2">
-                        <button
-                          onClick={() => { setSelectedGoalId(null); handleGoalDone(); }}
-                          className={`w-full text-left p-4 rounded-xl transition-all ${selectedGoalId === null ? 'bg-primary text-primary-foreground font-bold shadow-md' : 'bg-surface-container-high hover:bg-surface-container-highest text-foreground'}`}
-                        >
-                          Ninguna (Saltar)
-                        </button>
-                        
-                        {goals.map(g => (
+
+                      {/* Importance + Urgency — clear, child-simple toggles */}
+                      <div className="space-y-2">
+                        <p className="text-[11px] font-black uppercase tracking-widest text-on-surface-variant text-center">¿Cómo es esta tarea?</p>
+                        <div className="grid grid-cols-2 gap-2">
                           <button
-                            key={g.id}
-                            onClick={() => { setSelectedGoalId(g.id); handleGoalDone(); }}
-                            className={`w-full text-left p-4 rounded-xl transition-all ${selectedGoalId === g.id ? 'bg-primary text-primary-foreground font-bold shadow-md' : 'bg-surface-container-high hover:bg-surface-container-highest text-foreground'}`}
+                            onClick={() => setReviewImportance(!reviewImportance)}
+                            className={`p-3 rounded-2xl text-sm font-bold border-2 transition-all flex flex-col items-center gap-1 ${reviewImportance ? 'bg-primary/15 text-foreground border-primary' : 'bg-surface-container text-on-surface-variant border-outline-variant'}`}
                           >
-                            {g.title}
+                            {reviewImportance && <Check className="w-4 h-4 text-primary" />}
+                            <span>{reviewImportance ? 'Importante' : 'No importante'}</span>
                           </button>
-                        ))}
+                          <button
+                            onClick={() => setReviewUrgency(!reviewUrgency)}
+                            className={`p-3 rounded-2xl text-sm font-bold border-2 transition-all flex flex-col items-center gap-1 ${reviewUrgency ? 'bg-orange-500/15 text-foreground border-orange-500' : 'bg-surface-container text-on-surface-variant border-outline-variant'}`}
+                          >
+                            {reviewUrgency && <Check className="w-4 h-4 text-orange-500" />}
+                            <span>{reviewUrgency ? 'Urgente' : 'No urgente'}</span>
+                          </button>
+                        </div>
                       </div>
+
+                      {/* Goal picker — optional */}
+                      {goals.length > 0 && (
+                        <div className="space-y-2">
+                          <p className="text-[11px] font-black uppercase tracking-widest text-on-surface-variant text-center">Meta (opcional)</p>
+                          <div className="flex flex-wrap gap-2 justify-center max-h-[120px] overflow-y-auto">
+                            <button
+                              onClick={() => setSelectedGoalId(null)}
+                              className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${selectedGoalId === null ? 'bg-foreground text-background' : 'bg-surface-container text-on-surface-variant border border-outline-variant'}`}
+                            >
+                              Ninguna
+                            </button>
+                            {goals.map(g => (
+                              <button
+                                key={g.id}
+                                onClick={() => setSelectedGoalId(g.id)}
+                                className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${selectedGoalId === g.id ? 'bg-foreground text-background' : 'bg-surface-container text-on-surface-variant border border-outline-variant'}`}
+                              >
+                                {g.title}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      <button
+                        onClick={handleReviewDone}
+                        className="w-full py-3.5 rounded-2xl bg-primary text-primary-foreground font-black text-sm shadow-md hover:opacity-90 transition active:scale-[0.98]"
+                      >
+                        Crear tarea
+                      </button>
                     </motion.div>
                   )}
 
