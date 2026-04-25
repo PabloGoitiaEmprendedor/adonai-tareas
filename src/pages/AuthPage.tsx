@@ -49,10 +49,11 @@ const AuthPage = () => {
   const handleGoogleSignIn = async () => {
     setGoogleLoading(true);
     try {
-      if (window.electronAPI && window.electronAPI.openExternal) {
+      const electron = window.electronAPI as any;
+      if (electron && electron.openExternal) {
         // En Escritorio: Redirigimos a la web oficial para que el usuario inicie sesión ahí.
         // La web oficial tiene el puente (App.tsx) que enviará la sesión de vuelta.
-        window.electronAPI.openExternal('https://3a84d585-06c0-49da-b64a-79238927162d.lovableproject.com/auth');
+        electron.openExternal('https://3a84d585-06c0-49da-b64a-79238927162d.lovableproject.com/auth');
         setGoogleLoading(false);
         return;
       }
@@ -77,8 +78,9 @@ const AuthPage = () => {
   const handleAppleSignIn = async () => {
     setAppleLoading(true);
     try {
-      if (window.electronAPI && window.electronAPI.openExternal) {
-        window.electronAPI.openExternal('https://3a84d585-06c0-49da-b64a-79238927162d.lovableproject.com/auth');
+      const electron = window.electronAPI as any;
+      if (electron && electron.openExternal) {
+        electron.openExternal('https://3a84d585-06c0-49da-b64a-79238927162d.lovableproject.com/auth');
         setAppleLoading(false);
         return;
       }
