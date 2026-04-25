@@ -5,7 +5,7 @@ import { useProfile } from '@/hooks/useProfile';
 import { useGlobalVoiceCapture } from '@/hooks/useGlobalVoiceCapture';
 import { format, startOfWeek, addDays, subDays, isSameDay } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { TrendingUp, CalendarSearch as CalendarIcon, Check, GripVertical, Timer, Plus, Link as LinkIcon } from 'lucide-react';
+import { CalendarSearch as CalendarIcon, Check, GripVertical, Timer, Plus, Link as LinkIcon } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { triggerTaskCelebration, triggerDailyCelebration } from '@/lib/celebrations';
 import FAB from '@/components/FAB';
@@ -18,7 +18,7 @@ import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { AISchedulerModal } from '@/components/AISchedulerModal';
 import SubtasksSection from '@/components/SubtasksSection';
 import { TaskCard } from '@/components/TaskCard';
-import { Sparkles, Brain } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 
 const WeeklyPage = () => {
   const [captureOpen, setCaptureOpen] = useState(false);
@@ -206,12 +206,8 @@ const WeeklyPage = () => {
         <header className="space-y-8 animate-in fade-in slide-in-from-top-4 duration-700">
           <div className="flex justify-between items-end px-1">
             <div className="space-y-1.5">
-              <div className="flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-                <p className="text-[10px] font-black uppercase tracking-[0.3em] text-on-surface-variant/40">Planificación</p>
-              </div>
               <h1 className="text-4xl font-black font-headline tracking-tight text-foreground leading-none">
-                Weekly <span className="text-primary/80 italic">Focus</span>
+                Planificación
               </h1>
             </div>
             <div className="flex gap-3">
@@ -255,9 +251,6 @@ const WeeklyPage = () => {
 
           {/* Bento Stats & Day Picker Card */}
           <div className="bg-surface-container-low/80 backdrop-blur-md p-8 rounded-[48px] border border-outline-variant/10 space-y-8 shadow-2xl relative overflow-hidden group transition-all">
-            <div className="absolute -top-12 -right-12 p-4 opacity-[0.03] pointer-events-none group-hover:opacity-[0.07] transition-all duration-700 group-hover:rotate-12 group-hover:scale-110">
-              <Brain className="w-64 h-64 text-foreground" />
-            </div>
             
             <div className="grid grid-cols-7 gap-2 relative z-10">
               {days.map((day, idx) => {
@@ -302,36 +295,7 @@ const WeeklyPage = () => {
               })}
             </div>
 
-            <div className="flex items-center justify-between px-6 py-5 bg-surface-container/60 rounded-[36px] border border-outline-variant/10 backdrop-blur-sm relative z-10 shadow-sm transition-all hover:bg-surface-container-high/60">
-              <div className="flex items-center gap-5">
-                <div className="w-14 h-14 rounded-[22px] bg-primary/10 flex items-center justify-center shadow-inner relative group/icon">
-                  <div className="absolute inset-0 bg-primary/20 rounded-[22px] scale-0 group-hover/icon:scale-110 transition-transform duration-500 opacity-0 group-hover/icon:opacity-100" />
-                  <TrendingUp className="w-7 h-7 text-primary relative z-10" />
-                </div>
-                <div className="space-y-1">
-                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant/50">Rendimiento Semanal</p>
-                  <p className="text-xl font-black text-foreground">
-                    {totalCompleted} <span className="text-on-surface-variant/30 font-bold mx-1">/</span> <span className="text-on-surface-variant/40 font-bold">{totalPlanned} tareas</span>
-                  </p>
-                </div>
-              </div>
-              <div className="flex flex-col items-end gap-3">
-                <div className="flex items-baseline gap-1">
-                  <span className="text-2xl font-black text-primary leading-none">
-                    {totalPlanned > 0 ? Math.round((totalCompleted / totalPlanned) * 100) : 0}
-                  </span>
-                  <span className="text-xs font-black text-primary/60 uppercase">%</span>
-                </div>
-                <div className="w-32 h-2.5 bg-outline-variant/20 rounded-full overflow-hidden shadow-inner p-[1px]">
-                  <motion.div 
-                    initial={{ width: 0 }}
-                    animate={{ width: `${totalPlanned > 0 ? (totalCompleted / totalPlanned) * 100 : 0}%` }}
-                    transition={{ duration: 1, ease: "circOut" }}
-                    className="h-full primary-gradient rounded-full shadow-[0_0_15px_rgba(195,245,60,0.4)]"
-                  />
-                </div>
-              </div>
-            </div>
+
           </div>
         </header>
 

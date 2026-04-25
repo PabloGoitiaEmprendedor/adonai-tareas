@@ -1,9 +1,9 @@
 /**
  * MiniTasksPage — Adaptive floating pill widget.
- * - Pill (collapsed): small 100x52 window, draggable anywhere
- * - Expanded: 340x500 panel that adapts direction based on screen position
- *   → right edge? expands left. bottom? expands up. etc.
- * - Rounded corners on all sides
+ * - Pill (collapsed): small window, draggable ANYWHERE freely
+ * - Expanded: panel that adapts direction based on screen position
+ * - Inline per-task timer with green accent
+ * - When timer active: pill shows running time with green numbers
  */
 import { useState, useEffect, useMemo, useRef, useCallback, memo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -11,7 +11,7 @@ import { useTasks } from '@/hooks/useTasks';
 import { useSubtasks } from '@/hooks/useSubtasks';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Check, MoreHorizontal, ChevronRight } from 'lucide-react';
+import { Check, MoreHorizontal, ChevronRight, Timer, Pause } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import '../index.css';
 
@@ -19,8 +19,8 @@ const PANEL_W = 340;
 const PANEL_H = 500;
 const PILL_W = 100;
 const PILL_H = 52;
+const PILL_TIMER_W = 130;
 
-// ─── Colores ─────────────────────────────────────────────────────────────────
 const C = {
   bg: '#18181B',
   border: 'rgba(255,255,255,0.09)',
@@ -32,6 +32,12 @@ const C = {
   taskBorder: 'rgba(255,255,255,0.07)',
   subBg: 'rgba(255,255,255,0.03)',
 };
+
+function formatTimer(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+}
 
 // ─── Subtask Row ─────────────────────────────────────────────────────────────
 const SubtaskRowRaw = ({ sub, onToggle }: { sub: any; onToggle: (sub: any) => void }) => {
@@ -61,12 +67,16 @@ const SubtaskRowRaw = ({ sub, onToggle }: { sub: any; onToggle: (sub: any) => vo
 const SubtaskRow = memo(SubtaskRowRaw);
 
 // ─── Task Row ────────────────────────────────────────────────────────────────
-const TaskRowRaw = ({ task, onToggle }: { task: any; onToggle: (task: any) => void }) => {
+const TaskRowRaw = ({ task, onToggle, activeTimerId, onTimerToggle }: {
+  task: any; onToggle: (task: any) => void;
+  activeTimerId: string | null; onTimerToggle: (taskId: string) => void;
+}) => {
   const isDone = task.status === 'done';
   const [open, setOpen] = useState(false);
   const { subtasks, toggleSubtask } = useSubtasks(task.id);
   const hasSubtasks = subtasks.length > 0;
   const doneSubCount = subtasks.filter((s: any) => s.status === 'done').length;
+  const isTimerActive = activeTimerId === task.id;
 
   return (
     <motion.div layout initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
@@ -74,8 +84,8 @@ const TaskRowRaw = ({ task, onToggle }: { task: any; onToggle: (task: any) => vo
       <div style={{
         display: 'flex', alignItems: 'center', gap: 10, padding: '10px',
         borderRadius: 12, cursor: 'pointer',
-        background: isDone ? 'transparent' : C.taskBg,
-        border: `1px solid ${isDone ? 'transparent' : C.taskBorder}`,
+        background: isDone ? 'transparent' : isTimerActive ? 'rgba(163,230,53,0.06)' : C.taskBg,
+        border: `1px solid ${isDone ? 'transparent' : isTimerActive ? 'rgba(163,230,53,0.15)' : C.taskBorder}`,
         opacity: isDone ? 0.45 : 1,
       }}>
         <div onClick={() => onToggle(task)} style={{
@@ -91,6 +101,26 @@ const TaskRowRaw = ({ task, onToggle }: { task: any; onToggle: (task: any) => vo
           color: isDone ? C.muted : C.text,
           textDecoration: isDone ? 'line-through' : 'none',
         }}>{task.title}</span>
+
+        {/* Timer button */}
+        {!isDone && (
+          <div
+            onClick={() => onTimerToggle(task.id)}
+            style={{
+              width: 24, height: 24, borderRadius: 6, flexShrink: 0,
+              background: isTimerActive ? 'rgba(163,230,53,0.15)' : 'transparent',
+              border: `1px solid ${isTimerActive ? 'rgba(163,230,53,0.3)' : 'rgba(255,255,255,0.1)'}`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: 'pointer',
+            }}
+          >
+            {isTimerActive
+              ? <Pause style={{ width: 10, height: 10, color: C.accent }} />
+              : <Timer style={{ width: 10, height: 10, color: 'rgba(255,255,255,0.3)' }} />
+            }
+          </div>
+        )}
+
         {hasSubtasks && (
           <div onClick={() => setOpen(o => !o)} style={{
             display: 'flex', alignItems: 'center', gap: 3,
@@ -166,12 +196,53 @@ const MiniTaskList = () => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [now, setNow] = useState(new Date());
 
+  // Timer state
+  const [activeTimerId, setActiveTimerId] = useState<string | null>(null);
+  const [timerSeconds, setTimerSeconds] = useState(0);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   const { onMouseDown: onDragMouseDown, hasMovedRef } = useDragWindow();
 
-  // Smart expand: get position, calculate direction, resize window
+  // Timer logic
+  const handleTimerToggle = useCallback((taskId: string) => {
+    if (activeTimerId === taskId) {
+      // Stop timer
+      if (timerRef.current) clearInterval(timerRef.current);
+      timerRef.current = null;
+      setActiveTimerId(null);
+      setTimerSeconds(0);
+    } else {
+      // Start new timer
+      if (timerRef.current) clearInterval(timerRef.current);
+      setActiveTimerId(taskId);
+      setTimerSeconds(0);
+      timerRef.current = setInterval(() => {
+        setTimerSeconds(s => s + 1);
+      }, 1000);
+    }
+  }, [activeTimerId]);
+
+  useEffect(() => {
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+  }, []);
+
+  // Resize pill when timer starts/stops (wider to show time)
+  useEffect(() => {
+    if (!isExpanded) {
+      const api = (window as any).electronAPI;
+      if (!api?.getMiniPosition || !api?.setMiniBounds) return;
+      api.getMiniPosition().then((pos: any) => {
+        if (!pos) return;
+        const newW = activeTimerId ? PILL_TIMER_W : PILL_W;
+        const dx = (pos.w - newW) / 2;
+        api.setMiniBounds({ x: pos.x + dx, y: pos.y, w: newW, h: PILL_H });
+      });
+    }
+  }, [activeTimerId, isExpanded]);
+
+  // Smart expand
   const handleToggleExpand = useCallback(async () => {
     if (hasMovedRef.current) return;
-
     const api = (window as any).electronAPI;
     if (!api?.getMiniPosition || !api?.setMiniBounds) {
       setIsExpanded(prev => !prev);
@@ -179,58 +250,37 @@ const MiniTaskList = () => {
     }
 
     if (!isExpanded) {
-      // EXPANDING: pill → panel
       const pos = await api.getMiniPosition();
       if (!pos) { setIsExpanded(true); return; }
-
-      // Pill center position on screen
-      const pillCenterX = pos.x + pos.w / 2;
-      const pillCenterY = pos.y + pos.h / 2;
-
-      // Decide horizontal: expand left or right?
-      const spaceRight = (pos.screenX + pos.screenW) - pillCenterX;
-      const spaceLeft = pillCenterX - pos.screenX;
+      const pillCX = pos.x + pos.w / 2;
+      const spaceRight = (pos.screenX + pos.screenW) - pillCX;
+      const spaceLeft = pillCX - pos.screenX;
       let panelX: number;
-      if (spaceRight >= PANEL_W) {
-        // Enough space to the right — align left edge to pill left
-        panelX = pos.x;
-      } else if (spaceLeft >= PANEL_W) {
-        // Expand leftward — align right edge to pill right
-        panelX = pos.x + pos.w - PANEL_W;
-      } else {
-        // Not enough either side, center it
-        panelX = pillCenterX - PANEL_W / 2;
-      }
+      if (spaceRight >= PANEL_W) { panelX = pos.x; }
+      else if (spaceLeft >= PANEL_W) { panelX = pos.x + pos.w - PANEL_W; }
+      else { panelX = pillCX - PANEL_W / 2; }
 
-      // Decide vertical: expand down or up?
       const spaceBelow = (pos.screenY + pos.screenH) - pos.y;
       const spaceAbove = (pos.y + pos.h) - pos.screenY;
       let panelY: number;
-      if (spaceBelow >= PANEL_H) {
-        panelY = pos.y;
-      } else if (spaceAbove >= PANEL_H) {
-        panelY = pos.y + pos.h - PANEL_H;
-      } else {
-        panelY = pos.screenY + pos.screenH - PANEL_H;
-      }
+      if (spaceBelow >= PANEL_H) { panelY = pos.y; }
+      else if (spaceAbove >= PANEL_H) { panelY = pos.y + pos.h - PANEL_H; }
+      else { panelY = pos.screenY + pos.screenH - PANEL_H; }
 
-      // Clamp to screen edges
       panelX = Math.max(pos.screenX, Math.min(panelX, pos.screenX + pos.screenW - PANEL_W));
       panelY = Math.max(pos.screenY, Math.min(panelY, pos.screenY + pos.screenH - PANEL_H));
-
       api.setMiniBounds({ x: panelX, y: panelY, w: PANEL_W, h: PANEL_H });
       setIsExpanded(true);
     } else {
-      // COLLAPSING: panel → pill (keep at current top-center)
       const pos = await api.getMiniPosition();
       if (pos) {
-        const pillX = pos.x + (pos.w - PILL_W) / 2;
-        const pillY = pos.y;
-        api.setMiniBounds({ x: pillX, y: pillY, w: PILL_W, h: PILL_H });
+        const pillW = activeTimerId ? PILL_TIMER_W : PILL_W;
+        const pillX = pos.x + (pos.w - pillW) / 2;
+        api.setMiniBounds({ x: pillX, y: pos.y, w: pillW, h: PILL_H });
       }
       setIsExpanded(false);
     }
-  }, [isExpanded, hasMovedRef]);
+  }, [isExpanded, hasMovedRef, activeTimerId]);
 
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 1000);
@@ -288,14 +338,35 @@ const MiniTaskList = () => {
           onMouseDown={onDragMouseDown}
           onClick={handleToggleExpand}
           style={{
-            width: 64, height: 32, borderRadius: 999,
-            background: C.bg, border: `1px solid ${C.border}`,
-            boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            height: 32, borderRadius: 999,
+            padding: activeTimerId ? '0 12px' : '0',
+            width: activeTimerId ? 'auto' : 64,
+            minWidth: activeTimerId ? 110 : 64,
+            background: C.bg,
+            border: `1px solid ${activeTimerId ? 'rgba(163,230,53,0.25)' : C.border}`,
+            boxShadow: activeTimerId
+              ? '0 4px 20px rgba(163,230,53,0.15)'
+              : '0 4px 20px rgba(0,0,0,0.5)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
             userSelect: 'none', cursor: 'grab',
           }}
         >
-          <MoreHorizontal style={{ width: 20, height: 20, color: 'rgba(255,255,255,0.75)' }} />
+          {activeTimerId ? (
+            <>
+              <div style={{
+                width: 6, height: 6, borderRadius: '50%',
+                background: C.accent, animation: 'pulse 1.5s ease-in-out infinite',
+              }} />
+              <span style={{
+                fontSize: 14, fontWeight: 800, color: C.accent,
+                fontFamily: 'monospace', letterSpacing: '0.05em',
+              }}>
+                {formatTimer(timerSeconds)}
+              </span>
+            </>
+          ) : (
+            <MoreHorizontal style={{ width: 20, height: 20, color: 'rgba(255,255,255,0.75)' }} />
+          )}
         </div>
       </div>
     );
@@ -323,11 +394,25 @@ const MiniTaskList = () => {
         padding: '10px 16px 6px', flexShrink: 0, cursor: 'grab', userSelect: 'none',
       }}>
         <div onClick={handleToggleExpand} style={{
-          width: 52, height: 26, borderRadius: 999,
-          background: 'rgba(255,255,255,0.07)', border: `1px solid ${C.border}`,
-          display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+          height: 26, borderRadius: 999,
+          padding: activeTimerId ? '0 10px' : '0',
+          width: activeTimerId ? 'auto' : 52,
+          minWidth: activeTimerId ? 90 : 52,
+          background: activeTimerId ? 'rgba(163,230,53,0.1)' : 'rgba(255,255,255,0.07)',
+          border: `1px solid ${activeTimerId ? 'rgba(163,230,53,0.2)' : C.border}`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
+          cursor: 'pointer',
         }} title="Colapsar">
-          <MoreHorizontal style={{ width: 16, height: 16, color: 'rgba(255,255,255,0.5)' }} />
+          {activeTimerId ? (
+            <>
+              <div style={{ width: 5, height: 5, borderRadius: '50%', background: C.accent, animation: 'pulse 1.5s ease-in-out infinite' }} />
+              <span style={{ fontSize: 11, fontWeight: 800, color: C.accent, fontFamily: 'monospace' }}>
+                {formatTimer(timerSeconds)}
+              </span>
+            </>
+          ) : (
+            <MoreHorizontal style={{ width: 16, height: 16, color: 'rgba(255,255,255,0.5)' }} />
+          )}
         </div>
         <div style={{ textAlign: 'right' }}>
           <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.03em', color: C.text, lineHeight: 1 }}>
@@ -371,7 +456,9 @@ const MiniTaskList = () => {
             {sortedTasks.map((task: any) => (
               <TaskRow key={task.id}
                 task={completingId === task.id ? { ...task, status: 'done' } : task}
-                onToggle={handleToggle} />
+                onToggle={handleToggle}
+                activeTimerId={activeTimerId}
+                onTimerToggle={handleTimerToggle} />
             ))}
           </AnimatePresence>
         )}
