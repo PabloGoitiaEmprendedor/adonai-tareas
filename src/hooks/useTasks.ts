@@ -282,13 +282,51 @@ export const useTasks = (filters?: { date?: string; startDate?: string; endDate?
   const deleteTask = useMutation({
     mutationFn: async (id: string) => {
       if (!user) throw new Error('No user');
-      
+
+      // Determine if this task is part of a recurrence series.
+      // - Virtual tasks always belong to a series (their id encodes the rule).
+      // - Real tasks may belong to a series via the recurrence_id column.
+      let recurrenceId: string | null = null;
+
       if (id.startsWith('virtual-')) {
-        // We reuse the updateTask logic to materialize the virtual task as 'deleted'
-        return updateTask.mutateAsync({ id, status: 'deleted' });
+        const parsed = parseVirtualTaskId(id);
+        recurrenceId = parsed?.recurrenceId ?? null;
+      } else {
+        const { data: row, error: fetchError } = await supabase
+          .from('tasks')
+          .select('recurrence_id')
+          .eq('id', id)
+          .eq('user_id', user.id)
+          .maybeSingle();
+        if (fetchError) throw fetchError;
+        recurrenceId = row?.recurrence_id ?? null;
       }
-      
-      const { error } = await supabase.from('tasks').update({ status: 'deleted' }).eq('id', id).eq('user_id', user.id);
+
+      // Recurring task: wipe the whole series (template + all materialized
+      // instances) AND remove the rule so no future virtual instances appear.
+      if (recurrenceId) {
+        const { error: tasksErr } = await supabase
+          .from('tasks')
+          .update({ status: 'deleted' })
+          .eq('user_id', user.id)
+          .eq('recurrence_id', recurrenceId);
+        if (tasksErr) throw tasksErr;
+
+        const { error: ruleErr } = await supabase
+          .from('recurrence_rules')
+          .delete()
+          .eq('id', recurrenceId)
+          .eq('user_id', user.id);
+        if (ruleErr) throw ruleErr;
+        return;
+      }
+
+      // Plain (non-recurring) task: soft-delete only this one.
+      const { error } = await supabase
+        .from('tasks')
+        .update({ status: 'deleted' })
+        .eq('id', id)
+        .eq('user_id', user.id);
       if (error) throw error;
     },
     onMutate: async (id: string) => {
@@ -296,6 +334,17 @@ export const useTasks = (filters?: { date?: string; startDate?: string; endDate?
       const previousData = queryClient.getQueryData(['tasks', user?.id, filters]);
       queryClient.setQueryData(['tasks', user?.id, filters], (old: any) => {
         if (!old) return old;
+        const target = old.tasks.find((t: any) => t.id === id);
+        const recurrenceId = target?.recurrence_id
+          ?? (id.startsWith('virtual-') ? parseVirtualTaskId(id)?.recurrenceId : null);
+        if (recurrenceId) {
+          return {
+            ...old,
+            tasks: old.tasks.filter((t: any) => t.recurrence_id !== recurrenceId),
+            rules: (old.rules || []).filter((r: any) => r.id !== recurrenceId),
+            templates: (old.templates || []).filter((t: any) => t.recurrence_id !== recurrenceId),
+          };
+        }
         return {
           ...old,
           tasks: old.tasks.filter((t: any) => t.id !== id),
