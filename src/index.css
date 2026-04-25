@@ -6,13 +6,12 @@
 
 @layer base {
   :root {
-    /* Notioneers Palette: 
-       Cream: #F5F0D9 -> 50 46% 90%
-       Mint: #E9F7EF -> 145 41% 94%
-       Lime: #C3F53C -> 76 90% 60%
-       Forest: #405143 -> 130 11% 28%
+    /* Notioneers + Google-style off-white background.
+       Background: #F8F9FA (Google) -> 210 17% 98%
+       Surface card: pure white
+       Lime accent kept from Notioneers
     */
-    --background: 50 46% 90%;
+    --background: 210 17% 98%;
     --foreground: 130 11% 28%;
     --card: 0 0% 100%;
     --card-foreground: 130 11% 28%;
@@ -21,14 +20,14 @@
     
     --primary: 76 90% 60%;
     --primary-foreground: 130 11% 28%;
-    --primary-container: 145 41% 94%;
+    --primary-container: 145 41% 96%;
     
-    --secondary: 145 41% 94%;
+    --secondary: 210 17% 96%;
     --secondary-foreground: 130 11% 28%;
-    --secondary-container: 145 40% 85%;
+    --secondary-container: 210 14% 92%;
     
-    --muted: 50 20% 95%;
-    --muted-foreground: 130 10% 50%;
+    --muted: 210 17% 96%;
+    --muted-foreground: 220 9% 46%;
     
     --accent: 76 90% 60%;
     --accent-foreground: 130 11% 28%;
@@ -36,30 +35,30 @@
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
     
-    --border: 50 20% 80%;
-    --input: 50 20% 80%;
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
     --ring: 76 90% 60%;
     --radius: 2rem;
 
-    /* Adonai surface system mapped to Notioneers */
+    /* Surface system — Google-style neutrals */
     --surface: 0 0% 100%;
-    --surface-dim: 50 46% 90%;
+    --surface-dim: 210 17% 96%;
     --surface-container-lowest: 0 0% 100%;
-    --surface-container-low: 50 30% 95%;
-    --surface-container: 50 46% 90%;
-    --surface-container-high: 50 40% 85%;
-    --surface-container-highest: 50 30% 80%;
+    --surface-container-low: 210 17% 98%;
+    --surface-container: 210 17% 96%;
+    --surface-container-high: 220 14% 93%;
+    --surface-container-highest: 220 13% 89%;
     --on-surface: 130 11% 28%;
-    --on-surface-variant: 130 10% 50%;
-    --outline: 50 20% 75%;
-    --outline-variant: 50 20% 85%;
+    --on-surface-variant: 220 9% 46%;
+    --outline: 220 13% 80%;
+    --outline-variant: 220 13% 91%;
 
     --error: 0 84% 60%;
     --error-container: 0 100% 95%;
     --on-error: 0 0% 100%;
 
-    --tertiary: 145 41% 94%;
-    --tertiary-container: 145 50% 85%;
+    --tertiary: 210 17% 96%;
+    --tertiary-container: 210 14% 90%;
   }
 }
 
@@ -109,9 +108,9 @@
     color: transparent;
   }
   .glass-sheet {
-    background: hsla(var(--surface-container), 0.8);
-    backdrop-filter: blur(24px);
-    -webkit-backdrop-filter: blur(24px);
+    background: hsl(var(--surface));
+    border: 1px solid hsl(var(--outline-variant));
+    box-shadow: 0 20px 60px -10px hsla(220, 13%, 20%, 0.18);
   }
   .pb-safe {
     padding-bottom: env(safe-area-inset-bottom);

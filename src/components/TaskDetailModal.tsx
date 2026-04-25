@@ -1,11 +1,10 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Play, Clock, Calendar, Flag, Tag, FolderOpen, Trash2, Repeat, Plus, Check, Link as LinkIcon } from 'lucide-react';
+import { X, Play, Clock, Calendar, Flag, FolderOpen, Trash2, Repeat, Link as LinkIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 import { useTasks } from '@/hooks/useTasks';
-import { useContexts } from '@/hooks/useContexts';
 import { useFolders } from '@/hooks/useFolders';
 import { useRecurrenceRules } from '@/hooks/useRecurrenceRules';
 import { toast } from 'sonner';
@@ -23,7 +22,6 @@ const MONTH_NAMES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Se
 
 const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
   const { updateTask, deleteTask } = useTasks();
-  const { contexts } = useContexts();
   const { folders } = useFolders();
   const { createRule, deleteRule } = useRecurrenceRules();
 
@@ -289,19 +287,6 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
                     />
                   </div>
 
-                  {/* 7. Contexto */}
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider flex items-center gap-1"><Tag className="w-3 h-3" /> Contexto</label>
-                    <div className="flex flex-wrap gap-2">
-                      {contexts.map((ctx) => (
-                        <button key={ctx.id} onClick={() => setContextId(ctx.id === contextId ? null : ctx.id)}
-                          className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${contextId === ctx.id ? 'bg-primary/20 text-primary ring-1 ring-primary/30' : 'bg-surface-container-high text-on-surface-variant'}`}>
-                          {ctx.name}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
                   {/* 8. Carpeta */}
                   <div className="space-y-1.5">
                     <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider flex items-center gap-1"><FolderOpen className="w-3 h-3" /> Carpeta</label>
@@ -435,8 +420,8 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
                     </AnimatePresence>
                   </div>
 
-                  {/* 10. Subtareas — tareas hijas reales con sangría */}
-                  <SubtasksSection parentTaskId={task.id} defaultOpen />
+                  {/* 10. Subtareas — colapsadas por defecto, el usuario las abre explícitamente */}
+                  <SubtasksSection parentTaskId={task.id} />
 
                   {/* 11. Estado */}
                   <div className="space-y-1.5">

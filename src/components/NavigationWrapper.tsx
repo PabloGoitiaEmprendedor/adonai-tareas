@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { FolderOpen, Users, User, Calendar, LogOut, Settings, Bell, HelpCircle, Menu, Trash2, Home, Target, Trophy, Download } from 'lucide-react';
+import { FolderOpen, Users, User, Calendar, LogOut, Settings, Bell, HelpCircle, Menu, Trash2, Home, Target, Trophy, Download, Monitor } from 'lucide-react';
+import { toast } from 'sonner';
 
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useAuth } from '@/contexts/AuthContext';
@@ -13,25 +14,25 @@ interface NavigationWrapperProps {
 }
 
 const SidebarContent = ({ user, menuItems, location, handleNavigate, signOut, startTutorial, isSheet, toggleSidebar }: any) => (
-  <div className="flex flex-col h-full bg-zinc-900 text-zinc-100">
-    <div className="p-6 border-b border-zinc-800 flex items-center justify-between gap-4">
+  <div className="flex flex-col h-full bg-surface text-foreground">
+    <div className="p-6 border-b border-outline-variant flex items-center justify-between gap-4">
       <div 
         onClick={() => handleNavigate('/profile')}
         className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity group flex-1 min-w-0"
       >
-        <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center border border-white/10 group-hover:bg-white/10 transition-colors flex-shrink-0">
+        <div className="w-12 h-12 rounded-2xl bg-surface-container flex items-center justify-center border border-outline-variant group-hover:bg-surface-container-high transition-colors flex-shrink-0">
           <User className="w-6 h-6 text-primary" />
         </div>
         <div className="flex flex-col min-w-0">
-          <span className="text-sm font-black text-white truncate tracking-tight">{user?.email?.split('@')[0] || 'Mi Espacio'}</span>
-          <span className="text-[10px] text-primary font-bold uppercase tracking-wider opacity-80">Configuración</span>
+          <span className="text-sm font-black text-foreground truncate tracking-tight">{user?.email?.split('@')[0] || 'Mi Espacio'}</span>
+          <span className="text-[10px] text-on-surface-variant font-bold uppercase tracking-wider">Configuración</span>
         </div>
       </div>
 
       {!isSheet && (
         <button 
           onClick={toggleSidebar}
-          className="w-10 h-10 flex items-center justify-center rounded-xl hover:bg-white/10 text-zinc-400 transition-colors flex-shrink-0"
+          className="w-10 h-10 flex items-center justify-center rounded-xl hover:bg-surface-container text-on-surface-variant transition-colors flex-shrink-0"
           aria-label="Cerrar menú"
         >
           <Menu className="w-5 h-5" />
@@ -42,12 +43,12 @@ const SidebarContent = ({ user, menuItems, location, handleNavigate, signOut, st
     <div className="px-6 py-2">
       {isSheet ? (
         <SheetHeader className="p-0">
-          <SheetTitle className="text-left text-xl font-black text-white tracking-tighter opacity-80">
+          <SheetTitle className="text-left text-xl font-black text-foreground tracking-tighter opacity-80">
             Adonai
           </SheetTitle>
         </SheetHeader>
       ) : (
-        <h2 className="text-left text-xl font-black text-white tracking-tighter opacity-80">
+        <h2 className="text-left text-xl font-black text-foreground tracking-tighter opacity-80">
           Adonai
         </h2>
       )}
@@ -63,11 +64,11 @@ const SidebarContent = ({ user, menuItems, location, handleNavigate, signOut, st
             onClick={() => handleNavigate(item.path)}
             className={`w-full justify-start gap-4 h-12 rounded-xl transition-all duration-300 ${
               location.pathname === item.path 
-                ? 'bg-primary/20 text-primary font-bold shadow-sm' 
-                : 'text-zinc-400 hover:bg-white/5 hover:text-white'
+                ? 'bg-primary/20 text-foreground font-bold' 
+                : 'text-on-surface-variant hover:bg-surface-container hover:text-foreground'
             }`}
           >
-            <item.icon className={`w-5 h-5 ${location.pathname === item.path ? 'text-primary' : ''}`} />
+            <item.icon className={`w-5 h-5 ${location.pathname === item.path ? 'text-foreground' : ''}`} />
             <span className="text-sm tracking-wide">{item.label}</span>
           </Button>
         ))}
@@ -76,36 +77,36 @@ const SidebarContent = ({ user, menuItems, location, handleNavigate, signOut, st
           onClick={() => handleNavigate('/trash')}
           className={`w-full justify-start gap-4 h-12 rounded-xl transition-all duration-300 ${
             location.pathname === '/trash' 
-              ? 'bg-primary/20 text-primary font-bold shadow-sm' 
-              : 'text-zinc-400 hover:bg-white/5 hover:text-white'
+              ? 'bg-primary/20 text-foreground font-bold' 
+              : 'text-on-surface-variant hover:bg-surface-container hover:text-foreground'
           }`}
         >
-          <Trash2 className={`w-5 h-5 ${location.pathname === '/trash' ? 'text-primary' : ''}`} />
+          <Trash2 className={`w-5 h-5 ${location.pathname === '/trash' ? 'text-foreground' : ''}`} />
           <span className="text-sm tracking-wide">Historial</span>
         </Button>
       </div>
 
       <div className="mt-8 px-6">
-        <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500 mb-4">Ajustes</p>
+        <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-on-surface-variant mb-4">Ajustes</p>
         <div className="space-y-1">
-           <Button variant="ghost" className="w-full justify-start gap-4 h-11 text-zinc-400 hover:text-white hover:bg-white/5">
+           <Button variant="ghost" className="w-full justify-start gap-4 h-11 text-on-surface-variant hover:text-foreground hover:bg-surface-container">
             <Bell className="w-4 h-4" /> <span className="text-xs">Notificaciones</span>
           </Button>
-          <Button onClick={() => handleNavigate('/profile')} variant="ghost" className="w-full justify-start gap-4 h-11 text-zinc-400 hover:text-white hover:bg-white/5">
+          <Button onClick={() => handleNavigate('/profile')} variant="ghost" className="w-full justify-start gap-4 h-11 text-on-surface-variant hover:text-foreground hover:bg-surface-container">
             <Settings className="w-4 h-4" /> <span className="text-xs">Preferencias</span>
           </Button>
-          <Button onClick={startTutorial} variant="ghost" className="w-full justify-start gap-4 h-11 text-zinc-400 hover:text-white hover:bg-white/5">
+          <Button onClick={startTutorial} variant="ghost" className="w-full justify-start gap-4 h-11 text-on-surface-variant hover:text-foreground hover:bg-surface-container">
             <HelpCircle className="w-4 h-4" /> <span className="text-xs">Guía rápida</span>
           </Button>
         </div>
       </div>
     </div>
 
-    <div className="p-6 border-t border-zinc-800">
+    <div className="p-6 border-t border-outline-variant">
       <Button 
         onClick={() => signOut()} 
         variant="ghost" 
-        className="w-full justify-start gap-4 h-12 text-red-400 hover:text-red-300 hover:bg-red-400/10 rounded-xl font-semibold transition-colors"
+        className="w-full justify-start gap-4 h-12 text-error hover:text-error hover:bg-error/10 rounded-xl font-semibold transition-colors"
       >
         <LogOut className="w-5 h-5" />
         <span>Cerrar sesión</span>
@@ -188,7 +189,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
       )}
 
       <aside
-        className={`hidden lg:flex fixed left-0 top-0 bottom-0 w-72 bg-zinc-900 border-r border-zinc-800 z-[55] flex-col shadow-2xl transition-transform duration-300 ${
+        className={`hidden lg:flex fixed left-0 top-0 bottom-0 w-72 bg-surface border-r border-outline-variant z-[55] flex-col shadow-xl transition-transform duration-300 ${
           desktopSidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
@@ -215,29 +216,31 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
 
       <BottomNav />
       
-      {/* Download Desktop App Button - Only visible in Browser */}
+      {/* Desktop-only floating window promo
+          - Desktop browser: actually downloads the .exe
+          - Mobile browser: informational chip explaining the floating widget is desktop-only */}
       {!window.electronAPI && (
         <div className="fixed top-4 right-4 z-[60] flex items-center gap-2">
           <Button
             onClick={() => { window.location.href = 'https://github.com/PabloGoitiaEmprendedor/adonai-tareas/releases/download/v1.0.4/Adonai.Tasks.Setup.1.0.4.exe'; }}
             variant="outline"
-            className="hidden md:flex items-center gap-2 bg-zinc-900/50 backdrop-blur-md border-zinc-800 text-zinc-300 hover:text-primary hover:border-primary/50 h-10 rounded-xl transition-all shadow-lg group"
+            className="hidden md:flex items-center gap-2 bg-card border border-border text-foreground hover:text-foreground hover:border-primary h-10 rounded-xl transition-all shadow-sm group"
           >
-            <div className="w-6 h-6 rounded-lg bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-              <Download className="w-3.5 h-3.5 text-primary" />
+            <div className="w-6 h-6 rounded-lg bg-primary/15 flex items-center justify-center group-hover:bg-primary/25 transition-colors">
+              <Download className="w-3.5 h-3.5 text-foreground" />
             </div>
             <span className="text-xs font-bold tracking-tight">Descargar App</span>
           </Button>
           
-          {/* Mobile version (Icon only) */}
-          <Button
-            onClick={() => { window.location.href = 'https://github.com/PabloGoitiaEmprendedor/adonai-tareas/releases/download/v1.0.4/Adonai.Tasks.Setup.1.0.4.exe'; }}
-            size="icon"
-            variant="outline"
-            className="md:hidden bg-zinc-900/50 backdrop-blur-md border-zinc-800 text-zinc-300 h-10 w-10 rounded-xl shadow-lg"
+          {/* Mobile: informational chip — does NOT download */}
+          <button
+            onClick={() => toast.info('La ventana flotante solo está disponible en la app de escritorio para Windows. Descárgala desde tu ordenador.', { duration: 4000 })}
+            className="md:hidden flex items-center gap-1.5 bg-card border border-border text-foreground h-10 px-3 rounded-xl shadow-sm active:scale-95 transition-transform"
+            aria-label="Ventana flotante solo disponible en escritorio"
           >
-            <Download className="w-5 h-5 text-primary" />
-          </Button>
+            <Monitor className="w-4 h-4 text-on-surface-variant" />
+            <span className="text-[11px] font-bold tracking-tight">Solo escritorio</span>
+          </button>
         </div>
       )}
     </div>
