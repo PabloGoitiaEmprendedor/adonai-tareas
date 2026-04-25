@@ -525,35 +525,34 @@ Tu trabajo es:`;
                   {phase === 'review' && (
                     <motion.div key="review" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} className="w-full space-y-5">
                       <div className="text-center">
-                        <span className="text-[10px] uppercase tracking-[0.25em] font-black text-on-surface-variant">Casi listo</span>
                         <h2 className="text-lg font-bold text-foreground mt-1 truncate px-2">"{title}"</h2>
                       </div>
 
                       {/* Importance + Urgency — clear, child-simple toggles */}
                       <div className="space-y-2">
-                        <p className="text-[11px] font-black uppercase tracking-widest text-on-surface-variant text-center">¿Cómo es esta tarea?</p>
+                        <p className="text-[11px] font-black uppercase tracking-widest text-on-surface-variant text-center">Prioridad</p>
                         <div className="grid grid-cols-2 gap-2">
                           <button
                             onClick={() => setReviewImportance(!reviewImportance)}
                             className={`p-3 rounded-2xl text-sm font-bold border-2 transition-all flex flex-col items-center gap-1 ${reviewImportance ? 'bg-primary/15 text-foreground border-primary' : 'bg-surface-container text-on-surface-variant border-outline-variant'}`}
                           >
                             {reviewImportance && <Check className="w-4 h-4 text-primary" />}
-                            <span>{reviewImportance ? 'Importante' : 'No importante'}</span>
+                            <span>Importante</span>
                           </button>
                           <button
                             onClick={() => setReviewUrgency(!reviewUrgency)}
                             className={`p-3 rounded-2xl text-sm font-bold border-2 transition-all flex flex-col items-center gap-1 ${reviewUrgency ? 'bg-orange-500/15 text-foreground border-orange-500' : 'bg-surface-container text-on-surface-variant border-outline-variant'}`}
                           >
                             {reviewUrgency && <Check className="w-4 h-4 text-orange-500" />}
-                            <span>{reviewUrgency ? 'Urgente' : 'No urgente'}</span>
+                            <span>Urgente</span>
                           </button>
                         </div>
                       </div>
 
                       {/* Goal picker — optional */}
-                      {goals.length > 0 && (
+                      {goals.filter(g => g.status === 'in_progress').length > 0 && (
                         <div className="space-y-2">
-                          <p className="text-[11px] font-black uppercase tracking-widest text-on-surface-variant text-center">Meta (opcional)</p>
+                          <p className="text-[11px] font-black uppercase tracking-widest text-on-surface-variant text-center">Meta</p>
                           <div className="flex flex-wrap gap-2 justify-center max-h-[120px] overflow-y-auto">
                             <button
                               onClick={() => setSelectedGoalId(null)}
@@ -561,7 +560,7 @@ Tu trabajo es:`;
                             >
                               Ninguna
                             </button>
-                            {goals.map(g => (
+                            {goals.filter(g => g.status === 'in_progress').map(g => (
                               <button
                                 key={g.id}
                                 onClick={() => setSelectedGoalId(g.id)}

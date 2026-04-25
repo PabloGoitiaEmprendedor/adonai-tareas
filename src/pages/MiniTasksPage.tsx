@@ -14,6 +14,9 @@ import { es } from 'date-fns/locale';
 import { Check, MoreHorizontal, ChevronRight, Timer, Pause, Plus } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import TaskCaptureModal from '@/components/TaskCaptureModal';
+import { useGamification } from '@/hooks/useGamification';
+import { triggerTaskCelebration, triggerDailyCelebration } from '@/lib/confetti';
+import { useProfile } from '@/hooks/useProfile';
 import '../index.css';
 
 const PANEL_W = 340;
@@ -70,7 +73,7 @@ const SubtaskRow = memo(SubtaskRowRaw);
 // ─── Task Row ────────────────────────────────────────────────────────────────
 const TaskRowRaw = ({ task, onToggle, activeTimerId, onTimerToggle }: {
   task: any; onToggle: (task: any) => void;
-  activeTimerId: string | null; onTimerToggle: (taskId: string) => void;
+  activeTimerId: string | null; onTimerToggle: (taskId: string, estimatedMinutes?: number) => void;
 }) => {
   const isDone = task.status === 'done';
   const [open, setOpen] = useState(false);
@@ -106,7 +109,7 @@ const TaskRowRaw = ({ task, onToggle, activeTimerId, onTimerToggle }: {
         {/* Timer button */}
         {!isDone && (
           <div
-            onClick={() => onTimerToggle(task.id)}
+            onClick={() => onTimerToggle(task.id, task.estimated_minutes)}
             style={{
               width: 24, height: 24, borderRadius: 6, flexShrink: 0,
               background: isTimerActive ? 'rgba(163,230,53,0.15)' : 'transparent',
@@ -193,6 +196,8 @@ const MiniTaskList = () => {
   const { user, loading } = useAuth();
   const today = format(new Date(), 'yyyy-MM-dd');
   const { tasks, updateTask, isLoading } = useTasks({ date: today });
+  const { checkAndUnlock } = useGamification();
+  const { profile } = useProfile();
   const [completingId, setCompletingId] = useState<string | null>(null);
   const [isExpanded, setIsExpanded] = useState(false);
   const [now, setNow] = useState(new Date());
@@ -206,20 +211,18 @@ const MiniTaskList = () => {
   const { onMouseDown: onDragMouseDown, hasMovedRef } = useDragWindow();
 
   // Timer logic
-  const handleTimerToggle = useCallback((taskId: string) => {
+  const handleTimerToggle = useCallback((taskId: string, estimatedMinutes: number = 30) => {
     if (activeTimerId === taskId) {
-      // Stop timer
       if (timerRef.current) clearInterval(timerRef.current);
       timerRef.current = null;
       setActiveTimerId(null);
       setTimerSeconds(0);
     } else {
-      // Start new timer
       if (timerRef.current) clearInterval(timerRef.current);
       setActiveTimerId(taskId);
-      setTimerSeconds(0);
+      setTimerSeconds(estimatedMinutes * 60);
       timerRef.current = setInterval(() => {
-        setTimerSeconds(s => s + 1);
+        setTimerSeconds(s => Math.max(0, s - 1));
       }, 1000);
     }
   }, [activeTimerId]);
@@ -314,31 +317,57 @@ const MiniTaskList = () => {
     (window as any).electronAPI?.setIgnoreMouseEvents?.(true, { forward: true });
   }, []);
 
-  const sortedTasks = useMemo(() =>
-    [...tasks].sort((a: any, b: any) => {
-      if (a.status === 'done' && b.status !== 'done') return 1;
-      if (b.status === 'done' && a.status !== 'done') return -1;
+  const quadrantRank = useCallback((t: any) =>
+    t.urgency && t.importance ? 0
+    : t.urgency ? 1
+    : t.importance ? 2
+    : 3, []);
+
+  const sortedTasks = useMemo(() => {
+    return [...tasks].sort((a: any, b: any) => {
+      const doneA = a.status === 'done' ? 1 : 0;
+      const doneB = b.status === 'done' ? 1 : 0;
+      if (doneA !== doneB) return doneA - doneB;
+
+      const rankDiff = quadrantRank(a) - quadrantRank(b);
+      if (rankDiff !== 0) return rankDiff;
+
       return (a.sort_order || 0) - (b.sort_order || 0);
-    }), [tasks]
-  );
+    });
+  }, [tasks, quadrantRank]);
 
   const completedCount = tasks.filter((t: any) => t.status === 'done').length;
   const totalCount = tasks.length;
   const progress = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
 
-  const handleToggle = useCallback((task: any) => {
+  const handleToggle = useCallback((task: any, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
     if (task.status === 'done') {
       updateTask.mutate({ id: task.id, status: 'pending', completed_at: null });
     } else {
       setCompletingId(task.id);
       setTimeout(() => {
+        const remainingTasks = tasks.filter((t: any) => t.status !== 'done' && t.id !== task.id);
+        const isLastTask = tasks.length > 0 && remainingTasks.length === 0;
+
         updateTask.mutate(
           { id: task.id, status: 'done', completed_at: new Date().toISOString() },
-          { onSettled: () => setCompletingId(null) }
+          { 
+            onSuccess: () => {
+              setCompletingId(null);
+              checkAndUnlock.mutate({ type: 'task_completed' });
+              if (isLastTask) {
+                triggerDailyCelebration(profile?.name);
+              } else {
+                triggerTaskCelebration(task.title, profile?.name);
+              }
+            },
+            onError: () => setCompletingId(null) 
+          }
         );
       }, 350);
     }
-  }, [updateTask]);
+  }, [updateTask, tasks, checkAndUnlock, profile?.name]);
 
   // ── COLLAPSED PILL ──
   if (!isExpanded) {
