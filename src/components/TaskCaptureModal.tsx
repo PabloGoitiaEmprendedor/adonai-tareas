@@ -400,11 +400,13 @@ Tu trabajo es:`;
         <>
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/60 z-[60]" onClick={handleClose} />
           <motion.div
-            initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
-            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className="fixed inset-x-0 bottom-0 z-[70] px-4 pb-8"
+            initial={{ opacity: 0, scale: 0.96, y: 12 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.96, y: 12 }}
+            transition={{ type: 'spring', damping: 25, stiffness: 240 }}
+            className="fixed inset-0 z-[70] flex items-center justify-center p-4 pointer-events-none"
           >
-            <div className="mx-auto max-w-[430px] glass-sheet rounded-2xl overflow-hidden shadow-2xl">
+            <div className="mx-auto w-full max-w-[440px] max-h-[90vh] overflow-y-auto bg-card border border-outline-variant rounded-3xl shadow-2xl pointer-events-auto">
               <div className="flex justify-center pt-4 pb-2">
                 <div className="w-12 h-1.5 bg-on-surface-variant/20 rounded-full" />
               </div>
@@ -470,7 +472,7 @@ Tu trabajo es:`;
                         </div>
                       )}
                       <p className="text-[11px] text-on-surface-variant/60 text-center">
-                        💡 Di lo que necesitas. La IA lo analiza y crea la tarea con un nombre claro.
+                        Escribe o dicta tu tarea. Rápido y directo.
                       </p>
                       <div className="flex gap-3">
                         {!showTextInput && (
@@ -520,31 +522,64 @@ Tu trabajo es:`;
                     </motion.div>
                   )}
 
-                  {phase === 'goal' && (
-                    <motion.div key="goal" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} className="w-full space-y-6">
+                  {phase === 'review' && (
+                    <motion.div key="review" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} className="w-full space-y-5">
                       <div className="text-center">
-                        <span className="text-xs uppercase tracking-[0.2em] font-bold text-on-surface-variant">Meta</span>
-                        <h2 className="text-lg font-medium text-foreground mt-1">¿A qué meta pertenece esta tarea?</h2>
+                        <span className="text-[10px] uppercase tracking-[0.25em] font-black text-on-surface-variant">Casi listo</span>
+                        <h2 className="text-lg font-bold text-foreground mt-1 truncate px-2">"{title}"</h2>
                       </div>
-                      
-                      <div className="flex flex-col gap-2 max-h-[200px] overflow-y-auto pr-2">
-                        <button
-                          onClick={() => { setSelectedGoalId(null); handleGoalDone(); }}
-                          className={`w-full text-left p-4 rounded-xl transition-all ${selectedGoalId === null ? 'bg-primary text-primary-foreground font-bold shadow-md' : 'bg-surface-container-high hover:bg-surface-container-highest text-foreground'}`}
-                        >
-                          Ninguna (Saltar)
-                        </button>
-                        
-                        {goals.map(g => (
+
+                      {/* Importance + Urgency — clear, child-simple toggles */}
+                      <div className="space-y-2">
+                        <p className="text-[11px] font-black uppercase tracking-widest text-on-surface-variant text-center">¿Cómo es esta tarea?</p>
+                        <div className="grid grid-cols-2 gap-2">
                           <button
-                            key={g.id}
-                            onClick={() => { setSelectedGoalId(g.id); handleGoalDone(); }}
-                            className={`w-full text-left p-4 rounded-xl transition-all ${selectedGoalId === g.id ? 'bg-primary text-primary-foreground font-bold shadow-md' : 'bg-surface-container-high hover:bg-surface-container-highest text-foreground'}`}
+                            onClick={() => setReviewImportance(!reviewImportance)}
+                            className={`p-3 rounded-2xl text-sm font-bold border-2 transition-all flex flex-col items-center gap-1 ${reviewImportance ? 'bg-primary/15 text-foreground border-primary' : 'bg-surface-container text-on-surface-variant border-outline-variant'}`}
                           >
-                            {g.title}
+                            {reviewImportance && <Check className="w-4 h-4 text-primary" />}
+                            <span>{reviewImportance ? 'Importante' : 'No importante'}</span>
                           </button>
-                        ))}
+                          <button
+                            onClick={() => setReviewUrgency(!reviewUrgency)}
+                            className={`p-3 rounded-2xl text-sm font-bold border-2 transition-all flex flex-col items-center gap-1 ${reviewUrgency ? 'bg-orange-500/15 text-foreground border-orange-500' : 'bg-surface-container text-on-surface-variant border-outline-variant'}`}
+                          >
+                            {reviewUrgency && <Check className="w-4 h-4 text-orange-500" />}
+                            <span>{reviewUrgency ? 'Urgente' : 'No urgente'}</span>
+                          </button>
+                        </div>
                       </div>
+
+                      {/* Goal picker — optional */}
+                      {goals.length > 0 && (
+                        <div className="space-y-2">
+                          <p className="text-[11px] font-black uppercase tracking-widest text-on-surface-variant text-center">Meta (opcional)</p>
+                          <div className="flex flex-wrap gap-2 justify-center max-h-[120px] overflow-y-auto">
+                            <button
+                              onClick={() => setSelectedGoalId(null)}
+                              className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${selectedGoalId === null ? 'bg-foreground text-background' : 'bg-surface-container text-on-surface-variant border border-outline-variant'}`}
+                            >
+                              Ninguna
+                            </button>
+                            {goals.map(g => (
+                              <button
+                                key={g.id}
+                                onClick={() => setSelectedGoalId(g.id)}
+                                className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${selectedGoalId === g.id ? 'bg-foreground text-background' : 'bg-surface-container text-on-surface-variant border border-outline-variant'}`}
+                              >
+                                {g.title}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      <button
+                        onClick={handleReviewDone}
+                        className="w-full py-3.5 rounded-2xl bg-primary text-primary-foreground font-black text-sm shadow-md hover:opacity-90 transition active:scale-[0.98]"
+                      >
+                        Crear tarea
+                      </button>
                     </motion.div>
                   )}
 
