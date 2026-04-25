@@ -52,6 +52,14 @@ autoUpdater.on('update-downloaded', (info) => {
 });
 
 app.whenReady().then(() => {
+  // Spoof Origin and Referer for Microsoft Clarity to allow tracking from the desktop app
+  const filter = { urls: ['https://*.clarity.ms/*'] };
+  require('electron').session.defaultSession.webRequest.onBeforeSendHeaders(filter, (details, callback) => {
+    details.requestHeaders['Origin'] = 'https://adonaitasks.com';
+    details.requestHeaders['Referer'] = 'https://adonaitasks.com/';
+    callback({ requestHeaders: details.requestHeaders });
+  });
+
   createMainWindow();
   setInterval(() => {
     if (app.isPackaged) autoUpdater.checkForUpdates();
