@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { FolderOpen, Users, User, Calendar, LogOut, Settings, Bell, HelpCircle, Menu, Trash2, Home, Target, Trophy, Download } from 'lucide-react';
+import { FolderOpen, Users, User, Calendar, LogOut, Settings, Bell, HelpCircle, Menu, Trash2, Home, Target, Trophy, Download, Monitor } from 'lucide-react';
+import { toast } from 'sonner';
 
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useAuth } from '@/contexts/AuthContext';
@@ -215,29 +216,31 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
 
       <BottomNav />
       
-      {/* Download Desktop App Button - Only visible in Browser */}
+      {/* Desktop-only floating window promo
+          - Desktop browser: actually downloads the .exe
+          - Mobile browser: informational chip explaining the floating widget is desktop-only */}
       {!window.electronAPI && (
         <div className="fixed top-4 right-4 z-[60] flex items-center gap-2">
           <Button
             onClick={() => { window.location.href = 'https://github.com/PabloGoitiaEmprendedor/adonai-tareas/releases/download/v1.0.4/Adonai.Tasks.Setup.1.0.4.exe'; }}
             variant="outline"
-            className="hidden md:flex items-center gap-2 bg-zinc-900/50 backdrop-blur-md border-zinc-800 text-zinc-300 hover:text-primary hover:border-primary/50 h-10 rounded-xl transition-all shadow-lg group"
+            className="hidden md:flex items-center gap-2 bg-card border border-border text-foreground hover:text-foreground hover:border-primary h-10 rounded-xl transition-all shadow-sm group"
           >
-            <div className="w-6 h-6 rounded-lg bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-              <Download className="w-3.5 h-3.5 text-primary" />
+            <div className="w-6 h-6 rounded-lg bg-primary/15 flex items-center justify-center group-hover:bg-primary/25 transition-colors">
+              <Download className="w-3.5 h-3.5 text-foreground" />
             </div>
             <span className="text-xs font-bold tracking-tight">Descargar App</span>
           </Button>
           
-          {/* Mobile version (Icon only) */}
-          <Button
-            onClick={() => { window.location.href = 'https://github.com/PabloGoitiaEmprendedor/adonai-tareas/releases/download/v1.0.4/Adonai.Tasks.Setup.1.0.4.exe'; }}
-            size="icon"
-            variant="outline"
-            className="md:hidden bg-zinc-900/50 backdrop-blur-md border-zinc-800 text-zinc-300 h-10 w-10 rounded-xl shadow-lg"
+          {/* Mobile: informational chip — does NOT download */}
+          <button
+            onClick={() => toast.info('La ventana flotante solo está disponible en la app de escritorio para Windows. Descárgala desde tu ordenador.', { duration: 4000 })}
+            className="md:hidden flex items-center gap-1.5 bg-card border border-border text-foreground h-10 px-3 rounded-xl shadow-sm active:scale-95 transition-transform"
+            aria-label="Ventana flotante solo disponible en escritorio"
           >
-            <Download className="w-5 h-5 text-primary" />
-          </Button>
+            <Monitor className="w-4 h-4 text-on-surface-variant" />
+            <span className="text-[11px] font-bold tracking-tight">Solo escritorio</span>
+          </button>
         </div>
       )}
     </div>
