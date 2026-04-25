@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { GripVertical, Check, Timer, Link as LinkIcon, ChevronRight } from 'lucide-react';
+import { Check, Timer, Link as LinkIcon } from 'lucide-react';
 import SubtasksSection from './SubtasksSection';
 import { useSubtasks } from '@/hooks/useSubtasks';
 
@@ -66,13 +66,6 @@ export const TaskCard = ({
         : { opacity: 1, scale: 1 }
       }
       exit={view === 'daily' ? { opacity: 0, scale: 0.8, transition: { duration: 0.2 } } : undefined}
-      draggable={!isDone}
-      onDragStart={() => handleDragStart(taskIdx)}
-      onDragOver={(e) => handleDragOver(e, taskIdx)}
-      onDragEnd={handleDragEnd}
-      onTouchStart={(e) => !isDone && handleTouchStart(taskIdx, e)}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
       onClick={() => setSelectedTask(task)}
       className={`p-4 rounded-[28px] flex items-start gap-4 cursor-pointer transition-all border group/task ${
         isDone || completingTaskId === task.id
@@ -82,8 +75,6 @@ export const TaskCard = ({
             : 'bg-card hover:border-on-surface-variant/30 border-outline-variant'
       }`}
     >
-      {!isDone && <GripVertical className="w-4 h-4 mt-3 text-on-surface-variant/30 flex-shrink-0 cursor-grab active:cursor-grabbing group-hover/task:text-on-surface-variant/60 transition-colors" />}
-      
       {/* Checkbox */}
       <div className="relative flex-shrink-0">
         {isDone || completingTaskId === task.id ? (
