@@ -15,7 +15,7 @@ import { Check, MoreHorizontal, ChevronRight, Timer, Pause, Plus } from 'lucide-
 import { motion, AnimatePresence } from 'framer-motion';
 import TaskCaptureModal from '@/components/TaskCaptureModal';
 import { useGamification } from '@/hooks/useGamification';
-import { triggerTaskCelebration, triggerDailyCelebration } from '@/lib/confetti';
+import { triggerTaskCelebration, triggerDailyCelebration } from '@/lib/celebrations';
 import { useProfile } from '@/hooks/useProfile';
 import '../index.css';
 
