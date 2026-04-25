@@ -1,19 +1,24 @@
-const { app, BrowserWindow, ipcMain, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, dialog } = require('electron');
 const path = require('path');
+const { autoUpdater } = require('electron-updater');
 
 let mainWindow;
 let miniWindow;
+
+// Configuración de auto-actualización
+autoUpdater.autoDownload = true;
+autoUpdater.autoInstallOnAppQuit = true;
 
 function createMainWindow() {
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 800,
-    backgroundColor: '#F5F5E9', // exact cream color
+    backgroundColor: '#F5F5E9',
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
       preload: path.join(__dirname, 'preload.cjs'),
-      webSecurity: false, // Permite cargar scripts locales sin bloqueos
+      webSecurity: false,
     },
   });
 
@@ -21,35 +26,46 @@ function createMainWindow() {
   
   if (!app.isPackaged) {
     mainWindow.loadURL('http://localhost:8080');
-    // DevTools desactivado — no exponer código fuente
   } else {
     mainWindow.loadFile(indexPath);
+    // Verificar actualizaciones al iniciar en producción
+    autoUpdater.checkForUpdatesAndNotify();
   }
-
-  // Interceptar logs de la ventana de React
-  mainWindow.webContents.on('console-message', (event, level, message, line, sourceId) => {
-    console.log(`[RENDERER ERROR/LOG]: ${message} (en línea ${line})`);
-  });
 
   mainWindow.on('closed', () => {
     mainWindow = null;
     app.quit();
   });
 
-  // External links handle
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url);
     return { action: 'deny' };
   });
 }
 
-app.whenReady().then(createMainWindow);
+// Escuchar eventos de actualización
+autoUpdater.on('update-downloaded', (info) => {
+  dialog.showMessageBox({
+    type: 'info',
+    title: 'Actualización lista',
+    message: 'Una nueva versión ha sido descargada. Se instalará automáticamente al cerrar la aplicación.',
+    buttons: ['Entendido']
+  });
+});
+
+app.whenReady().then(() => {
+  createMainWindow();
+  
+  // Verificar actualizaciones periódicamente (cada 2 horas)
+  setInterval(() => {
+    if (app.isPackaged) autoUpdater.checkForUpdates();
+  }, 1000 * 60 * 60 * 2);
+});
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
 });
 
-// IPC for the widget — transparent:true + show() inmediato = visible sin fondo extra
 ipcMain.on('toggle-mini-window', () => {
   if (miniWindow) {
     miniWindow.close();
@@ -57,9 +73,9 @@ ipcMain.on('toggle-mini-window', () => {
   } else {
     miniWindow = new BrowserWindow({
       width: 360,
-      height: 540,         // Fijo siempre — no redimensionar (evita desaparición)
+      height: 540,
       frame: false,
-      transparent: true,   // Zonas vacías son invisibles y click-through
+      transparent: true,
       alwaysOnTop: true,
       skipTaskbar: true,
       resizable: true,
@@ -67,11 +83,10 @@ ipcMain.on('toggle-mini-window', () => {
         nodeIntegration: false,
         contextIsolation: true,
         preload: path.join(__dirname, 'preload.cjs'),
-        webSecurity: false, // Igual que ventana principal — necesario para Supabase
+        webSecurity: false,
       },
     });
 
-    // Mostrar de inmediato (sin esperar ready-to-show) — patrón seguro
     miniWindow.show();
     miniWindow.center();
 
@@ -91,11 +106,12 @@ ipcMain.on('toggle-mini-window', () => {
   }
 });
 
-// resize-mini-window — NO se usa (ventana fija para evitar desaparición)
-// Se deja registrado para no romper el preload.cjs
-ipcMain.on('resize-mini-window', () => {});
+// IPC para ignorar eventos del ratón (necesario para transparencia interactiva)
+ipcMain.on('set-ignore-mouse-events', (event, ignore, options) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (win) win.setIgnoreMouseEvents(ignore, options);
+});
 
-// IPC para mover la ventana por delta (arrastre manual desde pill colapsada)
 ipcMain.on('move-mini-window', (event, dx, dy) => {
   if (miniWindow) {
     const bounds = miniWindow.getBounds();
@@ -103,8 +119,11 @@ ipcMain.on('move-mini-window', (event, dx, dy) => {
   }
 });
 
-// IPC para sincronizar datos entre ventanas
 ipcMain.on('sync-data', () => {
   if (mainWindow) mainWindow.webContents.send('invalidate-queries');
   if (miniWindow) miniWindow.webContents.send('invalidate-queries');
+});
+
+ipcMain.on('open-external', (event, url) => {
+  shell.openExternal(url);
 });
