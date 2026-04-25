@@ -34,7 +34,6 @@ function createMainWindow() {
 
   mainWindow.on('closed', () => {
     mainWindow = null;
-    app.quit();
   });
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {

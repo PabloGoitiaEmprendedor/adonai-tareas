@@ -11,8 +11,9 @@ import { useTasks } from '@/hooks/useTasks';
 import { useSubtasks } from '@/hooks/useSubtasks';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Check, MoreHorizontal, ChevronRight, Timer, Pause } from 'lucide-react';
+import { Check, MoreHorizontal, ChevronRight, Timer, Pause, Plus } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import TaskCaptureModal from '@/components/TaskCaptureModal';
 import '../index.css';
 
 const PANEL_W = 340;
@@ -199,6 +200,7 @@ const MiniTaskList = () => {
   // Timer state
   const [activeTimerId, setActiveTimerId] = useState<string | null>(null);
   const [timerSeconds, setTimerSeconds] = useState(0);
+  const [captureOpen, setCaptureOpen] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const { onMouseDown: onDragMouseDown, hasMovedRef } = useDragWindow();
@@ -388,12 +390,13 @@ const MiniTaskList = () => {
       onMouseEnter={handleMouseEnterUI}
       onMouseLeave={handleMouseLeaveUI}
       style={{
-        width: '100%', height: '100%',
+        position: 'fixed', inset: 0,
         background: C.bg, borderRadius: 20,
         border: `1px solid ${C.border}`,
         boxShadow: '0 12px 48px rgba(0,0,0,0.6)',
         display: 'flex', flexDirection: 'column',
         overflow: 'hidden',
+        boxSizing: 'border-box',
         fontFamily: 'system-ui, -apple-system, sans-serif',
         color: C.text,
       }}
@@ -424,6 +427,22 @@ const MiniTaskList = () => {
             <MoreHorizontal style={{ width: 16, height: 16, color: 'rgba(255,255,255,0.5)' }} />
           )}
         </div>
+        
+        {/* ADD TASK BUTTON */}
+        <div 
+          onClick={(e) => { e.stopPropagation(); setCaptureOpen(true); }}
+          style={{
+            width: 32, height: 32, borderRadius: '50%',
+            background: 'rgba(255,255,255,0.07)',
+            border: `1px solid ${C.border}`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            cursor: 'pointer', marginLeft: 8, marginRight: 'auto'
+          }}
+          title="Añadir tarea"
+        >
+          <Plus style={{ width: 16, height: 16, color: 'rgba(255,255,255,0.8)' }} />
+        </div>
+
         <div style={{ textAlign: 'right' }}>
           <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.03em', color: C.text, lineHeight: 1 }}>
             {format(now, 'h:mm')}
@@ -481,6 +500,8 @@ const MiniTaskList = () => {
           </motion.div>
         )}
       </div>
+
+      <TaskCaptureModal open={captureOpen} onClose={() => setCaptureOpen(false)} />
     </div>
   );
 };
