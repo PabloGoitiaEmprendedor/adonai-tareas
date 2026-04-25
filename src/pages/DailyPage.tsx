@@ -159,14 +159,28 @@ const DailyPage = () => {
   }, [trackDayActive]);
 
   // Toggle floating mini-window (Electron independent window)
+  // - Electron desktop app: open the real floating window
+  // - Desktop browser: open the in-page mini widget
+  // - Mobile browser: show install instructions (no floating window on mobile)
   const toggleMiniWidget = useCallback(() => {
     if (window.electronAPI) {
       window.electronAPI.toggleMiniWindow();
       setMiniWidgetOpen(prev => !prev);
-    } else {
-      // Fallback for browser if not running in Electron
-      setMiniWidgetOpen(prev => !prev);
+      return;
     }
+    const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+    if (isMobile) {
+      toast.info(
+        'Instala la app en tu ordenador para usar la pestaña flotante',
+        {
+          description:
+            'Abre esta misma web en tu computadora. Arriba a la derecha verás el botón “Descargar App”. Tras instalarla, podrás activar la pestaña flotante desde aquí.',
+          duration: 9000,
+        }
+      );
+      return;
+    }
+    setMiniWidgetOpen(prev => !prev);
   }, []);
 
   const sortedTasks = useMemo(() => {
@@ -235,52 +249,15 @@ const DailyPage = () => {
     updateTask.mutate({ id: task.id, status: 'pending', completed_at: null });
   };
 
-  const handleDragStart = (idx: number) => setDragIdx(idx);
-  const handleDragOver = (e: React.DragEvent, idx: number) => {
-    e.preventDefault();
-    if (dragIdx === null || dragIdx === idx) return;
-    const newOrder = [...orderedTasks];
-    const [moved] = newOrder.splice(dragIdx, 1);
-    newOrder.splice(idx, 0, moved);
-    setOrderedTasks(newOrder);
-    setDragIdx(idx);
-  };
-  const handleDragEnd = () => {
-    setDragIdx(null);
-    orderedTasks.forEach((task, idx) => {
-      if ((task.sort_order || 0) !== idx) {
-        updateTask.mutate({ id: task.id, sort_order: idx });
-      }
-    });
-  };
-
-  const [touchIdx, setTouchIdx] = useState<number | null>(null);
-  const [touchY, setTouchY] = useState(0);
-  const handleTouchStart = (idx: number, e: React.TouchEvent) => { setTouchIdx(idx); setTouchY(e.touches[0].clientY); };
-  const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    if (touchIdx === null) return;
-    const diff = e.touches[0].clientY - touchY;
-    const steps = Math.round(diff / 56);
-    if (steps !== 0) {
-      const newIdx = Math.max(0, Math.min(orderedTasks.length - 1, touchIdx + steps));
-      if (newIdx !== touchIdx) {
-        const newOrder = [...orderedTasks];
-        const [moved] = newOrder.splice(touchIdx, 1);
-        newOrder.splice(newIdx, 0, moved);
-        setOrderedTasks(newOrder);
-        setTouchIdx(newIdx);
-        setTouchY(e.touches[0].clientY);
-      }
-    }
-  }, [touchIdx, touchY, orderedTasks]);
-  const handleTouchEnd = () => {
-    if (touchIdx !== null) {
-      orderedTasks.forEach((task, idx) => {
-        if ((task.sort_order || 0) !== idx) updateTask.mutate({ id: task.id, sort_order: idx });
-      });
-    }
-    setTouchIdx(null);
-  };
+  // Drag & touch reordering disabled per user request — keep no-op handlers
+  // so child components keep their props contract.
+  const handleDragStart = (_idx: number) => {};
+  const handleDragOver = (_e: React.DragEvent, _idx: number) => {};
+  const handleDragEnd = () => {};
+  const touchIdx: number | null = null;
+  const handleTouchStart = (_idx: number, _e: React.TouchEvent) => {};
+  const handleTouchMove = (_e: React.TouchEvent) => {};
+  const handleTouchEnd = () => {};
 
   const handleStartTimer = (task: any, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -310,13 +287,13 @@ const DailyPage = () => {
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               whileHover={{ scale: 1.05 }}
-              className="mt-8 flex items-center gap-2.5 px-5 py-2.5 rounded-full bg-primary/25 text-primary shadow-sm border border-primary/20"
+              className="mt-8 flex items-center gap-2.5 px-5 py-2.5 rounded-full bg-foreground text-background shadow-md border border-foreground"
             >
               <motion.div
                 animate={{ scale: [1, 1.2, 1] }}
                 transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
               >
-                <Flame className="w-4 h-4 fill-primary/20" />
+                <Flame className="w-4 h-4 text-primary fill-primary/40" />
               </motion.div>
               <span className="text-[13px] font-black leading-none tabular-nums tracking-tight">
                 {streakCount} días imparable
@@ -339,16 +316,16 @@ const DailyPage = () => {
         <div className="pt-2 space-y-3">
           <GamificationBar />
 
-          {/* Mini Widget toggle */}
+          {/* Mini Widget toggle — dark solid style to match the time */}
           <button
             onClick={toggleMiniWidget}
             className={`w-full flex items-center justify-center gap-3 px-5 py-4 rounded-[20px] transition-all duration-300 font-black tracking-tight text-base shadow-lg hover:shadow-xl active:scale-[0.98] ${
               miniWidgetOpen
-                ? 'bg-primary text-primary-foreground border-2 border-primary/50 ring-4 ring-primary/20'
-                : 'bg-white dark:bg-surface-container-highest border-2 border-black/5 dark:border-white/10 text-foreground hover:border-primary/50'
+                ? 'bg-primary text-primary-foreground border-2 border-primary ring-4 ring-primary/20'
+                : 'bg-foreground text-background border-2 border-foreground hover:opacity-90'
             }`}
           >
-            <ExternalLink className={`w-5 h-5 ${miniWidgetOpen ? 'opacity-80' : 'text-primary'}`} />
+            <ExternalLink className="w-5 h-5" />
             {miniWidgetOpen ? 'Cerrar Pestaña Flotante' : 'Desplegar Pestaña Flotante'}
           </button>
         </div>
@@ -436,7 +413,7 @@ const DailyPage = () => {
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
               type="submit"
-              className="text-xs font-black uppercase tracking-[0.2em] bg-primary text-primary-foreground px-5 py-2.5 rounded-[16px] hover:opacity-90 transition-all shadow-md active:scale-95"
+              className="text-xs font-black uppercase tracking-[0.2em] bg-foreground text-background px-5 py-2.5 rounded-[16px] hover:opacity-90 transition-all shadow-md active:scale-95"
             >
               Añadir
             </motion.button>
