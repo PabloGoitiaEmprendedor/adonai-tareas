@@ -29,7 +29,6 @@ function createMainWindow() {
     mainWindow.loadURL('http://localhost:8080');
   } else {
     mainWindow.loadFile(indexPath);
-    // Verificar actualizaciones al iniciar en producción
     autoUpdater.checkForUpdatesAndNotify();
   }
 
@@ -44,7 +43,6 @@ function createMainWindow() {
   });
 }
 
-// Escuchar eventos de actualización
 autoUpdater.on('update-downloaded', (info) => {
   dialog.showMessageBox({
     type: 'info',
@@ -56,8 +54,6 @@ autoUpdater.on('update-downloaded', (info) => {
 
 app.whenReady().then(() => {
   createMainWindow();
-  
-  // Verificar actualizaciones periódicamente (cada 2 horas)
   setInterval(() => {
     if (app.isPackaged) autoUpdater.checkForUpdates();
   }, 1000 * 60 * 60 * 2);
@@ -67,14 +63,15 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
 });
 
+// ── Mini window (starts small as a pill) ──
 ipcMain.on('toggle-mini-window', () => {
   if (miniWindow) {
     miniWindow.close();
     miniWindow = null;
   } else {
     miniWindow = new BrowserWindow({
-      width: 360,
-      height: 540,
+      width: 100,
+      height: 52,
       frame: false,
       transparent: true,
       alwaysOnTop: true,
@@ -108,28 +105,38 @@ ipcMain.on('toggle-mini-window', () => {
   }
 });
 
-// IPC para ignorar eventos del ratón (necesario para transparencia interactiva)
 ipcMain.on('set-ignore-mouse-events', (event, ignore, options) => {
   const win = BrowserWindow.fromWebContents(event.sender);
   if (win) win.setIgnoreMouseEvents(ignore, options);
 });
 
-// Move window with screen-edge clamping
+// Free movement — no clamping, user puts the pill wherever they want
 ipcMain.on('move-mini-window', (event, dx, dy) => {
   if (!miniWindow) return;
+  const bounds = miniWindow.getBounds();
+  miniWindow.setPosition(bounds.x + dx, bounds.y + dy);
+});
+
+// Return position + screen work area so renderer decides expand direction
+ipcMain.handle('get-mini-position', () => {
+  if (!miniWindow) return null;
   const { screen } = require('electron');
   const bounds = miniWindow.getBounds();
   const display = screen.getDisplayNearestPoint({ x: bounds.x, y: bounds.y });
-  const workArea = display.workArea;
+  const wa = display.workArea;
+  return {
+    x: bounds.x, y: bounds.y, w: bounds.width, h: bounds.height,
+    screenX: wa.x, screenY: wa.y, screenW: wa.width, screenH: wa.height,
+  };
+});
 
-  let newX = bounds.x + dx;
-  let newY = bounds.y + dy;
-
-  // Clamp so the window never goes outside the screen
-  newX = Math.max(workArea.x, Math.min(newX, workArea.x + workArea.width - bounds.width));
-  newY = Math.max(workArea.y, Math.min(newY, workArea.y + workArea.height - bounds.height));
-
-  miniWindow.setPosition(newX, newY);
+// Set window bounds (position + size) — used for expand/collapse
+ipcMain.on('set-mini-bounds', (event, b) => {
+  if (!miniWindow) return;
+  miniWindow.setBounds({
+    x: Math.round(b.x), y: Math.round(b.y),
+    width: Math.round(b.w), height: Math.round(b.h),
+  });
 });
 
 ipcMain.on('sync-data', () => {

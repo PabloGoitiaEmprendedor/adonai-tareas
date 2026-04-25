@@ -222,7 +222,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
       {!window.electronAPI && (
         <div className="fixed top-4 right-4 z-[60] flex items-center gap-2">
           <Button
-            onClick={() => { window.location.href = 'https://github.com/PabloGoitiaEmprendedor/adonai-tareas/releases/download/v1.0.7/Adonai.Tasks.Setup.1.0.7.exe'; }}
+            onClick={() => { window.location.href = 'https://github.com/PabloGoitiaEmprendedor/adonai-tareas/releases/download/v1.0.8/Adonai.Tasks.Setup.1.0.8.exe'; }}
             variant="outline"
             className="hidden md:flex items-center gap-2 bg-card border border-border text-foreground hover:text-foreground hover:border-primary h-10 rounded-xl transition-all shadow-sm group"
           >
