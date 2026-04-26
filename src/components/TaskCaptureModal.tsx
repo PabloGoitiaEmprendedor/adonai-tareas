@@ -405,7 +405,7 @@ Tu trabajo es:`;
     <AnimatePresence>
       {open && (
         <>
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/60 z-[60]" onClick={handleClose} />
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60]" onClick={handleClose} />
           <motion.div
             initial={{ opacity: 0, scale: 0.96, y: 12 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -413,12 +413,16 @@ Tu trabajo es:`;
             transition={{ type: 'spring', damping: 25, stiffness: 240 }}
             className="fixed inset-0 z-[70] flex items-center justify-center p-4 pointer-events-none"
           >
-            <div className="mx-auto w-full max-w-[440px] max-h-[90vh] overflow-y-auto bg-card border border-outline-variant rounded-3xl shadow-2xl pointer-events-auto">
-              <div className="flex justify-center pt-4 pb-2">
-                <div className="w-12 h-1.5 bg-on-surface-variant/20 rounded-full" />
-              </div>
-              <div className="p-6 flex flex-col items-center gap-6">
-                <button id="tutorial-close-capture" onClick={handleClose} className="absolute top-4 right-4 text-on-surface-variant"><X className="w-5 h-5" /></button>
+            <div className="relative mx-auto w-full max-w-[440px] max-h-[90vh] overflow-y-auto bg-card rounded-[28px] shadow-[0_24px_60px_-12px_rgba(0,0,0,0.45)] pointer-events-auto">
+              <button
+                id="tutorial-close-capture"
+                onClick={handleClose}
+                aria-label="Cerrar"
+                className="absolute top-3 right-3 z-10 w-9 h-9 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+              <div className="p-6 pt-7 flex flex-col items-center gap-6">
 
                 <AnimatePresence mode="wait">
                   {phase === 'select' && (
