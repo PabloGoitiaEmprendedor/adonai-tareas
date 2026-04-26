@@ -173,8 +173,10 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
         </SheetContent>
       </Sheet>
 
-      {/* Floating hamburger trigger - ONLY visible when ALL sidebars are CLOSED */}
-      {!desktopSidebarOpen && !open && (
+      {/* Floating hamburger trigger
+          - Mobile: ALWAYS visible (top-left) when the mobile Sheet is closed
+          - Desktop: only when the desktop sidebar is collapsed */}
+      {!open && (
         <button
           onClick={() => {
             if (window.innerWidth < 1024) {
@@ -184,7 +186,9 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
             }
           }}
           aria-label="Mostrar menú"
-          className="fixed top-4 left-4 z-40 w-10 h-10 flex items-center justify-center rounded-xl bg-surface-container-high/80 backdrop-blur-md border border-outline-variant/20 text-foreground shadow-sm transition-all active:scale-90 hover:bg-surface-container-highest"
+          className={`fixed top-4 left-4 z-40 w-10 h-10 flex items-center justify-center rounded-xl bg-surface-container-high/80 backdrop-blur-md border border-outline-variant/20 text-foreground shadow-sm transition-all active:scale-90 hover:bg-surface-container-highest ${
+            desktopSidebarOpen ? 'lg:hidden' : ''
+          }`}
         >
           <Menu className="w-5 h-5" />
         </button>
@@ -216,7 +220,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
         </div>
       </main>
 
-      <BottomNav onOpenMenu={() => setOpen(true)} />
+      <BottomNav />
       
       {/* Desktop-only floating window promo
           - Desktop browser: actually downloads the .exe
