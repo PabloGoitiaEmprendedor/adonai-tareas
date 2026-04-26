@@ -24,12 +24,15 @@ const FAB = ({ onClick }: FABProps) => {
     <motion.button
       onClick={onClick}
       id="global-add-task-button"
-      className="fixed bottom-[76px] right-5 z-50 w-14 h-14 rounded-full primary-gradient flex items-center justify-center shadow-lg shadow-primary/20"
-      animate={wakePulse ? { scale: [1, 1.18, 1] } : { scale: [1, 1.05, 1] }}
-      transition={{ duration: wakePulse ? 0.45 : 2, repeat: wakePulse ? 0 : Infinity, ease: 'easeInOut' }}
-      whileTap={{ scale: 0.9 }}
+      aria-label="Añadir tarea"
+      className="fixed bottom-[84px] lg:bottom-8 right-5 lg:right-8 z-50 h-14 pl-4 pr-5 rounded-2xl bg-foreground text-background flex items-center gap-2.5 shadow-[0_4px_16px_rgba(0,0,0,0.18)] hover:shadow-[0_6px_20px_rgba(0,0,0,0.22)] active:shadow-[0_2px_8px_rgba(0,0,0,0.18)] transition-shadow"
+      animate={wakePulse ? { scale: [1, 1.06, 1] } : undefined}
+      transition={{ duration: 0.45 }}
+      whileTap={{ scale: 0.96 }}
+      whileHover={{ y: -1 }}
     >
-      <Plus className="w-7 h-7 text-primary-foreground" strokeWidth={3} />
+      <Plus className="w-5 h-5" strokeWidth={2.75} />
+      <span className="text-sm font-bold tracking-tight">Nueva tarea</span>
     </motion.button>
   );
 };
