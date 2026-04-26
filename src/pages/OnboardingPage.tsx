@@ -22,13 +22,22 @@ import {
   Clock,
   MapPin,
   Smile,
-  AlertCircle
+  AlertCircle,
+  Plus,
+  Trash2,
+  ExternalLink,
+  Monitor,
+  Sparkles
 } from 'lucide-react';
 import { toast } from 'sonner';
 
-type StepType = 'welcome' | 'context_work' | 'ready';
+type StepType = 'welcome' | 'context_work' | 'first_tasks' | 'ready';
 
-const steps: StepType[] = ['welcome', 'context_work', 'ready'];
+// Desktop = Electron app OR a browser window wider than the lg breakpoint.
+// We capture this once on mount; the flow shape shouldn't change mid-onboarding.
+const isDesktopEnv = (): boolean =>
+  typeof window !== 'undefined' &&
+  (!!window.electronAPI || window.innerWidth >= 1024);
 
 const OnboardingPage = () => {
   const navigate = useNavigate();
@@ -37,6 +46,12 @@ const OnboardingPage = () => {
   const { createGoal } = useGoals();
   const { updateContext } = useUserContext();
   const { isSupported, startRecording, stopRecording, isRecording, transcript } = useVoiceCapture();
+
+  // Lock the step list to the user's environment for the entire flow.
+  const [isDesktop] = useState(isDesktopEnv);
+  const steps: StepType[] = isDesktop
+    ? ['welcome', 'context_work', 'first_tasks', 'ready']
+    : ['welcome', 'context_work', 'ready'];
 
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [isFinishing, setIsFinishing] = useState(false);
@@ -67,7 +82,35 @@ const OnboardingPage = () => {
   const [workStyle, setWorkStyle] = useState('simple');
   const [preferredInput, setPreferredInput] = useState('both');
 
+  // First-tasks step (desktop only) — collected in memory, persisted on finish.
+  const [firstTaskInput, setFirstTaskInput] = useState('');
+  const [firstTasks, setFirstTasks] = useState<string[]>([]);
+  const [floatingActivated, setFloatingActivated] = useState(false);
+
   const currentStep = steps[currentStepIndex];
+
+  const addFirstTask = () => {
+    const t = firstTaskInput.trim();
+    if (!t) return;
+    setFirstTasks(prev => [...prev, t]);
+    setFirstTaskInput('');
+  };
+
+  const removeFirstTask = (idx: number) => {
+    setFirstTasks(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  const activateFloatingWindow = () => {
+    if (window.electronAPI?.toggleMiniWindow) {
+      window.electronAPI.toggleMiniWindow();
+      setFloatingActivated(true);
+      toast.success('Pestaña flotante activada. Ya puedes verla en tu escritorio.');
+    } else {
+      // Desktop browser: explain how to get the floating window.
+      setFloatingActivated(true);
+      toast.info('La pestaña flotante requiere la app de escritorio. Puedes descargarla luego desde el botón "Descargar App".');
+    }
+  };
 
   const next = () => {
     if (currentStepIndex < steps.length - 1) {
@@ -150,6 +193,25 @@ const OnboardingPage = () => {
         user_id: user.id,
         event_type: 'onboarding_completed',
       });
+
+      // 4b. Persist first tasks (desktop onboarding extra)
+      if (firstTasks.length > 0) {
+        const today = new Date().toISOString().slice(0, 10);
+        const rows = firstTasks.map((title, i) => ({
+          user_id: user.id,
+          title,
+          due_date: today,
+          source_type: 'onboarding',
+          status: 'pending',
+          sort_order: i,
+        }));
+        try {
+          await supabase.from('tasks').insert(rows);
+        } catch (err) {
+          console.error('Failed to insert onboarding tasks:', err);
+          // Non-blocking
+        }
+      }
 
       // 5. Success (Bug 4 Fix - part 2)
       localStorage.setItem('adonai_onboarding_done', 'true');
@@ -272,6 +334,88 @@ const OnboardingPage = () => {
                     className="flex-1 h-16 bg-primary text-primary-foreground rounded-2xl font-bold text-lg flex items-center justify-center gap-2 disabled:opacity-30 transition-all shadow-lg shadow-primary/20"
                   >
                     Siguiente <ArrowRight className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* STEP: FIRST TASKS — desktop only */}
+            {currentStep === 'first_tasks' && (
+              <div className="space-y-8">
+                <div className="space-y-2 text-center">
+                  <div className="w-16 h-16 mx-auto rounded-2xl bg-primary/15 flex items-center justify-center mb-2">
+                    <Sparkles className="w-8 h-8 text-primary" />
+                  </div>
+                  <h2 className="text-3xl font-extrabold tracking-tight text-foreground">Empieza con tus primeras tareas</h2>
+                  <p className="text-on-surface-variant">Añade una o varias tareas que quieras hacer hoy. Aparecerán en tu agenda al entrar.</p>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="flex gap-2">
+                    <input
+                      value={firstTaskInput}
+                      onChange={(e) => setFirstTaskInput(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addFirstTask(); } }}
+                      placeholder="Ej: Llamar al cliente"
+                      className="flex-1 bg-surface-container-low rounded-xl px-4 h-12 outline-none focus:ring-2 focus:ring-primary/20 text-base border border-transparent focus:border-primary/30"
+                    />
+                    <button
+                      onClick={addFirstTask}
+                      disabled={!firstTaskInput.trim()}
+                      className="h-12 px-4 rounded-xl bg-primary text-primary-foreground font-bold flex items-center gap-1 disabled:opacity-30"
+                    >
+                      <Plus className="w-4 h-4" /> Añadir
+                    </button>
+                  </div>
+
+                  {firstTasks.length > 0 && (
+                    <ul className="space-y-2">
+                      {firstTasks.map((t, i) => (
+                        <li key={i} className="flex items-center gap-3 p-3 rounded-xl bg-surface-container-low">
+                          <Check className="w-4 h-4 text-primary flex-shrink-0" />
+                          <span className="flex-1 text-sm font-semibold text-foreground truncate">{t}</span>
+                          <button onClick={() => removeFirstTask(i)} className="text-on-surface-variant hover:text-error">
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+
+                {/* Floating window activation */}
+                <div className="rounded-2xl border-2 border-dashed border-outline-variant p-5 space-y-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-primary/15 flex items-center justify-center">
+                      <Monitor className="w-5 h-5 text-primary" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-bold text-foreground">Pestaña flotante</p>
+                      <p className="text-xs text-on-surface-variant">Tus tareas siempre visibles en tu escritorio.</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={activateFloatingWindow}
+                    className={`w-full h-12 rounded-xl font-bold flex items-center justify-center gap-2 transition-all ${
+                      floatingActivated
+                        ? 'bg-primary/15 text-primary border-2 border-primary/30'
+                        : 'bg-foreground text-background hover:opacity-90'
+                    }`}
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                    {floatingActivated ? 'Activada' : 'Activar pestaña flotante'}
+                  </button>
+                </div>
+
+                <div className="flex gap-4 pt-2">
+                  <button onClick={back} className="px-6 h-16 bg-surface-container-low text-on-surface-variant rounded-2xl font-bold flex items-center justify-center">
+                    Atrás
+                  </button>
+                  <button
+                    onClick={next}
+                    className="flex-1 h-16 bg-primary text-primary-foreground rounded-2xl font-bold text-lg flex items-center justify-center gap-2 transition-all shadow-lg shadow-primary/20"
+                  >
+                    {firstTasks.length === 0 ? 'Saltar' : 'Siguiente'} <ArrowRight className="w-5 h-5" />
                   </button>
                 </div>
               </div>
