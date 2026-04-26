@@ -9,6 +9,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import BottomNav from './BottomNav';
 import AppTutorial from './AppTutorial';
+import { downloadDesktopApp, OPEN_DOWNLOAD_DIALOG_EVENT } from '@/lib/desktopApp';
 
 interface NavigationWrapperProps {
   children: React.ReactNode;
@@ -130,6 +131,13 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
     localStorage.setItem('adonai_sidebar_open', desktopSidebarOpen ? '1' : '0');
   }, [desktopSidebarOpen]);
 
+  // Allow any component (e.g. floating-window toggle) to request the dialog.
+  useEffect(() => {
+    const handler = () => setDownloadDialogOpen(true);
+    window.addEventListener(OPEN_DOWNLOAD_DIALOG_EVENT, handler);
+    return () => window.removeEventListener(OPEN_DOWNLOAD_DIALOG_EVENT, handler);
+  }, []);
+
   const { signOut, user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -228,7 +236,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
       {!window.electronAPI && (
         <div className="fixed top-4 right-4 z-[60] flex items-center gap-2">
           <Button
-            onClick={() => { window.location.href = 'https://github.com/PabloGoitiaEmprendedor/adonai-tareas/releases/download/v1.0.13/Adonai.Tasks.Setup.1.0.13.exe'; }}
+            onClick={downloadDesktopApp}
             variant="outline"
             className="hidden md:flex items-center gap-2 bg-card border border-border text-foreground hover:text-foreground hover:border-primary h-10 rounded-xl transition-all shadow-sm group"
           >
@@ -257,24 +265,33 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
               <Monitor className="w-7 h-7 text-primary" />
             </div>
             <DialogTitle className="text-center text-xl font-black tracking-tight">
-              Descarga la app de escritorio
+              Pestaña flotante de escritorio
             </DialogTitle>
             <DialogDescription className="text-center text-sm leading-relaxed pt-2">
-              Para usar la <strong className="text-foreground">pestaña flotante</strong> necesitas la app de escritorio.
-              Estará siempre presente en tu computadora para ver y crear tareas al instante.
+              La <strong className="text-foreground">pestaña flotante</strong> solo funciona con la app nativa de escritorio.
+              Una vez instalada, estará siempre presente en tu computadora para ver y crear tareas al instante.
             </DialogDescription>
           </DialogHeader>
           <div className="bg-surface-container-low rounded-2xl p-4 text-sm space-y-2">
-            <p className="font-bold text-foreground">Cómo descargarla:</p>
-            <ol className="space-y-1.5 text-on-surface-variant list-decimal list-inside">
-              <li>Abre esta misma web en tu computadora.</li>
-              <li>Arriba a la derecha verás el botón <strong className="text-foreground">Descargar App</strong>.</li>
-              <li>Instálala y activa la pestaña flotante desde la app.</li>
-            </ol>
+            <p className="font-bold text-foreground">¿En el celular?</p>
+            <p className="text-on-surface-variant text-xs leading-relaxed">
+              Abre esta misma web desde tu computadora para instalar la app — la pestaña flotante solo está disponible en Windows.
+            </p>
           </div>
-          <DialogFooter>
-            <Button onClick={() => setDownloadDialogOpen(false)} className="w-full rounded-xl font-bold">
-              Entendido
+          <DialogFooter className="flex-col sm:flex-col gap-2">
+            <Button
+              onClick={() => { downloadDesktopApp(); setDownloadDialogOpen(false); }}
+              className="w-full rounded-xl font-bold h-11 gap-2"
+            >
+              <Download className="w-4 h-4" />
+              Descargar para Windows
+            </Button>
+            <Button
+              onClick={() => setDownloadDialogOpen(false)}
+              variant="ghost"
+              className="w-full rounded-xl font-bold"
+            >
+              Ahora no
             </Button>
           </DialogFooter>
         </DialogContent>
