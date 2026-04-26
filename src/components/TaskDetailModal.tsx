@@ -321,7 +321,7 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
                           className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${!goalId ? 'bg-primary/20 text-primary ring-1 ring-primary/30' : 'bg-surface-container-high text-on-surface-variant'}`}>
                           Sin meta
                         </button>
-                        {goals.filter(g => g.status === 'in_progress').map((goal) => (
+                        {goals.filter(g => g.active).map((goal) => (
                           <button key={goal.id} onClick={() => setGoalId(goal.id === goalId ? null : goal.id)}
                             className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${goalId === goal.id ? 'bg-primary/20 text-primary ring-1 ring-primary/30' : 'bg-surface-container-high text-on-surface-variant'}`}>
                             {goal.title}
