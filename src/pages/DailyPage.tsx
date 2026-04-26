@@ -19,6 +19,7 @@ import GamificationBar from '@/components/GamificationBar';
 import SubtasksSection from '@/components/SubtasksSection';
 import { useGamification } from '@/hooks/useGamification';
 import { TaskCard } from '@/components/TaskCard';
+import { openDownloadDialog } from '@/lib/desktopApp';
 import MiniTaskWidget from '@/components/MiniTaskWidget';
 
 const getDynamicGreeting = (
