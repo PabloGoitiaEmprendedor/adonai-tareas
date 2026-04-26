@@ -1,12 +1,8 @@
 import { Link, useLocation } from 'react-router-dom';
-import { CalendarArrowUp, FolderOpen, Sun, Menu } from 'lucide-react';
+import { CalendarArrowUp, FolderOpen, Sun } from 'lucide-react';
 import { motion } from 'framer-motion';
 
-interface BottomNavProps {
-  onOpenMenu?: () => void;
-}
-
-const BottomNav = ({ onOpenMenu }: BottomNavProps) => {
+const BottomNav = () => {
   const location = useLocation();
 
   const navItems = [
@@ -42,17 +38,6 @@ const BottomNav = ({ onOpenMenu }: BottomNavProps) => {
             </Link>
           );
         })}
-        <button
-          type="button"
-          onClick={onOpenMenu}
-          className="flex flex-col items-center gap-0.5 min-w-[56px] text-on-surface-variant/60 hover:text-on-surface-variant transition-all duration-300"
-          aria-label="Abrir menú"
-        >
-          <div className="p-1.5 rounded-xl">
-            <Menu className="w-5 h-5" strokeWidth={2} />
-          </div>
-          <span className="text-[9px] font-bold tracking-tight opacity-60">Menú</span>
-        </button>
       </div>
     </nav>
   );
