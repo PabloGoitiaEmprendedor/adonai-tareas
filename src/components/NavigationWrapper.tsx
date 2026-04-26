@@ -4,6 +4,7 @@ import { FolderOpen, Users, User, Calendar, LogOut, Settings, Bell, HelpCircle, 
 import { toast } from 'sonner';
 
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import BottomNav from './BottomNav';
@@ -118,6 +119,7 @@ const SidebarContent = ({ user, menuItems, location, handleNavigate, signOut, st
 const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
   const [open, setOpen] = useState(false);
   const [tutorialRun, setTutorialRun] = useState(false);
+  const [downloadDialogOpen, setDownloadDialogOpen] = useState(false);
   const [desktopSidebarOpen, setDesktopSidebarOpen] = useState<boolean>(() => {
     if (typeof window === 'undefined') return true;
     const saved = localStorage.getItem('adonai_sidebar_open');
@@ -215,6 +217,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
       </main>
 
       <BottomNav />
+      <BottomNavMenuTrigger setOpen={setOpen} />
       
       {/* Desktop-only floating window promo
           - Desktop browser: actually downloads the .exe
@@ -232,19 +235,60 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
             <span className="text-xs font-bold tracking-tight">Descargar App</span>
           </Button>
           
-          {/* Mobile: informational chip — does NOT download */}
+          {/* Mobile: download chip → opens informative dialog */}
           <button
-            onClick={() => toast.info('La ventana flotante solo está disponible en la app de escritorio para Windows. Descárgala desde tu ordenador.', { duration: 4000 })}
+            onClick={() => setDownloadDialogOpen(true)}
             className="md:hidden flex items-center gap-1.5 bg-card border border-border text-foreground h-10 px-3 rounded-xl shadow-sm active:scale-95 transition-transform"
-            aria-label="Ventana flotante solo disponible en escritorio"
+            aria-label="Descargar app de escritorio"
           >
-            <Monitor className="w-4 h-4 text-on-surface-variant" />
-            <span className="text-[11px] font-bold tracking-tight">Solo escritorio</span>
+            <Download className="w-4 h-4 text-on-surface-variant" />
+            <span className="text-[11px] font-bold tracking-tight">Descarga app</span>
           </button>
         </div>
       )}
+
+      <Dialog open={downloadDialogOpen} onOpenChange={setDownloadDialogOpen}>
+        <DialogContent className="max-w-[90vw] sm:max-w-md rounded-3xl">
+          <DialogHeader>
+            <div className="w-14 h-14 rounded-2xl bg-primary/15 flex items-center justify-center mx-auto mb-2">
+              <Monitor className="w-7 h-7 text-primary" />
+            </div>
+            <DialogTitle className="text-center text-xl font-black tracking-tight">
+              Descarga la app de escritorio
+            </DialogTitle>
+            <DialogDescription className="text-center text-sm leading-relaxed pt-2">
+              Para usar la <strong className="text-foreground">pestaña flotante</strong> necesitas la app de escritorio.
+              Estará siempre presente en tu computadora para ver y crear tareas al instante.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="bg-surface-container-low rounded-2xl p-4 text-sm space-y-2">
+            <p className="font-bold text-foreground">Cómo descargarla:</p>
+            <ol className="space-y-1.5 text-on-surface-variant list-decimal list-inside">
+              <li>Abre esta misma web en tu computadora.</li>
+              <li>Arriba a la derecha verás el botón <strong className="text-foreground">Descargar App</strong>.</li>
+              <li>Instálala y activa la pestaña flotante desde la app.</li>
+            </ol>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setDownloadDialogOpen(false)} className="w-full rounded-xl font-bold">
+              Entendido
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
+};
+
+// Wires the BottomNav "Menú" button to open the mobile sidebar Sheet.
+// Implemented as a sibling effect-less component to avoid prop drilling refactor.
+const BottomNavMenuTrigger = ({ setOpen }: { setOpen: (v: boolean) => void }) => {
+  useEffect(() => {
+    const handler = () => setOpen(true);
+    window.addEventListener('open-mobile-menu', handler);
+    return () => window.removeEventListener('open-mobile-menu', handler);
+  }, [setOpen]);
+  return null;
 };
 
 export default NavigationWrapper;
