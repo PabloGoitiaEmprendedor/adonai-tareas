@@ -22,13 +22,22 @@ import {
   Clock,
   MapPin,
   Smile,
-  AlertCircle
+  AlertCircle,
+  Plus,
+  Trash2,
+  ExternalLink,
+  Monitor,
+  Sparkles
 } from 'lucide-react';
 import { toast } from 'sonner';
 
-type StepType = 'welcome' | 'context_work' | 'ready';
+type StepType = 'welcome' | 'context_work' | 'first_tasks' | 'ready';
 
-const steps: StepType[] = ['welcome', 'context_work', 'ready'];
+// Desktop = Electron app OR a browser window wider than the lg breakpoint.
+// We capture this once on mount; the flow shape shouldn't change mid-onboarding.
+const isDesktopEnv = (): boolean =>
+  typeof window !== 'undefined' &&
+  (!!window.electronAPI || window.innerWidth >= 1024);
 
 const OnboardingPage = () => {
   const navigate = useNavigate();
@@ -37,6 +46,12 @@ const OnboardingPage = () => {
   const { createGoal } = useGoals();
   const { updateContext } = useUserContext();
   const { isSupported, startRecording, stopRecording, isRecording, transcript } = useVoiceCapture();
+
+  // Lock the step list to the user's environment for the entire flow.
+  const [isDesktop] = useState(isDesktopEnv);
+  const steps: StepType[] = isDesktop
+    ? ['welcome', 'context_work', 'first_tasks', 'ready']
+    : ['welcome', 'context_work', 'ready'];
 
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [isFinishing, setIsFinishing] = useState(false);
@@ -67,7 +82,35 @@ const OnboardingPage = () => {
   const [workStyle, setWorkStyle] = useState('simple');
   const [preferredInput, setPreferredInput] = useState('both');
 
+  // First-tasks step (desktop only) — collected in memory, persisted on finish.
+  const [firstTaskInput, setFirstTaskInput] = useState('');
+  const [firstTasks, setFirstTasks] = useState<string[]>([]);
+  const [floatingActivated, setFloatingActivated] = useState(false);
+
   const currentStep = steps[currentStepIndex];
+
+  const addFirstTask = () => {
+    const t = firstTaskInput.trim();
+    if (!t) return;
+    setFirstTasks(prev => [...prev, t]);
+    setFirstTaskInput('');
+  };
+
+  const removeFirstTask = (idx: number) => {
+    setFirstTasks(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  const activateFloatingWindow = () => {
+    if (window.electronAPI?.toggleMiniWindow) {
+      window.electronAPI.toggleMiniWindow();
+      setFloatingActivated(true);
+      toast.success('Pestaña flotante activada. Ya puedes verla en tu escritorio.');
+    } else {
+      // Desktop browser: explain how to get the floating window.
+      setFloatingActivated(true);
+      toast.info('La pestaña flotante requiere la app de escritorio. Puedes descargarla luego desde el botón "Descargar App".');
+    }
+  };
 
   const next = () => {
     if (currentStepIndex < steps.length - 1) {
@@ -150,6 +193,25 @@ const OnboardingPage = () => {
         user_id: user.id,
         event_type: 'onboarding_completed',
       });
+
+      // 4b. Persist first tasks (desktop onboarding extra)
+      if (firstTasks.length > 0) {
+        const today = new Date().toISOString().slice(0, 10);
+        const rows = firstTasks.map((title, i) => ({
+          user_id: user.id,
+          title,
+          due_date: today,
+          source_type: 'onboarding',
+          status: 'pending',
+          sort_order: i,
+        }));
+        try {
+          await supabase.from('tasks').insert(rows);
+        } catch (err) {
+          console.error('Failed to insert onboarding tasks:', err);
+          // Non-blocking
+        }
+      }
 
       // 5. Success (Bug 4 Fix - part 2)
       localStorage.setItem('adonai_onboarding_done', 'true');
