@@ -122,10 +122,35 @@ const AuthPage = () => {
           </p>
         </div>
 
-        {/* OAuth Buttons (Google/Apple) removed temporarily until Supabase providers are configured */}
-        <p className="text-center text-xs text-on-surface-variant/60">
-          Inicia sesión de forma segura para acceder a tus tareas
-        </p>
+        <div className="space-y-3">
+          <button
+            onClick={handleGoogleSignIn}
+            disabled={googleLoading}
+            className="w-full h-14 px-5 bg-surface-container-lowest rounded-lg text-foreground font-medium flex items-center justify-center gap-3 border border-outline-variant/30 hover:bg-surface-container-low transition-all disabled:opacity-50"
+          >
+            <GoogleIcon />
+            {googleLoading ? 'Conectando...' : 'Continuar con Google'}
+          </button>
+          <button
+            onClick={handleAppleSignIn}
+            disabled={appleLoading}
+            className="w-full h-14 px-5 bg-surface-container-lowest rounded-lg text-foreground font-medium flex items-center justify-center gap-3 border border-outline-variant/30 hover:bg-surface-container-low transition-all disabled:opacity-50"
+          >
+            <svg viewBox="0 0 24 24" className="w-5 h-5 fill-current" fill="none">
+              <path d="M17.05 20.28c-.96.95-2.04 1.72-3.23 1.72-1.16 0-1.54-.7-2.82-.7-1.28 0-1.74.68-2.82.68-1.12 0-2.31-.83-3.35-1.87-2.12-2.11-3.62-5.96-3.62-8.58 0-4.14 2.69-6.33 5.25-6.33 1.34 0 2.45.83 3.19.83.73 0 2.05-.98 3.59-.98 1.83 0 3.23.95 4.1 2.21-3.56 1.48-2.98 6.55.59 8.12-.73 1.84-1.76 3.88-3.09 4.9zm-4.32-15.65c0-1.44 1.16-2.61 2.61-2.61.08 0 .16.01.23.01.07 1.43-1.07 2.76-2.52 2.76-.08 0-.16-.01-.23-.01.01-.06.01-.11.01-.15z"/>
+            </svg>
+            {appleLoading ? 'Conectando...' : 'Continuar con Apple'}
+          </button>
+        </div>
+
+        <div className="relative">
+          <div className="absolute inset-0 flex items-center">
+            <span className="w-full border-t border-outline-variant/30"></span>
+          </div>
+          <div className="relative flex justify-center text-xs uppercase">
+            <span className="bg-background px-2 text-on-surface-variant/60 tracking-widest">O con email</span>
+          </div>
+        </div>
 
         <div className="space-y-5">
           <div className="space-y-2">
