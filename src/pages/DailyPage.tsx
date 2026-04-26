@@ -160,27 +160,16 @@ const DailyPage = () => {
 
   // Toggle floating mini-window (Electron independent window)
   // - Electron desktop app: open the real floating window
-  // - Desktop browser: open the in-page mini widget
-  // - Mobile browser: show install instructions (no floating window on mobile)
+  // - Any browser (desktop or mobile): show download dialog — the floating
+  //   window is a native-only feature.
   const toggleMiniWidget = useCallback(() => {
     if (window.electronAPI) {
       window.electronAPI.toggleMiniWindow();
       setMiniWidgetOpen(prev => !prev);
       return;
     }
-    const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
-    if (isMobile) {
-      toast.info(
-        'Instala la app en tu ordenador para usar la pestaña flotante',
-        {
-          description:
-            'Abre esta misma web en tu computadora. Arriba a la derecha verás el botón “Descargar App”. Tras instalarla, podrás activar la pestaña flotante desde aquí.',
-          duration: 9000,
-        }
-      );
-      return;
-    }
-    setMiniWidgetOpen(prev => !prev);
+    // Browser (desktop or mobile): prompt to download the native app.
+    openDownloadDialog();
   }, []);
 
   // Eisenhower quadrant rank: lower = shown first
