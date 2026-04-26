@@ -7,7 +7,7 @@ import { useStreaks } from '@/hooks/useStreaks';
 import { useGlobalVoiceCapture } from '@/hooks/useGlobalVoiceCapture';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Check, Plus, GripVertical, Timer, Flame, Link as LinkIcon, ExternalLink } from 'lucide-react';
+import { Check, Plus, GripVertical, Timer, Flame, Link as LinkIcon, ExternalLink, Menu, MoreHorizontal, Settings } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { triggerTaskCelebration, triggerDailyCelebration } from '@/lib/celebrations';
@@ -264,21 +264,39 @@ const DailyPage = () => {
 
   return (
     <div className="min-h-screen bg-background text-foreground selection:bg-primary/20">
-      <div className="max-w-[430px] lg:max-w-4xl mx-auto px-6 pt-4 pb-32 space-y-8 relative">
-
-        <div className="flex flex-col items-center justify-center pt-10 pb-6 text-center">
-          <motion.div 
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex flex-col items-center leading-none"
+      <div className="max-w-[430px] lg:max-w-4xl mx-auto px-6 pt-4 pb-32 space-y-6 relative">
+        
+        {/* Header with Menu and More */}
+        <div className="flex items-center justify-between pt-2 pb-4">
+          <button 
+            onClick={() => {
+              const menuBtn = document.getElementById('global-menu-trigger');
+              if (menuBtn) menuBtn.click();
+            }}
+            className="w-10 h-10 rounded-xl bg-surface-container-high/50 flex items-center justify-center text-on-surface-variant hover:bg-surface-container-highest transition-colors"
           >
-            <span className="text-[80px] font-black tracking-tighter tabular-nums text-foreground font-headline leading-[0.8] mb-4">
-              {format(currentTime, 'h:mm a')}
+            <Menu className="w-5 h-5" />
+          </button>
+
+          <div className="flex flex-col items-center">
+            <span className="text-[44px] font-black tracking-tighter tabular-nums text-foreground font-headline leading-none">
+              {format(currentTime, 'h:mm')}
+              <span className="text-xl ml-1 text-on-surface-variant/40">{format(currentTime, 'a')}</span>
             </span>
-            <span className="text-[12px] uppercase tracking-[0.4em] font-black text-on-surface-variant/40">
+            <span className="text-[10px] uppercase tracking-[0.3em] font-black text-on-surface-variant/40 mt-1">
               {format(currentTime, "EEEE d 'de' MMMM", { locale: es })}
             </span>
-          </motion.div>
+          </div>
+
+          <button 
+            onClick={() => navigate('/profile')}
+            className="w-10 h-10 rounded-xl bg-surface-container-high/50 flex items-center justify-center text-on-surface-variant hover:bg-surface-container-highest transition-colors"
+          >
+            <MoreHorizontal className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="flex flex-col items-center justify-center">
 
           {streakCount > 0 && (
             <motion.div
@@ -328,24 +346,7 @@ const DailyPage = () => {
           </button>
         </div>
 
-        {orderedTasks.length === 0 && tasks.length > 0 && tasks.every(t => t.status === 'done') ? (
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-card p-12 rounded-[48px] text-center space-y-6 border border-outline-variant/10 shadow-xl"
-          >
-            <div className="w-24 h-24 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-6">
-              <span className="text-5xl">🏆</span>
-            </div>
-            <h2 className="text-3xl font-black text-foreground font-headline tracking-tight">¡Día Superado, {profile?.name || 'Emprendedor'}!</h2>
-            <p className="text-on-surface-variant/60 max-w-[300px] mx-auto text-lg font-medium leading-relaxed">
-              Has completado todas tus tareas de hoy. Tu enfoque y disciplina están dando resultados increíbles.
-            </p>
-            <div className="pt-6">
-               <p className="text-sm font-black uppercase tracking-[0.2em] text-foreground">¡Disfruta tu descanso!</p>
-            </div>
-          </motion.div>
-        ) : orderedTasks.length > 0 ? (
+        {orderedTasks.length > 0 ? (
           <div className="space-y-4">
             <AnimatePresence mode="popLayout">
               {orderedTasks.map((task) => {

@@ -104,98 +104,98 @@ const AuthPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col items-center justify-center px-6 selection:bg-primary/30">
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-[10%] -left-[10%] w-[40%] h-[40%] bg-primary/5 rounded-full blur-[120px]" />
-        <div className="absolute top-[40%] -right-[5%] w-[30%] h-[30%] bg-primary-container/5 rounded-full blur-[100px]" />
+    <div className="min-h-screen bg-background flex flex-col items-center justify-center px-6 selection:bg-primary/30 relative overflow-hidden">
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute -top-[10%] -left-[10%] w-[50%] h-[50%] bg-primary/10 rounded-full blur-[140px] opacity-60" />
+        <div className="absolute -bottom-[10%] -right-[10%] w-[50%] h-[50%] bg-primary/10 rounded-full blur-[140px] opacity-60" />
       </div>
 
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
+        initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
-        className="relative z-10 w-full max-w-[430px] space-y-8"
+        transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+        className="relative z-10 w-full max-w-[400px] space-y-10"
       >
-        <div className="text-center space-y-3">
-          <h1 className="text-4xl font-extrabold tracking-tighter text-foreground">Adonai</h1>
-          <p className="text-on-surface-variant text-lg">
-            {isLogin ? 'Bienvenido de vuelta' : 'Crea tu cuenta'}
+        <div className="text-center space-y-4">
+          <div className="w-20 h-20 bg-primary/15 rounded-[32px] flex items-center justify-center mx-auto mb-6 rotate-3">
+             <h1 className="text-4xl font-black text-primary">A</h1>
+          </div>
+          <h1 className="text-5xl font-black tracking-tighter text-foreground font-headline">Adonai</h1>
+          <p className="text-on-surface-variant font-medium text-lg opacity-80">
+            {isLogin ? 'Bienvenido de vuelta' : 'Crea tu cuenta gratis'}
           </p>
         </div>
 
-        <div className="space-y-3">
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              onClick={handleGoogleSignIn}
+              disabled={googleLoading}
+              className="h-16 px-4 bg-surface-container rounded-2xl text-foreground font-bold flex items-center justify-center gap-3 border border-outline-variant/10 hover:bg-surface-container-high transition-all disabled:opacity-50 active:scale-95"
+            >
+              <GoogleIcon />
+              <span className="text-sm">Google</span>
+            </button>
+            <button
+              onClick={handleAppleSignIn}
+              disabled={appleLoading}
+              className="h-16 px-4 bg-surface-container rounded-2xl text-foreground font-bold flex items-center justify-center gap-3 border border-outline-variant/10 hover:bg-surface-container-high transition-all disabled:opacity-50 active:scale-95"
+            >
+              <svg viewBox="0 0 24 24" className="w-5 h-5 fill-current" fill="none">
+                <path d="M17.05 20.28c-.96.95-2.04 1.72-3.23 1.72-1.16 0-1.54-.7-2.82-.7-1.28 0-1.74.68-2.82.68-1.12 0-2.31-.83-3.35-1.87-2.12-2.11-3.62-5.96-3.62-8.58 0-4.14 2.69-6.33 5.25-6.33 1.34 0 2.45.83 3.19.83.73 0 2.05-.98 3.59-.98 1.83 0 3.23.95 4.1 2.21-3.56 1.48-2.98 6.55.59 8.12-.73 1.84-1.76 3.88-3.09 4.9zm-4.32-15.65c0-1.44 1.16-2.61 2.61-2.61.08 0 .16.01.23.01.07 1.43-1.07 2.76-2.52 2.76-.08 0-.16-.01-.23-.01.01-.06.01-.11.01-.15z"/>
+              </svg>
+              <span className="text-sm">Apple</span>
+            </button>
+          </div>
+
+          <div className="relative py-4">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t border-outline-variant/10"></span>
+            </div>
+            <div className="relative flex justify-center text-[10px] uppercase tracking-widest font-black">
+              <span className="bg-background px-4 text-on-surface-variant/40">O usa tu email</span>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Email"
+                className="w-full h-16 px-6 bg-surface-container rounded-2xl text-foreground font-semibold placeholder:text-on-surface-variant/30 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all border-none"
+              />
+            </div>
+            <div className="space-y-2">
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Contraseña"
+                className="w-full h-16 px-6 bg-surface-container rounded-2xl text-foreground font-semibold placeholder:text-on-surface-variant/30 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all border-none"
+              />
+            </div>
+          </div>
+
           <button
-            onClick={handleGoogleSignIn}
-            disabled={googleLoading}
-            className="w-full h-14 px-5 bg-surface-container-lowest rounded-lg text-foreground font-medium flex items-center justify-center gap-3 border border-outline-variant/30 hover:bg-surface-container-low transition-all disabled:opacity-50"
+            onClick={handleSubmit}
+            disabled={loading}
+            className="w-full h-16 rounded-[24px] bg-primary text-black font-black text-lg flex items-center justify-center gap-3 shadow-xl shadow-primary/20 hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-50"
           >
-            <GoogleIcon />
-            {googleLoading ? 'Conectando...' : 'Continuar con Google'}
+            {loading ? 'Entrando...' : isLogin ? 'Entrar ahora' : 'Crear mi cuenta'}
           </button>
-          <button
-            onClick={handleAppleSignIn}
-            disabled={appleLoading}
-            className="w-full h-14 px-5 bg-surface-container-lowest rounded-lg text-foreground font-medium flex items-center justify-center gap-3 border border-outline-variant/30 hover:bg-surface-container-low transition-all disabled:opacity-50"
-          >
-            <svg viewBox="0 0 24 24" className="w-5 h-5 fill-current" fill="none">
-              <path d="M17.05 20.28c-.96.95-2.04 1.72-3.23 1.72-1.16 0-1.54-.7-2.82-.7-1.28 0-1.74.68-2.82.68-1.12 0-2.31-.83-3.35-1.87-2.12-2.11-3.62-5.96-3.62-8.58 0-4.14 2.69-6.33 5.25-6.33 1.34 0 2.45.83 3.19.83.73 0 2.05-.98 3.59-.98 1.83 0 3.23.95 4.1 2.21-3.56 1.48-2.98 6.55.59 8.12-.73 1.84-1.76 3.88-3.09 4.9zm-4.32-15.65c0-1.44 1.16-2.61 2.61-2.61.08 0 .16.01.23.01.07 1.43-1.07 2.76-2.52 2.76-.08 0-.16-.01-.23-.01.01-.06.01-.11.01-.15z"/>
-            </svg>
-            {appleLoading ? 'Conectando...' : 'Continuar con Apple'}
-          </button>
+
+          <p className="text-center text-on-surface-variant/60 text-sm font-medium">
+            {isLogin ? '¿Nuevo por aquí?' : '¿Ya tienes cuenta?'}{' '}
+            <button
+              onClick={() => setIsLogin(!isLogin)}
+              className="text-primary font-bold hover:underline ml-1"
+            >
+              {isLogin ? 'Regístrate gratis' : 'Inicia sesión'}
+            </button>
+          </p>
         </div>
-
-        <div className="relative">
-          <div className="absolute inset-0 flex items-center">
-            <span className="w-full border-t border-outline-variant/30"></span>
-          </div>
-          <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-background px-2 text-on-surface-variant/60 tracking-widest">O con email</span>
-          </div>
-        </div>
-
-        <div className="space-y-5">
-          <div className="space-y-2">
-            <label className="block text-xs uppercase tracking-[0.2em] font-bold text-on-surface-variant ml-1">
-              Email
-            </label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="tu@email.com"
-              className="w-full h-14 px-5 bg-surface-container-lowest rounded-lg text-foreground placeholder:text-on-surface-variant/40 focus:outline-none focus:ring-1 focus:ring-primary/20 transition-all border-none"
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="block text-xs uppercase tracking-[0.2em] font-bold text-on-surface-variant ml-1">
-              Contraseña
-            </label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              className="w-full h-14 px-5 bg-surface-container-lowest rounded-lg text-foreground placeholder:text-on-surface-variant/40 focus:outline-none focus:ring-1 focus:ring-primary/20 transition-all border-none"
-            />
-          </div>
-        </div>
-
-        <button
-          onClick={handleSubmit}
-          disabled={loading}
-          className="primary-gradient w-full h-14 rounded-lg text-primary-foreground font-bold text-lg flex items-center justify-center gap-2 hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-50"
-        >
-          {loading ? 'Cargando...' : isLogin ? 'Entrar' : 'Crear cuenta'}
-        </button>
-
-        <p className="text-center text-on-surface-variant text-sm">
-          {isLogin ? '¿No tienes cuenta?' : '¿Ya tienes cuenta?'}{' '}
-          <button
-            onClick={() => setIsLogin(!isLogin)}
-            className="text-primary font-semibold hover:underline"
-          >
-            {isLogin ? 'Regístrate' : 'Inicia sesión'}
-          </button>
-        </p>
       </motion.div>
     </div>
   );

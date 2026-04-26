@@ -426,61 +426,63 @@ Tu trabajo es:`;
 
                 <AnimatePresence mode="wait">
                   {phase === 'select' && (
-                    <motion.div key="select" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="w-full flex flex-col gap-6 pb-2">
-                      <div className="text-left space-y-1">
-                        <h2 className="text-2xl font-black text-foreground tracking-tight">Nueva tarea</h2>
-                        <p className="text-sm text-on-surface-variant">Elige cómo quieres añadirla.</p>
+                    <motion.div 
+                      key="select" 
+                      initial={{ opacity: 0, scale: 0.95 }} 
+                      animate={{ opacity: 1, scale: 1 }} 
+                      exit={{ opacity: 0, scale: 0.95 }} 
+                      className="w-full flex flex-col items-center gap-8 pb-4"
+                    >
+                      <div className="text-center space-y-2">
+                        <h2 className="text-2xl font-black text-foreground tracking-tight">Añadir Tarea</h2>
+                        <p className="text-sm font-medium text-on-surface-variant/60">¿Cómo prefieres crearla?</p>
                       </div>
 
-                      <div className="flex flex-col gap-2.5">
+                      <div className="grid grid-cols-3 gap-4 w-full">
+                        {/* WRITING BUTTON */}
                         <button
-                          id="tutorial-write-button"
                           onClick={() => { setPhase('input'); setShowTextInput(true); setSourceType('text'); }}
-                          className="group flex items-center gap-4 p-4 rounded-2xl bg-surface-container hover:bg-surface-container-high transition-all text-left active:scale-[0.99]"
+                          className="group flex flex-col items-center gap-3 p-4 rounded-[32px] hover:bg-surface-container transition-all active:scale-[0.96]"
                         >
-                          <div className="w-11 h-11 rounded-2xl bg-foreground flex items-center justify-center flex-shrink-0">
-                            <Type className="w-5 h-5 text-background" strokeWidth={2.5} />
+                          <div className="w-16 h-16 rounded-[22px] bg-surface-container-high flex items-center justify-center transition-colors group-hover:bg-primary/20">
+                            <Type className="w-7 h-7 text-primary" strokeWidth={2.5} />
                           </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-bold text-foreground">Escribir</p>
-                            <p className="text-xs text-on-surface-variant truncate">Teclea el título y los detalles</p>
-                          </div>
-                          <ArrowRight className="w-4 h-4 text-on-surface-variant group-hover:translate-x-0.5 transition-transform" />
+                          <span className="text-xs font-black uppercase tracking-widest text-on-surface-variant group-hover:text-foreground">Escribir</span>
                         </button>
 
+                        {/* VOICE BUTTON */}
                         <button
-                          id="tutorial-voice-button"
                           onClick={() => { setPhase('input'); beginVoiceCapture(); }}
-                          className="group relative flex items-center gap-4 p-4 rounded-2xl bg-primary text-primary-foreground hover:opacity-95 transition-all text-left active:scale-[0.99] shadow-md shadow-primary/20"
+                          className="group flex flex-col items-center gap-3 p-4 rounded-[32px] hover:bg-surface-container transition-all active:scale-[0.96]"
                         >
-                          <div className="w-11 h-11 rounded-2xl bg-primary-foreground/15 flex items-center justify-center flex-shrink-0">
-                            <Mic className="w-5 h-5 text-primary-foreground" strokeWidth={2.5} />
+                          <div className="w-16 h-16 rounded-[22px] bg-primary/10 flex items-center justify-center transition-colors group-hover:bg-primary/20">
+                            <Mic className="w-7 h-7 text-primary" strokeWidth={2.5} />
                           </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <p className="text-sm font-bold text-primary-foreground">Dictar por voz</p>
-                              <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-primary-foreground/20 text-primary-foreground">Rápido</span>
-                            </div>
-                            <p className="text-xs text-primary-foreground/80 truncate">Di lo que tienes que hacer</p>
-                          </div>
-                          <ArrowRight className="w-4 h-4 text-primary-foreground group-hover:translate-x-0.5 transition-transform" />
+                          <span className="text-xs font-black uppercase tracking-widest text-on-surface-variant group-hover:text-foreground">Voz</span>
                         </button>
 
+                        {/* PHOTO BUTTON */}
                         <button
-                          id="tutorial-photo-button"
                           onClick={() => fileInputRef.current?.click()}
-                          className="group flex items-center gap-4 p-4 rounded-2xl bg-surface-container hover:bg-surface-container-high transition-all text-left active:scale-[0.99]"
+                          className="group flex flex-col items-center gap-3 p-4 rounded-[32px] hover:bg-surface-container transition-all active:scale-[0.96]"
                         >
-                          <div className="w-11 h-11 rounded-2xl bg-foreground flex items-center justify-center flex-shrink-0">
-                            <Camera className="w-5 h-5 text-background" strokeWidth={2.5} />
+                          <div className="w-16 h-16 rounded-[22px] bg-surface-container-high flex items-center justify-center transition-colors group-hover:bg-primary/20">
+                            <Camera className="w-7 h-7 text-primary" strokeWidth={2.5} />
                           </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-bold text-foreground">Tomar foto</p>
-                            <p className="text-xs text-on-surface-variant truncate">Extrae tareas desde una imagen</p>
-                          </div>
-                          <ArrowRight className="w-4 h-4 text-on-surface-variant group-hover:translate-x-0.5 transition-transform" />
+                          <span className="text-xs font-black uppercase tracking-widest text-on-surface-variant group-hover:text-foreground">Foto</span>
                         </button>
                       </div>
+
+                      <input
+                        type="file"
+                        ref={fileInputRef}
+                        className="hidden"
+                        accept="image/*"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) handleImageSelected(file);
+                        }}
+                      />
                     </motion.div>
                   )}
 
@@ -503,6 +505,7 @@ Tu trabajo es:`;
                           <div className="w-full text-center min-h-[40px]">
                             <label className="block text-[10px] uppercase tracking-widest font-bold text-on-surface-variant/40 mb-1">Título</label>
                             <input 
+                              id="capture-title-input"
                               autoFocus 
                               value={title} 
                               onChange={(e) => setTitle(e.target.value)}
@@ -510,10 +513,10 @@ Tu trabajo es:`;
                               className="w-full text-xl text-center bg-transparent text-foreground placeholder:text-on-surface-variant/40 focus:outline-none border-none font-bold"
                               onKeyDown={(e) => { 
                                 if (e.key === 'Enter') {
-                                  // If no description, save immediately. If there is description, maybe move focus?
-                                  // For now, let's follow user: if no description, save.
                                   if (!description.trim()) {
                                     handleTitleDone();
+                                  } else {
+                                    document.getElementById('capture-description-input')?.focus();
                                   }
                                 } 
                               }} 
@@ -523,6 +526,7 @@ Tu trabajo es:`;
                           <div className="w-full text-center">
                             <label className="block text-[10px] uppercase tracking-widest font-bold text-on-surface-variant/40 mb-1">Descripción</label>
                             <AutoTextarea
+                              id="capture-description-input"
                               value={description} 
                               onChange={(e) => setDescription(e.target.value)}
                               placeholder="Añade detalles si lo necesitas..."

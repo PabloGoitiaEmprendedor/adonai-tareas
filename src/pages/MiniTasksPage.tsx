@@ -86,22 +86,29 @@ const TaskRowRaw = ({ task, onToggle, onDetail, activeTimerId, onTimerToggle }: 
   return (
     <motion.div layout initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.95 }} style={{ marginBottom: 4 }}>
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: 10, padding: '10px',
-        borderRadius: 12, cursor: 'pointer',
-        background: isDone ? 'transparent' : isTimerActive ? 'rgba(163,230,53,0.06)' : C.taskBg,
-        border: `1px solid ${isDone ? 'transparent' : isTimerActive ? 'rgba(163,230,53,0.15)' : C.taskBorder}`,
-        opacity: isDone ? 0.45 : 1,
-      }}>
-        <div onClick={() => onToggle(task)} style={{
-          width: 26, height: 26, borderRadius: 8, flexShrink: 0,
-          background: isDone ? C.accent : 'transparent',
-          border: `2px solid ${isDone ? C.accent : 'rgba(255,255,255,0.22)'}`,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}>
+      <div 
+        onClick={() => onDetail(task)}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 10, padding: '10px',
+          borderRadius: 12, cursor: 'pointer',
+          background: isDone ? 'transparent' : isTimerActive ? 'rgba(163,230,53,0.06)' : C.taskBg,
+          border: `1px solid ${isDone ? 'transparent' : isTimerActive ? 'rgba(163,230,53,0.15)' : C.taskBorder}`,
+          opacity: isDone ? 0.45 : 1,
+        }}
+      >
+        <div 
+          onClick={(e) => { e.stopPropagation(); onToggle(task); }} 
+          style={{
+            width: 26, height: 26, borderRadius: 8, flexShrink: 0,
+            background: isDone ? C.accent : 'transparent',
+            border: `2px solid ${isDone ? C.accent : 'rgba(255,255,255,0.22)'}`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}
+        >
           {isDone && <Check style={{ width: 13, height: 13, color: '#000', strokeWidth: 3 }} />}
         </div>
-        <span onClick={() => onDetail(task)} style={{
+        
+        <span style={{
           flex: 1, fontSize: 13, fontWeight: 600, lineHeight: 1.3,
           color: isDone ? C.muted : C.text,
           textDecoration: isDone ? 'line-through' : 'none',
@@ -110,7 +117,7 @@ const TaskRowRaw = ({ task, onToggle, onDetail, activeTimerId, onTimerToggle }: 
         {/* Timer button */}
         {!isDone && (
           <div
-            onClick={() => onTimerToggle(task.id, task.estimated_minutes)}
+            onClick={(e) => { e.stopPropagation(); onTimerToggle(task.id, task.estimated_minutes); }}
             style={{
               width: 24, height: 24, borderRadius: 6, flexShrink: 0,
               background: isTimerActive ? 'rgba(163,230,53,0.15)' : 'transparent',
@@ -127,11 +134,14 @@ const TaskRowRaw = ({ task, onToggle, onDetail, activeTimerId, onTimerToggle }: 
         )}
 
         {hasSubtasks && (
-          <div onClick={() => setOpen(o => !o)} style={{
-            display: 'flex', alignItems: 'center', gap: 3,
-            padding: '2px 6px', borderRadius: 6,
-            background: C.accentBg, cursor: 'pointer', flexShrink: 0,
-          }}>
+          <div 
+            onClick={(e) => { e.stopPropagation(); setOpen(o => !o); }} 
+            style={{
+              display: 'flex', alignItems: 'center', gap: 3,
+              padding: '2px 6px', borderRadius: 6,
+              background: C.accentBg, cursor: 'pointer', flexShrink: 0,
+            }}
+          >
             <span style={{ fontSize: 10, fontWeight: 700, color: C.accent }}>{doneSubCount}/{subtasks.length}</span>
             <ChevronRight style={{
               width: 11, height: 11, color: C.accent,

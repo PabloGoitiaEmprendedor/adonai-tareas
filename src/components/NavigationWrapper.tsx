@@ -164,6 +164,11 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
 
   return (
     <div className="min-h-screen bg-background">
+      {window.electronAPI && (
+        <div className="fixed top-0 left-0 right-0 h-8 drag z-[100] pointer-events-none">
+          <div className="h-full w-full no-drag" />
+        </div>
+      )}
       <AppTutorial run={tutorialRun} onFinish={() => setTutorialRun(false)} />
       
       <Sheet open={open} onOpenChange={setOpen}>
@@ -186,6 +191,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
           - Desktop: only when the desktop sidebar is collapsed */}
       {!open && (
         <button
+          id="global-menu-trigger"
           onClick={() => {
             if (window.innerWidth < 1024) {
               setOpen(true);
@@ -196,7 +202,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
           aria-label="Mostrar menú"
           className={`fixed top-4 left-4 z-40 w-10 h-10 flex items-center justify-center rounded-xl bg-surface-container-high/80 backdrop-blur-md border border-outline-variant/20 text-foreground shadow-sm transition-all active:scale-90 hover:bg-surface-container-highest ${
             desktopSidebarOpen ? 'lg:hidden' : ''
-          }`}
+          } ${location.pathname === '/' ? 'hidden' : ''}`}
         >
           <Menu className="w-5 h-5" />
         </button>
