@@ -277,11 +277,6 @@ const OnboardingPage = () => {
               </div>
             )}
 
-                  </button>
-                </div>
-              </div>
-            )}
-
             {/* STEP: READY */}
             {currentStep === 'ready' && (
               <div className="text-center space-y-10">

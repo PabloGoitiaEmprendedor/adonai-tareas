@@ -501,11 +501,11 @@ Tu trabajo es:`;
                             />
                           </div>
 
-                          {goals.filter(g => g.status === 'in_progress').length > 0 && (
+                          {goals.filter(g => g.active).length > 0 && (
                             <div className="w-full space-y-2">
                               <label className="block text-[10px] uppercase tracking-widest font-bold text-on-surface-variant/40 text-center">Meta</label>
                               <div className="flex flex-wrap justify-center gap-2">
-                                {goals.filter(g => g.status === 'in_progress').map((goal) => (
+                                {goals.filter(g => g.active).map((goal) => (
                                   <button 
                                     key={goal.id} 
                                     onClick={() => setSelectedGoalId(goal.id === selectedGoalId ? null : goal.id)}
@@ -602,7 +602,7 @@ Tu trabajo es:`;
                       </div>
 
                       {/* Goal picker — optional */}
-                      {goals.filter(g => g.status === 'in_progress').length > 0 && (
+                      {goals.filter(g => g.active).length > 0 && (
                         <div className="space-y-2">
                           <p className="text-[11px] font-black uppercase tracking-widest text-on-surface-variant text-center">Meta</p>
                           <div className="flex flex-wrap gap-2 justify-center max-h-[120px] overflow-y-auto">
@@ -612,7 +612,7 @@ Tu trabajo es:`;
                             >
                               Ninguna
                             </button>
-                            {goals.filter(g => g.status === 'in_progress').map(g => (
+                            {goals.filter(g => g.active).map(g => (
                               <button
                                 key={g.id}
                                 onClick={() => setSelectedGoalId(g.id)}
