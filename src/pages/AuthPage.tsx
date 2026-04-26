@@ -36,8 +36,13 @@ const AuthPage = () => {
         await signIn(email, password);
         navigate('/');
       } else {
-        await signUp(email, password);
-        toast.success('Cuenta creada. Revisa tu correo para confirmar.');
+        const { data } = await signUp(email, password);
+        if (data?.session) {
+          toast.success('Cuenta creada exitosamente');
+          navigate('/');
+        } else {
+          toast.success('Cuenta creada. Revisa tu correo para confirmar.');
+        }
       }
     } catch (err: any) {
       toast.error(err.message || 'Error de autenticación');
