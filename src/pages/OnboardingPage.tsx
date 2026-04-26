@@ -339,6 +339,88 @@ const OnboardingPage = () => {
               </div>
             )}
 
+            {/* STEP: FIRST TASKS — desktop only */}
+            {currentStep === 'first_tasks' && (
+              <div className="space-y-8">
+                <div className="space-y-2 text-center">
+                  <div className="w-16 h-16 mx-auto rounded-2xl bg-primary/15 flex items-center justify-center mb-2">
+                    <Sparkles className="w-8 h-8 text-primary" />
+                  </div>
+                  <h2 className="text-3xl font-extrabold tracking-tight text-foreground">Empieza con tus primeras tareas</h2>
+                  <p className="text-on-surface-variant">Añade una o varias tareas que quieras hacer hoy. Aparecerán en tu agenda al entrar.</p>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="flex gap-2">
+                    <input
+                      value={firstTaskInput}
+                      onChange={(e) => setFirstTaskInput(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addFirstTask(); } }}
+                      placeholder="Ej: Llamar al cliente"
+                      className="flex-1 bg-surface-container-low rounded-xl px-4 h-12 outline-none focus:ring-2 focus:ring-primary/20 text-base border border-transparent focus:border-primary/30"
+                    />
+                    <button
+                      onClick={addFirstTask}
+                      disabled={!firstTaskInput.trim()}
+                      className="h-12 px-4 rounded-xl bg-primary text-primary-foreground font-bold flex items-center gap-1 disabled:opacity-30"
+                    >
+                      <Plus className="w-4 h-4" /> Añadir
+                    </button>
+                  </div>
+
+                  {firstTasks.length > 0 && (
+                    <ul className="space-y-2">
+                      {firstTasks.map((t, i) => (
+                        <li key={i} className="flex items-center gap-3 p-3 rounded-xl bg-surface-container-low">
+                          <Check className="w-4 h-4 text-primary flex-shrink-0" />
+                          <span className="flex-1 text-sm font-semibold text-foreground truncate">{t}</span>
+                          <button onClick={() => removeFirstTask(i)} className="text-on-surface-variant hover:text-error">
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+
+                {/* Floating window activation */}
+                <div className="rounded-2xl border-2 border-dashed border-outline-variant p-5 space-y-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-primary/15 flex items-center justify-center">
+                      <Monitor className="w-5 h-5 text-primary" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-bold text-foreground">Pestaña flotante</p>
+                      <p className="text-xs text-on-surface-variant">Tus tareas siempre visibles en tu escritorio.</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={activateFloatingWindow}
+                    className={`w-full h-12 rounded-xl font-bold flex items-center justify-center gap-2 transition-all ${
+                      floatingActivated
+                        ? 'bg-primary/15 text-primary border-2 border-primary/30'
+                        : 'bg-foreground text-background hover:opacity-90'
+                    }`}
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                    {floatingActivated ? 'Activada' : 'Activar pestaña flotante'}
+                  </button>
+                </div>
+
+                <div className="flex gap-4 pt-2">
+                  <button onClick={back} className="px-6 h-16 bg-surface-container-low text-on-surface-variant rounded-2xl font-bold flex items-center justify-center">
+                    Atrás
+                  </button>
+                  <button
+                    onClick={next}
+                    className="flex-1 h-16 bg-primary text-primary-foreground rounded-2xl font-bold text-lg flex items-center justify-center gap-2 transition-all shadow-lg shadow-primary/20"
+                  >
+                    {firstTasks.length === 0 ? 'Saltar' : 'Siguiente'} <ArrowRight className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* STEP: READY */}
             {currentStep === 'ready' && (
               <div className="text-center space-y-10">
