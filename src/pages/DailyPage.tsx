@@ -324,10 +324,10 @@ const DailyPage = () => {
         <div className="pt-2 space-y-3">
           <GamificationBar />
 
-          {/* Mini Widget toggle — dark solid style to match the time */}
+          {/* Mini Widget toggle — desktop only (hidden on mobile) */}
           <button
             onClick={toggleMiniWidget}
-            className={`w-full flex items-center justify-center gap-3 px-5 py-4 rounded-[20px] transition-all duration-300 font-black tracking-tight text-base shadow-lg hover:shadow-xl active:scale-[0.98] ${
+            className={`hidden md:flex w-full items-center justify-center gap-3 px-5 py-4 rounded-[20px] transition-all duration-300 font-black tracking-tight text-base shadow-lg hover:shadow-xl active:scale-[0.98] ${
               miniWidgetOpen
                 ? 'bg-primary text-primary-foreground border-2 border-primary ring-4 ring-primary/20'
                 : 'bg-foreground text-background border-2 border-foreground hover:opacity-90'
@@ -338,38 +338,24 @@ const DailyPage = () => {
           </button>
         </div>
 
-        {orderedTasks.length === 0 ? (
+        {orderedTasks.length === 0 && tasks.length > 0 && tasks.every(t => t.status === 'done') ? (
           <motion.div 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             className="bg-card p-12 rounded-[48px] text-center space-y-6 border border-outline-variant/10 shadow-xl"
           >
-            {tasks.length > 0 && tasks.every(t => t.status === 'done') ? (
-              <>
-                <div className="w-24 h-24 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <span className="text-5xl">🏆</span>
-                </div>
-                <h2 className="text-3xl font-black text-foreground font-headline tracking-tight">¡Día Superado, {profile?.name || 'Emprendedor'}!</h2>
-                <p className="text-on-surface-variant/60 max-w-[300px] mx-auto text-lg font-medium leading-relaxed">
-                  Has completado todas tus tareas de hoy. Tu enfoque y disciplina están dando resultados increíbles.
-                </p>
-                <div className="pt-6">
-                   <p className="text-sm font-black uppercase tracking-[0.2em] text-foreground">¡Disfruta tu descanso!</p>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="w-20 h-20 bg-surface-container-high rounded-[32px] flex items-center justify-center mx-auto opacity-60 rotate-3">
-                  <Plus className="w-10 h-10 text-primary" />
-                </div>
-                <p className="text-on-surface-variant/60 text-xl font-bold font-headline">Tu día está despejado. ¿Qué quieres lograr hoy?</p>
-                <button onClick={openCapture} className="inline-flex items-center gap-3 px-8 py-4 rounded-[24px] bg-primary text-primary-foreground text-base font-black shadow-xl hover:shadow-2xl transition-all active:scale-95">
-                  <Plus className="w-5 h-5" /> Empezar a planificar
-                </button>
-              </>
-            )}
+            <div className="w-24 h-24 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-6">
+              <span className="text-5xl">🏆</span>
+            </div>
+            <h2 className="text-3xl font-black text-foreground font-headline tracking-tight">¡Día Superado, {profile?.name || 'Emprendedor'}!</h2>
+            <p className="text-on-surface-variant/60 max-w-[300px] mx-auto text-lg font-medium leading-relaxed">
+              Has completado todas tus tareas de hoy. Tu enfoque y disciplina están dando resultados increíbles.
+            </p>
+            <div className="pt-6">
+               <p className="text-sm font-black uppercase tracking-[0.2em] text-foreground">¡Disfruta tu descanso!</p>
+            </div>
           </motion.div>
-        ) : (
+        ) : orderedTasks.length > 0 ? (
           <div className="space-y-4">
             <AnimatePresence mode="popLayout">
               {orderedTasks.map((task) => {
@@ -400,7 +386,7 @@ const DailyPage = () => {
               })}
             </AnimatePresence>
           </div>
-        )}
+        ) : null}
 
         <form
           onSubmit={handleQuickAdd}
