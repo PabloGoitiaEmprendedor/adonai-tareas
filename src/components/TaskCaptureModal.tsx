@@ -1,6 +1,7 @@
 import { useState, useEffect, forwardRef, useImperativeHandle, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mic, X, Square, Camera, Type, Check } from 'lucide-react';
+import { Mic, X, Square, Camera, Type, Check, ArrowRight } from 'lucide-react';
+import { AutoTextarea } from '@/components/ui/auto-textarea';
 import { useVoiceCapture } from '@/hooks/useVoiceCapture';
 import { parseVoiceTranscript } from '@/hooks/useVoiceParser';
 import { useTasks } from '@/hooks/useTasks';
@@ -421,35 +422,56 @@ Tu trabajo es:`;
 
                 <AnimatePresence mode="wait">
                   {phase === 'select' && (
-                    <motion.div key="select" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="w-full flex flex-col items-center gap-6 pb-2">
-                      <div className="text-center space-y-1">
-                        <h2 className="text-xl font-bold text-foreground">Añadir Tarea</h2>
-                        <p className="text-sm text-on-surface-variant">¿Cómo prefieres crearla?</p>
+                    <motion.div key="select" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="w-full flex flex-col gap-6 pb-2">
+                      <div className="text-left space-y-1">
+                        <h2 className="text-2xl font-black text-foreground tracking-tight">Nueva tarea</h2>
+                        <p className="text-sm text-on-surface-variant">Elige cómo quieres añadirla.</p>
                       </div>
-                      
-                      <div className="grid grid-cols-3 gap-3 w-full">
-                        <button id="tutorial-write-button" onClick={() => { setPhase('input'); setShowTextInput(true); setSourceType('text'); }} 
-                          className="flex flex-col items-center justify-center gap-3 p-4 bg-surface-container-high rounded-2xl hover:bg-surface-container-highest transition-colors">
-                          <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-                            <Type className="w-6 h-6 text-primary" />
+
+                      <div className="flex flex-col gap-2">
+                        <button
+                          id="tutorial-write-button"
+                          onClick={() => { setPhase('input'); setShowTextInput(true); setSourceType('text'); }}
+                          className="group flex items-center gap-4 p-4 rounded-2xl bg-surface-container-low hover:bg-surface-container-high border border-outline-variant/40 hover:border-primary/40 transition-all text-left"
+                        >
+                          <div className="w-11 h-11 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                            <Type className="w-5 h-5 text-primary" />
                           </div>
-                          <span className="text-xs font-bold text-foreground">Escribir</span>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-bold text-foreground">Escribir</p>
+                            <p className="text-[11px] text-on-surface-variant truncate">Teclea el título y los detalles</p>
+                          </div>
+                          <ArrowRight className="w-4 h-4 text-on-surface-variant/50 group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
                         </button>
-                        
-                        <button id="tutorial-voice-button" onClick={() => { setPhase('input'); beginVoiceCapture(); }}
-                          className="flex flex-col items-center justify-center gap-3 p-4 bg-surface-container-high rounded-2xl hover:bg-surface-container-highest transition-colors">
-                          <div className="w-12 h-12 rounded-full primary-gradient flex items-center justify-center shadow-lg shadow-primary/20">
-                            <Mic className="w-6 h-6 text-primary-foreground" />
+
+                        <button
+                          id="tutorial-voice-button"
+                          onClick={() => { setPhase('input'); beginVoiceCapture(); }}
+                          className="group flex items-center gap-4 p-4 rounded-2xl bg-primary/5 hover:bg-primary/10 border border-primary/30 transition-all text-left"
+                        >
+                          <div className="w-11 h-11 rounded-full primary-gradient flex items-center justify-center shadow-md shadow-primary/30 flex-shrink-0">
+                            <Mic className="w-5 h-5 text-primary-foreground" />
                           </div>
-                          <span className="text-xs font-bold text-foreground">Voz</span>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-bold text-foreground">Dictar por voz</p>
+                            <p className="text-[11px] text-on-surface-variant truncate">Más rápido — di lo que tienes que hacer</p>
+                          </div>
+                          <ArrowRight className="w-4 h-4 text-primary group-hover:translate-x-0.5 transition-transform" />
                         </button>
-                        
-                        <button id="tutorial-photo-button" onClick={() => fileInputRef.current?.click()}
-                          className="flex flex-col items-center justify-center gap-3 p-4 bg-surface-container-high rounded-2xl hover:bg-surface-container-highest transition-colors">
-                          <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-                            <Camera className="w-6 h-6 text-primary" />
+
+                        <button
+                          id="tutorial-photo-button"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="group flex items-center gap-4 p-4 rounded-2xl bg-surface-container-low hover:bg-surface-container-high border border-outline-variant/40 hover:border-primary/40 transition-all text-left"
+                        >
+                          <div className="w-11 h-11 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                            <Camera className="w-5 h-5 text-primary" />
                           </div>
-                          <span className="text-xs font-bold text-foreground">Foto</span>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-bold text-foreground">Tomar foto</p>
+                            <p className="text-[11px] text-on-surface-variant truncate">Extrae tareas desde una imagen</p>
+                          </div>
+                          <ArrowRight className="w-4 h-4 text-on-surface-variant/50 group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
                         </button>
                       </div>
                     </motion.div>
@@ -493,11 +515,11 @@ Tu trabajo es:`;
 
                           <div className="w-full text-center">
                             <label className="block text-[10px] uppercase tracking-widest font-bold text-on-surface-variant/40 mb-1">Descripción</label>
-                            <textarea 
+                            <AutoTextarea
                               value={description} 
                               onChange={(e) => setDescription(e.target.value)}
                               placeholder="Añade detalles si lo necesitas..."
-                              className="w-full text-sm text-center bg-surface-container-high/50 rounded-xl p-3 text-foreground placeholder:text-on-surface-variant/40 focus:outline-none border-none resize-none min-h-[80px]"
+                              className="w-full text-sm text-center bg-surface-container-high/50 rounded-xl p-3 text-foreground placeholder:text-on-surface-variant/40 focus:outline-none border-none min-h-[64px] max-h-[40vh] overflow-y-auto"
                             />
                           </div>
 
