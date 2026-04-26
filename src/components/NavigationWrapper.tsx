@@ -216,8 +216,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
         </div>
       </main>
 
-      <BottomNav />
-      <BottomNavMenuTrigger setOpen={setOpen} />
+      <BottomNav onOpenMenu={() => setOpen(true)} />
       
       {/* Desktop-only floating window promo
           - Desktop browser: actually downloads the .exe
@@ -278,17 +277,6 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
       </Dialog>
     </div>
   );
-};
-
-// Wires the BottomNav "Menú" button to open the mobile sidebar Sheet.
-// Implemented as a sibling effect-less component to avoid prop drilling refactor.
-const BottomNavMenuTrigger = ({ setOpen }: { setOpen: (v: boolean) => void }) => {
-  useEffect(() => {
-    const handler = () => setOpen(true);
-    window.addEventListener('open-mobile-menu', handler);
-    return () => window.removeEventListener('open-mobile-menu', handler);
-  }, [setOpen]);
-  return null;
 };
 
 export default NavigationWrapper;
