@@ -432,50 +432,53 @@ Tu trabajo es:`;
                         <p className="text-sm text-on-surface-variant">Elige cómo quieres añadirla.</p>
                       </div>
 
-                      <div className="flex flex-col gap-2">
+                      <div className="flex flex-col gap-2.5">
                         <button
                           id="tutorial-write-button"
                           onClick={() => { setPhase('input'); setShowTextInput(true); setSourceType('text'); }}
-                          className="group flex items-center gap-4 p-4 rounded-2xl bg-surface-container-low hover:bg-surface-container-high border border-outline-variant/40 hover:border-primary/40 transition-all text-left"
+                          className="group flex items-center gap-4 p-4 rounded-2xl bg-surface-container hover:bg-surface-container-high transition-all text-left active:scale-[0.99]"
                         >
-                          <div className="w-11 h-11 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                            <Type className="w-5 h-5 text-primary" />
+                          <div className="w-11 h-11 rounded-2xl bg-foreground flex items-center justify-center flex-shrink-0">
+                            <Type className="w-5 h-5 text-background" strokeWidth={2.5} />
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-bold text-foreground">Escribir</p>
-                            <p className="text-[11px] text-on-surface-variant truncate">Teclea el título y los detalles</p>
+                            <p className="text-xs text-on-surface-variant truncate">Teclea el título y los detalles</p>
                           </div>
-                          <ArrowRight className="w-4 h-4 text-on-surface-variant/50 group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
+                          <ArrowRight className="w-4 h-4 text-on-surface-variant group-hover:translate-x-0.5 transition-transform" />
                         </button>
 
                         <button
                           id="tutorial-voice-button"
                           onClick={() => { setPhase('input'); beginVoiceCapture(); }}
-                          className="group flex items-center gap-4 p-4 rounded-2xl bg-primary/5 hover:bg-primary/10 border border-primary/30 transition-all text-left"
+                          className="group relative flex items-center gap-4 p-4 rounded-2xl bg-primary text-primary-foreground hover:opacity-95 transition-all text-left active:scale-[0.99] shadow-md shadow-primary/20"
                         >
-                          <div className="w-11 h-11 rounded-full primary-gradient flex items-center justify-center shadow-md shadow-primary/30 flex-shrink-0">
-                            <Mic className="w-5 h-5 text-primary-foreground" />
+                          <div className="w-11 h-11 rounded-2xl bg-primary-foreground/15 flex items-center justify-center flex-shrink-0">
+                            <Mic className="w-5 h-5 text-primary-foreground" strokeWidth={2.5} />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-bold text-foreground">Dictar por voz</p>
-                            <p className="text-[11px] text-on-surface-variant truncate">Más rápido — di lo que tienes que hacer</p>
+                            <div className="flex items-center gap-2">
+                              <p className="text-sm font-bold text-primary-foreground">Dictar por voz</p>
+                              <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-primary-foreground/20 text-primary-foreground">Rápido</span>
+                            </div>
+                            <p className="text-xs text-primary-foreground/80 truncate">Di lo que tienes que hacer</p>
                           </div>
-                          <ArrowRight className="w-4 h-4 text-primary group-hover:translate-x-0.5 transition-transform" />
+                          <ArrowRight className="w-4 h-4 text-primary-foreground group-hover:translate-x-0.5 transition-transform" />
                         </button>
 
                         <button
                           id="tutorial-photo-button"
                           onClick={() => fileInputRef.current?.click()}
-                          className="group flex items-center gap-4 p-4 rounded-2xl bg-surface-container-low hover:bg-surface-container-high border border-outline-variant/40 hover:border-primary/40 transition-all text-left"
+                          className="group flex items-center gap-4 p-4 rounded-2xl bg-surface-container hover:bg-surface-container-high transition-all text-left active:scale-[0.99]"
                         >
-                          <div className="w-11 h-11 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                            <Camera className="w-5 h-5 text-primary" />
+                          <div className="w-11 h-11 rounded-2xl bg-foreground flex items-center justify-center flex-shrink-0">
+                            <Camera className="w-5 h-5 text-background" strokeWidth={2.5} />
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-bold text-foreground">Tomar foto</p>
-                            <p className="text-[11px] text-on-surface-variant truncate">Extrae tareas desde una imagen</p>
+                            <p className="text-xs text-on-surface-variant truncate">Extrae tareas desde una imagen</p>
                           </div>
-                          <ArrowRight className="w-4 h-4 text-on-surface-variant/50 group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
+                          <ArrowRight className="w-4 h-4 text-on-surface-variant group-hover:translate-x-0.5 transition-transform" />
                         </button>
                       </div>
                     </motion.div>
