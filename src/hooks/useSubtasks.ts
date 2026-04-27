@@ -88,5 +88,27 @@ export const useSubtasks = (parentId: string | null | undefined) => {
     },
   });
 
-  return { subtasks, isLoading, createSubtask, toggleSubtask, deleteSubtask };
+  const updateSubtask = useMutation({
+    mutationFn: async ({ id, title }: { id: string; title: string }) => {
+      const { error } = await supabase.from('tasks').update({ title }).eq('id', id);
+      if (error) throw error;
+    },
+    onMutate: async ({ id, title }) => {
+      await qc.cancelQueries({ queryKey: ['subtasks', parentId] });
+      const prev = qc.getQueryData<any[]>(['subtasks', parentId]);
+      qc.setQueryData(['subtasks', parentId], (old: any[] = []) =>
+        old.map(s => s.id === id ? { ...s, title } : s)
+      );
+      return { prev };
+    },
+    onError: (_e, _v, ctx) => {
+      if (ctx?.prev) qc.setQueryData(['subtasks', parentId], ctx.prev);
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ['subtasks', parentId] });
+      (window as any).electronAPI?.syncData?.();
+    },
+  });
+
+  return { subtasks, isLoading, createSubtask, toggleSubtask, updateSubtask, deleteSubtask };
 };

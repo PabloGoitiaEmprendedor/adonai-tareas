@@ -51,6 +51,43 @@ autoUpdater.on('update-downloaded', (info) => {
   });
 });
 
+function createMiniWindow() {
+  if (miniWindow) return;
+  miniWindow = new BrowserWindow({
+    width: 100,
+    height: 52,
+    frame: false,
+    transparent: true,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    resizable: false,
+    hasShadow: false,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(__dirname, 'preload.cjs'),
+      webSecurity: false,
+    },
+  });
+
+  miniWindow.show();
+  miniWindow.center();
+
+  const indexPath = path.join(__dirname, '..', 'dist', 'index.html');
+  if (!app.isPackaged) {
+    miniWindow.loadURL('http://localhost:8080/#/mini');
+  } else {
+    miniWindow.loadFile(indexPath, { hash: 'mini' });
+  }
+
+  miniWindow.on('closed', () => {
+    miniWindow = null;
+    if (mainWindow) {
+      mainWindow.webContents.send('mini-window-closed', true);
+    }
+  });
+}
+
 app.whenReady().then(() => {
   // Spoof Origin and Referer for Microsoft Clarity to allow tracking from the desktop app
   const filter = { urls: ['https://*.clarity.ms/*'] };
@@ -61,6 +98,8 @@ app.whenReady().then(() => {
   });
 
   createMainWindow();
+  // Auto-open floating mini window on startup
+  createMiniWindow();
   setInterval(() => {
     if (app.isPackaged) autoUpdater.checkForUpdates();
   }, 1000 * 60 * 60 * 2);
@@ -70,45 +109,13 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
 });
 
-// ── Mini window (starts small as a pill) ──
+// ── Mini window toggle ──
 ipcMain.on('toggle-mini-window', () => {
   if (miniWindow) {
     miniWindow.close();
     miniWindow = null;
   } else {
-    miniWindow = new BrowserWindow({
-      width: 100,
-      height: 52,
-      frame: false,
-      transparent: true,
-      alwaysOnTop: true,
-      skipTaskbar: true,
-      resizable: false,
-      hasShadow: false,
-      webPreferences: {
-        nodeIntegration: false,
-        contextIsolation: true,
-        preload: path.join(__dirname, 'preload.cjs'),
-        webSecurity: false,
-      },
-    });
-
-    miniWindow.show();
-    miniWindow.center();
-
-    const indexPath = path.join(__dirname, '..', 'dist', 'index.html');
-    if (!app.isPackaged) {
-      miniWindow.loadURL('http://localhost:8080/#/mini');
-    } else {
-      miniWindow.loadFile(indexPath, { hash: 'mini' });
-    }
-
-    miniWindow.on('closed', () => {
-      miniWindow = null;
-      if (mainWindow) {
-        mainWindow.webContents.send('mini-window-closed', true);
-      }
-    });
+    createMiniWindow();
   }
 });
 

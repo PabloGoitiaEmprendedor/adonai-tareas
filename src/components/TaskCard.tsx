@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Check, Timer, Link as LinkIcon } from 'lucide-react';
 import SubtasksSection from './SubtasksSection';
 import { useSubtasks } from '@/hooks/useSubtasks';
+import { useTasks } from '@/hooks/useTasks';
 
 interface TaskCardProps {
   task: any;
@@ -44,8 +45,19 @@ export const TaskCard = ({
   view
 }: TaskCardProps) => {
   const { subtasks } = useSubtasks(task.id);
-  // Subtasks stay collapsed by default — user must explicitly open with the chevron
+  const { updateTask } = useTasks();
   const [subtasksOpen, setSubtasksOpen] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedTitle, setEditedTitle] = useState(task.title);
+
+  const submitEdit = () => {
+    setIsEditing(false);
+    if (editedTitle.trim() && editedTitle.trim() !== task.title) {
+      updateTask.mutate({ id: task.id, title: editedTitle.trim() });
+    } else {
+      setEditedTitle(task.title);
+    }
+  };
 
   const completedSubtasks = subtasks.filter(s => s.status === 'done').length;
   const hasSubtasks = subtasks.length > 0;
@@ -125,10 +137,34 @@ export const TaskCard = ({
             </span>
           </button>
 
-          <h4 className={`text-lg font-black tracking-tight transition-all flex items-center gap-2 font-headline break-words ${
+          <div className={`text-lg font-black tracking-tight transition-all flex flex-1 items-center gap-2 font-headline break-words ${
             isDone || completingTaskId === task.id ? 'text-on-surface-variant/30 line-through' : 'text-foreground'
           }`}>
-            <span className="relative z-10">{task.title}</span>
+            {isEditing ? (
+              <input
+                autoFocus
+                value={editedTitle}
+                onChange={e => setEditedTitle(e.target.value)}
+                onBlur={submitEdit}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') submitEdit();
+                  if (e.key === 'Escape') {
+                    setEditedTitle(task.title);
+                    setIsEditing(false);
+                  }
+                }}
+                onClick={e => e.stopPropagation()}
+                className="bg-transparent border-b border-primary focus:outline-none relative z-10 w-full"
+              />
+            ) : (
+              <span 
+                className="relative z-10 cursor-text hover:bg-on-surface-variant/5 rounded px-1 -ml-1 transition-colors flex-1 min-w-0 break-words"
+                onClick={(e) => { e.stopPropagation(); setIsEditing(true); setEditedTitle(task.title); }}
+                title="Haz clic para editar"
+              >
+                {task.title}
+              </span>
+            )}
             {task.link && (
               <a
                 href={task.link}
@@ -147,7 +183,7 @@ export const TaskCard = ({
                 {completedSubtasks}/{subtasks.length}
               </span>
             )}
-          </h4>
+          </div>
         </div>
         
         {(isDone || completingTaskId === task.id) && (

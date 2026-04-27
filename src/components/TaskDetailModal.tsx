@@ -22,7 +22,7 @@ interface TaskDetailModalProps {
 const MONTH_NAMES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 
 const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
-  const { updateTask, deleteTask } = useTasks();
+  const { updateTask, deleteTask, createTask } = useTasks();
   const { folders } = useFolders();
   const { goals } = useGoals();
   const { createRule, deleteRule } = useRecurrenceRules();
@@ -121,8 +121,7 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
       recurrenceId = null;
     }
 
-    updateTask.mutate({
-      id: task.id,
+    const taskData = {
       title: title.trim(),
       description: description.trim() || null,
       due_date: dueDate || null,
@@ -137,6 +136,22 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
       recurrence_id: recurrenceId,
       link: link.trim() || null,
       ...(status === 'done' ? { completed_at: new Date().toISOString() } : {}),
+    };
+
+    if (task.isNew) {
+      createTask.mutate({ ...taskData, source_type: 'text' }, {
+        onSuccess: () => {
+          toast.success('Tarea creada');
+          onClose();
+        },
+        onError: () => toast.error('Error al crear tarea')
+      });
+      return;
+    }
+
+    updateTask.mutate({
+      id: task.id,
+      ...taskData,
     });
     toast.success('Tarea actualizada');
     onClose();
@@ -207,7 +222,7 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
                   {/* 1. Header con pill de prioridad */}
                   <div className="flex justify-between items-start">
                     <div>
-                      <h2 className="text-base font-bold text-foreground">Editar tarea</h2>
+                      <h2 className="text-base font-bold text-foreground">{task.isNew ? 'Nueva tarea' : 'Editar tarea'}</h2>
                       <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${priorityClass}`}>
                         {priorityLabel}
                       </span>

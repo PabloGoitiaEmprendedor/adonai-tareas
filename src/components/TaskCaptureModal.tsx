@@ -19,6 +19,7 @@ interface TaskCaptureModalProps {
   goalId?: string | null;
   folderId?: string | null;
   timeBlockId?: string | null;
+  initialMode?: 'text' | 'voice' | 'recurrence' | null;
 }
 
 
@@ -26,7 +27,7 @@ export interface TaskCaptureModalHandle {
   openInVoiceMode: () => boolean;
 }
 
-const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProps>(({ open, onClose, goalId, folderId, timeBlockId }, ref) => {
+const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProps>(({ open, onClose, goalId, folderId, timeBlockId, initialMode }, ref) => {
   const { user } = useAuth();
   const { isRecording, transcript, confidence, voiceFallback, isSupported, startRecording, stopRecording, resetTranscript } = useVoiceCapture();
   const { createTask } = useTasks();
@@ -38,6 +39,7 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
   const [reviewUrgency, setReviewUrgency] = useState(false);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [link, setLink] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [sourceType, setSourceType] = useState<'voice' | 'text' | 'image'>('text');
   const [showTextInput, setShowTextInput] = useState(true);
@@ -109,14 +111,36 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
       return;
     }
 
+    // If a specific initialMode was requested, skip select screen
+    if (initialMode === 'voice') {
+      setPhase('input');
+      setTitle('');
+      setDescription('');
+      setLink('');
+      resetTranscript();
+      beginVoiceCapture();
+      return;
+    }
+    if (initialMode === 'text') {
+      setPhase('input');
+      setTitle('');
+      setDescription('');
+      setLink('');
+      resetTranscript();
+      setShowTextInput(true);
+      setSourceType('text');
+      return;
+    }
+
     // Default to the selection screen
     setPhase('select');
     setTitle('');
     setDescription('');
+    setLink('');
     resetTranscript();
     setShowTextInput(true);
     setSourceType('text');
-  }, [open, resetTranscript]);
+  }, [open, resetTranscript, initialMode, beginVoiceCapture]);
 
   const handleClose = () => {
     if (isRecording) {
@@ -324,13 +348,14 @@ Tu trabajo es:`;
   const saveTaskQuick = async (opts: {
     title: string;
     description?: string;
+    link?: string;
     dueDate: string;
     goalId: string | null;
     importance: boolean;
     urgency: boolean;
     isImageLoop?: boolean;
   }) => {
-    const { title: taskTitle, description: taskDesc, dueDate: date, goalId: chosenGoalId, importance, urgency, isImageLoop } = opts;
+    const { title: taskTitle, description: taskDesc, link: taskLink, dueDate: date, goalId: chosenGoalId, importance, urgency, isImageLoop } = opts;
 
     if (isCurrentlySavingRef.current && !isImageLoop) return;
     if (!isImageLoop) {
@@ -350,6 +375,7 @@ Tu trabajo es:`;
         importance,
         source_type: sourceType,
         description: taskDesc || null,
+        link: taskLink || null,
         context_id: null,
         goal_id: chosenGoalId || goalId || null,
         folder_id: folderId || null,
@@ -390,6 +416,7 @@ Tu trabajo es:`;
     await saveTaskQuick({
       title: title.trim(),
       description: description.trim(),
+      link: link.trim(),
       dueDate,
       goalId: selectedGoalId,
       importance: reviewImportance,
@@ -438,7 +465,7 @@ Tu trabajo es:`;
                         <p className="text-sm font-medium text-on-surface-variant/60">¿Cómo prefieres crearla?</p>
                       </div>
 
-                      <div className="grid grid-cols-3 gap-4 w-full">
+                      <div className="grid grid-cols-2 gap-4 w-full">
                         {/* WRITING BUTTON */}
                         <button
                           onClick={() => { setPhase('input'); setShowTextInput(true); setSourceType('text'); }}
@@ -461,16 +488,18 @@ Tu trabajo es:`;
                           <span className="text-xs font-black uppercase tracking-widest text-on-surface-variant group-hover:text-foreground">Voz</span>
                         </button>
 
-                        {/* PHOTO BUTTON */}
-                        <button
-                          onClick={() => fileInputRef.current?.click()}
-                          className="group flex flex-col items-center gap-3 p-4 rounded-[32px] hover:bg-surface-container transition-all active:scale-[0.96]"
-                        >
-                          <div className="w-16 h-16 rounded-[22px] bg-surface-container-high flex items-center justify-center transition-colors group-hover:bg-primary/20">
-                            <Camera className="w-7 h-7 text-primary" strokeWidth={2.5} />
-                          </div>
-                          <span className="text-xs font-black uppercase tracking-widest text-on-surface-variant group-hover:text-foreground">Foto</span>
-                        </button>
+                        {/* PHOTO BUTTON — only in web (not Electron desktop) */}
+                        {!(window as any).electronAPI && (
+                          <button
+                            onClick={() => fileInputRef.current?.click()}
+                            className="group flex flex-col items-center gap-3 p-4 rounded-[32px] hover:bg-surface-container transition-all active:scale-[0.96]"
+                          >
+                            <div className="w-16 h-16 rounded-[22px] bg-surface-container-high flex items-center justify-center transition-colors group-hover:bg-primary/20">
+                              <Camera className="w-7 h-7 text-primary" strokeWidth={2.5} />
+                            </div>
+                            <span className="text-xs font-black uppercase tracking-widest text-on-surface-variant group-hover:text-foreground">Foto</span>
+                          </button>
+                        )}
                       </div>
 
                       <input
@@ -534,6 +563,17 @@ Tu trabajo es:`;
                             />
                           </div>
 
+                          <div className="w-full text-center">
+                            <label className="block text-[10px] uppercase tracking-widest font-bold text-on-surface-variant/40 mb-1">Link (opcional)</label>
+                            <input
+                              type="url"
+                              value={link} 
+                              onChange={(e) => setLink(e.target.value)}
+                              placeholder="https://..."
+                              className="w-full text-sm text-center bg-surface-container-high/50 rounded-xl p-3 text-foreground placeholder:text-on-surface-variant/40 focus:outline-none border-none"
+                            />
+                          </div>
+
                           {goals.filter(g => g.active).length > 0 && (
                             <div className="w-full space-y-2">
                               <label className="block text-[10px] uppercase tracking-widest font-bold text-on-surface-variant/40 text-center">Meta</label>
@@ -557,13 +597,8 @@ Tu trabajo es:`;
                         </div>
                       )}
                       <p className="text-[11px] text-on-surface-variant/60 text-center">
-                        Escribe o dicta tu tarea. El Enter en descripción no guarda la tarea.
+                        {sourceType === 'voice' ? 'Habla claro y natural.' : 'Escribe tu tarea.'}
                       </p>
-                      <div className="flex gap-3">
-                        {!showTextInput && (
-                          <button onClick={() => setShowTextInput(true)} className="px-4 py-2 rounded-lg bg-surface-container-high text-on-surface-variant text-sm">Escribir</button>
-                        )}
-                      </div>
                       <div className="flex gap-4 items-center">
                         {isRecording ? (
                           <button onClick={() => stopRecording()} className="w-16 h-16 rounded-full primary-gradient flex items-center justify-center shadow-lg shadow-primary/20">
@@ -571,14 +606,12 @@ Tu trabajo es:`;
                           </button>
                         ) : (
                           <>
-                            {isSupported && !voiceFallback && (
+                            {/* Only show mic/camera switchers when NOT in pure text mode */}
+                            {sourceType === 'voice' && isSupported && !voiceFallback && (
                               <button onClick={beginVoiceCapture} className="w-14 h-14 rounded-full bg-surface-container-high flex items-center justify-center">
                                 <Mic className="w-6 h-6 text-foreground" />
                               </button>
                             )}
-                            <button onClick={() => fileInputRef.current?.click()} className="w-14 h-14 rounded-full bg-surface-container-high flex items-center justify-center">
-                              <Camera className="w-6 h-6 text-foreground" />
-                            </button>
                             {(title || showTextInput) && (
                               <button onClick={() => handleTitleDone()} className="px-6 py-3 rounded-full primary-gradient text-primary-foreground font-bold text-sm">Guardar</button>
                             )}

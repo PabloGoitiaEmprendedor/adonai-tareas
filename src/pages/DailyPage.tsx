@@ -7,7 +7,7 @@ import { useStreaks } from '@/hooks/useStreaks';
 import { useGlobalVoiceCapture } from '@/hooks/useGlobalVoiceCapture';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Check, Plus, GripVertical, Timer, Flame, Link as LinkIcon, ExternalLink, Menu, MoreHorizontal, Settings } from 'lucide-react';
+import { Check, Plus, GripVertical, Timer, Flame, Link as LinkIcon, ExternalLink, Settings } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { triggerTaskCelebration, triggerDailyCelebration } from '@/lib/celebrations';
@@ -118,7 +118,7 @@ const DailyPage = () => {
   const [currentTime, setCurrentTime] = useState(new Date());
   const captureModalRef = useRef<TaskCaptureModalHandle>(null);
   const hasTrackedDayRef = useRef(false);
-  const [miniWidgetOpen, setMiniWidgetOpen] = useState(false);
+  const [miniWidgetOpen, setMiniWidgetOpen] = useState(() => !!window.electronAPI);
 
   useEffect(() => {
     const t = setInterval(() => setCurrentTime(new Date()), 30_000);
@@ -266,17 +266,10 @@ const DailyPage = () => {
     <div className="min-h-screen bg-background text-foreground selection:bg-primary/20">
       <div className="max-w-[430px] lg:max-w-4xl mx-auto px-6 pt-4 pb-32 space-y-6 relative">
         
-        {/* Header with Menu and More */}
+        {/* Header — just time + date centered, menu is provided by NavigationWrapper */}
         <div className="flex items-center justify-between pt-2 pb-4">
-          <button 
-            onClick={() => {
-              const menuBtn = document.getElementById('global-menu-trigger');
-              if (menuBtn) menuBtn.click();
-            }}
-            className="w-10 h-10 rounded-xl bg-surface-container-high/50 flex items-center justify-center text-on-surface-variant hover:bg-surface-container-highest transition-colors"
-          >
-            <Menu className="w-5 h-5" />
-          </button>
+          {/* Left: placeholder to keep center alignment (NavigationWrapper provides the global menu) */}
+          <div className="w-10 h-10" />
 
           <div className="flex flex-col items-center">
             <span className="text-[44px] font-black tracking-tighter tabular-nums text-foreground font-headline leading-none">
@@ -288,12 +281,8 @@ const DailyPage = () => {
             </span>
           </div>
 
-          <button 
-            onClick={() => navigate('/profile')}
-            className="w-10 h-10 rounded-xl bg-surface-container-high/50 flex items-center justify-center text-on-surface-variant hover:bg-surface-container-highest transition-colors"
-          >
-            <MoreHorizontal className="w-5 h-5" />
-          </button>
+          {/* Right: empty space to keep center alignment */}
+          <div className="w-10 h-10" />
         </div>
 
         <div className="flex flex-col items-center justify-center">

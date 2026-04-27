@@ -11,7 +11,7 @@ import { useTasks } from '@/hooks/useTasks';
 import { useSubtasks } from '@/hooks/useSubtasks';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Check, MoreHorizontal, ChevronRight, Timer, Pause, Plus } from 'lucide-react';
+import { Check, MoreHorizontal, ChevronRight, Timer, Pause, Plus, Mic, Repeat } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import TaskCaptureModal from '@/components/TaskCaptureModal';
 import TaskDetailModal from '@/components/TaskDetailModal';
@@ -45,43 +45,95 @@ function formatTimer(seconds: number): string {
 }
 
 // ─── Subtask Row ─────────────────────────────────────────────────────────────
-const SubtaskRowRaw = ({ sub, onToggle }: { sub: any; onToggle: (sub: any) => void }) => {
+const SubtaskRowRaw = ({ sub, onToggle, onUpdate }: { sub: any; onToggle: (sub: any) => void; onUpdate: (title: string) => void }) => {
   const isDone = sub.status === 'done';
+  const [isEditing, setIsEditing] = useState(false);
+  const [draftTitle, setDraftTitle] = useState(sub.title);
+
+  const submitEdit = () => {
+    setIsEditing(false);
+    if (draftTitle.trim() && draftTitle.trim() !== sub.title) {
+      onUpdate(draftTitle.trim());
+    } else {
+      setDraftTitle(sub.title);
+    }
+  };
+
   return (
     <div onClick={() => onToggle(sub)} style={{
       display: 'flex', alignItems: 'center', gap: 8,
-      padding: '6px 8px 6px 28px', borderRadius: 8, cursor: 'pointer',
+      padding: '6px 8px 6px 28px', borderRadius: 8, cursor: isEditing ? 'default' : 'pointer',
       background: C.subBg, marginBottom: 2, opacity: isDone ? 0.45 : 1,
     }}>
-      <div style={{
-        width: 18, height: 18, borderRadius: 5, flexShrink: 0,
+      <div onClick={(e) => { e.stopPropagation(); onToggle(sub); }} style={{
+        width: 18, height: 18, borderRadius: 5, flexShrink: 0, cursor: 'pointer',
         background: isDone ? C.accent : 'transparent',
         border: `2px solid ${isDone ? C.accent : 'rgba(255,255,255,0.2)'}`,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}>
         {isDone && <Check style={{ width: 10, height: 10, color: '#000', strokeWidth: 3 }} />}
       </div>
-      <span style={{
-        fontSize: 12, color: isDone ? C.muted : C.text,
-        textDecoration: isDone ? 'line-through' : 'none',
-        fontWeight: 500, lineHeight: 1.3,
-      }}>{sub.title}</span>
+      {isEditing ? (
+        <input
+          autoFocus
+          value={draftTitle}
+          onChange={e => setDraftTitle(e.target.value)}
+          onBlur={submitEdit}
+          onKeyDown={e => {
+            if (e.key === 'Enter') submitEdit();
+            if (e.key === 'Escape') {
+              setDraftTitle(sub.title);
+              setIsEditing(false);
+            }
+          }}
+          onClick={e => e.stopPropagation()}
+          style={{
+            flex: 1, fontSize: 12, fontWeight: 500, lineHeight: 1.3,
+            color: C.text, background: 'transparent', border: 'none',
+            borderBottom: `1px solid ${C.accent}`, outline: 'none', padding: 0
+          }}
+        />
+      ) : (
+        <span 
+          onClick={(e) => { e.stopPropagation(); setIsEditing(true); setDraftTitle(sub.title); }}
+          title="Haz clic para editar"
+          style={{
+            flex: 1, fontSize: 12, color: isDone ? C.muted : C.text,
+            textDecoration: isDone ? 'line-through' : 'none',
+            fontWeight: 500, lineHeight: 1.3, cursor: 'text'
+          }}
+        >
+          {sub.title}
+        </span>
+      )}
     </div>
   );
 };
 const SubtaskRow = memo(SubtaskRowRaw);
 
 // ─── Task Row ────────────────────────────────────────────────────────────────
-const TaskRowRaw = ({ task, onToggle, onDetail, activeTimerId, onTimerToggle }: {
+const TaskRowRaw = ({ task, onToggle, onDetail, activeTimerId, onTimerToggle, updateTask }: {
   task: any; onToggle: (task: any) => void; onDetail: (task: any) => void;
   activeTimerId: string | null; onTimerToggle: (taskId: string, estimatedMinutes?: number) => void;
+  updateTask: any;
 }) => {
   const isDone = task.status === 'done';
   const [open, setOpen] = useState(false);
-  const { subtasks, toggleSubtask } = useSubtasks(task.id);
+  const { subtasks, toggleSubtask, updateSubtask } = useSubtasks(task.id);
   const hasSubtasks = subtasks.length > 0;
   const doneSubCount = subtasks.filter((s: any) => s.status === 'done').length;
   const isTimerActive = activeTimerId === task.id;
+  const [isEditing, setIsEditing] = useState(false);
+  const [draftTitle, setDraftTitle] = useState(task.title);
+
+  const submitEdit = () => {
+    setIsEditing(false);
+    if (draftTitle.trim() && draftTitle.trim() !== task.title) {
+      updateTask.mutate({ id: task.id, title: draftTitle.trim() });
+    } else {
+      setDraftTitle(task.title);
+    }
+  };
 
   return (
     <motion.div layout initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
@@ -108,16 +160,45 @@ const TaskRowRaw = ({ task, onToggle, onDetail, activeTimerId, onTimerToggle }: 
           {isDone && <Check style={{ width: 13, height: 13, color: '#000', strokeWidth: 3 }} />}
         </div>
         
-        <span style={{
-          flex: 1, fontSize: 13, fontWeight: 600, lineHeight: 1.3,
-          color: isDone ? C.muted : C.text,
-          textDecoration: isDone ? 'line-through' : 'none',
-        }}>{task.title}</span>
+        {isEditing ? (
+          <input
+            autoFocus
+            value={draftTitle}
+            onChange={e => setDraftTitle(e.target.value)}
+            onBlur={submitEdit}
+            onKeyDown={e => {
+              if (e.key === 'Enter') submitEdit();
+              if (e.key === 'Escape') {
+                setDraftTitle(task.title);
+                setIsEditing(false);
+              }
+            }}
+            onClick={e => e.stopPropagation()}
+            style={{
+              flex: 1, fontSize: 13, fontWeight: 600, lineHeight: 1.3,
+              color: C.text, background: 'transparent', border: 'none',
+              borderBottom: `1px solid ${C.accent}`, outline: 'none', padding: 0
+            }}
+          />
+        ) : (
+          <span 
+            onClick={(e) => { e.stopPropagation(); setIsEditing(true); setDraftTitle(task.title); }}
+            title="Haz clic para editar"
+            style={{
+              flex: 1, fontSize: 13, fontWeight: 600, lineHeight: 1.3,
+              color: isDone ? C.muted : C.text,
+              textDecoration: isDone ? 'line-through' : 'none',
+              cursor: 'text'
+            }}
+          >
+            {task.title}
+          </span>
+        )}
 
         {/* Timer button */}
         {!isDone && (
           <div
-            onClick={(e) => { e.stopPropagation(); onTimerToggle(task.id, task.estimated_minutes); }}
+            onClick={(e) => { e.stopPropagation(); onTimerToggle(task.id, task.estimated_minutes || 30); }}
             style={{
               width: 24, height: 24, borderRadius: 6, flexShrink: 0,
               background: isTimerActive ? 'rgba(163,230,53,0.15)' : 'transparent',
@@ -156,7 +237,8 @@ const TaskRowRaw = ({ task, onToggle, onDetail, activeTimerId, onTimerToggle }: 
             exit={{ opacity: 0, height: 0 }} style={{ overflow: 'hidden', paddingTop: 2 }}>
             {subtasks.map((sub: any) => (
               <SubtaskRow key={sub.id} sub={sub}
-                onToggle={(s) => toggleSubtask.mutate({ id: s.id, done: s.status !== 'done' })} />
+                onToggle={(s) => toggleSubtask.mutate({ id: s.id, done: s.status !== 'done' })}
+                onUpdate={(title) => updateSubtask.mutate({ id: sub.id, title })} />
             ))}
           </motion.div>
         )}
@@ -217,6 +299,7 @@ const MiniTaskList = () => {
   const [activeTimerId, setActiveTimerId] = useState<string | null>(null);
   const [timerSeconds, setTimerSeconds] = useState(0);
   const [captureOpen, setCaptureOpen] = useState(false);
+  const [captureMode, setCaptureMode] = useState<'text' | 'voice' | 'recurrence'>('text');
   const [selectedTask, setSelectedTask] = useState<any>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -448,41 +531,78 @@ const MiniTaskList = () => {
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '10px 16px 6px', flexShrink: 0, cursor: 'grab', userSelect: 'none',
       }}>
-        <div onClick={handleToggleExpand} style={{
-          height: 26, borderRadius: 999,
-          padding: activeTimerId ? '0 10px' : '0',
-          width: activeTimerId ? 'auto' : 52,
-          minWidth: activeTimerId ? 90 : 52,
-          background: activeTimerId ? 'rgba(163,230,53,0.1)' : 'rgba(255,255,255,0.07)',
-          border: `1px solid ${activeTimerId ? 'rgba(163,230,53,0.2)' : C.border}`,
-          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
-          cursor: 'pointer',
-        }} title="Colapsar">
-          {activeTimerId ? (
-            <>
-              <div style={{ width: 5, height: 5, borderRadius: '50%', background: C.accent, animation: 'pulse 1.5s ease-in-out infinite' }} />
-              <span style={{ fontSize: 11, fontWeight: 800, color: C.accent, fontFamily: 'monospace' }}>
-                {formatTimer(timerSeconds)}
-              </span>
-            </>
-          ) : (
-            <MoreHorizontal style={{ width: 16, height: 16, color: 'rgba(255,255,255,0.5)' }} />
-          )}
-        </div>
-        
-        {/* ADD TASK BUTTON */}
-        <div 
-          onClick={(e) => { e.stopPropagation(); setCaptureOpen(true); }}
-          style={{
-            width: 32, height: 32, borderRadius: '50%',
-            background: 'rgba(255,255,255,0.07)',
-            border: `1px solid ${C.border}`,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            cursor: 'pointer', marginLeft: 8, marginRight: 'auto'
-          }}
-          title="Añadir tarea"
-        >
-          <Plus style={{ width: 16, height: 16, color: 'rgba(255,255,255,0.8)' }} />
+        {/* LEFT: collapse pill (…) + direct action buttons */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          {/* Collapse / timer pill — same ... design as collapsed state */}
+          <div onClick={handleToggleExpand} style={{
+            height: 26, borderRadius: 999,
+            padding: activeTimerId ? '0 10px' : '0',
+            width: activeTimerId ? 'auto' : 52,
+            minWidth: activeTimerId ? 90 : 52,
+            background: activeTimerId ? 'rgba(163,230,53,0.1)' : 'rgba(255,255,255,0.07)',
+            border: `1px solid ${activeTimerId ? 'rgba(163,230,53,0.2)' : C.border}`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
+            cursor: 'pointer',
+          }} title="Colapsar">
+            {activeTimerId ? (
+              <>
+                <div style={{ width: 5, height: 5, borderRadius: '50%', background: C.accent, animation: 'pulse 1.5s ease-in-out infinite' }} />
+                <span style={{ fontSize: 11, fontWeight: 800, color: C.accent, fontFamily: 'monospace' }}>
+                  {formatTimer(timerSeconds)}
+                </span>
+              </>
+            ) : (
+              <MoreHorizontal style={{ width: 16, height: 16, color: 'rgba(255,255,255,0.5)' }} />
+            )}
+          </div>
+
+          {/* VOICE button — green background */}
+          <div
+            onClick={(e) => { e.stopPropagation(); setCaptureMode('voice'); setCaptureOpen(true); }}
+            style={{
+              width: 30, height: 26, borderRadius: 999,
+              background: C.accent,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: 'pointer', flexShrink: 0,
+            }}
+            title="Añadir por voz"
+          >
+            <Mic style={{ width: 13, height: 13, color: '#000' }} />
+          </div>
+
+          {/* RECURRENCE button — Repeat icon */}
+          <div
+            onClick={(e) => { 
+              e.stopPropagation(); 
+              setSelectedTask({ isNew: true, title: '', due_date: format(new Date(), 'yyyy-MM-dd') });
+              setDetailOpen(true); 
+            }}
+            style={{
+              width: 30, height: 26, borderRadius: 999,
+              background: 'rgba(255,255,255,0.09)',
+              border: `1px solid ${C.border}`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: 'pointer', flexShrink: 0,
+            }}
+            title="Crear tarea recurrente"
+          >
+            <Repeat style={{ width: 12, height: 12, color: '#fff' }} />
+          </div>
+
+          {/* TEXT button — + icon */}
+          <div
+            onClick={(e) => { e.stopPropagation(); setCaptureMode('text'); setCaptureOpen(true); }}
+            style={{
+              width: 30, height: 26, borderRadius: 999,
+              background: 'rgba(255,255,255,0.09)',
+              border: `1px solid ${C.border}`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: 'pointer', flexShrink: 0,
+            }}
+            title="Añadir tarea"
+          >
+            <Plus style={{ width: 14, height: 14, color: 'rgba(255,255,255,0.8)' }} />
+          </div>
         </div>
 
         <div style={{ textAlign: 'right' }}>
@@ -530,7 +650,8 @@ const MiniTaskList = () => {
                 onToggle={handleToggle}
                 onDetail={(t) => { setSelectedTask(t); setDetailOpen(true); }}
                 activeTimerId={activeTimerId}
-                onTimerToggle={handleTimerToggle} />
+                onTimerToggle={handleTimerToggle}
+                updateTask={updateTask} />
             ))}
           </AnimatePresence>
         )}
@@ -544,7 +665,11 @@ const MiniTaskList = () => {
         )}
       </div>
 
-      <TaskCaptureModal open={captureOpen} onClose={() => setCaptureOpen(false)} />
+      <TaskCaptureModal
+        open={captureOpen}
+        onClose={() => setCaptureOpen(false)}
+        initialMode={captureMode}
+      />
       <TaskDetailModal task={selectedTask} open={detailOpen} onClose={() => setDetailOpen(false)} />
     </div>
   );

@@ -33,7 +33,13 @@ export const useTasks = (filters?: { date?: string; startDate?: string; endDate?
       let query = supabase.from('tasks').select('*, contexts(*)').eq('user_id', user.id);
       
       if (filters?.date) {
-        query = query.eq('due_date', filters.date);
+        const todayStr = format(new Date(), 'yyyy-MM-dd');
+        if (filters.date === todayStr && filters?.status !== 'history') {
+          // Rolling tasks: Include tasks due today, OR tasks due in the past that are not done
+          query = query.or(`due_date.eq.${filters.date},and(due_date.lt.${filters.date},status.neq.done,status.neq.deleted)`);
+        } else {
+          query = query.eq('due_date', filters.date);
+        }
       } else if (filters?.startDate && filters?.endDate) {
         query = query.gte('due_date', filters.startDate).lte('due_date', filters.endDate);
       }
