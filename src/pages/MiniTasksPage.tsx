@@ -15,6 +15,7 @@ import { Check, MoreHorizontal, ChevronRight, Timer, Pause, Plus, Mic, Repeat } 
 import { motion, AnimatePresence } from 'framer-motion';
 import TaskCaptureModal from '@/components/TaskCaptureModal';
 import TaskDetailModal from '@/components/TaskDetailModal';
+import QuickRecurrenceFlow from '@/components/QuickRecurrenceFlow';
 import { useGamification } from '@/hooks/useGamification';
 import { triggerTaskCelebration, triggerDailyCelebration } from '@/lib/celebrations';
 import { useProfile } from '@/hooks/useProfile';
@@ -302,6 +303,7 @@ const MiniTaskList = () => {
   const [captureMode, setCaptureMode] = useState<'text' | 'voice' | 'recurrence'>('text');
   const [selectedTask, setSelectedTask] = useState<any>(null);
   const [detailOpen, setDetailOpen] = useState(false);
+  const [recurrenceFlowOpen, setRecurrenceFlowOpen] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const { onMouseDown: onDragMouseDown, hasMovedRef } = useDragWindow();
@@ -574,8 +576,7 @@ const MiniTaskList = () => {
           <div
             onClick={(e) => { 
               e.stopPropagation(); 
-              setSelectedTask({ isNew: true, title: '', due_date: format(new Date(), 'yyyy-MM-dd') });
-              setDetailOpen(true); 
+              setRecurrenceFlowOpen(true);
             }}
             style={{
               width: 30, height: 26, borderRadius: 999,
@@ -671,6 +672,7 @@ const MiniTaskList = () => {
         initialMode={captureMode}
       />
       <TaskDetailModal task={selectedTask} open={detailOpen} onClose={() => setDetailOpen(false)} />
+      <QuickRecurrenceFlow open={recurrenceFlowOpen} onClose={() => setRecurrenceFlowOpen(false)} />
     </div>
   );
 };

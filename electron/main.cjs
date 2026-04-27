@@ -1,11 +1,18 @@
-const { app, BrowserWindow, ipcMain, shell, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, dialog, session } = require('electron');
 const path = require('path');
 const { autoUpdater } = require('electron-updater');
 
 let mainWindow;
 let miniWindow;
 
-// Configuración de auto-actualización
+// ── Auto-start on boot ──────────────────────────────────────────────────────
+app.setLoginItemSettings({
+  openAtLogin: true,
+  path: app.getPath('exe'),
+  args: ['--autostart'],
+});
+
+// ── Auto-updater config ─────────────────────────────────────────────────────
 autoUpdater.autoDownload = true;
 autoUpdater.autoInstallOnAppQuit = true;
 
@@ -42,14 +49,46 @@ function createMainWindow() {
   });
 }
 
-autoUpdater.on('update-downloaded', (info) => {
-  dialog.showMessageBox({
-    type: 'info',
-    title: 'Actualización lista',
-    message: 'Una nueva versión ha sido descargada. Se instalará automáticamente al cerrar la aplicación.',
-    buttons: ['Entendido']
+// ── Premium update UX ───────────────────────────────────────────────────────
+// Send progress events to the renderer for a beautiful in-app update bar
+autoUpdater.on('checking-for-update', () => {
+  broadcastToAll('update-status', { status: 'checking' });
+});
+
+autoUpdater.on('update-available', (info) => {
+  broadcastToAll('update-status', { status: 'available', version: info.version });
+});
+
+autoUpdater.on('download-progress', (progress) => {
+  broadcastToAll('update-status', {
+    status: 'downloading',
+    percent: Math.round(progress.percent),
+    transferred: progress.transferred,
+    total: progress.total,
   });
 });
+
+autoUpdater.on('update-downloaded', (info) => {
+  broadcastToAll('update-status', { status: 'ready', version: info.version });
+});
+
+autoUpdater.on('update-not-available', () => {
+  broadcastToAll('update-status', { status: 'up-to-date' });
+});
+
+autoUpdater.on('error', (err) => {
+  broadcastToAll('update-status', { status: 'error', message: err?.message });
+});
+
+// IPC: user chose to restart now
+ipcMain.on('install-update-now', () => {
+  autoUpdater.quitAndInstall(false, true);
+});
+
+function broadcastToAll(channel, data) {
+  if (mainWindow) mainWindow.webContents.send(channel, data);
+  if (miniWindow) miniWindow.webContents.send(channel, data);
+}
 
 function createMiniWindow() {
   if (miniWindow) return;
@@ -89,9 +128,25 @@ function createMiniWindow() {
 }
 
 app.whenReady().then(() => {
+  // ── Grant microphone permissions automatically for Electron ──
+  session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
+    const allowedPermissions = ['media', 'mediaKeySystem', 'microphone', 'audioCapture'];
+    if (allowedPermissions.includes(permission)) {
+      callback(true);
+    } else {
+      callback(false);
+    }
+  });
+
+  // Also handle permission checks (Chromium 93+)
+  session.defaultSession.setPermissionCheckHandler((webContents, permission) => {
+    const allowedPermissions = ['media', 'mediaKeySystem', 'microphone', 'audioCapture'];
+    return allowedPermissions.includes(permission);
+  });
+
   // Spoof Origin and Referer for Microsoft Clarity to allow tracking from the desktop app
   const filter = { urls: ['https://*.clarity.ms/*'] };
-  require('electron').session.defaultSession.webRequest.onBeforeSendHeaders(filter, (details, callback) => {
+  session.defaultSession.webRequest.onBeforeSendHeaders(filter, (details, callback) => {
     details.requestHeaders['Origin'] = 'https://adonaitasks.com';
     details.requestHeaders['Referer'] = 'https://adonaitasks.com/';
     callback({ requestHeaders: details.requestHeaders });

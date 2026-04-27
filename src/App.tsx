@@ -21,6 +21,7 @@ import AchievementsPage from "./pages/AchievementsPage";
 import MiniTasksPage from "./pages/MiniTasksPage";
 import NotFound from "./pages/NotFound";
 import { supabase } from "@/integrations/supabase/client";
+import UpdateBanner from "@/components/UpdateBanner";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -156,6 +157,7 @@ const App = () => {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <Sonner position="top-center" duration={2000} />
+        <UpdateBanner />
         <HashRouter>
         <AuthProvider>
           <NavigationWrapper>
