@@ -4,9 +4,9 @@
  * (top-right chip, mobile dialog, floating-window prompt) reads from here.
  */
 export const DESKTOP_APP_DOWNLOAD_URL =
-  "https://github.com/PabloGoitiaEmprendedor/cdf-tareas/releases/download/v1.0.13/Adonai.Tasks.Setup.1.0.13.exe";
+  "https://github.com/PabloGoitiaEmprendedor/adonai-tareas/releases/download/v1.0.14/Adonai.Tasks.Setup.1.0.14.exe";
 
-export const DESKTOP_APP_VERSION = "1.0.13";
+export const DESKTOP_APP_VERSION = "1.0.14";
 
 /** Trigger the .exe download in any browser. */
 export function downloadDesktopApp() {
