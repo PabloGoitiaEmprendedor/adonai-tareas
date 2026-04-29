@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version, x-supabase-api-version",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
@@ -38,17 +38,23 @@ serve(async (req) => {
     const file = formData.get("file");
 
     if (!file || !(file instanceof File)) {
-      return new Response(JSON.stringify({ error: "No audio file provided" }), {
+      console.error("No file provided or invalid format:", typeof file);
+      return new Response(JSON.stringify({ error: "No se proporcionó un archivo de audio válido" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
+    console.log(`Received file: ${file.name}, size: ${file.size}, type: ${file.type}`);
+
     const whisperFormData = new FormData();
-    whisperFormData.append("file", file);
+    // Re-wrap the file to ensure it has a proper name and type for Whisper
+    const audioFile = new File([file], "audio.webm", { type: file.type || "audio/webm" });
+    whisperFormData.append("file", audioFile);
     whisperFormData.append("model", "whisper-1");
     whisperFormData.append("language", "es");
 
+    console.log("Calling Lovable Transcription API...");
     const response = await fetch("https://ai.gateway.lovable.dev/v1/audio/transcriptions", {
       method: "POST",
       headers: {
@@ -58,15 +64,23 @@ serve(async (req) => {
     });
 
     if (!response.ok) {
-      const text = await response.text();
-      console.error("Transcription API error:", response.status, text);
+      const errText = await response.text();
+      console.error("Transcription API error:", response.status, errText);
       
-      // Fallback: Check if Lovable API doesn't support audio. 
-      // If it fails with 404 or something, we return a specific error.
-      throw new Error(`Transcription failed: ${response.status} ${text}`);
+      let errorMessage = "Error en el servicio de transcripción";
+      try {
+        const errJson = JSON.parse(errText);
+        errorMessage = errJson.error?.message || errorMessage;
+      } catch (e) {}
+
+      return new Response(JSON.stringify({ error: errorMessage }), {
+        status: response.status,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const result = await response.json();
+    console.log("Transcription result success");
 
     return new Response(JSON.stringify({ text: result.text }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

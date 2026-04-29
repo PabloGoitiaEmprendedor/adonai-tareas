@@ -18,8 +18,15 @@ export const useVoiceCapture = () => {
 
   const startMediaRecorderFallback = async () => {
     try {
+      console.log("Starting MediaRecorder fallback...");
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream);
+      
+      // Try to find a supported mime type
+      const mimeType = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/mp4']
+        .find(type => MediaRecorder.isTypeSupported(type)) || '';
+      
+      console.log("Using MIME type:", mimeType);
+      const mediaRecorder = new MediaRecorder(stream, mimeType ? { mimeType } : {});
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
 
@@ -31,29 +38,47 @@ export const useVoiceCapture = () => {
 
       mediaRecorder.onstop = async () => {
         setIsProcessing(true);
-        toast.loading("Procesando voz...", { id: "voice-process" });
+        const loadingToastId = toast.loading("Procesando voz...", { id: "voice-process" });
         try {
-          const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+          const blobType = mediaRecorder.mimeType || 'audio/webm';
+          const audioBlob = new Blob(audioChunksRef.current, { type: blobType });
+          console.log("Audio blob created:", audioBlob.size, "bytes", blobType);
+          
+          if (audioBlob.size < 100) {
+            throw new Error("Audio demasiado corto o vacío");
+          }
+
           const formData = new FormData();
+          // Ensure a filename with extension is provided - Whisper requires it
           formData.append('file', audioBlob, 'audio.webm');
 
           const { data, error } = await supabase.functions.invoke('transcribe-audio', {
             body: formData,
+            headers: {
+              'x-supabase-api-version': 'v1'
+            }
           });
 
-          if (error) throw error;
+          if (error) {
+             console.error("Function invoke error:", error);
+             throw error;
+          }
+          
           if (data && data.text) {
+            console.log("Transcription successful:", data.text);
             setTranscript(data.text);
             finalTranscriptRef.current = data.text;
+            toast.success("Voz procesada", { id: "voice-process" });
+          } else if (data && data.error) {
+            throw new Error(data.error);
           } else {
-            throw new Error("No text in response");
+            throw new Error("No se recibió texto de la transcripción");
           }
-          toast.success("Voz procesada", { id: "voice-process" });
         } catch (err: any) {
           console.error("Transcription fallback error:", err);
           toast.error("Error al procesar voz", {
             id: "voice-process",
-            description: "No se pudo transcribir el audio.",
+            description: err.message || "No se pudo transcribir el audio.",
           });
         } finally {
           setIsProcessing(false);
@@ -61,7 +86,7 @@ export const useVoiceCapture = () => {
         }
       };
 
-      mediaRecorder.start();
+      mediaRecorder.start(); // No timeslice needed for simple capture
       isRecordingRef.current = true;
       setIsRecording(true);
       setVoiceFallback(false);
@@ -70,7 +95,7 @@ export const useVoiceCapture = () => {
     } catch (err) {
       console.error("MediaRecorder fallback failed:", err);
       toast.error("Error de micrófono", {
-        description: "No se pudo iniciar la grabación alternativa.",
+        description: "No se pudo iniciar la grabación alternativa. Verifica los permisos.",
       });
       return false;
     }

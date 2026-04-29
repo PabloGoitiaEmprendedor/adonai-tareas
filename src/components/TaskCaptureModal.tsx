@@ -29,7 +29,7 @@ export interface TaskCaptureModalHandle {
 
 const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProps>(({ open, onClose, goalId, folderId, timeBlockId, initialMode }, ref) => {
   const { user } = useAuth();
-  const { isRecording, transcript, confidence, voiceFallback, isSupported, startRecording, stopRecording, resetTranscript } = useVoiceCapture();
+  const { isRecording, isProcessing, transcript, confidence, voiceFallback, isSupported, startRecording, stopRecording, resetTranscript } = useVoiceCapture();
   const { createTask } = useTasks();
   const { goals } = useGoals();
 
@@ -571,6 +571,12 @@ Tu trabajo es:`;
                         <p className="text-sm text-on-surface-variant/60 text-center animate-pulse max-w-[90%] truncate">
                           {transcript}
                         </p>
+                      )}
+                      {isProcessing && !isRecording && (
+                        <div className="flex flex-col items-center gap-3">
+                          <AISphere size="md" />
+                          <p className="text-sm font-bold animate-pulse" style={{ color: C.accent }}>Escuchando y procesando...</p>
+                        </div>
                       )}
                       {!isRecording && showTextInput && (
                         <div className="w-full space-y-4">
