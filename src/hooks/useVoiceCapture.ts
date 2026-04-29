@@ -1,16 +1,80 @@
 import { useState, useCallback, useRef } from 'react';
 import { dispatchMicPermissionGranted } from '@/lib/voiceEvents';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 export const useVoiceCapture = () => {
   const [isRecording, setIsRecording] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [confidence, setConfidence] = useState(0);
   const [voiceFallback, setVoiceFallback] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const recognitionRef = useRef<any>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<BlobPart[]>([]);
   const isRecordingRef = useRef(false);
   const sessionRef = useRef(0);
   const finalTranscriptRef = useRef('');
+
+  const startMediaRecorderFallback = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = async () => {
+        setIsProcessing(true);
+        toast.loading("Procesando voz...", { id: "voice-process" });
+        try {
+          const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+          const formData = new FormData();
+          formData.append('file', audioBlob, 'audio.webm');
+
+          const { data, error } = await supabase.functions.invoke('transcribe-audio', {
+            body: formData,
+          });
+
+          if (error) throw error;
+          if (data && data.text) {
+            setTranscript(data.text);
+            finalTranscriptRef.current = data.text;
+          } else {
+            throw new Error("No text in response");
+          }
+          toast.success("Voz procesada", { id: "voice-process" });
+        } catch (err: any) {
+          console.error("Transcription fallback error:", err);
+          toast.error("Error al procesar voz", {
+            id: "voice-process",
+            description: "No se pudo transcribir el audio.",
+          });
+        } finally {
+          setIsProcessing(false);
+          stream.getTracks().forEach(track => track.stop());
+        }
+      };
+
+      mediaRecorder.start();
+      isRecordingRef.current = true;
+      setIsRecording(true);
+      setVoiceFallback(false);
+      dispatchMicPermissionGranted();
+      return true;
+    } catch (err) {
+      console.error("MediaRecorder fallback failed:", err);
+      toast.error("Error de micrófono", {
+        description: "No se pudo iniciar la grabación alternativa.",
+      });
+      return false;
+    }
+  };
 
   const isSupported = typeof window !== 'undefined' &&
     !!((window as any).webkitSpeechRecognition || (window as any).SpeechRecognition);
@@ -71,7 +135,13 @@ export const useVoiceCapture = () => {
        recognitionRef.current = null;
     }
 
+    const isElectron = !!(window as any).electronAPI;
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+    if (!SpeechRecognition || isElectron) {
+      // Direct fallback for Electron or unsupported browsers
+      return startMediaRecorderFallback();
+    }
 
     if (!SpeechRecognition) {
       setVoiceFallback(true);
@@ -143,24 +213,15 @@ export const useVoiceCapture = () => {
           duration: 5000,
         });
       } else if (e.error === 'no-speech') {
-        // User was silent — not an error, just try again
         toast('No se detectó voz', {
           description: 'Habla más fuerte o acércate al micrófono.',
           duration: 3000,
         });
       } else if (e.error === 'network') {
-        const isElectron = !!(window as any).electronAPI;
-        if (isElectron) {
-          toast.error('Voz no disponible', {
-            description: 'Para usar dictado por voz, ingresa a la versión web.',
-            duration: 5000,
-          });
-        } else {
-          toast.error('Error de red', {
-            description: 'Comprueba tu conexión a internet para usar voz.',
-            duration: 4000,
-          });
-        }
+        // Fallback to MediaRecorder + Supabase Edge Function
+        toast.info('Usando motor alternativo...', { duration: 2000 });
+        startMediaRecorderFallback();
+        return; // don't set isRecording to false yet
       }
       isRecordingRef.current = false;
       setIsRecording(false);
@@ -184,12 +245,16 @@ export const useVoiceCapture = () => {
       recognitionRef.current = null;
       return false;
     }
-  }, []);
+  }, [ensureMicPermission]);
 
-  const stopRecording = useCallback(() => {
+  const stopRecording = useCallback(async () => {
     isRecordingRef.current = false;
     if (recognitionRef.current) {
       recognitionRef.current.stop();
+    }
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+      // Streams are stopped in the onstop handler
     }
     setIsRecording(false);
   }, []);
@@ -206,6 +271,7 @@ export const useVoiceCapture = () => {
     confidence,
     voiceFallback,
     isSupported,
+    isProcessing,
     startRecording,
     stopRecording,
     resetTranscript,
