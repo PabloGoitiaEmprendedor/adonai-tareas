@@ -140,7 +140,7 @@ const UserGrowthChart = ({ data }: { data: any[] }) => (
 // ─── Main Page ───────────────────────────────────────────────────────────────
 const AdminPanelPage = () => {
   const isAdmin = useIsAdmin();
-  const [timeRange, setTimeRange] = useState<number | 'all'>(30);
+  const [timeRange, setTimeRange] = useState<number | 'all'>('all');
   const [excludedUsers, setExcludedUsers] = useState<string[]>(() => {
     const saved = localStorage.getItem('adonai_admin_excluded_users');
     return saved ? JSON.parse(saved) : [];

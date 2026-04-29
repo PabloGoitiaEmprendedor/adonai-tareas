@@ -149,10 +149,18 @@ export const useVoiceCapture = () => {
           duration: 3000,
         });
       } else if (e.error === 'network') {
-        toast.error('Error de red', {
-          description: 'Comprueba tu conexión a internet para usar voz.',
-          duration: 4000,
-        });
+        const isElectron = !!(window as any).electronAPI;
+        if (isElectron) {
+          toast.error('Voz no disponible', {
+            description: 'Para usar dictado por voz, ingresa a la versión web.',
+            duration: 5000,
+          });
+        } else {
+          toast.error('Error de red', {
+            description: 'Comprueba tu conexión a internet para usar voz.',
+            duration: 4000,
+          });
+        }
       }
       isRecordingRef.current = false;
       setIsRecording(false);

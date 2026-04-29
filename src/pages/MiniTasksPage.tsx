@@ -196,23 +196,37 @@ const TaskRowRaw = ({ task, onToggle, onDetail, activeTimerId, onTimerToggle, up
           </span>
         )}
 
-        {/* Timer button */}
+        {/* Timer or Check button */}
         {!isDone && (
-          <div
-            onClick={(e) => { e.stopPropagation(); onTimerToggle(task.id, task.estimated_minutes || 30); }}
-            style={{
-              width: 24, height: 24, borderRadius: 6, flexShrink: 0,
-              background: isTimerActive ? 'rgba(163,230,53,0.15)' : 'transparent',
-              border: `1px solid ${isTimerActive ? 'rgba(163,230,53,0.3)' : 'rgba(255,255,255,0.1)'}`,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              cursor: 'pointer',
-            }}
-          >
-            {isTimerActive
-              ? <Pause style={{ width: 10, height: 10, color: C.accent }} />
-              : <Timer style={{ width: 10, height: 10, color: 'rgba(255,255,255,0.3)' }} />
-            }
-          </div>
+          isEditing ? (
+            <div
+              onClick={(e) => { e.stopPropagation(); submitEdit(); }}
+              style={{
+                width: 24, height: 24, borderRadius: 6, flexShrink: 0,
+                background: C.accent,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer',
+              }}
+            >
+              <Check style={{ width: 12, height: 12, color: '#000', strokeWidth: 3 }} />
+            </div>
+          ) : (
+            <div
+              onClick={(e) => { e.stopPropagation(); onTimerToggle(task.id, task.estimated_minutes || 30); }}
+              style={{
+                width: 24, height: 24, borderRadius: 6, flexShrink: 0,
+                background: isTimerActive ? 'rgba(163,230,53,0.15)' : 'transparent',
+                border: `1px solid ${isTimerActive ? 'rgba(163,230,53,0.3)' : 'rgba(255,255,255,0.1)'}`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer',
+              }}
+            >
+              {isTimerActive
+                ? <Pause style={{ width: 10, height: 10, color: C.accent }} />
+                : <Timer style={{ width: 10, height: 10, color: 'rgba(255,255,255,0.3)' }} />
+              }
+            </div>
+          )
         )}
 
         {hasSubtasks && (

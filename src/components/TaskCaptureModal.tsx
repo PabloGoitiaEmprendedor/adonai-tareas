@@ -550,14 +550,13 @@ Tu trabajo es:`;
                       {!isRecording && showTextInput && (
                         <div className="w-full space-y-4">
                           <div className="w-full text-center min-h-[40px]">
-                            <label className="block text-[10px] uppercase tracking-widest font-bold mb-1" style={{ color: C.muted }}>Título</label>
                             <input 
                               id="capture-title-input"
                               autoFocus 
                               value={title} 
                               onChange={(e) => setTitle(e.target.value)}
                               placeholder="¿Qué necesitas hacer?"
-                              className="w-full text-lg text-center focus:outline-none font-bold"
+                              className="w-full text-xl text-center focus:outline-none font-bold placeholder:text-white/20"
                               style={{ 
                                 background: 'transparent', color: C.text, border: 'none', 
                                 outline: 'none', caretColor: C.accent 
@@ -575,13 +574,12 @@ Tu trabajo es:`;
                           </div>
 
                           <div className="w-full text-center">
-                            <label className="block text-[10px] uppercase tracking-widest font-bold mb-1" style={{ color: C.muted }}>Descripción</label>
                             <AutoTextarea
                               id="capture-description-input"
                               value={description} 
                               onChange={(e) => setDescription(e.target.value)}
-                              placeholder="Añade detalles si lo necesitas..."
-                              className="w-full text-sm text-center rounded-xl p-3 focus:outline-none min-h-[50px] max-h-[30vh] overflow-y-auto"
+                              placeholder="Añade detalles o descripción... (opcional)"
+                              className="w-full text-sm text-center rounded-xl p-3 focus:outline-none min-h-[44px] max-h-[15vh] overflow-y-auto placeholder:text-white/20"
                               style={{ 
                                 background: C.surface, color: C.text, border: `1px solid ${C.border}`,
                                 caretColor: C.accent 
@@ -589,47 +587,57 @@ Tu trabajo es:`;
                             />
                           </div>
 
-                          <div className="w-full text-center">
-                            <label className="block text-[10px] uppercase tracking-widest font-bold mb-1" style={{ color: C.muted }}>Fecha</label>
-                            <input
-                              type="date"
-                              value={dueDate} 
-                              onChange={(e) => setDueDate(e.target.value)}
-                              className="w-full text-sm text-center rounded-xl p-3 focus:outline-none"
-                              style={{ 
-                                background: C.surface, color: C.text, border: `1px solid ${C.border}`
-                              }}
-                            />
-                          </div>
+                          <div className="w-full grid grid-cols-2 gap-3">
+                            <div className="w-full text-center">
+                              <input
+                                type="date"
+                                value={dueDate} 
+                                onChange={(e) => setDueDate(e.target.value)}
+                                className="w-full text-xs text-center rounded-xl p-2.5 focus:outline-none"
+                                style={{ 
+                                  background: C.surface, color: C.text, border: `1px solid ${C.border}`
+                                }}
+                              />
+                            </div>
 
-                          <div className="w-full text-center">
-                            <label className="block text-[10px] uppercase tracking-widest font-bold mb-1" style={{ color: C.muted }}>Link</label>
-                            <input
-                              type="url"
-                              value={link} 
-                              onChange={(e) => setLink(e.target.value)}
-                              placeholder="https://..."
-                              className="w-full text-sm text-center rounded-xl p-3 focus:outline-none"
-                              style={{ 
-                                background: C.surface, color: C.text, border: `1px solid ${C.border}`,
-                                caretColor: C.accent 
-                              }}
-                            />
+                            <div className="w-full text-center">
+                              <input
+                                type="url"
+                                value={link} 
+                                onChange={(e) => setLink(e.target.value)}
+                                placeholder="Link..."
+                                className="w-full text-xs text-center rounded-xl p-2.5 focus:outline-none placeholder:text-white/20"
+                                style={{ 
+                                  background: C.surface, color: C.text, border: `1px solid ${C.border}`,
+                                  caretColor: C.accent 
+                                }}
+                              />
+                            </div>
                           </div>
 
                           {goals.filter(g => g.active).length > 0 && (
-                            <div className="w-full space-y-2">
-                              <label className="block text-[10px] uppercase tracking-widest font-bold text-center" style={{ color: C.muted }}>Meta</label>
-                              <div className="flex flex-wrap justify-center gap-2">
+                            <div className="w-full space-y-1">
+                              <div className="flex flex-wrap justify-center gap-1.5 max-h-[70px] overflow-y-auto">
+                                <button 
+                                  onClick={() => setSelectedGoalId(null)}
+                                  className="px-2.5 py-1.5 rounded-full text-[10px] font-bold transition-all border"
+                                  style={{
+                                    background: selectedGoalId === null ? C.text : C.surface,
+                                    color: selectedGoalId === null ? C.bg : C.muted,
+                                    borderColor: selectedGoalId === null ? 'transparent' : C.border
+                                  }}
+                                >
+                                  Sin Meta
+                                </button>
                                 {goals.filter(g => g.active).map((goal) => (
                                   <button 
                                     key={goal.id} 
                                     onClick={() => setSelectedGoalId(goal.id === selectedGoalId ? null : goal.id)}
-                                    className="px-3 py-1.5 rounded-full text-[10px] font-bold transition-all"
+                                    className="px-2.5 py-1.5 rounded-full text-[10px] font-bold transition-all border"
                                     style={{
                                       background: selectedGoalId === goal.id ? C.text : C.surface,
                                       color: selectedGoalId === goal.id ? C.bg : C.muted,
-                                      border: `1px solid ${selectedGoalId === goal.id ? 'transparent' : C.border}`
+                                      borderColor: selectedGoalId === goal.id ? 'transparent' : C.border
                                     }}
                                   >
                                     {goal.title}
@@ -741,19 +749,29 @@ Tu trabajo es:`;
                       {/* Goal picker — optional */}
                       {goals.filter(g => g.active).length > 0 && (
                         <div className="space-y-2">
-                          <p className="text-[11px] font-black uppercase tracking-widest text-on-surface-variant text-center">Meta</p>
+                          <p className="text-[11px] font-black uppercase tracking-widest text-center" style={{ color: C.muted }}>Meta</p>
                           <div className="flex flex-wrap gap-2 justify-center max-h-[120px] overflow-y-auto">
                             <button
                               onClick={() => setSelectedGoalId(null)}
-                              className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${selectedGoalId === null ? 'bg-foreground text-background' : 'bg-surface-container text-on-surface-variant border border-outline-variant'}`}
+                              className="px-3 py-1.5 rounded-full text-[10px] font-bold transition-all border"
+                              style={{
+                                background: selectedGoalId === null ? C.text : C.surface,
+                                color: selectedGoalId === null ? C.bg : C.muted,
+                                borderColor: selectedGoalId === null ? 'transparent' : C.border
+                              }}
                             >
-                              Ninguna
+                              Sin Meta
                             </button>
                             {goals.filter(g => g.active).map(g => (
                               <button
                                 key={g.id}
                                 onClick={() => setSelectedGoalId(g.id)}
-                                className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${selectedGoalId === g.id ? 'bg-foreground text-background' : 'bg-surface-container text-on-surface-variant border border-outline-variant'}`}
+                                className="px-3 py-1.5 rounded-full text-[10px] font-bold transition-all border"
+                                style={{
+                                  background: selectedGoalId === g.id ? C.text : C.surface,
+                                  color: selectedGoalId === g.id ? C.bg : C.muted,
+                                  borderColor: selectedGoalId === g.id ? 'transparent' : C.border
+                                }}
                               >
                                 {g.title}
                               </button>
