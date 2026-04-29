@@ -61,6 +61,46 @@ export const triggerTaskCelebration = (taskTitle: string, userName: string = 'Em
     .replace('{task}', taskTitle);
 };
 
+const ON_TIME_MESSAGES = [
+  "⏱️ ¡A tiempo! Dominas tu agenda, {name}.",
+  "⏱️ ¡Dentro del tiempo! Eres una máquina de productividad.",
+  "⏱️ ¡Misión cumplida a tiempo! {task} no fue rival para ti.",
+  "⏱️ ¡Impecable! Terminaste {task} antes de que se agotara el reloj.",
+  "⏱️ ¡Reloj vencido! Tu disciplina es de otro nivel, {name}.",
+  "⏱️ ¡Puntualidad perfecta! Eso se llama eficiencia.",
+];
+
+export const triggerOnTimeCelebration = (taskTitle: string, userName: string = 'Emprendedor') => {
+  // Play a triumphant sound
+  playSound('https://www.soundjay.com/buttons/sounds/button-3.mp3', 0.50);
+
+  // Gold star burst confetti
+  const count = 200;
+  const defaults = {
+    origin: { y: 0.7 },
+    zIndex: 200,
+  };
+
+  function fire(particleRatio: number, opts: any) {
+    confetti({
+      ...defaults,
+      particleCount: Math.floor(count * particleRatio),
+      ...opts,
+    });
+  }
+
+  fire(0.25, { spread: 26, startVelocity: 55, colors: ['#FFD700', '#FFA500', '#FF8C00'] });
+  fire(0.2, { spread: 60, colors: ['#FFD700', '#FFEC8B', '#FFA500'] });
+  fire(0.35, { spread: 100, decay: 0.91, scalar: 0.8, colors: ['#FFD700', '#22c55e', '#4ade80'] });
+  fire(0.1, { spread: 120, startVelocity: 25, decay: 0.92, scalar: 1.2, colors: ['#FFD700', '#FFA500'] });
+  fire(0.1, { spread: 120, startVelocity: 45, colors: ['#22c55e', '#4ade80', '#FFD700'] });
+
+  const randomIndex = Math.floor(Math.random() * ON_TIME_MESSAGES.length);
+  return ON_TIME_MESSAGES[randomIndex]
+    .replace('{name}', userName)
+    .replace('{task}', taskTitle);
+};
+
 export const triggerDailyCelebration = (userName: string = 'Emprendedor') => {
   // Play success sound
   playSound('https://www.soundjay.com/misc/sounds/bell-ring-01.mp3', 0.50);

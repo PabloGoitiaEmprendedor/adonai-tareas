@@ -10,7 +10,7 @@ import { es } from 'date-fns/locale';
 import { Check, Plus, GripVertical, Timer, Flame, Link as LinkIcon, ExternalLink, Settings } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
-import { triggerTaskCelebration, triggerDailyCelebration } from '@/lib/celebrations';
+import { triggerTaskCelebration, triggerDailyCelebration, triggerOnTimeCelebration } from '@/lib/celebrations';
 import FAB from '@/components/FAB';
 import TaskCaptureModal, { type TaskCaptureModalHandle } from '@/components/TaskCaptureModal';
 import TaskDetailModal from '@/components/TaskDetailModal';
@@ -219,6 +219,12 @@ const DailyPage = () => {
     e.stopPropagation();
     setCompletingTaskId(task.id);
 
+    // If this task had an active timer, close it
+    const hadActiveTimer = timerTask?.id === task.id;
+    if (hadActiveTimer) {
+      setTimerTask(null);
+    }
+
     setTimeout(() => {
       const remainingTasks = tasks.filter((t: any) => t.status !== 'done' && t.id !== task.id);
       const isLastTask = tasks.length > 0 && remainingTasks.length === 0;
@@ -233,6 +239,8 @@ const DailyPage = () => {
           checkAndUnlock.mutate({ type: 'task_completed' });
           if (isLastTask) {
             triggerDailyCelebration(profile?.name);
+          } else if (hadActiveTimer) {
+            triggerOnTimeCelebration(task.title, profile?.name);
           } else {
             triggerTaskCelebration(task.title, profile?.name);
           }

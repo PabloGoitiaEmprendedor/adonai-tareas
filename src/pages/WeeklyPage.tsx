@@ -7,7 +7,7 @@ import { format, startOfWeek, addDays, subDays, isSameDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { CalendarSearch as CalendarIcon, Check, GripVertical, Timer, Plus, Link as LinkIcon } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { triggerTaskCelebration, triggerDailyCelebration } from '@/lib/celebrations';
+import { triggerTaskCelebration, triggerDailyCelebration, triggerOnTimeCelebration } from '@/lib/celebrations';
 import FAB from '@/components/FAB';
 import TaskCaptureModal, { type TaskCaptureModalHandle } from '@/components/TaskCaptureModal';
 import TaskDetailModal from '@/components/TaskDetailModal';
@@ -164,6 +164,13 @@ const WeeklyPage = () => {
 
   const handleComplete = (task: any) => {
     setCompletingTaskId(task.id);
+
+    // If this task had an active timer, close it
+    const hadActiveTimer = timerTask?.id === task.id;
+    if (hadActiveTimer) {
+      setTimerTask(null);
+    }
+
     setTimeout(() => {
       const remainingTasks = selectedDayTasks.filter((t: any) => t.status !== 'done' && t.id !== task.id);
       const isLastTask = selectedDayTasks.length > 0 && remainingTasks.length === 0;
@@ -177,6 +184,8 @@ const WeeklyPage = () => {
           setCompletingTaskId(null);
           if (isLastTask) {
             triggerDailyCelebration(profile?.name);
+          } else if (hadActiveTimer) {
+            triggerOnTimeCelebration(task.title, profile?.name);
           } else {
             triggerTaskCelebration(task.title, profile?.name);
           }

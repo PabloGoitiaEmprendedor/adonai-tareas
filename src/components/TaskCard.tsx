@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Check, Timer, Link as LinkIcon } from 'lucide-react';
+import { Check, Timer, Link as LinkIcon, Paperclip } from 'lucide-react';
 import SubtasksSection from './SubtasksSection';
 import { useSubtasks } from '@/hooks/useSubtasks';
 import { useTasks } from '@/hooks/useTasks';
@@ -165,18 +165,7 @@ export const TaskCard = ({
                 {task.title}
               </span>
             )}
-            {task.link && (
-              <a
-                href={task.link}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={(e) => e.stopPropagation()}
-                className="text-on-surface-variant/40 hover:text-primary hover:scale-125 flex-shrink-0 transition-transform bg-primary/5 p-1 rounded-lg"
-                aria-label="Abrir link"
-              >
-                <LinkIcon className="w-4 h-4" />
-              </a>
-            )}
+
             
             {hasSubtasks && !subtasksOpen && (
               <span className="text-[10px] font-black text-on-surface-variant/40 ml-1">
@@ -207,7 +196,21 @@ export const TaskCard = ({
         )}
       </div>
       
-      <div className="flex items-center gap-1 flex-shrink-0">
+      <div className="flex items-center gap-1.5 flex-shrink-0">
+
+        {/* Green link clip — visible when task has a link */}
+        {!isDone && task.link && (
+          <a
+            href={task.link}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="w-9 h-9 rounded-[12px] flex items-center justify-center transition-all active:scale-90 bg-emerald-500/15 border border-emerald-500/30 hover:bg-emerald-500/25 hover:scale-110"
+            aria-label="Abrir link"
+          >
+            <Paperclip className="w-4 h-4 text-emerald-500" />
+          </a>
+        )}
 
         {!isDone && (
           isEditing ? (

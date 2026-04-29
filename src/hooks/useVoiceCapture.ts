@@ -76,8 +76,10 @@ export const useVoiceCapture = () => {
     }
   };
 
+  // Voice is supported via SpeechRecognition OR MediaRecorder fallback (Electron/desktop)
   const isSupported = typeof window !== 'undefined' &&
-    !!((window as any).webkitSpeechRecognition || (window as any).SpeechRecognition);
+    (!!((window as any).webkitSpeechRecognition || (window as any).SpeechRecognition) ||
+     typeof MediaRecorder !== 'undefined');
 
   /**
    * Request mic permissions explicitly BEFORE starting SpeechRecognition.
