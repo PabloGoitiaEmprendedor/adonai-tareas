@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { useProfile } from "@/hooks/useProfile";
 
 import AuthPage from "./pages/AuthPage";
+import LandingPage from "./pages/LandingPage";
 import OnboardingPage from "./pages/OnboardingPage";
 import DailyPage from "./pages/DailyPage";
 import WeeklyPage from "./pages/WeeklyPage";
@@ -92,11 +93,18 @@ const AppRoutes = () => {
 
   return (
     <Routes>
+      {/* Public landing — replaces the previous root. The full web app
+          remains accessible at /app. Inside the Electron desktop build,
+          we never want to show the landing — go straight to the app. */}
+      <Route
+        path="/"
+        element={window.electronAPI ? <Navigate to="/app" replace /> : <LandingPage />}
+      />
       <Route path="/mini" element={<MiniTasksPage />} />
-      <Route path="/auth" element={user ? <Navigate to="/" replace /> : <AuthPage />} />
+      <Route path="/auth" element={user ? <Navigate to="/app" replace /> : <AuthPage />} />
       <Route path="/onboarding" element={user ? <OnboardingPage /> : <Navigate to="/auth" replace />} />
-      <Route path="/" element={<ProtectedRoute><DailyPage /></ProtectedRoute>} />
-      <Route path="/today" element={<Navigate to="/" replace />} />
+      <Route path="/app" element={<ProtectedRoute><DailyPage /></ProtectedRoute>} />
+      <Route path="/today" element={<Navigate to="/app" replace />} />
       <Route path="/week" element={<ProtectedRoute><WeeklyPage /></ProtectedRoute>} />
       <Route path="/goals" element={<ProtectedRoute><GoalsPage /></ProtectedRoute>} />
       <Route path="/folders" element={<ProtectedRoute><FoldersPage /></ProtectedRoute>} />
