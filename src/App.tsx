@@ -19,6 +19,7 @@ import TermsOfServicePage from "./pages/TermsOfServicePage";
 import TrashPage from "./pages/TrashPage";
 import AchievementsPage from "./pages/AchievementsPage";
 import MiniTasksPage from "./pages/MiniTasksPage";
+import AdminPanelPage from "./pages/AdminPanelPage";
 import NotFound from "./pages/NotFound";
 import { supabase } from "@/integrations/supabase/client";
 import UpdateBanner from "@/components/UpdateBanner";
@@ -103,6 +104,7 @@ const AppRoutes = () => {
       <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
       <Route path="/trash" element={<ProtectedRoute><TrashPage /></ProtectedRoute>} />
       <Route path="/achievements" element={<ProtectedRoute><AchievementsPage /></ProtectedRoute>} />
+      <Route path="/admin" element={<ProtectedRoute><AdminPanelPage /></ProtectedRoute>} />
       <Route path="/privacy" element={<PrivacyPolicyPage />} />
       <Route path="/terms" element={<TermsOfServicePage />} />
       <Route path="*" element={<NotFound />} />

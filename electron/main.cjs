@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell, dialog, session } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, dialog, session, Menu, MenuItem } = require('electron');
 const path = require('path');
 const { autoUpdater } = require('electron-updater');
 
@@ -150,6 +150,45 @@ app.whenReady().then(() => {
     details.requestHeaders['Origin'] = 'https://adonaitasks.com';
     details.requestHeaders['Referer'] = 'https://adonaitasks.com/';
     callback({ requestHeaders: details.requestHeaders });
+  });
+
+  // Enable spell-checker context menu globally for all web contents
+  app.on('web-contents-created', (event, contents) => {
+    contents.on('context-menu', (event, params) => {
+      const menu = new Menu();
+
+      // Add each spelling suggestion
+      for (const suggestion of params.dictionarySuggestions) {
+        menu.append(new MenuItem({
+          label: suggestion,
+          click: () => contents.replaceMisspelling(suggestion)
+        }));
+      }
+
+      // Allow users to add the misspelled word to the dictionary
+      if (params.misspelledWord) {
+        menu.append(
+          new MenuItem({
+            label: 'Añadir al diccionario',
+            click: () => contents.session.addWordToSpellCheckerDictionary(params.misspelledWord)
+          })
+        );
+      }
+
+      if (menu.items.length > 0) {
+        menu.append(new MenuItem({ type: 'separator' }));
+      }
+      
+      // Add basic copy/paste
+      if (params.editFlags.canCut) menu.append(new MenuItem({ role: 'cut', label: 'Cortar' }));
+      if (params.editFlags.canCopy) menu.append(new MenuItem({ role: 'copy', label: 'Copiar' }));
+      if (params.editFlags.canPaste) menu.append(new MenuItem({ role: 'paste', label: 'Pegar' }));
+
+      // Only popup if there's something to show (text selected or misspelled word or editable area)
+      if (menu.items.length > 0 && params.isEditable) {
+        menu.popup();
+      }
+    });
   });
 
   createMainWindow();

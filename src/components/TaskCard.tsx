@@ -208,14 +208,25 @@ export const TaskCard = ({
       </div>
       
       <div className="flex items-center gap-1 flex-shrink-0">
+
         {!isDone && (
-          <button
-            onClick={(e) => handleStartTimer(task, e)}
-            className="w-9 h-9 rounded-[12px] border border-outline-variant text-on-surface-variant flex items-center justify-center hover:border-primary hover:text-foreground transition-all active:scale-90 bg-transparent"
-            aria-label="Iniciar temporizador"
-          >
-            <Timer className="w-4 h-4" />
-          </button>
+          isEditing ? (
+            <button
+              onClick={(e) => { e.stopPropagation(); submitEdit(); }}
+              className="w-9 h-9 rounded-[12px] flex items-center justify-center transition-all active:scale-90 bg-primary shadow-lg shadow-primary/20"
+              aria-label="Guardar cambios"
+            >
+              <Check className="w-5 h-5 text-primary-foreground stroke-[3]" />
+            </button>
+          ) : (
+            <button
+              onClick={(e) => handleStartTimer(task, e)}
+              className="w-9 h-9 rounded-[12px] border border-outline-variant text-on-surface-variant flex items-center justify-center hover:border-primary hover:text-foreground transition-all active:scale-90 bg-transparent"
+              aria-label="Iniciar temporizador"
+            >
+              <Timer className="w-4 h-4" />
+            </button>
+          )
         )}
       </div>
     </motion.div>

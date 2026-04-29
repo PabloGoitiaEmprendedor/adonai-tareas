@@ -24,7 +24,7 @@ interface TaskCaptureModalProps {
 
 
 export interface TaskCaptureModalHandle {
-  openInVoiceMode: () => boolean;
+  openInVoiceMode: () => Promise<boolean>;
 }
 
 const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProps>(({ open, onClose, goalId, folderId, timeBlockId, initialMode }, ref) => {
@@ -55,13 +55,12 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
   const voiceProcessedRef = useRef(false);
   const isCurrentlySavingRef = useRef(false);
 
-  const beginVoiceCapture = useCallback(() => {
+  const beginVoiceCapture = useCallback(async () => {
     voiceProcessedRef.current = false;
-    const started = startRecording();
-    if (started) {
-      setSourceType('voice');
-      setShowTextInput(false);
-    } else {
+    setSourceType('voice');
+    setShowTextInput(false);
+    const started = await startRecording();
+    if (!started) {
       resetTranscript();
       setSourceType('text');
       setShowTextInput(true);
@@ -70,7 +69,7 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
   }, [resetTranscript, startRecording]);
 
   useImperativeHandle(ref, () => ({
-    openInVoiceMode: () => {
+    openInVoiceMode: async () => {
       requestedVoiceOpenRef.current = true;
       setPhase('input');
       setTitle('');
@@ -395,7 +394,7 @@ Tu trabajo es:`;
       }
 
       if (!isImageLoop) {
-        toast.success('Tarea creada');
+        // Disabled toast to allow rapid creation without blocking UI
         handleClose();
       }
       return task;
@@ -428,28 +427,44 @@ Tu trabajo es:`;
 
   const waveformBars = [4, 8, 12, 14, 10, 16, 12, 14, 6, 10, 14, 8, 4];
 
+  const C = {
+    bg: '#18181B',
+    surface: 'rgba(255,255,255,0.06)',
+    border: 'rgba(255,255,255,0.09)',
+    text: '#F4F4F5',
+    muted: 'rgba(255,255,255,0.35)',
+    accent: '#A3E635',
+    accentBg: 'rgba(163,230,53,0.13)',
+  };
+
   return (
     <AnimatePresence>
       {open && (
         <>
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60]" onClick={handleClose} />
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60]" onClick={handleClose} />
           <motion.div
-            initial={{ opacity: 0, scale: 0.96, y: 12 }}
+            initial={{ opacity: 0, scale: 0.95, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.96, y: 12 }}
-            transition={{ type: 'spring', damping: 25, stiffness: 240 }}
+            exit={{ opacity: 0, scale: 0.95, y: 10 }}
+            transition={{ type: 'spring', damping: 22, stiffness: 260 }}
             className="fixed inset-0 z-[70] flex items-center justify-center p-4 pointer-events-none"
           >
-            <div className="relative mx-auto w-full max-w-[440px] max-h-[90vh] overflow-y-auto bg-card rounded-[28px] shadow-[0_24px_60px_-12px_rgba(0,0,0,0.45)] pointer-events-auto">
+            <div className="relative mx-auto w-full max-w-[340px] max-h-[90vh] overflow-y-auto pointer-events-auto"
+                 style={{
+                   background: C.bg, borderRadius: 20,
+                   border: `1px solid ${C.border}`,
+                   boxShadow: '0 16px 48px rgba(0,0,0,0.6)',
+                 }}>
               <button
                 id="tutorial-close-capture"
                 onClick={handleClose}
                 aria-label="Cerrar"
-                className="absolute top-3 right-3 z-10 w-9 h-9 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high transition-colors"
+                className="absolute top-3 right-3 z-10 w-8 h-8 rounded-lg flex items-center justify-center transition-colors"
+                style={{ color: C.muted }}
               >
                 <X className="w-5 h-5" />
               </button>
-              <div className="p-6 pt-7 flex flex-col items-center gap-6">
+              <div className="p-5 pt-6 flex flex-col items-center gap-5">
 
                 <AnimatePresence mode="wait">
                   {phase === 'select' && (
@@ -461,43 +476,46 @@ Tu trabajo es:`;
                       className="w-full flex flex-col items-center gap-8 pb-4"
                     >
                       <div className="text-center space-y-2">
-                        <h2 className="text-2xl font-black text-foreground tracking-tight">Añadir Tarea</h2>
-                        <p className="text-sm font-medium text-on-surface-variant/60">¿Cómo prefieres crearla?</p>
+                        <h2 className="text-xl font-bold tracking-tight" style={{ color: C.text }}>Añadir Tarea</h2>
+                        <p className="text-xs font-medium" style={{ color: C.muted }}>¿Cómo prefieres crearla?</p>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-4 w-full">
+                      <div className="grid grid-cols-2 gap-3 w-full">
                         {/* WRITING BUTTON */}
                         <button
                           onClick={() => { setPhase('input'); setShowTextInput(true); setSourceType('text'); }}
-                          className="group flex flex-col items-center gap-3 p-4 rounded-[32px] hover:bg-surface-container transition-all active:scale-[0.96]"
+                          className="group flex flex-col items-center gap-2 p-3 rounded-[20px] transition-all active:scale-[0.96]"
+                          style={{ background: C.surface, border: `1px solid ${C.border}` }}
                         >
-                          <div className="w-16 h-16 rounded-[22px] bg-surface-container-high flex items-center justify-center transition-colors group-hover:bg-primary/20">
-                            <Type className="w-7 h-7 text-primary" strokeWidth={2.5} />
+                          <div className="w-14 h-14 rounded-[16px] flex items-center justify-center transition-colors" style={{ background: 'rgba(255,255,255,0.05)' }}>
+                            <Type className="w-6 h-6" style={{ color: C.text }} strokeWidth={2} />
                           </div>
-                          <span className="text-xs font-black uppercase tracking-widest text-on-surface-variant group-hover:text-foreground">Escribir</span>
+                          <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: C.muted }}>Escribir</span>
                         </button>
 
                         {/* VOICE BUTTON */}
                         <button
                           onClick={() => { setPhase('input'); beginVoiceCapture(); }}
-                          className="group flex flex-col items-center gap-3 p-4 rounded-[32px] hover:bg-surface-container transition-all active:scale-[0.96]"
+                          className="group flex flex-col items-center gap-2 p-3 rounded-[20px] transition-all active:scale-[0.96]"
+                          style={{ background: C.accentBg, border: `1px solid rgba(163,230,53,0.15)` }}
                         >
-                          <div className="w-16 h-16 rounded-[22px] bg-primary/10 flex items-center justify-center transition-colors group-hover:bg-primary/20">
-                            <Mic className="w-7 h-7 text-primary" strokeWidth={2.5} />
+                          <div className="w-14 h-14 rounded-[16px] flex items-center justify-center transition-colors" style={{ background: 'rgba(163,230,53,0.2)' }}>
+                            <Mic className="w-6 h-6" style={{ color: C.accent }} strokeWidth={2} />
                           </div>
-                          <span className="text-xs font-black uppercase tracking-widest text-on-surface-variant group-hover:text-foreground">Voz</span>
+                          <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: C.accent }}>Voz</span>
                         </button>
 
                         {/* PHOTO BUTTON — only in web (not Electron desktop) */}
                         {!(window as any).electronAPI && (
                           <button
                             onClick={() => fileInputRef.current?.click()}
-                            className="group flex flex-col items-center gap-3 p-4 rounded-[32px] hover:bg-surface-container transition-all active:scale-[0.96]"
+                            className="group flex flex-col items-center gap-2 p-3 rounded-[20px] transition-all active:scale-[0.96]"
+                            style={{ background: C.surface, border: `1px solid ${C.border}` }}
                           >
-                            <div className="w-16 h-16 rounded-[22px] bg-surface-container-high flex items-center justify-center transition-colors group-hover:bg-primary/20">
-                              <Camera className="w-7 h-7 text-primary" strokeWidth={2.5} />
+                            <div className="w-14 h-14 rounded-[16px] flex items-center justify-center transition-colors" style={{ background: 'rgba(255,255,255,0.05)' }}>
+                              <Camera className="w-6 h-6" style={{ color: C.text }} strokeWidth={2} />
                             </div>
-                            <span className="text-xs font-black uppercase tracking-widest text-on-surface-variant group-hover:text-foreground">Foto</span>
+                            <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: C.muted }}>Foto</span>
                           </button>
                         )}
                       </div>
@@ -532,14 +550,18 @@ Tu trabajo es:`;
                       {!isRecording && showTextInput && (
                         <div className="w-full space-y-4">
                           <div className="w-full text-center min-h-[40px]">
-                            <label className="block text-[10px] uppercase tracking-widest font-bold text-on-surface-variant/40 mb-1">Título</label>
+                            <label className="block text-[10px] uppercase tracking-widest font-bold mb-1" style={{ color: C.muted }}>Título</label>
                             <input 
                               id="capture-title-input"
                               autoFocus 
                               value={title} 
                               onChange={(e) => setTitle(e.target.value)}
                               placeholder="¿Qué necesitas hacer?"
-                              className="w-full text-xl text-center bg-transparent text-foreground placeholder:text-on-surface-variant/40 focus:outline-none border-none font-bold"
+                              className="w-full text-lg text-center focus:outline-none font-bold"
+                              style={{ 
+                                background: 'transparent', color: C.text, border: 'none', 
+                                outline: 'none', caretColor: C.accent 
+                              }}
                               onKeyDown={(e) => { 
                                 if (e.key === 'Enter') {
                                   if (!description.trim()) {
@@ -553,40 +575,62 @@ Tu trabajo es:`;
                           </div>
 
                           <div className="w-full text-center">
-                            <label className="block text-[10px] uppercase tracking-widest font-bold text-on-surface-variant/40 mb-1">Descripción</label>
+                            <label className="block text-[10px] uppercase tracking-widest font-bold mb-1" style={{ color: C.muted }}>Descripción</label>
                             <AutoTextarea
                               id="capture-description-input"
                               value={description} 
                               onChange={(e) => setDescription(e.target.value)}
                               placeholder="Añade detalles si lo necesitas..."
-                              className="w-full text-sm text-center bg-surface-container-high/50 rounded-xl p-3 text-foreground placeholder:text-on-surface-variant/40 focus:outline-none border-none min-h-[64px] max-h-[40vh] overflow-y-auto"
+                              className="w-full text-sm text-center rounded-xl p-3 focus:outline-none min-h-[50px] max-h-[30vh] overflow-y-auto"
+                              style={{ 
+                                background: C.surface, color: C.text, border: `1px solid ${C.border}`,
+                                caretColor: C.accent 
+                              }}
                             />
                           </div>
 
                           <div className="w-full text-center">
-                            <label className="block text-[10px] uppercase tracking-widest font-bold text-on-surface-variant/40 mb-1">Link (opcional)</label>
+                            <label className="block text-[10px] uppercase tracking-widest font-bold mb-1" style={{ color: C.muted }}>Fecha</label>
+                            <input
+                              type="date"
+                              value={dueDate} 
+                              onChange={(e) => setDueDate(e.target.value)}
+                              className="w-full text-sm text-center rounded-xl p-3 focus:outline-none"
+                              style={{ 
+                                background: C.surface, color: C.text, border: `1px solid ${C.border}`
+                              }}
+                            />
+                          </div>
+
+                          <div className="w-full text-center">
+                            <label className="block text-[10px] uppercase tracking-widest font-bold mb-1" style={{ color: C.muted }}>Link</label>
                             <input
                               type="url"
                               value={link} 
                               onChange={(e) => setLink(e.target.value)}
                               placeholder="https://..."
-                              className="w-full text-sm text-center bg-surface-container-high/50 rounded-xl p-3 text-foreground placeholder:text-on-surface-variant/40 focus:outline-none border-none"
+                              className="w-full text-sm text-center rounded-xl p-3 focus:outline-none"
+                              style={{ 
+                                background: C.surface, color: C.text, border: `1px solid ${C.border}`,
+                                caretColor: C.accent 
+                              }}
                             />
                           </div>
 
                           {goals.filter(g => g.active).length > 0 && (
                             <div className="w-full space-y-2">
-                              <label className="block text-[10px] uppercase tracking-widest font-bold text-on-surface-variant/40 text-center">Meta</label>
+                              <label className="block text-[10px] uppercase tracking-widest font-bold text-center" style={{ color: C.muted }}>Meta</label>
                               <div className="flex flex-wrap justify-center gap-2">
                                 {goals.filter(g => g.active).map((goal) => (
                                   <button 
                                     key={goal.id} 
                                     onClick={() => setSelectedGoalId(goal.id === selectedGoalId ? null : goal.id)}
-                                    className={`px-3 py-1.5 rounded-full text-[10px] font-bold transition-all ${
-                                      selectedGoalId === goal.id 
-                                        ? 'bg-primary text-primary-foreground shadow-lg' 
-                                        : 'bg-surface-container-high text-on-surface-variant/60 hover:bg-surface-container-highest'
-                                    }`}
+                                    className="px-3 py-1.5 rounded-full text-[10px] font-bold transition-all"
+                                    style={{
+                                      background: selectedGoalId === goal.id ? C.text : C.surface,
+                                      color: selectedGoalId === goal.id ? C.bg : C.muted,
+                                      border: `1px solid ${selectedGoalId === goal.id ? 'transparent' : C.border}`
+                                    }}
                                   >
                                     {goal.title}
                                   </button>
@@ -596,24 +640,41 @@ Tu trabajo es:`;
                           )}
                         </div>
                       )}
+
+                      {/* Voice fallback — show retry prompt */}
+                      {voiceFallback && sourceType === 'text' && (
+                        <div className="w-full flex flex-col items-center gap-2 py-2">
+                          <p className="text-xs text-orange-500/80 font-semibold text-center">El micrófono no está disponible.</p>
+                          <button
+                            onClick={beginVoiceCapture}
+                            className="px-4 py-2 rounded-full bg-primary/10 text-primary text-xs font-bold hover:bg-primary/20 transition-colors flex items-center gap-1.5"
+                          >
+                            <Mic className="w-3.5 h-3.5" />
+                            Reintentar voz
+                          </button>
+                        </div>
+                      )}
+
                       <p className="text-[11px] text-on-surface-variant/60 text-center">
                         {sourceType === 'voice' ? 'Habla claro y natural.' : 'Escribe tu tarea.'}
                       </p>
                       <div className="flex gap-4 items-center">
                         {isRecording ? (
-                          <button onClick={() => stopRecording()} className="w-16 h-16 rounded-full primary-gradient flex items-center justify-center shadow-lg shadow-primary/20">
-                            <Square className="w-6 h-6 text-primary-foreground" fill="currentColor" />
+                          <button onClick={() => stopRecording()} className="w-14 h-14 rounded-full flex items-center justify-center shadow-lg" style={{ background: C.accent }}>
+                            <Square className="w-5 h-5" style={{ color: C.bg }} fill="currentColor" />
                           </button>
                         ) : (
                           <>
-                            {/* Only show mic/camera switchers when NOT in pure text mode */}
-                            {sourceType === 'voice' && isSupported && !voiceFallback && (
-                              <button onClick={beginVoiceCapture} className="w-14 h-14 rounded-full bg-surface-container-high flex items-center justify-center">
-                                <Mic className="w-6 h-6 text-foreground" />
+                            {/* Mic retry button — always show if voice mode was attempted */}
+                            {sourceType === 'voice' && isSupported && (
+                              <button onClick={beginVoiceCapture} className="w-12 h-12 rounded-full flex items-center justify-center" style={{ background: C.surface, border: `1px solid ${C.border}` }}>
+                                <Mic className="w-5 h-5" style={{ color: C.text }} />
                               </button>
                             )}
                             {(title || showTextInput) && (
-                              <button onClick={() => handleTitleDone()} className="px-6 py-3 rounded-full primary-gradient text-primary-foreground font-bold text-sm">Guardar</button>
+                              <button onClick={() => handleTitleDone()} className="px-6 py-2.5 rounded-[14px] font-bold text-sm transition-opacity hover:opacity-90 active:scale-95" style={{ background: `linear-gradient(135deg, ${C.accent}, #65a30d)`, color: '#000' }}>
+                                Siguiente
+                              </button>
                             )}
                           </>
                         )}
@@ -648,20 +709,30 @@ Tu trabajo es:`;
 
                       {/* Importance + Urgency — clear, child-simple toggles */}
                       <div className="space-y-2">
-                        <p className="text-[11px] font-black uppercase tracking-widest text-on-surface-variant text-center">Prioridad</p>
+                        <p className="text-[11px] font-black uppercase tracking-widest text-center" style={{ color: C.muted }}>Prioridad</p>
                         <div className="grid grid-cols-2 gap-2">
                           <button
                             onClick={() => setReviewImportance(!reviewImportance)}
-                            className={`p-3 rounded-2xl text-sm font-bold border-2 transition-all flex flex-col items-center gap-1 ${reviewImportance ? 'bg-primary/15 text-foreground border-primary' : 'bg-surface-container text-on-surface-variant border-outline-variant'}`}
+                            className="p-3 rounded-[16px] text-xs font-bold border-2 transition-all flex flex-col items-center gap-1"
+                            style={{ 
+                              background: reviewImportance ? C.accentBg : C.surface, 
+                              borderColor: reviewImportance ? C.accent : 'transparent',
+                              color: reviewImportance ? C.accent : C.text
+                            }}
                           >
-                            {reviewImportance && <Check className="w-4 h-4 text-primary" />}
+                            {reviewImportance && <Check className="w-4 h-4" style={{ color: C.accent }} />}
                             <span>Importante</span>
                           </button>
                           <button
                             onClick={() => setReviewUrgency(!reviewUrgency)}
-                            className={`p-3 rounded-2xl text-sm font-bold border-2 transition-all flex flex-col items-center gap-1 ${reviewUrgency ? 'bg-orange-500/15 text-foreground border-orange-500' : 'bg-surface-container text-on-surface-variant border-outline-variant'}`}
+                            className="p-3 rounded-[16px] text-xs font-bold border-2 transition-all flex flex-col items-center gap-1"
+                            style={{ 
+                              background: reviewUrgency ? 'rgba(249,115,22,0.15)' : C.surface, 
+                              borderColor: reviewUrgency ? '#f97316' : 'transparent',
+                              color: reviewUrgency ? '#f97316' : C.text
+                            }}
                           >
-                            {reviewUrgency && <Check className="w-4 h-4 text-orange-500" />}
+                            {reviewUrgency && <Check className="w-4 h-4" style={{ color: '#f97316' }} />}
                             <span>Urgente</span>
                           </button>
                         </div>
@@ -693,7 +764,8 @@ Tu trabajo es:`;
 
                       <button
                         onClick={handleReviewDone}
-                        className="w-full py-3.5 rounded-2xl bg-primary text-primary-foreground font-black text-sm shadow-md hover:opacity-90 transition active:scale-[0.98]"
+                        className="w-full py-3.5 rounded-[16px] font-black text-sm transition-opacity hover:opacity-90 active:scale-95"
+                        style={{ background: `linear-gradient(135deg, ${C.accent}, #65a30d)`, color: '#000' }}
                       >
                         Crear tarea
                       </button>

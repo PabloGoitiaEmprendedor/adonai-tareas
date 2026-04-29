@@ -9,7 +9,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, ArrowRight, ArrowLeft, Check, Repeat, Calendar } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, addDays } from 'date-fns';
 import { useTasks } from '@/hooks/useTasks';
 import { useRecurrenceRules } from '@/hooks/useRecurrenceRules';
 import { toast } from 'sonner';
@@ -162,11 +162,31 @@ const QuickRecurrenceFlow = ({ open, onClose }: QuickRecurrenceFlowProps) => {
 
       const newRule = await createRule.mutateAsync(ruleData);
 
+      // Calculate first valid due date
+      let firstValidDate = new Date();
+      if (ruleData.frequency === 'weekly' && ruleData.days_of_week) {
+        for (let i = 0; i <= 7; i++) {
+          const d = addDays(new Date(), i);
+          if (ruleData.days_of_week.includes(d.getDay())) {
+            firstValidDate = d;
+            break;
+          }
+        }
+      } else if (ruleData.frequency === 'monthly' && ruleData.day_of_month) {
+        for (let i = 0; i <= 31; i++) {
+          const d = addDays(new Date(), i);
+          if (d.getDate() === ruleData.day_of_month) {
+            firstValidDate = d;
+            break;
+          }
+        }
+      }
+
       // Create the task linked to the recurrence rule
       createTask.mutate(
         {
           title: title.trim(),
-          due_date: format(new Date(), 'yyyy-MM-dd'),
+          due_date: format(firstValidDate, 'yyyy-MM-dd'),
           recurrence_id: newRule.id,
           importance: false,
           urgency: false,

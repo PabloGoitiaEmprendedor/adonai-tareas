@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { FolderOpen, Users, User, Calendar, LogOut, Settings, Bell, HelpCircle, Menu, Trash2, Home, Target, Trophy, Download, Monitor } from 'lucide-react';
+import { FolderOpen, Users, User, Calendar, LogOut, Settings, Bell, HelpCircle, Menu, Trash2, Home, Target, Trophy, Download, Monitor, BarChart3 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -86,6 +86,22 @@ const SidebarContent = ({ user, menuItems, location, handleNavigate, signOut, st
           <Trash2 className={`w-5 h-5 ${location.pathname === '/trash' ? 'text-foreground' : ''}`} />
           <span className="text-sm tracking-wide">Historial</span>
         </Button>
+
+        {/* Admin panel — CEO only */}
+        {user?.email === 'pablogoitiaemprendedor@gmail.com' && (
+          <Button
+            variant="ghost"
+            onClick={() => handleNavigate('/admin')}
+            className={`w-full justify-start gap-4 h-12 rounded-xl transition-all duration-300 ${
+              location.pathname === '/admin' 
+                ? 'bg-primary/20 text-foreground font-bold' 
+                : 'text-on-surface-variant hover:bg-surface-container hover:text-foreground'
+            }`}
+          >
+            <BarChart3 className={`w-5 h-5 ${location.pathname === '/admin' ? 'text-foreground' : ''}`} />
+            <span className="text-sm tracking-wide">Admin Panel</span>
+          </Button>
+        )}
       </div>
 
       <div className="mt-8 px-6">

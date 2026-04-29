@@ -138,7 +138,7 @@ const DailyPage = () => {
     const title = quickAddTitle.trim();
     if (!title) return;
     createTask.mutate(
-      { title, due_date: today, source_type: 'text' },
+      { title, due_date: today, source_type: 'text', creation_source: 'secondary' },
       {
         onSuccess: () => setQuickAddTitle(''),
         onError: () => toast.error('No se pudo crear la tarea'),

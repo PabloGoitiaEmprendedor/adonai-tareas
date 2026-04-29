@@ -189,22 +189,31 @@ export const useTasks = (filters?: { date?: string; startDate?: string; endDate?
       time_block_id?: string | null;
       link?: string | null;
       parent_task_id?: string | null;
+      /** Where the creation was triggered from: 'fab', 'mini_voice', 'mini_plus', 'secondary', 'recurrence' */
+      creation_source?: string;
     }) => {
       if (!user) throw new Error('No user');
+      const { creation_source, ...taskData } = task;
       const { data, error } = await supabase
         .from('tasks')
         .insert({
-          ...task,
+          ...taskData,
           user_id: user.id,
-          due_date: task.due_date || format(new Date(), 'yyyy-MM-dd'),
+          due_date: taskData.due_date || format(new Date(), 'yyyy-MM-dd'),
         })
         .select()
         .single();
       if (error) throw error;
 
+      // Determine the event type based on source
+      let eventType = 'task_created_text';
+      if (taskData.source_type === 'voice') eventType = 'task_created_voice';
+      else if (taskData.source_type === 'image') eventType = 'task_created_image';
+
       await supabase.from('usage_events').insert({
         user_id: user.id,
-        event_type: task.source_type === 'voice' ? 'task_created_voice' : 'task_created_text',
+        event_type: eventType,
+        metadata: creation_source ? { creation_source } : null,
       });
 
       return data;
