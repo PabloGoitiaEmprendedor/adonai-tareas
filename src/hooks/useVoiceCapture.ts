@@ -86,7 +86,7 @@ export const useVoiceCapture = () => {
    * This forces the browser to show the native permission dialog if not yet granted.
    * Without this, SpeechRecognition silently fails for users who never granted mic access.
    */
-  const ensureMicPermission = async (): Promise<boolean> => {
+  const ensureMicPermission = useCallback(async (): Promise<boolean> => {
     try {
       // Check if permissions API is available
       if (navigator.permissions) {
@@ -125,7 +125,7 @@ export const useVoiceCapture = () => {
       }
       return false;
     }
-  };
+  }, []);
 
   const startRecording = useCallback(async (): Promise<boolean> => {
     if (isRecordingRef.current) {

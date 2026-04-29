@@ -139,13 +139,80 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
     resetTranscript();
     setShowTextInput(true);
     setSourceType('text');
-  }, [open, resetTranscript, initialMode, beginVoiceCapture]);
+  }, [open, initialMode]);
 
   const handleClose = () => {
     if (isRecording) {
       stopRecording();
     }
     onClose();
+  };
+
+  // Fast, no-AI save. Uses exactly what the user typed/picked.
+  const saveTaskQuick = async (opts: {
+    title: string;
+    description?: string;
+    link?: string;
+    dueDate: string;
+    goalId: string | null;
+    importance: boolean;
+    urgency: boolean;
+    isImageLoop?: boolean;
+  }) => {
+    const { title: taskTitle, description: taskDesc, link: taskLink, dueDate: date, goalId: chosenGoalId, importance, urgency, isImageLoop } = opts;
+
+    if (isCurrentlySavingRef.current && !isImageLoop) return;
+    if (!isImageLoop) {
+      isCurrentlySavingRef.current = true;
+      setPhase('saving');
+      setSavingMessage('Creando tarea...');
+    }
+
+    const priority = importance && urgency ? 'high' : importance || urgency ? 'medium' : 'low';
+    const finalDate = date || format(new Date(), 'yyyy-MM-dd');
+
+    try {
+      const task = await createTask.mutateAsync({
+        title: taskTitle,
+        priority,
+        urgency,
+        importance,
+        source_type: sourceType,
+        description: taskDesc || null,
+        link: taskLink || null,
+        context_id: null,
+        goal_id: chosenGoalId || goalId || null,
+        folder_id: folderId || null,
+        recurrence_id: null,
+        estimated_minutes: fallbackEstimatedMinutes || 30,
+        due_date: finalDate,
+        time_block_id: timeBlockId || null,
+      });
+
+      if (sourceType === 'voice' && user) {
+        await supabase.from('voice_inputs').insert({
+          user_id: user.id,
+          transcript: classificationSource || taskTitle,
+          parsed_task_id: task.id,
+          confidence,
+        });
+      }
+
+      if (!isImageLoop) {
+        handleClose();
+      }
+      return task;
+    } catch (err) {
+      if (!isImageLoop) {
+        toast.error('Error al crear tarea');
+        setPhase('input');
+      }
+      throw err;
+    } finally {
+      if (!isImageLoop) {
+        isCurrentlySavingRef.current = false;
+      }
+    }
   };
 
   const handleTitleDone = useCallback(async (overrideTitle?: string) => {
@@ -176,11 +243,23 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
         setPhase('date');
         return;
       }
+      
+      // If voice has a date, immediately create the task and close!
+      await saveTaskQuick({
+        title: parsedTitle,
+        description: parsedDescription,
+        link: link,
+        dueDate: parsedDate,
+        goalId: selectedGoalId,
+        importance: false,
+        urgency: false
+      });
+      return;
     }
 
     // Skip AI — go directly to the quick review (goal + Eisenhower) screen
     setPhase('review');
-  }, [title, dueDate, sourceType]);
+  }, [title, dueDate, sourceType, description, link, selectedGoalId]);
 
   useEffect(() => {
     if (transcript && !isRecording && sourceType === 'voice' && !voiceProcessedRef.current) {
@@ -340,76 +419,22 @@ Tu trabajo es:`;
   };
 
   const handleDateDone = async () => {
-    setPhase('review');
-  };
-
-  // Fast, no-AI save. Uses exactly what the user typed/picked.
-  const saveTaskQuick = async (opts: {
-    title: string;
-    description?: string;
-    link?: string;
-    dueDate: string;
-    goalId: string | null;
-    importance: boolean;
-    urgency: boolean;
-    isImageLoop?: boolean;
-  }) => {
-    const { title: taskTitle, description: taskDesc, link: taskLink, dueDate: date, goalId: chosenGoalId, importance, urgency, isImageLoop } = opts;
-
-    if (isCurrentlySavingRef.current && !isImageLoop) return;
-    if (!isImageLoop) {
-      isCurrentlySavingRef.current = true;
-      setPhase('saving');
-      setSavingMessage('Creando tarea...');
-    }
-
-    const priority = importance && urgency ? 'high' : importance || urgency ? 'medium' : 'low';
-    const finalDate = date || format(new Date(), 'yyyy-MM-dd');
-
-    try {
-      const task = await createTask.mutateAsync({
-        title: taskTitle,
-        priority,
-        urgency,
-        importance,
-        source_type: sourceType,
-        description: taskDesc || null,
-        link: taskLink || null,
-        context_id: null,
-        goal_id: chosenGoalId || goalId || null,
-        folder_id: folderId || null,
-        recurrence_id: null,
-        estimated_minutes: fallbackEstimatedMinutes || 30,
-        due_date: finalDate,
-        time_block_id: timeBlockId || null,
+    if (sourceType === 'voice') {
+      await saveTaskQuick({
+        title: title.trim(),
+        description: description.trim(),
+        link: link.trim(),
+        dueDate,
+        goalId: selectedGoalId,
+        importance: false,
+        urgency: false,
       });
-
-      if (sourceType === 'voice' && user) {
-        await supabase.from('voice_inputs').insert({
-          user_id: user.id,
-          transcript: classificationSource || taskTitle,
-          parsed_task_id: task.id,
-          confidence,
-        });
-      }
-
-      if (!isImageLoop) {
-        // Disabled toast to allow rapid creation without blocking UI
-        handleClose();
-      }
-      return task;
-    } catch (err) {
-      if (!isImageLoop) {
-        toast.error('Error al crear tarea');
-        setPhase('input');
-      }
-      throw err;
-    } finally {
-      if (!isImageLoop) {
-        isCurrentlySavingRef.current = false;
-      }
+    } else {
+      setPhase('review');
     }
   };
+
+  // (saveTaskQuick moved up)
 
   const handleReviewDone = async () => {
     await saveTaskQuick({

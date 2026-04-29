@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Check, Timer, Link as LinkIcon, Paperclip } from 'lucide-react';
+import { Check, Clock, Link as LinkIcon } from 'lucide-react';
 import SubtasksSection from './SubtasksSection';
 import { useSubtasks } from '@/hooks/useSubtasks';
 import { useTasks } from '@/hooks/useTasks';
@@ -208,7 +208,7 @@ export const TaskCard = ({
             className="w-9 h-9 rounded-[12px] flex items-center justify-center transition-all active:scale-90 bg-emerald-500/15 border border-emerald-500/30 hover:bg-emerald-500/25 hover:scale-110"
             aria-label="Abrir link"
           >
-            <Paperclip className="w-4 h-4 text-emerald-500" />
+            <LinkIcon className="w-4 h-4 text-emerald-500" />
           </a>
         )}
 
@@ -227,7 +227,7 @@ export const TaskCard = ({
               className="w-9 h-9 rounded-[12px] border border-outline-variant text-on-surface-variant flex items-center justify-center hover:border-primary hover:text-foreground transition-all active:scale-90 bg-transparent"
               aria-label="Iniciar temporizador"
             >
-              <Timer className="w-4 h-4" />
+              <Clock className="w-4 h-4" />
             </button>
           )
         )}
