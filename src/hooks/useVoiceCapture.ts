@@ -86,7 +86,12 @@ export const useVoiceCapture = () => {
         }
       };
 
-      mediaRecorder.start(); // No timeslice needed for simple capture
+      mediaRecorder.onerror = (event: any) => {
+        console.error("MediaRecorder error:", event.error);
+        toast.error("Error en la grabación", { id: "voice-process" });
+      };
+
+      mediaRecorder.start(1000); // Collect data in 1s chunks for better stability
       isRecordingRef.current = true;
       setIsRecording(true);
       setVoiceFallback(false);
