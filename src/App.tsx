@@ -94,8 +94,12 @@ const AppRoutes = () => {
   return (
     <Routes>
       {/* Public landing — replaces the previous root. The full web app
-          remains accessible at /app for existing users and the desktop build. */}
-      <Route path="/" element={<LandingPage />} />
+          remains accessible at /app. Inside the Electron desktop build,
+          we never want to show the landing — go straight to the app. */}
+      <Route
+        path="/"
+        element={window.electronAPI ? <Navigate to="/app" replace /> : <LandingPage />}
+      />
       <Route path="/mini" element={<MiniTasksPage />} />
       <Route path="/auth" element={user ? <Navigate to="/app" replace /> : <AuthPage />} />
       <Route path="/onboarding" element={user ? <OnboardingPage /> : <Navigate to="/auth" replace />} />
