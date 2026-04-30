@@ -19,10 +19,9 @@ if (!gotTheLock) {
     }
     
     // Protocol handler for Windows/Linux
-    // commandLine is an array of strings that contains the extra parameters, 
-    // including the custom protocol URL.
-    const url = commandLine.pop();
-    if (url && url.includes('adonai-tasks://')) {
+    // find the custom protocol URL in the command line arguments.
+    const url = commandLine.find(arg => arg.startsWith('adonai-tasks://'));
+    if (url) {
       handleDeepLink(url);
     }
   });
