@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { motion } from 'framer-motion'; 
 import { Download, Target, Timer, Link2, Eye, ChevronRight } from 'lucide-react';
 import { downloadDesktopApp } from '@/lib/desktopApp';
 
