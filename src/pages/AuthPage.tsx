@@ -54,16 +54,19 @@ const AuthPage = () => {
   const handleGoogleSignIn = async () => {
     setGoogleLoading(true);
     try {
-      const electron = window.electronAPI as any;
+      const electron = (window as any).electronAPI;
       if (electron && electron.openExternal) {
         // En Escritorio: Redirigimos a la web oficial para que el usuario inicie sesión ahí.
-        // La web oficial tiene el puente (App.tsx) que enviará la sesión de vuelta.
-        electron.openExternal('https://3a84d585-06c0-49da-b64a-79238927162d.lovableproject.com/auth');
+        // La web oficial tiene el puente (App.tsx) que enviará la sesión de vuelta via adonai-tasks://
+        // Usamos la URL de producción oficial.
+        const authUrl = 'https://adonaitasks.com/auth';
+        console.log("Opening external browser for OAuth bridge:", authUrl);
+        electron.openExternal(authUrl);
         setGoogleLoading(false);
         return;
       }
 
-      // En Web: Redirección normal usando Lovable Auth (que maneja Google/Apple en sus servidores)
+      // En Web: Redirección normal usando Lovable Auth
       const result = await lovable.auth.signInWithOAuth("google", {
         redirect_uri: window.location.origin,
       });

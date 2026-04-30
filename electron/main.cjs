@@ -5,6 +5,57 @@ const { autoUpdater } = require('electron-updater');
 let mainWindow;
 let miniWindow;
 
+// ── Single Instance Lock & Protocol Registration ────────────────────────────
+const gotTheLock = app.requestSingleInstanceLock();
+
+if (!gotTheLock) {
+  app.quit();
+} else {
+  app.on('second-instance', (event, commandLine) => {
+    // Someone tried to run a second instance, we should focus our window.
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+    }
+    
+    // Protocol handler for Windows/Linux
+    // commandLine is an array of strings that contains the extra parameters, 
+    // including the custom protocol URL.
+    const url = commandLine.pop();
+    if (url && url.includes('adonai-tasks://')) {
+      handleDeepLink(url);
+    }
+  });
+
+  // Handle deep link on macOS
+  app.on('open-url', (event, url) => {
+    event.preventDefault();
+    handleDeepLink(url);
+  });
+}
+
+if (process.defaultApp) {
+  if (process.argv.length >= 2) {
+    app.setAsDefaultProtocolClient('adonai-tasks', process.execPath, [path.resolve(process.argv[1])]);
+  }
+} else {
+  app.setAsDefaultProtocolClient('adonai-tasks');
+}
+
+function handleDeepLink(url) {
+  if (!url) return;
+  console.log("Processing deep link:", url);
+  // Send to renderer
+  if (mainWindow) {
+    mainWindow.webContents.send('on-deep-link', url);
+  } else {
+    // If window not ready, wait and try again or store it
+    app.whenReady().then(() => {
+       if (mainWindow) mainWindow.webContents.send('on-deep-link', url);
+    });
+  }
+}
+
 // ── Auto-start on boot ──────────────────────────────────────────────────────
 app.setLoginItemSettings({
   openAtLogin: true,
