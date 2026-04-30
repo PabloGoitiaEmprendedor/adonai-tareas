@@ -1,5 +1,6 @@
 const { app, BrowserWindow, ipcMain, shell, dialog, session, Menu, MenuItem } = require('electron');
 const path = require('path');
+const fs = require('fs');
 const { autoUpdater } = require('electron-updater');
 
 let mainWindow;
@@ -16,6 +17,8 @@ if (!gotTheLock) {
     if (mainWindow) {
       if (mainWindow.isMinimized()) mainWindow.restore();
       mainWindow.focus();
+    } else {
+      createMainWindow();
     }
     
     // Protocol handler for Windows/Linux
@@ -53,6 +56,30 @@ function handleDeepLink(url) {
        if (mainWindow) mainWindow.webContents.send('on-deep-link', url);
     });
   }
+}
+
+// ── Window State Management ────────────────────────────────────────────────
+const configPath = path.join(app.getPath('userData'), 'window-state.json');
+
+function saveWindowState(state) {
+  try {
+    const existing = loadWindowState() || {};
+    const newState = { ...existing, ...state };
+    fs.writeFileSync(configPath, JSON.stringify(newState));
+  } catch (e) {
+    console.error('Failed to save window state', e);
+  }
+}
+
+function loadWindowState() {
+  try {
+    if (fs.existsSync(configPath)) {
+      return JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    }
+  } catch (e) {
+    // console.error('Failed to load window state', e);
+  }
+  return null;
 }
 
 // ── Auto-start on boot ──────────────────────────────────────────────────────
@@ -142,9 +169,14 @@ function broadcastToAll(channel, data) {
 
 function createMiniWindow() {
   if (miniWindow) return;
+  const state = loadWindowState();
+  const miniState = state?.mini || {};
+
   miniWindow = new BrowserWindow({
-    width: 100,
-    height: 52,
+    width: miniState.width || 100,
+    height: miniState.height || 52,
+    x: miniState.x,
+    y: miniState.y,
     frame: false,
     transparent: true,
     alwaysOnTop: true,
@@ -160,7 +192,9 @@ function createMiniWindow() {
   });
 
   miniWindow.show();
-  miniWindow.center();
+  if (miniState.x === undefined || miniState.y === undefined) {
+    miniWindow.center();
+  }
 
   const indexPath = path.join(__dirname, '..', 'dist', 'index.html');
   if (!app.isPackaged) {
@@ -241,7 +275,12 @@ app.whenReady().then(() => {
     });
   });
 
-  createMainWindow();
+  const isAutostart = process.argv.includes('--autostart');
+  
+  if (!isAutostart) {
+    createMainWindow();
+  }
+  
   // Auto-open floating mini window on startup
   createMiniWindow();
   setInterval(() => {
@@ -272,7 +311,19 @@ ipcMain.on('set-ignore-mouse-events', (event, ignore, options) => {
 ipcMain.on('move-mini-window', (event, dx, dy) => {
   if (!miniWindow) return;
   const bounds = miniWindow.getBounds();
-  miniWindow.setPosition(bounds.x + dx, bounds.y + dy);
+  const newX = bounds.x + dx;
+  const newY = bounds.y + dy;
+  miniWindow.setPosition(newX, newY);
+  
+  // Save position
+  saveWindowState({
+    mini: {
+      x: newX,
+      y: newY,
+      width: bounds.width,
+      height: bounds.height
+    }
+  });
 });
 
 // Return position + screen work area so renderer decides expand direction
@@ -294,6 +345,16 @@ ipcMain.on('set-mini-bounds', (event, b) => {
   miniWindow.setBounds({
     x: Math.round(b.x), y: Math.round(b.y),
     width: Math.round(b.w), height: Math.round(b.h),
+  });
+
+  // Save state (mostly for size changes if any, but also position)
+  saveWindowState({
+    mini: {
+      x: Math.round(b.x),
+      y: Math.round(b.y),
+      width: Math.round(b.w),
+      height: Math.round(b.h)
+    }
   });
 });
 

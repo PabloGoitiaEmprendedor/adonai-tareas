@@ -41,8 +41,9 @@ export const useRecurrenceRules = () => {
         .from('recurrence_rules')
         .insert({ ...rule, user_id: user.id })
         .select()
-        .single();
+        .maybeSingle();
       if (error) throw error;
+      if (!data) throw new Error('Error al crear la regla: no se devolvieron datos');
       return data as RecurrenceRule;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['recurrence_rules'] }),

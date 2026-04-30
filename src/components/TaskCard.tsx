@@ -166,6 +166,18 @@ export const TaskCard = ({
               </span>
             )}
 
+            {isDone && task.actual_duration_seconds > 0 && (() => {
+              const isOver = task.estimated_minutes > 0 && task.actual_duration_seconds > (task.estimated_minutes * 60);
+              return (
+                <span className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded ml-1 transition-colors ${
+                  isOver 
+                    ? 'bg-red-500/5 text-red-400/70 border border-red-500/10' 
+                    : 'bg-emerald-500/5 text-emerald-400/70 border border-emerald-500/10'
+                }`}>
+                  {Math.floor(task.actual_duration_seconds / 60)}:{String(task.actual_duration_seconds % 60).padStart(2, '0')}
+                </span>
+              );
+            })()}
             
             {hasSubtasks && !subtasksOpen && (
               <span className="text-[10px] font-black text-on-surface-variant/40 ml-1">

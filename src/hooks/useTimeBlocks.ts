@@ -63,8 +63,9 @@ export const useTimeBlocks = (date: string) => {
         .from('time_blocks')
         .insert({ ...block, user_id: user.id })
         .select()
-        .single();
+        .maybeSingle();
       if (error) throw error;
+      if (!data) throw new Error('Error al crear el bloque: no se devolvieron datos');
       return data;
     },
     onSuccess: () => {
@@ -102,8 +103,9 @@ export const useTimeBlocks = (date: string) => {
         .update(updates)
         .eq('id', id)
         .select()
-        .single();
+        .maybeSingle();
       if (error) throw error;
+      if (!data) throw new Error('Error al actualizar el bloque: no se encontró el registro');
       return data;
     },
     onSuccess: () => {

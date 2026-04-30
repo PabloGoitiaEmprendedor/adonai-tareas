@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { format, isSameDay, parseISO, addDays, eachDayOfInterval } from 'date-fns';
+import { format, parseISO, eachDayOfInterval } from 'date-fns';
 import { toast } from 'sonner';
 
 import type { Database } from '@/integrations/supabase/types';
@@ -202,7 +202,7 @@ export const useTasks = (filters?: { date?: string; startDate?: string; endDate?
           due_date: taskData.due_date || format(new Date(), 'yyyy-MM-dd'),
         })
         .select()
-        .single();
+        .maybeSingle();
       if (error) throw error;
 
       // Determine the event type based on source
@@ -235,27 +235,53 @@ export const useTasks = (filters?: { date?: string; startDate?: string; endDate?
 
         const { recurrenceId, dueDate } = parsedVirtualTask;
         
-        const { tasks: _, templates } = allData || { tasks: [], templates: [] };
-        const template = templates.find(t => t.recurrence_id === recurrenceId);
-        if (!template) throw new Error('Recurring task template not found');
-        
-        const { data, error } = await supabase
-          .from('tasks')
-          .insert({
-            ...template,
-            id: undefined,
-            due_date: dueDate,
-            recurrence_id: recurrenceId,
-            status: updates.status || 'pending',
-            created_at: undefined,
-            user_id: user.id,
-            ...updates
-          })
-          .select()
-          .single();
+        // Use optional chaining and fallback to empty array to prevent crashes
+        const existingRealTask = allData?.tasks?.find((t: any) => 
+          t.recurrence_id === recurrenceId && t.due_date === dueDate
+        );
+
+        if (existingRealTask) {
+          const { error } = await supabase.from('tasks').update(updates).eq('id', existingRealTask.id).eq('user_id', user.id);
+          if (error) throw error;
+          targetId = existingRealTask.id;
+        } else {
+          const { templates = [] } = allData || {};
+          let template = templates.find((t: any) => t.recurrence_id === recurrenceId);
           
-        if (error) throw error;
-        targetId = data.id;
+          if (!template) {
+            // Fallback: fetch template directly from DB if not in cache (common in smaller hook instances)
+            const { data: fetchedTemplate, error: fetchErr } = await supabase
+              .from('tasks')
+              .select('*')
+              .eq('recurrence_id', recurrenceId)
+              .order('created_at', { ascending: true })
+              .limit(1)
+              .maybeSingle();
+              
+            if (fetchErr || !fetchedTemplate) throw new Error('No se encontró la plantilla de la tarea recurrente');
+            template = fetchedTemplate;
+          }
+          
+          // Omit internal fields from template to avoid insertion errors
+          const { id: _tId, created_at: _tCa, ...templateData } = template;
+          
+          const { data, error } = await supabase
+            .from('tasks')
+            .insert({
+              ...templateData,
+              due_date: dueDate,
+              recurrence_id: recurrenceId,
+              status: updates.status || 'pending',
+              user_id: user.id,
+              ...updates
+            })
+            .select()
+            .maybeSingle();
+            
+          if (error) throw error;
+          if (!data) throw new Error('Error al materializar la tarea: no se devolvieron datos');
+          targetId = data.id;
+        }
       } else {
         const { error } = await supabase.from('tasks').update(updates).eq('id', id).eq('user_id', user.id);
         if (error) throw error;
@@ -274,6 +300,21 @@ export const useTasks = (filters?: { date?: string; startDate?: string; endDate?
 
       queryClient.setQueryData(['tasks', user?.id, filters], (old: any) => {
         if (!old) return old;
+        
+        const isVirtual = id.startsWith('virtual-');
+        if (isVirtual) {
+          const virtualTask = tasks.find(t => t.id === id);
+          if (virtualTask) {
+            const key = `${virtualTask.recurrence_id}__${virtualTask.due_date}`;
+            // Add to real tasks and update materializedSet to suppress the virtual one
+            return {
+              ...old,
+              tasks: [...old.tasks, { ...virtualTask, ...updates, isVirtual: false, id: `temp-${id}` }],
+              materializedSet: new Set([...Array.from(old.materializedSet || []), key])
+            };
+          }
+        }
+
         return {
           ...old,
           tasks: old.tasks.map((task: any) => 
@@ -285,6 +326,7 @@ export const useTasks = (filters?: { date?: string; startDate?: string; endDate?
       return { previousData };
     },
     onError: (err, variables, context) => {
+      console.error("Error updating task:", err);
       queryClient.setQueryData(['tasks', user?.id, filters], context?.previousData);
       toast.error("No se pudo actualizar la tarea");
     },

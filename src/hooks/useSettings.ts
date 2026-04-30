@@ -17,7 +17,7 @@ export const useSettings = () => {
         .from('settings')
         .select('*')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
       if (error) return null;
       return data;
     },

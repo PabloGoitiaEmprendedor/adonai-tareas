@@ -28,8 +28,9 @@ export const useFolders = () => {
         .from('folders')
         .insert({ ...folder, user_id: user.id })
         .select()
-        .single();
+        .maybeSingle();
       if (error) throw error;
+      if (!data) throw new Error('Error al crear la carpeta: no se devolvieron datos');
       return data;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['folders'] }),

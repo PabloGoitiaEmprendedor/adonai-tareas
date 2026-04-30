@@ -11,8 +11,8 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+    if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is not configured in Supabase Secrets");
 
     const authHeader = req.headers.get("Authorization");
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -47,42 +47,57 @@ serve(async (req) => {
 
     console.log(`Received file: ${file.name}, size: ${file.size}, type: ${file.type}`);
 
-    const whisperFormData = new FormData();
-    // Re-wrap the file to ensure it has a proper name and type for Whisper
-    const audioFile = new File([file], "audio.webm", { type: file.type || "audio/webm" });
-    whisperFormData.append("file", audioFile);
-    whisperFormData.append("model", "whisper-1");
-    whisperFormData.append("language", "es");
+    // Convert file to base64 for Gemini API
+    const arrayBuffer = await file.arrayBuffer();
+    const uint8Array = new Uint8Array(arrayBuffer);
+    let binary = "";
+    const len = uint8Array.byteLength;
+    for (let i = 0; i < len; i++) {
+      binary += String.fromCharCode(uint8Array[i]);
+    }
+    const base64Audio = btoa(binary);
 
-    console.log("Calling Lovable Transcription API...");
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/audio/transcriptions", {
+    console.log("Calling Gemini 1.5 Flash for transcription...");
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
       },
-      body: whisperFormData,
+      body: JSON.stringify({
+        contents: [{
+          parts: [
+            { text: "Transcibe este audio exactamente. El audio está en español. Responde solo con el texto transcrito, sin explicaciones ni etiquetas." },
+            {
+              inlineData: {
+                mimeType: "audio/webm",
+                data: base64Audio
+              }
+            }
+          ]
+        }],
+        generationConfig: {
+          temperature: 0.1,
+          topK: 1,
+          topP: 1,
+        }
+      }),
     });
 
     if (!response.ok) {
       const errText = await response.text();
-      console.error("Transcription API error:", response.status, errText);
-      
-      let errorMessage = "Error en el servicio de transcripción";
-      try {
-        const errJson = JSON.parse(errText);
-        errorMessage = errJson.error?.message || errorMessage;
-      } catch (e) {}
-
-      return new Response(JSON.stringify({ error: errorMessage }), {
+      console.error("Gemini API error:", response.status, errText);
+      return new Response(JSON.stringify({ error: "Error en el servicio de transcripción de Gemini" }), {
         status: response.status,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     const result = await response.json();
-    console.log("Transcription result success");
+    const transcription = result.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
+    
+    console.log("Transcription successful");
 
-    return new Response(JSON.stringify({ text: result.text }), {
+    return new Response(JSON.stringify({ text: transcription }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {

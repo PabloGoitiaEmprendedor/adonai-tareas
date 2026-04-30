@@ -24,10 +24,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const currentUser = session?.user ?? null;
       setUser(currentUser);
       
-      if (currentUser && (window as any).clarity) {
-        (window as any).clarity("identify", currentUser.id);
-      }
-
       // Track session start for analytics
       if (currentUser && _event === 'SIGNED_IN') {
         supabase.from('usage_events').insert({
@@ -47,10 +43,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const currentUser = session?.user ?? null;
       setUser(currentUser);
       
-      if (currentUser && (window as any).clarity) {
-        (window as any).clarity("identify", currentUser.id);
-      }
-
       // Track session start for returning users who have a persisted session
       if (currentUser && !sessionStorage.getItem('adonai_session_start')) {
         supabase.from('usage_events').insert({
@@ -70,16 +62,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (startStr && user) {
         const durationMs = Date.now() - parseInt(startStr, 10);
         const durationMinutes = Math.round(durationMs / 60000);
-        // Use sendBeacon for reliable unload tracking
         const url = `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/usage_events`;
+        const apikey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
         const payload = JSON.stringify({
           user_id: user.id,
           event_type: 'session_end',
           metadata: { duration_minutes: durationMinutes, timestamp: new Date().toISOString() },
         });
-        navigator.sendBeacon(url + `?apikey=${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`, 
-          new Blob([payload], { type: 'application/json' })
-        );
+        // sendBeacon doesn't support custom headers, so we use fetch with keepalive instead
+        fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': apikey,
+            'Authorization': `Bearer ${apikey}`,
+            'Prefer': 'return=minimal',
+          },
+          body: payload,
+          keepalive: true,
+        }).catch(() => {});
       }
     };
     window.addEventListener('beforeunload', handleBeforeUnload);

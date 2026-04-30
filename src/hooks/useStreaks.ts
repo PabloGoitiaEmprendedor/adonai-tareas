@@ -19,7 +19,7 @@ export const useStreaks = () => {
         .from('experiment_metrics')
         .select('*')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
       if (error) return null;
       return data;
     },

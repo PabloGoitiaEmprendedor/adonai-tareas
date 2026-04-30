@@ -34,7 +34,7 @@ serve(async (req) => {
         .from("profiles")
         .select("email, name")
         .eq("user_id", settings.user_id)
-        .single();
+        .maybeSingle();
 
       if (!profile?.email) continue;
 

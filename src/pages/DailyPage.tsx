@@ -116,6 +116,7 @@ const DailyPage = () => {
   const [completingTaskId, setCompletingTaskId] = useState<string | null>(null);
   const [quickAddTitle, setQuickAddTitle] = useState('');
   const [currentTime, setCurrentTime] = useState(new Date());
+  const timerDurationRef = useRef(0);
   const captureModalRef = useRef<TaskCaptureModalHandle>(null);
   const hasTrackedDayRef = useRef(false);
   const [miniWidgetOpen, setMiniWidgetOpen] = useState(() => !!window.electronAPI);
@@ -219,9 +220,12 @@ const DailyPage = () => {
     e.stopPropagation();
     setCompletingTaskId(task.id);
 
+    // If this task is being timed, use the current elapsed duration
+    const isCurrentlyTiming = timerTask?.id === task.id;
+    const finalDuration = isCurrentlyTiming ? timerDurationRef.current : task.actual_duration_seconds;
+
     // If this task had an active timer, close it
-    const hadActiveTimer = timerTask?.id === task.id;
-    if (hadActiveTimer) {
+    if (isCurrentlyTiming) {
       setTimerTask(null);
     }
 
@@ -232,14 +236,15 @@ const DailyPage = () => {
       updateTask.mutate({ 
         id: task.id, 
         status: 'done', 
-        completed_at: new Date().toISOString() 
+        completed_at: new Date().toISOString(),
+        actual_duration_seconds: Number(finalDuration) || 0
       }, {
         onSuccess: () => {
           setCompletingTaskId(null);
           checkAndUnlock.mutate({ type: 'task_completed' });
           if (isLastTask) {
             triggerDailyCelebration(profile?.name);
-          } else if (hadActiveTimer) {
+          } else if (isCurrentlyTiming) {
             triggerOnTimeCelebration(task.title, profile?.name);
           } else {
             triggerTaskCelebration(task.title, profile?.name);
@@ -410,7 +415,12 @@ const DailyPage = () => {
         onClose={() => setCaptureOpen(false)} 
       />
       <TaskDetailModal task={selectedTask} open={!!selectedTask} onClose={() => setSelectedTask(null)} />
-      <FullscreenTimer task={timerTask} open={!!timerTask} onClose={() => setTimerTask(null)} />
+      <FullscreenTimer 
+        task={timerTask} 
+        open={!!timerTask} 
+        onClose={() => setTimerTask(null)} 
+        durationRef={timerDurationRef}
+      />
       {!window.electronAPI && (
         <MiniTaskWidget isOpen={miniWidgetOpen} onClose={() => setMiniWidgetOpen(false)} />
       )}

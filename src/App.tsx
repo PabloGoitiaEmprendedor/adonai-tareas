@@ -102,8 +102,8 @@ const AppRoutes = () => {
       <Route 
         path="/" 
         element={
-          isElectron
-            ? <ProtectedRoute><DailyPage /></ProtectedRoute>
+          user 
+            ? <Navigate to="/app" replace />
             : <LandingPage />
         } 
       />

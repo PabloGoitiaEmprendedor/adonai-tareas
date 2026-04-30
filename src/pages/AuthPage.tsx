@@ -3,7 +3,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
-import { lovable } from '@/integrations/lovable/index';
 import { supabase } from '@/integrations/supabase/client';
 
 const GoogleIcon = () => (
@@ -54,26 +53,14 @@ const AuthPage = () => {
   const handleGoogleSignIn = async () => {
     setGoogleLoading(true);
     try {
-      const electron = (window as any).electronAPI;
-      if (electron && electron.openExternal) {
-        // En Escritorio: Redirigimos a la web oficial para que el usuario inicie sesión ahí.
-        // La web oficial tiene el puente (App.tsx) que enviará la sesión de vuelta via adonai-tasks://
-        // Usamos la URL de producción oficial.
-        const authUrl = 'https://adonaitasks.com/auth';
-        console.log("Opening external browser for OAuth bridge:", authUrl);
-        electron.openExternal(authUrl);
-        setGoogleLoading(false);
-        return;
-      }
-
-      // En Web: Redirección normal usando Lovable Auth
-      const result = await lovable.auth.signInWithOAuth("google", {
-        redirect_uri: window.location.origin,
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: window.location.origin,
+        },
       });
 
-      if (result.error) throw result.error;
-      if (result.redirected) return;
-      navigate('/');
+      if (error) throw error;
     } catch (err: any) {
       toast.error('Error al conectar con Google');
       console.error(err);
@@ -81,24 +68,16 @@ const AuthPage = () => {
     }
   };
 
-  // Bridge session has been moved to App.tsx to ensure it catches global redirects
-
   const handleAppleSignIn = async () => {
     setAppleLoading(true);
     try {
-      const electron = window.electronAPI as any;
-      if (electron && electron.openExternal) {
-        electron.openExternal('https://3a84d585-06c0-49da-b64a-79238927162d.lovableproject.com/auth');
-        setAppleLoading(false);
-        return;
-      }
-
-      const result = await lovable.auth.signInWithOAuth("apple", {
-        redirect_uri: window.location.origin,
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "apple",
+        options: {
+          redirectTo: window.location.origin,
+        },
       });
-      if (result.error) throw result.error;
-      if (result.redirected) return;
-      navigate('/');
+      if (error) throw error;
     } catch (err: any) {
       toast.error('Error al conectar con Apple');
       console.error(err);

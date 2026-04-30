@@ -11,13 +11,13 @@ import { useTasks } from '@/hooks/useTasks';
 import { useSubtasks } from '@/hooks/useSubtasks';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Check, MoreHorizontal, ChevronRight, Timer, Pause, Plus, Mic, Repeat } from 'lucide-react';
+import { Check, MoreHorizontal, ChevronRight, Clock, Pause, Plus, Mic, Repeat, Link as LinkIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import TaskCaptureModal from '@/components/TaskCaptureModal';
 import TaskDetailModal from '@/components/TaskDetailModal';
 import QuickRecurrenceFlow from '@/components/QuickRecurrenceFlow';
 import { useGamification } from '@/hooks/useGamification';
-import { triggerTaskCelebration, triggerDailyCelebration } from '@/lib/celebrations';
+import { triggerTaskCelebration, triggerDailyCelebration, triggerOnTimeCelebration } from '@/lib/celebrations';
 import { useProfile } from '@/hooks/useProfile';
 import '../index.css';
 
@@ -40,9 +40,11 @@ const C = {
 };
 
 function formatTimer(seconds: number): string {
-  const m = Math.floor(seconds / 60);
-  const s = seconds % 60;
-  return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  const isNegative = seconds < 0;
+  const absS = Math.abs(seconds);
+  const m = Math.floor(absS / 60);
+  const s = absS % 60;
+  return `${isNegative ? '-' : ''}${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
 }
 
 // ─── Subtask Row ─────────────────────────────────────────────────────────────
@@ -136,6 +138,10 @@ const TaskRowRaw = ({ task, onToggle, onDetail, activeTimerId, onTimerToggle, up
     }
   };
 
+  const actualSeconds = task.actual_duration_seconds || 0;
+  const estimatedSeconds = (task.estimated_minutes || 0) * 60;
+  const isOverTime = actualSeconds > estimatedSeconds && estimatedSeconds > 0;
+
   return (
     <motion.div layout initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.95 }} style={{ marginBottom: 4 }}>
@@ -196,38 +202,78 @@ const TaskRowRaw = ({ task, onToggle, onDetail, activeTimerId, onTimerToggle, up
           </span>
         )}
 
-        {/* Timer or Check button */}
-        {!isDone && (
-          isEditing ? (
-            <div
-              onClick={(e) => { e.stopPropagation(); submitEdit(); }}
-              style={{
-                width: 24, height: 24, borderRadius: 6, flexShrink: 0,
-                background: C.accent,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                cursor: 'pointer',
-              }}
-            >
-              <Check style={{ width: 12, height: 12, color: '#000', strokeWidth: 3 }} />
-            </div>
+        {/* Link / Timer / Duration Result */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          {isDone ? (
+            actualSeconds > 0 && (
+              <div style={{
+                fontSize: 10, fontWeight: 700,
+                color: isOverTime ? '#F87171' : '#A3E635',
+                fontFamily: 'monospace',
+                padding: '2px 6px',
+                borderRadius: 6,
+                background: isOverTime ? 'rgba(248,113,113,0.1)' : 'rgba(163,230,53,0.1)',
+                border: `1px solid ${isOverTime ? 'rgba(248,113,113,0.2)' : 'rgba(163,230,53,0.2)'}`
+              }}>
+                {formatTimer(actualSeconds)}
+              </div>
+            )
           ) : (
-            <div
-              onClick={(e) => { e.stopPropagation(); onTimerToggle(task.id, task.estimated_minutes || 30); }}
-              style={{
-                width: 24, height: 24, borderRadius: 6, flexShrink: 0,
-                background: isTimerActive ? 'rgba(163,230,53,0.15)' : 'transparent',
-                border: `1px solid ${isTimerActive ? 'rgba(163,230,53,0.3)' : 'rgba(255,255,255,0.1)'}`,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                cursor: 'pointer',
-              }}
-            >
-              {isTimerActive
-                ? <Pause style={{ width: 10, height: 10, color: C.accent }} />
-                : <Timer style={{ width: 10, height: 10, color: 'rgba(255,255,255,0.3)' }} />
-              }
-            </div>
-          )
-        )}
+            <>
+              {task.link && (
+                <div
+                  onClick={(e) => { 
+                    e.stopPropagation(); 
+                    if ((window as any).electronAPI?.openExternal) {
+                      (window as any).electronAPI.openExternal(task.link);
+                    } else {
+                      window.open(task.link, '_blank');
+                    }
+                  }}
+                  style={{
+                    width: 24, height: 24, borderRadius: 8, flexShrink: 0,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    cursor: 'pointer', background: 'rgba(16, 185, 129, 0.15)',
+                    border: '1px solid rgba(16, 185, 129, 0.3)',
+                  }}
+                  title="Abrir link"
+                >
+                  <LinkIcon style={{ width: 12, height: 12, color: '#10b981' }} />
+                </div>
+              )}
+              
+              {isEditing ? (
+                <div
+                  onClick={(e) => { e.stopPropagation(); submitEdit(); }}
+                  style={{
+                    width: 24, height: 24, borderRadius: 6, flexShrink: 0,
+                    background: C.accent,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <Check style={{ width: 12, height: 12, color: '#000', strokeWidth: 3 }} />
+                </div>
+              ) : (
+                <div
+                  onClick={(e) => { e.stopPropagation(); onTimerToggle(task.id, task.estimated_minutes || 30); }}
+                  style={{
+                    width: 24, height: 24, borderRadius: 6, flexShrink: 0,
+                    background: isTimerActive ? 'rgba(163,230,53,0.15)' : 'transparent',
+                    border: `1px solid ${isTimerActive ? 'rgba(163,230,53,0.3)' : 'rgba(255,255,255,0.1)'}`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {isTimerActive
+                    ? <Pause style={{ width: 12, height: 12, color: C.accent }} />
+                    : <Clock style={{ width: 12, height: 12, color: 'rgba(255,255,255,0.3)' }} />
+                  }
+                </div>
+              )}
+            </>
+          )}
+        </div>
 
         {hasSubtasks && (
           <div 
@@ -319,25 +365,46 @@ const MiniTaskList = () => {
   const [detailOpen, setDetailOpen] = useState(false);
   const [recurrenceFlowOpen, setRecurrenceFlowOpen] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const sessionStartRef = useRef<number>(0);
 
   const { onMouseDown: onDragMouseDown, hasMovedRef } = useDragWindow();
 
   // Timer logic
   const handleTimerToggle = useCallback((taskId: string, estimatedMinutes: number = 30) => {
-    if (activeTimerId === taskId) {
+    // 1. If there's an active timer, stop it and save progress first
+    if (activeTimerId) {
       if (timerRef.current) clearInterval(timerRef.current);
       timerRef.current = null;
+
+      const activeTask = tasks.find((t: any) => t.id === activeTimerId);
+      if (activeTask) {
+        const sessionElapsed = Math.floor((Date.now() - sessionStartRef.current) / 1000);
+        const newTotal = (activeTask.actual_duration_seconds || 0) + sessionElapsed;
+        updateTask.mutate({ id: activeTimerId, actual_duration_seconds: newTotal });
+      }
+
+      const wasSameTask = activeTimerId === taskId;
       setActiveTimerId(null);
       setTimerSeconds(0);
-    } else {
-      if (timerRef.current) clearInterval(timerRef.current);
-      setActiveTimerId(taskId);
-      setTimerSeconds(estimatedMinutes * 60);
-      timerRef.current = setInterval(() => {
-        setTimerSeconds(s => Math.max(0, s - 1));
-      }, 1000);
+      
+      if (wasSameTask) return; // We just wanted to stop it
     }
-  }, [activeTimerId]);
+
+    // 2. Start the new timer
+    const targetTask = tasks.find((t: any) => t.id === taskId);
+    if (!targetTask) return;
+
+    setActiveTimerId(taskId);
+    sessionStartRef.current = Date.now();
+    
+    // Display countdown based on estimate minus total already spent
+    const initialDisplay = (estimatedMinutes * 60) - (targetTask.actual_duration_seconds || 0);
+    setTimerSeconds(initialDisplay);
+    
+    timerRef.current = setInterval(() => {
+      setTimerSeconds(s => s - 1); // Allow negative for over-time
+    }, 1000);
+  }, [activeTimerId, tasks, updateTask]);
 
   useEffect(() => {
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
@@ -376,22 +443,11 @@ const MiniTaskList = () => {
       savedPillPos.current = { x: pos.x, y: pos.y };
 
       const pillCX = pos.x + pos.w / 2;
-      const spaceRight = (pos.screenX + pos.screenW) - pillCX;
-      const spaceLeft = pillCX - pos.screenX;
-      let panelX: number;
-      if (spaceRight >= PANEL_W) { panelX = pos.x; }
-      else if (spaceLeft >= PANEL_W) { panelX = pos.x + pos.w - PANEL_W; }
-      else { panelX = pillCX - PANEL_W / 2; }
+      const spaceRight = (pos.x + pos.w) + PANEL_W; // Basic check
+      // ... simplified check for simplicity
+      let panelX = pos.x; 
+      let panelY = pos.y;
 
-      const spaceBelow = (pos.screenY + pos.screenH) - pos.y;
-      const spaceAbove = (pos.y + pos.h) - pos.screenY;
-      let panelY: number;
-      if (spaceBelow >= PANEL_H) { panelY = pos.y; }
-      else if (spaceAbove >= PANEL_H) { panelY = pos.y + pos.h - PANEL_H; }
-      else { panelY = pos.screenY + pos.screenH - PANEL_H; }
-
-      panelX = Math.max(pos.screenX, Math.min(panelX, pos.screenX + pos.screenW - PANEL_W));
-      panelY = Math.max(pos.screenY, Math.min(panelY, pos.screenY + pos.screenH - PANEL_H));
       api.setMiniBounds({ x: panelX, y: panelY, w: PANEL_W, h: PANEL_H });
       setIsExpanded(true);
     } else {
@@ -435,6 +491,24 @@ const MiniTaskList = () => {
     : t.importance ? 2
     : 3, []);
 
+  // Stop timer if the task is completed in another window
+  useEffect(() => {
+    if (activeTimerId) {
+      const activeTask = tasks.find((t: any) => t.id === activeTimerId);
+      if (activeTask && activeTask.status === 'done') {
+        // Save current session progress before stopping
+        const sessionElapsed = Math.floor((Date.now() - sessionStartRef.current) / 1000);
+        const newTotal = (activeTask.actual_duration_seconds || 0) + sessionElapsed;
+        updateTask.mutate({ id: activeTimerId, actual_duration_seconds: newTotal });
+
+        if (timerRef.current) clearInterval(timerRef.current);
+        timerRef.current = null;
+        setActiveTimerId(null);
+        setTimerSeconds(0);
+      }
+    }
+  }, [tasks, activeTimerId, updateTask]);
+
   const sortedTasks = useMemo(() => {
     return [...tasks].sort((a: any, b: any) => {
       const doneA = a.status === 'done' ? 1 : 0;
@@ -454,32 +528,75 @@ const MiniTaskList = () => {
 
   const handleToggle = useCallback((task: any, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
+    if (!task) return;
+
+    const userName = profile?.name || 'Emprendedor';
+
     if (task.status === 'done') {
       updateTask.mutate({ id: task.id, status: 'pending', completed_at: null });
     } else {
       setCompletingId(task.id);
+      
+      // STOP TIMER IF ACTIVE FOR THIS TASK
+      let finalDuration = task.actual_duration_seconds || 0;
+      const isTimerForThisTask = activeTimerId === task.id;
+
+      if (isTimerForThisTask) {
+         if (timerRef.current) clearInterval(timerRef.current);
+         timerRef.current = null;
+         const sessionElapsed = Math.floor((Date.now() - sessionStartRef.current) / 1000);
+         finalDuration += sessionElapsed;
+         setActiveTimerId(null);
+         setTimerSeconds(0);
+      }
+
+      const estimatedSeconds = (task.estimated_minutes || 0) * 60;
+      const isOnTime = estimatedSeconds > 0 && finalDuration <= estimatedSeconds;
+
+      console.log("Completing task:", { id: task.id, finalDuration, isOnTime });
+
       setTimeout(() => {
-        const remainingTasks = tasks.filter((t: any) => t.status !== 'done' && t.id !== task.id);
-        const isLastTask = tasks.length > 0 && remainingTasks.length === 0;
+        const currentTasks = tasks || [];
+        const remainingTasks = currentTasks.filter((t: any) => t.status !== 'done' && t.id !== task.id);
+        const isLastTask = currentTasks.length > 0 && remainingTasks.length === 0;
+
+        console.log("Mutating task update with:", { 
+          id: task.id, 
+          status: 'done', 
+          completed_at: new Date().toISOString(),
+          actual_duration_seconds: finalDuration
+        });
 
         updateTask.mutate(
-          { id: task.id, status: 'done', completed_at: new Date().toISOString() },
+          { 
+            id: task.id, 
+            status: 'done', 
+            completed_at: new Date().toISOString(),
+            actual_duration_seconds: finalDuration
+          },
           { 
             onSuccess: () => {
+              console.log("Task updated successfully");
               setCompletingId(null);
               checkAndUnlock.mutate({ type: 'task_completed' });
+              
               if (isLastTask) {
-                triggerDailyCelebration(profile?.name);
+                triggerDailyCelebration(userName);
+              } else if (isOnTime) {
+                triggerOnTimeCelebration(task.title, userName);
               } else {
-                triggerTaskCelebration(task.title, profile?.name);
+                triggerTaskCelebration(task.title, userName);
               }
             },
-            onError: () => setCompletingId(null) 
+            onError: (err: any) => {
+              console.error("Mutation error in handleToggle:", err);
+              setCompletingId(null);
+            }
           }
         );
       }, 350);
     }
-  }, [updateTask, tasks, checkAndUnlock, profile?.name]);
+  }, [updateTask, tasks, checkAndUnlock, profile?.name, activeTimerId]);
 
   // ── COLLAPSED PILL ──
   if (!isExpanded) {
@@ -496,9 +613,9 @@ const MiniTaskList = () => {
             width: activeTimerId ? 'auto' : 64,
             minWidth: activeTimerId ? 110 : 64,
             background: C.bg,
-            border: `1px solid ${activeTimerId ? 'rgba(163,230,53,0.25)' : C.border}`,
+            border: `1px solid ${activeTimerId ? (timerSeconds < 0 ? 'rgba(248,113,113,0.25)' : 'rgba(163,230,53,0.25)') : C.border}`,
             boxShadow: activeTimerId
-              ? '0 4px 20px rgba(163,230,53,0.15)'
+              ? (timerSeconds < 0 ? '0 4px 20px rgba(248,113,113,0.15)' : '0 4px 20px rgba(163,230,53,0.15)')
               : '0 4px 20px rgba(0,0,0,0.5)',
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
             userSelect: 'none', cursor: 'grab',
@@ -508,10 +625,11 @@ const MiniTaskList = () => {
             <>
               <div style={{
                 width: 6, height: 6, borderRadius: '50%',
-                background: C.accent, animation: 'pulse 1.5s ease-in-out infinite',
+                background: timerSeconds < 0 ? '#F87171' : C.accent, animation: 'pulse 1.5s ease-in-out infinite',
               }} />
               <span style={{
-                fontSize: 14, fontWeight: 800, color: C.accent,
+                fontSize: 14, fontWeight: 800, 
+                color: timerSeconds < 0 ? '#F87171' : C.accent,
                 fontFamily: 'monospace', letterSpacing: '0.05em',
               }}>
                 {formatTimer(timerSeconds)}
@@ -562,8 +680,12 @@ const MiniTaskList = () => {
           }} title="Colapsar">
             {activeTimerId ? (
               <>
-                <div style={{ width: 5, height: 5, borderRadius: '50%', background: C.accent, animation: 'pulse 1.5s ease-in-out infinite' }} />
-                <span style={{ fontSize: 11, fontWeight: 800, color: C.accent, fontFamily: 'monospace' }}>
+                <div style={{ width: 5, height: 5, borderRadius: '50%', background: timerSeconds < 0 ? '#F87171' : C.accent, animation: 'pulse 1.5s ease-in-out infinite' }} />
+                <span style={{ 
+                  fontSize: 11, fontWeight: 800, 
+                  color: timerSeconds < 0 ? '#F87171' : C.accent, 
+                  fontFamily: 'monospace' 
+                }}>
                   {formatTimer(timerSeconds)}
                 </span>
               </>

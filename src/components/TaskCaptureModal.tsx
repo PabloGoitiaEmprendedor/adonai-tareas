@@ -1,6 +1,6 @@
 import { useState, useEffect, forwardRef, useImperativeHandle, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mic, X, Square, Camera, Type, Check, ArrowRight } from 'lucide-react';
+import { Mic, X, Square, Type, Check, ArrowRight } from 'lucide-react';
 import { AutoTextarea } from '@/components/ui/auto-textarea';
 import { useVoiceCapture } from '@/hooks/useVoiceCapture';
 import { parseVoiceTranscript } from '@/hooks/useVoiceParser';
@@ -530,8 +530,9 @@ Tu trabajo es:`;
                           <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: C.accent }}>Voz</span>
                         </button>
 
-                        {/* PHOTO BUTTON — only in web (not Electron desktop) */}
-                        {!(window as any).electronAPI && (
+                        {/* PHOTO BUTTON — DISABLED: requires paid Gemini API edge function.
+                           Re-enable when a free OCR alternative is configured. */}
+                        {/* {!(window as any).electronAPI && (
                           <button
                             onClick={() => fileInputRef.current?.click()}
                             className="group flex flex-col items-center gap-2 p-3 rounded-[20px] transition-all active:scale-[0.96]"
@@ -542,10 +543,11 @@ Tu trabajo es:`;
                             </div>
                             <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: C.muted }}>Foto</span>
                           </button>
-                        )}
+                        )} */}
                       </div>
 
-                      <input
+                      {/* File input for photo — DISABLED alongside photo button */}
+                      {/* <input
                         type="file"
                         ref={fileInputRef}
                         className="hidden"
@@ -554,7 +556,7 @@ Tu trabajo es:`;
                           const file = e.target.files?.[0];
                           if (file) handleImageSelected(file);
                         }}
-                      />
+                      /> */}
                     </motion.div>
                   )}
 

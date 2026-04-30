@@ -97,7 +97,7 @@ Deno.serve(async (req) => {
       .from("google_calendar_tokens")
       .select("*")
       .eq("user_id", user.id)
-      .single();
+      .maybeSingle();
 
     if (!tokenData) {
       return new Response(JSON.stringify({ events: [], connected: false }), {

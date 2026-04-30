@@ -38,7 +38,7 @@ export const useSubtasks = (parentId: string | null | undefined) => {
           source_type: 'text',
         })
         .select()
-        .single();
+        .maybeSingle();
       if (error) throw error;
       return data;
     },

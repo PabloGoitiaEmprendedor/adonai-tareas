@@ -10,8 +10,8 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+    if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is not configured");
 
     const authHeader = req.headers.get("Authorization");
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -34,26 +34,47 @@ serve(async (req) => {
 
     const { imageBase64, mimeType } = await req.json();
 
-    const systemPrompt = "Analiza esta imagen y extrae todas las tareas pendientes escritas. NO te limites a transcribir literalmente; si la caligrafía es difícil de leer o hay errores ortográficos evidentes, utiliza tu conocimiento lingüístico para escribir la tarea de forma clara, profesional y correcta en español. Por cada tarea, detecta si menciona una fecha límite. El resultado debe ser un JSON estricto: { \"tasks\": [ { \"raw_text\": \"Título refinado y corregido de la tarea\", \"has_date\": boolean, \"detected_date\": \"YYYY-MM-DD\" | null } ] }";
+    const systemPrompt = "Analiza esta imagen y extrae todas las tareas pendientes escritas. NO te limites a transcribir literalmente; si la caligrafía es difícil de leer o hay errores ortográficos evidentes, utiliza tu conocimiento lingüístico para escribir la tarea de forma clara, profesional y correcta en español. Por cada tarea, detecta si menciona una fecha límite. Responde ÚNICAMENTE en formato JSON.";
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: systemPrompt },
+        contents: [
           {
-            role: "user",
-            content: [
-              { type: "image_url", image_url: { url: `data:${mimeType};base64,${imageBase64}` } }
+            parts: [
+              { text: systemPrompt },
+              {
+                inlineData: {
+                  mimeType: mimeType || "image/jpeg",
+                  data: imageBase64
+                }
+              }
             ]
           }
         ],
-      }),
+        generationConfig: {
+          response_mime_type: "application/json",
+          response_schema: {
+            type: "object",
+            properties: {
+              tasks: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    raw_text: { type: "string" },
+                    has_date: { type: "boolean" },
+                    detected_date: { type: "string", nullable: true }
+                  },
+                  required: ["raw_text", "has_date"]
+                }
+              }
+            },
+            required: ["tasks"]
+          }
+        }
+      })
     });
 
     if (!response.ok) {
@@ -65,20 +86,12 @@ serve(async (req) => {
     }
 
     const aiResult = await response.json();
-    const content = aiResult.choices?.[0]?.message?.content || "";
-    
-    try {
-        const jsonStr = content.replace(/```json\n?|\n?```/g, '').trim();
-        const data = JSON.parse(jsonStr);
-        return new Response(JSON.stringify(data), {
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-    } catch (e) {
-        console.error("Parse error:", content);
-        return new Response(JSON.stringify({ tasks: [], error: "parse_error", raw_content: content }), {
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-    }
+    const resultText = aiResult.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+    const data = JSON.parse(resultText);
+
+    return new Response(JSON.stringify(data), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
 
   } catch (e) {
     console.error("Total error:", e);

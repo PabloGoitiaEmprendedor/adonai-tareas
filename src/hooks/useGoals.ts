@@ -31,8 +31,9 @@ export const useGoals = () => {
         .from('goals')
         .insert({ ...goal, user_id: user.id })
         .select()
-        .single();
+        .maybeSingle();
       if (error) throw error;
+      if (!data) throw new Error('Error al crear la meta: no se devolvieron datos');
       return data;
     },
     onSuccess: () => {

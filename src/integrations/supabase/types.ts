@@ -518,6 +518,7 @@ export type Database = {
           title: string
           urgency: boolean | null
           user_id: string
+          actual_duration_seconds: number | null
         }
         Insert: {
           completed_at?: string | null
@@ -541,6 +542,7 @@ export type Database = {
           title: string
           urgency?: boolean | null
           user_id: string
+          actual_duration_seconds?: number | null
         }
         Update: {
           completed_at?: string | null
@@ -564,6 +566,7 @@ export type Database = {
           title?: string
           urgency?: boolean | null
           user_id?: string
+          actual_duration_seconds?: number | null
         }
         Relationships: [
           {
