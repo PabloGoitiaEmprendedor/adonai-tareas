@@ -1,3 +1,4 @@
+// Version 1.0.24 - Landing page for direct download focus
 import { useState } from "react";
 import { Download } from "lucide-react";
 
