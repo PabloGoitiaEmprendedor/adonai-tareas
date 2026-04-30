@@ -20,6 +20,7 @@ import TrashPage from "./pages/TrashPage";
 import AchievementsPage from "./pages/AchievementsPage";
 import MiniTasksPage from "./pages/MiniTasksPage";
 import AdminPanelPage from "./pages/AdminPanelPage";
+import LandingPage from "./pages/LandingPage";
 import NotFound from "./pages/NotFound";
 import { supabase } from "@/integrations/supabase/client";
 import UpdateBanner from "@/components/UpdateBanner";
@@ -81,6 +82,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
 const AppRoutes = () => {
   const { user, loading } = useAuth();
+  const isElectron = !!window.electronAPI;
 
   if (loading) {
     return (
@@ -95,7 +97,20 @@ const AppRoutes = () => {
       <Route path="/mini" element={<MiniTasksPage />} />
       <Route path="/auth" element={user ? <Navigate to="/" replace /> : <AuthPage />} />
       <Route path="/onboarding" element={user ? <OnboardingPage /> : <Navigate to="/auth" replace />} />
-      <Route path="/" element={<ProtectedRoute><DailyPage /></ProtectedRoute>} />
+      
+      {/* ROOT: Landing on Web, App on Electron */}
+      <Route 
+        path="/" 
+        element={
+          isElectron
+            ? <ProtectedRoute><DailyPage /></ProtectedRoute>
+            : <LandingPage />
+        } 
+      />
+
+      {/* /app route for web users who are logged in (e.g. CEO admin access) */}
+      <Route path="/app" element={<ProtectedRoute><DailyPage /></ProtectedRoute>} />
+
       <Route path="/today" element={<Navigate to="/" replace />} />
       <Route path="/week" element={<ProtectedRoute><WeeklyPage /></ProtectedRoute>} />
       <Route path="/goals" element={<ProtectedRoute><GoalsPage /></ProtectedRoute>} />

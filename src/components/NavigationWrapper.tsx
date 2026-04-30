@@ -173,8 +173,9 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
     setOpen(false);
   };
 
-  // For /mini popup window — render children without any navigation chrome
-  if (location.pathname === '/mini') {
+  // For /mini popup window or Landing Page on web — render children without any navigation chrome
+  const isLandingOnWeb = location.pathname === '/' && !window.electronAPI;
+  if (location.pathname === '/mini' || isLandingOnWeb) {
     return <>{children}</>;
   }
 
