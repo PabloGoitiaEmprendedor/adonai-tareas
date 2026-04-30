@@ -114,7 +114,7 @@ export const useAdminAnalytics = (timeRange: number | 'all' = 30, excludedUserId
         let page = 0;
         const pageSize = 1000;
         while (true) {
-          let query = supabase.from(table as any).select(select);
+          let query = supabase.from(table).select(select);
           query = queryModifier(query);
           const { data, error } = await query.range(page * pageSize, (page + 1) * pageSize - 1);
           if (error) break;

@@ -191,6 +191,7 @@ const QuickRecurrenceFlow = ({ open, onClose }: QuickRecurrenceFlowProps) => {
           importance: false,
           urgency: false,
           priority: 'medium',
+          status: 'pending',
           source_type: 'text',
         },
         {

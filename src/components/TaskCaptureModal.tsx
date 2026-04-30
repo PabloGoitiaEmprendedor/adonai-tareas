@@ -574,7 +574,7 @@ Tu trabajo es:`;
                       )}
                       {isProcessing && !isRecording && (
                         <div className="flex flex-col items-center gap-3">
-                          <AISphere />
+                          <AISphere size="md" />
                           <p className="text-sm font-bold animate-pulse" style={{ color: C.accent }}>Escuchando y procesando...</p>
                         </div>
                       )}
