@@ -1,6 +1,6 @@
 import { useState, useEffect, forwardRef, useImperativeHandle, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mic, X, Square, Type, Check, ArrowRight } from 'lucide-react';
+import { Mic, X, Square, Type, Check, Edit2 } from 'lucide-react';
 import { AutoTextarea } from '@/components/ui/auto-textarea';
 import { useVoiceCapture } from '@/hooks/useVoiceCapture';
 import { parseVoiceTranscript } from '@/hooks/useVoiceParser';
@@ -43,11 +43,13 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
   const [dueDate, setDueDate] = useState('');
   const [sourceType, setSourceType] = useState<'voice' | 'text' | 'image'>('text');
   const [showTextInput, setShowTextInput] = useState(true);
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [titleEditValue, setTitleEditValue] = useState('');
   const [classificationSource, setClassificationSource] = useState('');
   const [fallbackEstimatedMinutes, setFallbackEstimatedMinutes] = useState<number | null>(null);
   const [extractedTasks, setExtractedTasks] = useState<{ raw_text: string; has_date: boolean; detected_date: string | null; assigned_date?: string }[]>([]);
   const [currentTaskIndex, setCurrentTaskIndex] = useState(0);
-  const [savingMessage, setSavingMessage] = useState('Analizando y creando tarea...');
+  const [savingMessage, setSavingMessage] = useState('Creando tarea...');
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const requestedVoiceOpenRef = useRef(false);
@@ -103,14 +105,13 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
     setSelectedGoalId(null);
     setReviewImportance(false);
     setReviewUrgency(false);
+    setEditingTitle(false);
 
-    // If triggered by a voice-specific UI action
     if (requestedVoiceOpenRef.current) {
       requestedVoiceOpenRef.current = false;
       return;
     }
 
-    // If a specific initialMode was requested, skip select screen
     if (initialMode === 'voice') {
       setPhase('input');
       setTitle('');
@@ -131,7 +132,6 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
       return;
     }
 
-    // Default to the selection screen
     setPhase('select');
     setTitle('');
     setDescription('');
@@ -148,7 +148,6 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
     onClose();
   };
 
-  // Fast, no-AI save. Uses exactly what the user typed/picked.
   const saveTaskQuick = async (opts: {
     title: string;
     description?: string;
@@ -205,7 +204,7 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
     } catch (err) {
       if (!isImageLoop) {
         toast.error('Error al crear tarea');
-        setPhase('input');
+        setPhase('review');
       }
       throw err;
     } finally {
@@ -220,61 +219,38 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
     if (!rawTitle) { toast.error('Escribe o dicta una tarea'); return; }
 
     let parsedTitle = rawTitle;
-    let parsedDescription = description;
     let parsedDate = dueDate;
-    let parsedEstimatedMinutes: number | null = null;
     const sourceForClassification = rawTitle;
 
     if (sourceType === 'voice') {
       const parsed = parseVoiceTranscript(rawTitle);
       parsedTitle = parsed.title;
       if (parsed.dueDate) parsedDate = parsed.dueDate;
-      parsedEstimatedMinutes = parsed.estimatedMinutes;
+      setFallbackEstimatedMinutes(parsed.estimatedMinutes);
     }
 
     setTitle(parsedTitle);
     setDueDate(parsedDate);
     setClassificationSource(sourceForClassification);
-    setFallbackEstimatedMinutes(parsedEstimatedMinutes);
 
-    if (sourceType === 'voice') {
-      const parsed = parseVoiceTranscript(rawTitle);
-      if (!parsed.dueDate) {
-        setPhase('date');
-        return;
-      }
-      
-      // If voice has a date, immediately create the task and close!
-      await saveTaskQuick({
-        title: parsedTitle,
-        description: parsedDescription,
-        link: link,
-        dueDate: parsedDate,
-        goalId: selectedGoalId,
-        importance: false,
-        urgency: false
-      });
-      return;
-    }
-
-    // Skip AI — go directly to the quick review (goal + Eisenhower) screen
-    setPhase('review');
-  }, [title, dueDate, sourceType, description, link, selectedGoalId]);
+    // Voice and text both go to date phase first
+    setPhase('date');
+  }, [title, dueDate, sourceType]);
 
   useEffect(() => {
-    if (transcript && !isRecording && !isProcessing && sourceType === 'voice' && !voiceProcessedRef.current) {
+    if (transcript && !isRecording && sourceType === 'voice' && !voiceProcessedRef.current) {
       voiceProcessedRef.current = true;
       setTitle(transcript);
       handleTitleDone(transcript);
     }
     
-    if (transcript && !isRecording && !isProcessing && sourceType === 'image' && phase === 'image_date' && !voiceProcessedRef.current) {
+    if (transcript && !isRecording && sourceType === 'image' && phase === 'image_date' && !voiceProcessedRef.current) {
       voiceProcessedRef.current = true;
       const parsed = parseVoiceTranscript(transcript);
       handleImageDateAssignment(parsed.dueDate || format(new Date(), 'yyyy-MM-dd'));
       resetTranscript();
     }
-  }, [transcript, isRecording, isProcessing, sourceType, handleTitleDone, phase, resetTranscript]);
+  }, [transcript, isRecording, sourceType, handleTitleDone, phase, resetTranscript]);
 
   const resizeImage = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -418,22 +394,8 @@ Tu trabajo es:`;
   };
 
   const handleDateDone = async () => {
-    if (sourceType === 'voice') {
-      await saveTaskQuick({
-        title: title.trim(),
-        description: description.trim(),
-        link: link.trim(),
-        dueDate,
-        goalId: selectedGoalId,
-        importance: false,
-        urgency: false,
-      });
-    } else {
-      setPhase('review');
-    }
+    setPhase('review');
   };
-
-  // (saveTaskQuick moved up)
 
   const handleReviewDone = async () => {
     await saveTaskQuick({
@@ -505,7 +467,6 @@ Tu trabajo es:`;
                       </div>
 
                       <div className="grid grid-cols-2 gap-3 w-full">
-                        {/* WRITING BUTTON */}
                         <button
                           onClick={() => { setPhase('input'); setShowTextInput(true); setSourceType('text'); }}
                           className="group flex flex-col items-center gap-2 p-3 rounded-[20px] transition-all active:scale-[0.96]"
@@ -517,7 +478,6 @@ Tu trabajo es:`;
                           <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: C.muted }}>Escribir</span>
                         </button>
 
-                        {/* VOICE BUTTON */}
                         <button
                           onClick={() => { setPhase('input'); beginVoiceCapture(); }}
                           className="group flex flex-col items-center gap-2 p-3 rounded-[20px] transition-all active:scale-[0.96]"
@@ -528,55 +488,30 @@ Tu trabajo es:`;
                           </div>
                           <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: C.accent }}>Voz</span>
                         </button>
-
-                        {/* PHOTO BUTTON — DISABLED: requires paid Gemini API edge function.
-                           Re-enable when a free OCR alternative is configured. */}
-                        {/* {!(window as any).electronAPI && (
-                          <button
-                            onClick={() => fileInputRef.current?.click()}
-                            className="group flex flex-col items-center gap-2 p-3 rounded-[20px] transition-all active:scale-[0.96]"
-                            style={{ background: C.surface, border: `1px solid ${C.border}` }}
-                          >
-                            <div className="w-14 h-14 rounded-[16px] flex items-center justify-center transition-colors" style={{ background: 'rgba(255,255,255,0.05)' }}>
-                              <Camera className="w-6 h-6" style={{ color: C.text }} strokeWidth={2} />
-                            </div>
-                            <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: C.muted }}>Foto</span>
-                          </button>
-                        )} */}
                       </div>
-
-                      {/* File input for photo — DISABLED alongside photo button */}
-                      {/* <input
-                        type="file"
-                        ref={fileInputRef}
-                        className="hidden"
-                        accept="image/*"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) handleImageSelected(file);
-                        }}
-                      /> */}
                     </motion.div>
                   )}
 
                   {phase === 'input' && (
                     <motion.div key="input" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="w-full flex flex-col items-center gap-6">
                       {isRecording && (
-                        <div className="flex items-center justify-center gap-1.5 h-16 w-full">
-                          {waveformBars.map((h, i) => (
-                            <motion.div key={i} className="w-1 rounded-full primary-gradient" animate={{ height: [h * 2, h * 4, h * 2] }} transition={{ duration: 0.8, repeat: Infinity, delay: i * 0.05 }} />
-                          ))}
-                        </div>
-                      )}
-                      {isRecording && transcript && (
-                        <p className="text-sm text-on-surface-variant/60 text-center animate-pulse max-w-[90%] truncate">
-                          {transcript}
-                        </p>
-                      )}
-                      {isProcessing && !isRecording && (
-                        <div className="flex flex-col items-center gap-3">
-                          <AISphere size="md" />
-                          <p className="text-sm font-bold animate-pulse" style={{ color: C.accent }}>Escuchando y procesando...</p>
+                        <div className="w-full flex flex-col items-center gap-3">
+                          <div className="flex items-center justify-center gap-1.5 h-16 w-full">
+                            {waveformBars.map((h, i) => (
+                              <motion.div key={i} className="w-1 rounded-full primary-gradient" animate={{ height: [h * 2, h * 4, h * 2] }} transition={{ duration: 0.8, repeat: Infinity, delay: i * 0.05 }} />
+                            ))}
+                          </div>
+                          {transcript && (
+                            <div
+                              className="w-full px-4 py-3 rounded-xl min-h-[48px] flex items-center justify-center"
+                              style={{ background: C.surface, border: `1px solid ${C.border}` }}
+                            >
+                              <p className="text-sm text-center leading-relaxed" style={{ color: C.text }}>
+                                {transcript}
+                                <span className="inline-block w-0.5 h-4 ml-0.5 animate-pulse" style={{ background: C.accent }} />
+                              </p>
+                            </div>
+                          )}
                         </div>
                       )}
                       {!isRecording && showTextInput && (
@@ -681,7 +616,6 @@ Tu trabajo es:`;
                         </div>
                       )}
 
-                      {/* Voice fallback — show retry prompt */}
                       {voiceFallback && sourceType === 'text' && (
                         <div className="w-full flex flex-col items-center gap-2 py-2">
                           <p className="text-xs text-orange-500/80 font-semibold text-center">El micrófono no está disponible.</p>
@@ -696,7 +630,7 @@ Tu trabajo es:`;
                       )}
 
                       <p className="text-[11px] text-on-surface-variant/60 text-center">
-                        {sourceType === 'voice' ? 'Habla claro y natural.' : 'Escribe tu tarea.'}
+                        {sourceType === 'voice' ? 'Toca para parar cuando termines.' : 'Escribe tu tarea.'}
                       </p>
                       <div className="flex gap-4 items-center">
                         {isRecording ? (
@@ -705,7 +639,6 @@ Tu trabajo es:`;
                           </button>
                         ) : (
                           <>
-                            {/* Mic retry button — always show if voice mode was attempted */}
                             {sourceType === 'voice' && isSupported && (
                               <button onClick={beginVoiceCapture} className="w-12 h-12 rounded-full flex items-center justify-center" style={{ background: C.surface, border: `1px solid ${C.border}` }}>
                                 <Mic className="w-5 h-5" style={{ color: C.text }} />
@@ -723,33 +656,101 @@ Tu trabajo es:`;
                   )}
 
                   {phase === 'date' && (
-                    <motion.div key="date" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} className="w-full space-y-6">
+                    <motion.div key="date" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} className="w-full space-y-4">
+                      {/* Task title — editable */}
+                      <div className="text-center space-y-1">
+                        <span className="text-[10px] uppercase tracking-[0.2em] font-bold" style={{ color: C.muted }}>Tarea</span>
+                        {editingTitle ? (
+                          <div className="flex items-center gap-2 justify-center">
+                            <input
+                              autoFocus
+                              value={titleEditValue}
+                              onChange={(e) => setTitleEditValue(e.target.value)}
+                              className="w-full text-base font-bold text-center rounded-lg px-3 py-2 focus:outline-none"
+                              style={{ background: C.surface, color: C.text, border: `1px solid ${C.border}` }}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  setTitle(titleEditValue.trim() || title);
+                                  setEditingTitle(false);
+                                }
+                              }}
+                              onBlur={() => {
+                                setTitle(titleEditValue.trim() || title);
+                                setEditingTitle(false);
+                              }}
+                            />
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2 justify-center">
+                            <p className="text-base font-bold truncate" style={{ color: C.text }}>"{title}"</p>
+                            <button
+                              onClick={() => { setTitleEditValue(title); setEditingTitle(true); }}
+                              className="p-1 rounded-md transition-colors flex-shrink-0"
+                              style={{ color: C.muted }}
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Date */}
                       <div className="text-center">
-                        <span className="text-xs uppercase tracking-[0.2em] font-bold text-on-surface-variant">Fecha</span>
-                        <h2 className="text-lg font-medium text-foreground mt-1">¿Para qué día es esta tarea?</h2>
+                        <span className="text-xs uppercase tracking-[0.2em] font-bold" style={{ color: C.muted }}>Fecha</span>
                       </div>
                       <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)}
-                        className="w-full bg-surface-container-high rounded-lg p-4 text-foreground text-center focus:outline-none focus:ring-1 focus:ring-primary" />
+                        className="w-full rounded-lg p-3 text-center focus:outline-none text-sm"
+                        style={{ background: C.surface, color: C.text, border: `1px solid ${C.border}` }} />
                       <div className="flex gap-2">
-                        <button onClick={() => { setDueDate(format(new Date(), 'yyyy-MM-dd')); handleDateDone(); }}
-                          className="flex-1 py-3 rounded-lg bg-primary/10 text-primary font-semibold text-sm">Hoy</button>
-                        <button onClick={() => { setDueDate(format(new Date(Date.now() + 86400000), 'yyyy-MM-dd')); handleDateDone(); }}
-                          className="flex-1 py-3 rounded-lg bg-surface-container-high text-foreground font-semibold text-sm">Mañana</button>
-                        <button onClick={handleDateDone}
-                          className="flex-1 py-3 rounded-lg bg-surface-container-high text-foreground font-semibold text-sm">Usar fecha</button>
+                        <button onClick={() => { setDueDate(format(new Date(), 'yyyy-MM-dd')); }}
+                          className="flex-1 py-2.5 rounded-lg text-xs font-bold"
+                          style={{ background: 'rgba(163,230,53,0.15)', color: C.accent }}>Hoy</button>
+                        <button onClick={() => { setDueDate(format(new Date(Date.now() + 86400000), 'yyyy-MM-dd')); }}
+                          className="flex-1 py-2.5 rounded-lg text-xs font-bold"
+                          style={{ background: C.surface, color: C.text }}>Mañana</button>
                       </div>
+
+                      {/* Link + Time — optional */}
+                      <div className="grid grid-cols-2 gap-2">
+                        <input
+                          type="url"
+                          value={link}
+                          onChange={(e) => setLink(e.target.value)}
+                          placeholder="🔗 Link (opcional)"
+                          className="w-full text-[11px] rounded-lg p-2.5 focus:outline-none placeholder:text-white/20"
+                          style={{ background: C.surface, color: C.text, border: `1px solid ${C.border}` }}
+                        />
+                        <input
+                          type="number"
+                          min={1}
+                          max={480}
+                          value={fallbackEstimatedMinutes || ''}
+                          onChange={(e) => setFallbackEstimatedMinutes(e.target.value ? Number(e.target.value) : null)}
+                          placeholder="⏱ Min (opcional)"
+                          className="w-full text-[11px] rounded-lg p-2.5 focus:outline-none placeholder:text-white/20"
+                          style={{ background: C.surface, color: C.text, border: `1px solid ${C.border}` }}
+                        />
+                      </div>
+
+                      {/* Create task button */}
+                      <button
+                        onClick={handleDateDone}
+                        className="w-full py-3 rounded-[14px] font-bold text-sm transition-opacity hover:opacity-90 active:scale-95"
+                        style={{ background: `linear-gradient(135deg, ${C.accent}, #65a30d)`, color: '#000' }}
+                      >
+                        Continuar
+                      </button>
                     </motion.div>
                   )}
 
                   {phase === 'review' && (
                     <motion.div key="review" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} className="w-full space-y-5">
                       <div className="text-center">
-                        <h2 className="text-lg font-bold text-foreground mt-1 truncate px-2">"{title}"</h2>
+                        <span className="text-[10px] uppercase tracking-[0.2em] font-bold" style={{ color: C.muted }}>Prioridad</span>
+                        <h2 className="text-lg font-bold mt-1 truncate px-2" style={{ color: C.text }}>"{title}"</h2>
                       </div>
 
-                      {/* Importance + Urgency — clear, child-simple toggles */}
                       <div className="space-y-2">
-                        <p className="text-[11px] font-black uppercase tracking-widest text-center" style={{ color: C.muted }}>Prioridad</p>
                         <div className="grid grid-cols-2 gap-2">
                           <button
                             onClick={() => setReviewImportance(!reviewImportance)}
@@ -778,7 +779,6 @@ Tu trabajo es:`;
                         </div>
                       </div>
 
-                      {/* Goal picker — optional */}
                       {goals.filter(g => g.active).length > 0 && (
                         <div className="space-y-2">
                           <p className="text-[11px] font-black uppercase tracking-widest text-center" style={{ color: C.muted }}>Meta</p>

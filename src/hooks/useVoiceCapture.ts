@@ -17,7 +17,6 @@ export const useVoiceCapture = () => {
   const sessionRef = useRef(0);
   const finalTranscriptRef = useRef('');
 
-  // MediaRecorder refs for server-side transcription fallback
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -74,7 +73,6 @@ export const useVoiceCapture = () => {
     return result.text || '';
   }, []);
 
-  // ── SpeechRecognition (browser only) ─────────────────────────────────────
   const startBrowserRecognition = useCallback((sessionId: number): boolean => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) return false;
@@ -106,9 +104,7 @@ export const useVoiceCapture = () => {
     recognition.onend = () => {
       if (sessionRef.current !== sessionId) return;
       console.log('[voice] SpeechRecognition ended');
-      // Only stop if user explicitly stopped recording
       if (isRecordingRef.current) {
-        // Restart if still supposed to be recording
         try { recognition.start(); } catch {}
       } else {
         recognitionRef.current = null;
@@ -119,12 +115,6 @@ export const useVoiceCapture = () => {
     recognition.onerror = (e: any) => {
       if (sessionRef.current !== sessionId) return;
       console.error('[voice] SpeechRecognition error:', e.error);
-      if (e.error === 'not-allowed') {
-        setVoiceFallback(true);
-        isRecordingRef.current = false;
-        setIsRecording(false);
-      }
-      // Ignore 'no-speech' and 'aborted' — they're normal
     };
 
     recognitionRef.current = recognition;
@@ -137,7 +127,6 @@ export const useVoiceCapture = () => {
     }
   }, []);
 
-  // ── MediaRecorder + Server transcription ─────────────────────────────────
   const startServerTranscription = useCallback(async (): Promise<boolean> => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -224,15 +213,7 @@ export const useVoiceCapture = () => {
     isRecordingRef.current = true;
     setIsRecording(true);
 
-    // In Electron, SpeechRecognition is unreliable — go straight to server transcription
-    if (IS_ELECTRON) {
-      console.log('[voice] Electron detected — using MediaRecorder + server transcription');
-      const ok = await startServerTranscription();
-      if (ok) dispatchMicPermissionGranted();
-      return ok;
-    }
-
-    // In browser, try SpeechRecognition first
+    // Try SpeechRecognition for live text (works even in Electron with flags)
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (SpeechRecognition) {
       const ok = startBrowserRecognition(sessionId);
@@ -252,20 +233,16 @@ export const useVoiceCapture = () => {
   const stopRecording = useCallback(() => {
     isRecordingRef.current = false;
 
-    // Stop SpeechRecognition
     if (recognitionRef.current) {
       try { recognitionRef.current.stop(); } catch {}
       recognitionRef.current = null;
-      setIsRecording(false);
     }
 
-    // Stop MediaRecorder (triggers onstop → server transcription)
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
       try { mediaRecorderRef.current.stop(); } catch {}
       mediaRecorderRef.current = null;
     }
 
-    // Stop microphone stream
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(t => t.stop());
       streamRef.current = null;

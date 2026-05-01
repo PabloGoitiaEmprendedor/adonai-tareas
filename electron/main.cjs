@@ -184,6 +184,7 @@ function createMiniWindow() {
     skipTaskbar: true,
     resizable: false,
     hasShadow: false,
+    show: false, // Hidden until renderer signals ready
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -193,10 +194,8 @@ function createMiniWindow() {
     },
   });
 
-  miniWindow.show();
-  if (miniState.x === undefined || miniState.y === undefined) {
-    miniWindow.center();
-  }
+  // Mini window starts hidden — renderer signals when session is ready
+  let miniShown = false;
 
   const indexPath = path.join(__dirname, '..', 'dist', 'index.html');
   if (!app.isPackaged) {
@@ -301,6 +300,16 @@ ipcMain.on('toggle-mini-window', () => {
     miniWindow = null;
   } else {
     createMiniWindow();
+  }
+});
+
+// ── Mini window ready (show when session is authenticated) ──
+ipcMain.on('mini-ready', (event, { hasSession }) => {
+  if (!miniWindow) return;
+  if (hasSession && !miniWindow.isVisible()) {
+    miniWindow.show();
+  } else if (!hasSession && miniWindow.isVisible()) {
+    miniWindow.hide();
   }
 });
 

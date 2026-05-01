@@ -354,6 +354,7 @@ const MiniTaskList = () => {
   const { profile } = useProfile();
   const [completingId, setCompletingId] = useState<string | null>(null);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [isReady, setIsReady] = useState(false);
   const [now, setNow] = useState(new Date());
 
   // Timer state
@@ -424,10 +425,6 @@ const MiniTaskList = () => {
     }
   }, [activeTimerId, isExpanded]);
 
-  // Save pill position before expanding so we can restore it on collapse
-  const savedPillPos = useRef<{ x: number; y: number } | null>(null);
-
-  // Smart expand
   const handleToggleExpand = useCallback(async () => {
     if (hasMovedRef.current) return;
     const api = (window as any).electronAPI;
@@ -437,29 +434,65 @@ const MiniTaskList = () => {
     }
 
     if (!isExpanded) {
-      // EXPANDING — save pill position first
+      // EXPANDING — save current pill position, then compute smart placement
       const pos = await api.getMiniPosition();
       if (!pos) { setIsExpanded(true); return; }
-      savedPillPos.current = { x: pos.x, y: pos.y };
 
+      // pos contains: x, y, w, h, screenX, screenY, screenW, screenH
       const pillCX = pos.x + pos.w / 2;
-      const spaceRight = (pos.x + pos.w) + PANEL_W; // Basic check
-      // ... simplified check for simplicity
-      let panelX = pos.x; 
-      let panelY = pos.y;
+      const pillCY = pos.y + pos.h / 2;
+      
+      // Space available in each direction from pill center
+      const spaceRight = pos.screenX + pos.screenW - pos.x;
+      const spaceLeft = pillCX - pos.screenX;
+      const spaceBelow = pos.screenY + pos.screenH - pos.y;
+      const spaceAbove = pillCY - pos.screenY;
 
-      api.setMiniBounds({ x: panelX, y: panelY, w: PANEL_W, h: PANEL_H });
+      let panelX: number;
+      let panelY: number;
+
+      // Decide direction: prefer below, then above, then left, then right
+      if (spaceBelow >= PANEL_H && spaceRight >= PANEL_W) {
+        // Expand below, aligned left of pill
+        panelX = pos.x;
+        panelY = pos.y + pos.h;
+      } else if (spaceBelow >= PANEL_H && spaceLeft >= PANEL_W) {
+        // Expand below, aligned right of pill
+        panelX = pos.x + pos.w - PANEL_W;
+        panelY = pos.y + pos.h;
+      } else if (spaceAbove >= PANEL_H && spaceRight >= PANEL_W) {
+        // Expand above pill
+        panelX = pos.x;
+        panelY = pos.y - PANEL_H;
+      } else if (spaceAbove >= PANEL_H && spaceLeft >= PANEL_W) {
+        // Expand above, right-aligned
+        panelX = pos.x + pos.w - PANEL_W;
+        panelY = pos.y - PANEL_H;
+      } else if (spaceRight >= PANEL_W) {
+        // Beside on right, vertically centered
+        panelX = pos.x + pos.w;
+        panelY = Math.max(pos.screenY, pillCY - PANEL_H / 2);
+      } else {
+        // Beside on left
+        panelX = pos.x - PANEL_W;
+        panelY = Math.max(pos.screenY, pillCY - PANEL_H / 2);
+      }
+
+      // Clamp to screen
+      panelX = Math.max(pos.screenX, Math.min(panelX, pos.screenX + pos.screenW - PANEL_W));
+      panelY = Math.max(pos.screenY, Math.min(panelY, pos.screenY + pos.screenH - PANEL_H));
+
+      api.setMiniBounds({ x: Math.round(panelX), y: Math.round(panelY), w: PANEL_W, h: PANEL_H });
       setIsExpanded(true);
     } else {
-      // COLLAPSING — restore to saved pill position
+      // COLLAPSING — get CURRENT bounds (where the top-bar "..." is) and shrink to pill size there
       const pillW = activeTimerId ? PILL_TIMER_W : PILL_W;
-      if (savedPillPos.current) {
-        api.setMiniBounds({ x: savedPillPos.current.x, y: savedPillPos.current.y, w: pillW, h: PILL_H });
-      } else {
-        const pos = await api.getMiniPosition();
-        if (pos) {
-          api.setMiniBounds({ x: pos.x, y: pos.y, w: pillW, h: PILL_H });
-        }
+      const pos = await api.getMiniPosition();
+      if (pos) {
+        // Center the pill within the current panel bounds
+        const pillX = pos.x + Math.round((pos.w - pillW) / 2);
+        const pillY = pos.y + Math.round((pos.h - PILL_H) / 2);
+        api.setMiniBounds({ x: pillX, y: pillY, w: pillW, h: PILL_H });
       }
       setIsExpanded(false);
     }
@@ -475,15 +508,24 @@ const MiniTaskList = () => {
     document.body.style.cssText += ';background:transparent!important';
     const root = document.getElementById('root');
     if (root) root.style.cssText += ';background:transparent!important';
-    (window as any).electronAPI?.setIgnoreMouseEvents?.(true, { forward: true });
   }, []);
 
+  // Hide window until session is ready and user is authenticated
+  useEffect(() => {
+    if (!loading) {
+      const ready = !!user;
+      setIsReady(ready);
+      (window as any).electronAPI?.setIgnoreMouseEvents?.(ready, { forward: true });
+      (window as any).electronAPI?.miniReady?.({ hasSession: ready });
+    }
+  }, [loading, user]);
+
   const handleMouseEnterUI = useCallback(() => {
-    (window as any).electronAPI?.setIgnoreMouseEvents?.(false);
-  }, []);
+    if (user) (window as any).electronAPI?.setIgnoreMouseEvents?.(false);
+  }, [user]);
   const handleMouseLeaveUI = useCallback(() => {
-    (window as any).electronAPI?.setIgnoreMouseEvents?.(true, { forward: true });
-  }, []);
+    if (user) (window as any).electronAPI?.setIgnoreMouseEvents?.(true, { forward: true });
+  }, [user]);
 
   const quadrantRank = useCallback((t: any) =>
     t.urgency && t.importance ? 0
@@ -599,6 +641,10 @@ const MiniTaskList = () => {
   }, [updateTask, tasks, checkAndUnlock, profile?.name, activeTimerId]);
 
   // ── COLLAPSED PILL ──
+  if (!isReady) {
+    return <div style={{ width: '100%', height: '100%' }} />;
+  }
+
   if (!isExpanded) {
     return (
       <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Play, Clock, Calendar, Flag, FolderOpen, Trash2, Repeat, Target, Link as LinkIcon } from 'lucide-react';
+import { X, Play, Clock, Calendar, Flag, FolderOpen, Trash2, Repeat, Target, Link as LinkIcon, ChevronDown, Check } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -19,8 +19,6 @@ interface TaskDetailModalProps {
   onClose: () => void;
 }
 
-const MONTH_NAMES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
-
 const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
   const { updateTask, deleteTask, createTask } = useTasks();
   const { folders } = useFolders();
@@ -34,7 +32,6 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
   const [estimatedMinutes, setEstimatedMinutes] = useState(0);
   const [importance, setImportance] = useState(false);
   const [urgency, setUrgency] = useState(false);
-  const [contextId, setContextId] = useState<string | null>(null);
   const [folderId, setFolderId] = useState<string | null>(null);
   const [goalId, setGoalId] = useState<string | null>(null);
   const [status, setStatus] = useState('pending');
@@ -45,9 +42,9 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
   const [selectedMonthDay, setSelectedMonthDay] = useState<number | null>(null);
   const [selectedYearMonth, setSelectedYearMonth] = useState<number | null>(null);
   const [selectedYearDay, setSelectedYearDay] = useState<number | null>(null);
-  const [subtasks, setSubtasks] = useState<any[]>([]);
-  const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
-  const [showSubtasks, setShowSubtasks] = useState(false);
+  const [hasChanges, setHasChanges] = useState(false);
+
+  const originalData = useRef<any>(null);
 
   useEffect(() => {
     if (task && open) {
@@ -58,7 +55,6 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
       setEstimatedMinutes(task.estimated_minutes || 25);
       setImportance(task.importance || false);
       setUrgency(task.urgency || false);
-      setContextId(task.context_id || null);
       setFolderId(task.folder_id || null);
       setGoalId(task.goal_id || null);
       setStatus(task.status || 'pending');
@@ -68,15 +64,23 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
       setSelectedYearMonth(null);
       setSelectedYearDay(null);
       setShowRecurrence(false);
-      setSubtasks(task.subtasks || []);
-      setShowSubtasks((task.subtasks?.length || 0) > 0);
+      setHasChanges(false);
+      originalData.current = {
+        title: task.title || '', description: task.description || '', link: task.link || '',
+        dueDate: task.due_date || '', estimatedMinutes: task.estimated_minutes || 25,
+        importance: task.importance || false, urgency: task.urgency || false,
+        folderId: task.folder_id || null, goalId: task.goal_id || null,
+      };
     }
   }, [task, open]);
+
+  const markChanged = () => setHasChanges(true);
 
   const toggleWeekDay = (day: number) => {
     setSelectedWeekDays(prev =>
       prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day].sort()
     );
+    markChanged();
   };
 
   const handleSave = async () => {
@@ -88,26 +92,20 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
 
     let recurrenceId: string | null = task.recurrence_id || null;
 
-    // Handle recurrence
     if (recurrenceFreq !== 'none') {
-      // Delete old rule if exists
       if (task.recurrence_id) {
         try { await deleteRule.mutateAsync(task.recurrence_id); } catch { }
       }
 
       const ruleData: any = {
-        frequency: recurrenceFreq,
-        interval: 1,
-        start_date: dueDate || format(new Date(), 'yyyy-MM-dd'),
-        end_date: null,
+        frequency: recurrenceFreq, interval: 1,
+        start_date: dueDate || format(new Date(), 'yyyy-MM-dd'), end_date: null,
         days_of_week: recurrenceFreq === 'weekly' ? selectedWeekDays : [],
         day_of_month: recurrenceFreq === 'monthly' ? selectedMonthDay : null,
         month_of_year: recurrenceFreq === 'yearly' ? selectedYearMonth : null,
       };
 
-      if (recurrenceFreq === 'yearly' && selectedYearDay) {
-        ruleData.day_of_month = selectedYearDay;
-      }
+      if (recurrenceFreq === 'yearly' && selectedYearDay) ruleData.day_of_month = selectedYearDay;
 
       try {
         const newRule = await createRule.mutateAsync(ruleData);
@@ -116,7 +114,6 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
         toast.error('Error al crear la recurrencia');
       }
     } else if (task.recurrence_id) {
-      // Remove recurrence
       try { await deleteRule.mutateAsync(task.recurrence_id); } catch { }
       recurrenceId = null;
     }
@@ -126,13 +123,8 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
       description: description.trim() || null,
       due_date: dueDate || null,
       estimated_minutes: estimatedMinutes || null,
-      importance,
-      urgency,
-      priority,
-      context_id: contextId,
-      folder_id: folderId,
-      goal_id: goalId,
-      status,
+      importance, urgency, priority,
+      folder_id: folderId, goal_id: goalId, status,
       recurrence_id: recurrenceId,
       link: link.trim() || null,
       ...(status === 'done' ? { completed_at: new Date().toISOString() } : {}),
@@ -140,19 +132,13 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
 
     if (task.isNew) {
       createTask.mutate({ ...taskData, source_type: 'text' }, {
-        onSuccess: () => {
-          toast.success('Tarea creada');
-          onClose();
-        },
+        onSuccess: () => { toast.success('Tarea creada'); onClose(); },
         onError: () => toast.error('Error al crear tarea')
       });
       return;
     }
 
-    updateTask.mutate({
-      id: task.id,
-      ...taskData,
-    });
+    updateTask.mutate({ id: task.id, ...taskData });
     toast.success('Tarea actualizada');
     onClose();
   };
@@ -160,52 +146,39 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
   const handleDelete = () => {
     if (window.confirm('¿Mover a la papelera?')) {
       deleteTask.mutate(task.id, {
-        onSuccess: () => {
-          toast.success('Tarea movida a la papelera');
-          onClose();
-        },
-        onError: () => {
-          toast.error('No se pudo mover la tarea a la papelera');
-        },
+        onSuccess: () => { toast.success('Tarea movida a la papelera'); onClose(); },
+        onError: () => toast.error('No se pudo mover la tarea a la papelera'),
       });
     }
   };
 
+  const handleSaveAndClose = () => {
+    if (hasChanges) {
+      handleSave();
+    } else {
+      onClose();
+    }
+  };
 
   if (!open || !task) return null;
 
   const weekDayLabels = [
-    { label: 'L', value: 1 },
-    { label: 'M', value: 2 },
-    { label: 'X', value: 3 },
-    { label: 'J', value: 4 },
-    { label: 'V', value: 5 },
-    { label: 'S', value: 6 },
-    { label: 'D', value: 0 },
+    { label: 'L', value: 1 }, { label: 'M', value: 2 }, { label: 'X', value: 3 },
+    { label: 'J', value: 4 }, { label: 'V', value: 5 }, { label: 'S', value: 6 }, { label: 'D', value: 0 },
   ];
 
   const recurrenceLabel = recurrenceFreq === 'none' ? 'Sin repetición' :
-    recurrenceFreq === 'daily' ? 'Todos los días' :
-      recurrenceFreq === 'weekly' ? `Cada semana${selectedWeekDays.length > 0 ? '' : ''}` :
-        recurrenceFreq === 'monthly' ? `Cada mes${selectedMonthDay ? ` el día ${selectedMonthDay}` : ''}` :
-          `Cada año`;
-
-  // Priority pill
-  const priorityLabel = (importance && urgency) ? '🔴 Alta' : importance ? '🟢 Importante' : urgency ? '🟡 Urgente' : 'Normal';
-  const priorityClass = (importance && urgency)
-    ? 'bg-error/20 text-error'
-    : importance
-      ? 'bg-primary/20 text-primary'
-      : urgency
-        ? 'bg-amber-500/20 text-amber-500'
-        : 'bg-surface-container-high text-on-surface-variant';
+    recurrenceFreq === 'daily' ? 'Diario' :
+    recurrenceFreq === 'weekly' ? `Semanal (${selectedWeekDays.length > 0 ? selectedWeekDays.map(d => weekDayLabels.find(l => l.value === d)?.label).join(', ') : 'todos'})` :
+    recurrenceFreq === 'monthly' ? `Mensual (día ${selectedMonthDay || '—'})` :
+    `Anual`;
 
   return (
     <>
       <AnimatePresence>
         {open && !timerOpen && (
           <>
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/60 z-[60]" onClick={onClose} />
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/60 z-[60]" onClick={handleSaveAndClose} />
             <motion.div
               initial={{ opacity: 0, scale: 0.96, y: 12 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -213,132 +186,133 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
               transition={{ type: 'spring', damping: 25, stiffness: 240 }}
               className="fixed inset-0 z-[70] flex items-center justify-center p-4 pointer-events-none"
             >
-              <div className="mx-auto w-full max-w-[440px] max-h-[90vh] overflow-y-auto bg-card border border-outline-variant rounded-3xl shadow-2xl pointer-events-auto">
-                <div className="flex justify-center pt-4 pb-2">
-                  <div className="w-12 h-1.5 bg-on-surface-variant/20 rounded-full" />
-                </div>
-                <div className="p-6 space-y-4">
-
-                  {/* 1. Header con pill de prioridad */}
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h2 className="text-base font-bold text-foreground">{task.isNew ? 'Nueva tarea' : 'Editar tarea'}</h2>
-                      <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${priorityClass}`}>
-                        {priorityLabel}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <button onClick={handleDelete} className="text-on-surface-variant hover:text-error transition-colors">
-                        <Trash2 className="w-5 h-5" />
-                      </button>
-                      <button onClick={onClose} className="text-on-surface-variant"><X className="w-5 h-5" /></button>
-                    </div>
-                  </div>
-
-                  {/* 2. Botón Empezar tarea */}
-                  {status === 'pending' && (
+              <div className="mx-auto w-full max-w-[400px] max-h-[85vh] overflow-y-auto pointer-events-auto rounded-3xl"
+                style={{ background: '#18181B', border: '1px solid rgba(255,255,255,0.09)', boxShadow: '0 16px 48px rgba(0,0,0,0.6)' }}>
+                
+                {/* Top bar */}
+                <div className="flex items-center justify-between px-5 pt-4 pb-3">
+                  <div className="flex items-center gap-2">
                     <button onClick={() => setTimerOpen(true)}
-                      className="w-full py-3 rounded-xl primary-gradient text-primary-foreground font-bold text-sm flex items-center justify-center gap-2">
-                      <Play className="w-4 h-4" /> Empezar tarea
+                      className="w-8 h-8 rounded-full flex items-center justify-center transition-colors"
+                      style={{ background: 'rgba(163,230,53,0.15)' }}
+                      title="Iniciar timer">
+                      <Play className="w-3.5 h-3.5" style={{ color: '#A3E635' }} />
                     </button>
-                  )}
+                    <button onClick={handleDelete}
+                      className="w-8 h-8 rounded-full flex items-center justify-center transition-colors"
+                      style={{ color: 'rgba(255,255,255,0.3)' }}
+                      title="Eliminar">
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <button onClick={handleSaveAndClose}
+                    className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 ${hasChanges ? 'bg-[#A3E635] text-black' : 'bg-white/10 text-white/60'}`}>
+                    <Check className="w-3 h-3" /> {hasChanges ? 'Guardar' : 'Listo'}
+                  </button>
+                </div>
 
-                  {/* 3. Nombre — prominente, sin label */}
+                <div className="px-5 pb-5 space-y-4">
+                  {/* Title */}
                   <input
                     value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    className="w-full bg-transparent rounded-lg py-2 text-foreground text-lg font-semibold focus:outline-none border-b border-outline-variant/30 focus:border-primary transition-colors"
+                    onChange={(e) => { setTitle(e.target.value); markChanged(); }}
+                    className="w-full bg-transparent text-lg font-bold focus:outline-none border-b border-white/10 focus:border-[#A3E635]/50 transition-colors pb-2"
+                    style={{ color: '#F4F4F5' }}
+                    placeholder="Nombre de la tarea"
                   />
 
-                  {/* 4. Fecha + Minutos */}
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider flex items-center gap-1"><Calendar className="w-3 h-3" /> Fecha</label>
-                      <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="w-full bg-surface-container-high rounded-lg p-3 text-foreground text-sm focus:outline-none focus:ring-1 focus:ring-primary" />
-                      {dueDate && (
-                        <p className="text-[10px] text-on-surface-variant/60 pl-1">
-                          {format(new Date(dueDate + 'T12:00'), 'EEEE d MMM', { locale: es })}
-                        </p>
-                      )}
+                  {/* Date + Time row */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[9px] font-black uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.3)' }}>
+                        <Calendar className="w-3 h-3 inline mr-1" />Fecha
+                      </label>
+                      <input type="date" value={dueDate} onChange={(e) => { setDueDate(e.target.value); markChanged(); }}
+                        className="w-full rounded-lg p-2 text-sm focus:outline-none mt-1"
+                        style={{ background: 'rgba(255,255,255,0.06)', color: '#F4F4F5', border: '1px solid rgba(255,255,255,0.09)' }} />
                     </div>
-                    <div className="space-y-1">
-                      <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider flex items-center gap-1"><Clock className="w-3 h-3" /> Minutos</label>
-                      <input type="number" min={1} max={480} value={estimatedMinutes} onChange={(e) => setEstimatedMinutes(Number(e.target.value))} className="w-full bg-surface-container-high rounded-lg p-3 text-foreground text-sm focus:outline-none focus:ring-1 focus:ring-primary" />
+                    <div>
+                      <label className="text-[9px] font-black uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.3)' }}>
+                        <Clock className="w-3 h-3 inline mr-1" />Min
+                      </label>
+                      <input type="number" min={1} max={480} value={estimatedMinutes} onChange={(e) => { setEstimatedMinutes(Number(e.target.value)); markChanged(); }}
+                        className="w-full rounded-lg p-2 text-sm focus:outline-none mt-1"
+                        style={{ background: 'rgba(255,255,255,0.06)', color: '#F4F4F5', border: '1px solid rgba(255,255,255,0.09)' }} />
                     </div>
                   </div>
 
-                  {/* 5. Importante + Urgente */}
-                  <div className="grid grid-cols-2 gap-3">
-                    <button onClick={() => setImportance(!importance)}
-                      className={`p-3 rounded-lg text-sm font-semibold flex items-center gap-2 transition-all ${importance ? 'bg-primary/20 text-primary ring-1 ring-primary/30' : 'bg-surface-container-high text-on-surface-variant'}`}>
-                      <Flag className="w-4 h-4" /> {importance ? 'Importante' : 'No importante'}
+                  {/* Priority */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <button onClick={() => { setImportance(!importance); markChanged(); }}
+                      className={`p-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all border ${importance ? 'border-[#A3E635] text-[#A3E635]' : 'border-transparent text-white/40'}`}
+                      style={{ background: importance ? 'rgba(163,230,53,0.1)' : 'rgba(255,255,255,0.04)' }}>
+                      <Flag className="w-3.5 h-3.5" /> Importante
                     </button>
-                    <button onClick={() => setUrgency(!urgency)}
-                      className={`p-3 rounded-lg text-sm font-semibold flex items-center gap-2 transition-all ${urgency ? 'bg-error/20 text-error ring-1 ring-error/30' : 'bg-surface-container-high text-on-surface-variant'}`}>
-                      <Clock className="w-4 h-4" /> {urgency ? 'Urgente' : 'No urgente'}
+                    <button onClick={() => { setUrgency(!urgency); markChanged(); }}
+                      className={`p-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all border ${urgency ? 'border-[#f97316] text-[#f97316]' : 'border-transparent text-white/40'}`}
+                      style={{ background: urgency ? 'rgba(249,115,22,0.1)' : 'rgba(255,255,255,0.04)' }}>
+                      <Clock className="w-3.5 h-3.5" /> Urgente
                     </button>
                   </div>
 
-                  {/* 6. Descripción auto-ajustable */}
-                  <textarea
-                    value={description}
-                    onChange={(e) => {
-                      setDescription(e.target.value);
-                      e.target.style.height = 'auto';
-                      e.target.style.height = e.target.scrollHeight + 'px';
-                    }}
-                    onFocus={(e) => {
-                      e.target.style.height = 'auto';
-                      e.target.style.height = e.target.scrollHeight + 'px';
-                    }}
-                    rows={1}
-                    style={{ overflow: 'hidden', resize: 'none' }}
-                    placeholder="Añade una descripción..."
-                    className="w-full bg-surface-container-high rounded-lg p-3 text-foreground text-sm focus:outline-none focus:ring-1 focus:ring-primary"
-                  />
-
-                  {/* Link / URL */}
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider flex items-center gap-1"><LinkIcon className="w-3 h-3" /> Link</label>
-                    <input
-                      type="url"
-                      value={link}
-                      onChange={(e) => setLink(e.target.value)}
-                      placeholder="https://..."
-                      className="w-full bg-surface-container-high rounded-lg p-3 text-foreground text-sm focus:outline-none focus:ring-1 focus:ring-primary"
-                    />
+                  {/* Link */}
+                  <div>
+                    <label className="text-[9px] font-black uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.3)' }}>
+                      <LinkIcon className="w-3 h-3 inline mr-1" />Link
+                    </label>
+                    <input type="url" value={link} onChange={(e) => { setLink(e.target.value); markChanged(); }} placeholder="https://..."
+                      className="w-full rounded-lg p-2 text-sm focus:outline-none mt-1 placeholder:text-white/20"
+                      style={{ background: 'rgba(255,255,255,0.06)', color: '#F4F4F5', border: '1px solid rgba(255,255,255,0.09)' }} />
                   </div>
 
-                  {/* 8. Carpeta */}
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider flex items-center gap-1"><FolderOpen className="w-3 h-3" /> Carpeta</label>
-                    <div className="flex flex-wrap gap-2">
-                      <button onClick={() => setFolderId(null)}
-                        className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${!folderId ? 'bg-primary/20 text-primary ring-1 ring-primary/30' : 'bg-surface-container-high text-on-surface-variant'}`}>
-                        Sin carpeta
-                      </button>
-                      {folders.map((folder) => (
-                        <button key={folder.id} onClick={() => setFolderId(folder.id === folderId ? null : folder.id)}
-                          className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${folderId === folder.id ? 'ring-1 ring-primary/30' : 'bg-surface-container-high text-on-surface-variant'}`}
-                          style={folderId === folder.id ? { backgroundColor: (folder.color || '#4BE277') + '30', color: folder.color || '#4BE277' } : undefined}>
-                          {folder.name}
+                  {/* Description */}
+                  <div>
+                    <label className="text-[9px] font-black uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.3)' }}>Descripción</label>
+                    <textarea value={description} onChange={(e) => { setDescription(e.target.value); markChanged(); }}
+                      placeholder="Detalles opcionales..." rows={2}
+                      className="w-full rounded-lg p-2 text-sm focus:outline-none mt-1 placeholder:text-white/20 resize-none"
+                      style={{ background: 'rgba(255,255,255,0.06)', color: '#F4F4F5', border: '1px solid rgba(255,255,255,0.09)' }} />
+                  </div>
+
+                  {/* Folder */}
+                  {folders.length > 0 && (
+                    <div>
+                      <label className="text-[9px] font-black uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.3)' }}>
+                        <FolderOpen className="w-3 h-3 inline mr-1" />Carpeta
+                      </label>
+                      <div className="flex flex-wrap gap-1.5 mt-1">
+                        <button onClick={() => { setFolderId(null); markChanged(); }}
+                          className={`px-2.5 py-1 rounded-full text-[10px] font-bold transition-all border ${!folderId ? 'border-[#A3E635] text-[#A3E635]' : 'border-transparent text-white/40'}`}
+                          style={{ background: !folderId ? 'rgba(163,230,53,0.1)' : 'rgba(255,255,255,0.04)' }}>
+                          Sin carpeta
                         </button>
-                      ))}
+                        {folders.map((folder) => (
+                          <button key={folder.id} onClick={() => { setFolderId(folder.id === folderId ? null : folder.id); markChanged(); }}
+                            className={`px-2.5 py-1 rounded-full text-[10px] font-bold transition-all border ${folderId === folder.id ? 'border-transparent' : 'border-transparent text-white/40'}`}
+                            style={folderId === folder.id ? { backgroundColor: (folder.color || '#4BE277') + '30', color: folder.color || '#4BE277' } : { background: 'rgba(255,255,255,0.04)' }}>
+                            {folder.name}
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                  </div>
+                  )}
 
-                  {/* 8.5 Meta (Goal) */}
-                  {goals.length > 0 && (
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider flex items-center gap-1"><Target className="w-3 h-3" /> Meta</label>
-                      <div className="flex flex-wrap gap-2">
-                        <button onClick={() => setGoalId(null)}
-                          className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${!goalId ? 'bg-primary/20 text-primary ring-1 ring-primary/30' : 'bg-surface-container-high text-on-surface-variant'}`}>
+                  {/* Goal */}
+                  {goals.filter(g => g.active).length > 0 && (
+                    <div>
+                      <label className="text-[9px] font-black uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.3)' }}>
+                        <Target className="w-3 h-3 inline mr-1" />Meta
+                      </label>
+                      <div className="flex flex-wrap gap-1.5 mt-1">
+                        <button onClick={() => { setGoalId(null); markChanged(); }}
+                          className={`px-2.5 py-1 rounded-full text-[10px] font-bold transition-all border ${!goalId ? 'border-[#A3E635] text-[#A3E635]' : 'border-transparent text-white/40'}`}
+                          style={{ background: !goalId ? 'rgba(163,230,53,0.1)' : 'rgba(255,255,255,0.04)' }}>
                           Sin meta
                         </button>
                         {goals.filter(g => g.active).map((goal) => (
-                          <button key={goal.id} onClick={() => setGoalId(goal.id === goalId ? null : goal.id)}
-                            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${goalId === goal.id ? 'bg-primary/20 text-primary ring-1 ring-primary/30' : 'bg-surface-container-high text-on-surface-variant'}`}>
+                          <button key={goal.id} onClick={() => { setGoalId(goal.id === goalId ? null : goal.id); markChanged(); }}
+                            className={`px-2.5 py-1 rounded-full text-[10px] font-bold transition-all border ${goalId === goal.id ? 'border-transparent' : 'border-transparent text-white/40'}`}
+                            style={{ background: goalId === goal.id ? 'rgba(163,230,53,0.2)' : 'rgba(255,255,255,0.04)', color: goalId === goal.id ? '#A3E635' : undefined }}>
                             {goal.title}
                           </button>
                         ))}
@@ -346,113 +320,46 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
                     </div>
                   )}
 
-                  {/* 9. Repetición — colapsable */}
-                  <div className="space-y-2">
-                    <button id="tutorial-recurrence-toggle" onClick={() => setShowRecurrence(!showRecurrence)}
-                      className={`w-full p-3 rounded-xl text-sm font-bold flex items-center justify-between transition-all ${recurrenceFreq !== 'none' ? 'bg-primary/20 text-primary ring-1 ring-primary/30' : 'bg-surface-container-high text-on-surface-variant'}`}>
-                      <div className="flex items-center gap-2">
-                        <Repeat className="w-4 h-4" />
-                        <span>{recurrenceLabel}</span>
-                      </div>
-                      <span className={`text-xs transition-transform ${showRecurrence ? 'rotate-180' : ''}`}>▾</span>
+                  {/* Recurrence */}
+                  <div>
+                    <button onClick={() => setShowRecurrence(!showRecurrence)}
+                      className={`w-full p-2.5 rounded-xl text-xs font-bold flex items-center justify-between transition-all ${recurrenceFreq !== 'none' ? 'text-[#A3E635]' : 'text-white/40'}`}
+                      style={{ background: 'rgba(255,255,255,0.04)' }}>
+                      <span className="flex items-center gap-1.5"><Repeat className="w-3.5 h-3.5" /> {recurrenceLabel}</span>
+                      <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showRecurrence ? 'rotate-180' : ''}`} />
                     </button>
-
                     <AnimatePresence>
                       {showRecurrence && (
                         <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-                          <div className="space-y-4 pt-2">
-                            {/* Frequency selector */}
-                            <div className="grid grid-cols-5 gap-1.5 p-1 bg-surface-container-highest rounded-xl">
-                              {[
-                                { id: 'none', label: 'No' },
-                                { id: 'daily', label: 'Día' },
-                                { id: 'weekly', label: 'Sem' },
-                                { id: 'monthly', label: 'Mes' },
-                                { id: 'yearly', label: 'Año' }
-                              ].map((f) => (
-                                <button key={f.id} id={`tutorial-freq-${f.id}`} onClick={() => {
-                                  setRecurrenceFreq(f.id as any);
-                                  if (f.id === 'monthly' && !selectedMonthDay) {
-                                    setSelectedMonthDay(new Date().getDate());
-                                  }
-                                  if (f.id === 'yearly') {
-                                    if (!selectedYearMonth) setSelectedYearMonth(new Date().getMonth());
-                                    if (!selectedYearDay) setSelectedYearDay(new Date().getDate());
-                                  }
-                                }}
-                                  className={`py-2 rounded-lg text-[10px] font-black uppercase transition-all ${recurrenceFreq === f.id ? 'bg-primary text-primary-foreground shadow-lg' : 'text-on-surface-variant hover:bg-surface-container-low'}`}>
+                          <div className="pt-2 space-y-3">
+                            <div className="grid grid-cols-5 gap-1 p-1 rounded-xl" style={{ background: 'rgba(255,255,255,0.04)' }}>
+                              {[{ id: 'none', label: 'No' }, { id: 'daily', label: 'Día' }, { id: 'weekly', label: 'Sem' }, { id: 'monthly', label: 'Mes' }, { id: 'yearly', label: 'Año' }].map((f) => (
+                                <button key={f.id} onClick={() => { setRecurrenceFreq(f.id as any); markChanged(); if (f.id === 'monthly' && !selectedMonthDay) setSelectedMonthDay(new Date().getDate()); }}
+                                  className={`py-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${recurrenceFreq === f.id ? 'bg-[#A3E635] text-black' : 'text-white/40'}`}>
                                   {f.label}
                                 </button>
                               ))}
                             </div>
-
-                            {/* Weekly: Day selection */}
                             {recurrenceFreq === 'weekly' && (
-                              <div className="space-y-2">
-                                <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">Repetir los:</p>
-                                <div className="flex justify-between gap-1">
-                                  {weekDayLabels.map(({ label, value }) => (
-                                    <button key={value} onClick={() => toggleWeekDay(value)}
-                                      className={`w-9 h-9 rounded-full text-[11px] font-bold transition-all ${selectedWeekDays.includes(value)
-                                          ? 'bg-primary text-primary-foreground shadow-md'
-                                          : 'bg-surface-container-high text-on-surface-variant hover:bg-primary/10'
-                                        }`}>
-                                      {label}
-                                    </button>
-                                  ))}
-                                </div>
+                              <div className="flex justify-between gap-1">
+                                {weekDayLabels.map(({ label, value }) => (
+                                  <button key={value} onClick={() => toggleWeekDay(value)}
+                                    className={`w-8 h-8 rounded-full text-[11px] font-bold transition-all ${selectedWeekDays.includes(value) ? 'bg-[#A3E635] text-black' : 'text-white/40'}`}
+                                    style={{ background: selectedWeekDays.includes(value) ? undefined : 'rgba(255,255,255,0.04)' }}>
+                                    {label}
+                                  </button>
+                                ))}
                               </div>
                             )}
-
-                            {/* Monthly: Day of month grid */}
                             {recurrenceFreq === 'monthly' && (
-                              <div className="space-y-2">
-                                <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">Día del mes:</p>
-                                <div className="grid grid-cols-7 gap-1">
-                                  {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
-                                    <button key={day} onClick={() => setSelectedMonthDay(day)}
-                                      className={`py-1.5 rounded-lg text-[11px] font-bold transition-all ${selectedMonthDay === day
-                                          ? 'bg-primary text-primary-foreground shadow-md'
-                                          : 'bg-surface-container-high text-on-surface-variant hover:bg-primary/10'
-                                        }`}>
-                                      {day}
-                                    </button>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-
-                            {/* Yearly: Month + Day selection */}
-                            {recurrenceFreq === 'yearly' && (
-                              <div className="space-y-3">
-                                <div className="space-y-2">
-                                  <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">Mes:</p>
-                                  <div className="grid grid-cols-4 gap-1">
-                                    {MONTH_NAMES.map((m, i) => (
-                                      <button key={i} onClick={() => setSelectedYearMonth(i)}
-                                        className={`py-1.5 rounded-lg text-[10px] font-bold transition-all ${selectedYearMonth === i
-                                            ? 'bg-primary text-primary-foreground shadow-md'
-                                            : 'bg-surface-container-high text-on-surface-variant hover:bg-primary/10'
-                                          }`}>
-                                        {m}
-                                      </button>
-                                    ))}
-                                  </div>
-                                </div>
-                                <div className="space-y-2">
-                                  <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">Día:</p>
-                                  <div className="grid grid-cols-7 gap-1">
-                                    {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
-                                      <button key={day} onClick={() => setSelectedYearDay(day)}
-                                        className={`py-1.5 rounded-lg text-[11px] font-bold transition-all ${selectedYearDay === day
-                                            ? 'bg-primary text-primary-foreground shadow-md'
-                                            : 'bg-surface-container-high text-on-surface-variant hover:bg-primary/10'
-                                          }`}>
-                                        {day}
-                                      </button>
-                                    ))}
-                                  </div>
-                                </div>
+                              <div className="grid grid-cols-7 gap-1">
+                                {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
+                                  <button key={day} onClick={() => { setSelectedMonthDay(day); markChanged(); }}
+                                    className={`py-1 rounded text-[10px] font-bold transition-all ${selectedMonthDay === day ? 'bg-[#A3E635] text-black' : 'text-white/40'}`}
+                                    style={{ background: selectedMonthDay === day ? undefined : 'rgba(255,255,255,0.04)' }}>
+                                    {day}
+                                  </button>
+                                ))}
                               </div>
                             )}
                           </div>
@@ -461,26 +368,19 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
                     </AnimatePresence>
                   </div>
 
-                  {/* 10. Subtareas — colapsadas por defecto, el usuario las abre explícitamente */}
+                  {/* Subtasks */}
                   <SubtasksSection parentTaskId={task.id} />
 
-                  {/* 11. Estado */}
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Estado</label>
-                    <div className="flex gap-2">
-                      {['pending', 'done', 'skipped'].map((s) => (
-                        <button key={s} onClick={() => setStatus(s)}
-                          className={`flex-1 py-2 rounded-lg text-xs font-bold uppercase transition-all ${status === s ? 'bg-primary text-primary-foreground' : 'bg-surface-container-high text-on-surface-variant'}`}>
-                          {s === 'pending' ? 'Pendiente' : s === 'done' ? 'Hecha' : 'Pospuesta'}
-                        </button>
-                      ))}
-                    </div>
+                  {/* Status */}
+                  <div className="flex gap-1.5">
+                    {['pending', 'done', 'skipped'].map((s) => (
+                      <button key={s} onClick={() => { setStatus(s); markChanged(); }}
+                        className={`flex-1 py-2 rounded-lg text-[10px] font-bold uppercase transition-all ${status === s ? 'bg-[#A3E635] text-black' : 'text-white/40'}`}
+                        style={{ background: status === s ? undefined : 'rgba(255,255,255,0.04)' }}>
+                        {s === 'pending' ? 'Pendiente' : s === 'done' ? 'Hecha' : 'Pospuesta'}
+                      </button>
+                    ))}
                   </div>
-
-                  {/* 12. Guardar */}
-                  <button onClick={handleSave} className="w-full py-3.5 rounded-xl primary-gradient text-primary-foreground font-bold text-sm">
-                    Guardar cambios
-                  </button>
                 </div>
               </div>
             </motion.div>
