@@ -1,4 +1,5 @@
-import { useQuery, useMutation, useQueryClient, useMemo } from '@tanstack/react-query';
+import { useMemo } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { format, parseISO, eachDayOfInterval } from 'date-fns';

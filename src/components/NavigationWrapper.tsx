@@ -1,15 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { FolderOpen, Users, User, Calendar, LogOut, Settings, Bell, HelpCircle, Menu, Trash2, Home, Target, Trophy, Download, Monitor, BarChart3 } from 'lucide-react';
+import { FolderOpen, Users, User, Calendar, LogOut, Settings, Bell, HelpCircle, Menu, Trash2, Home, Target, Trophy, BarChart3 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import BottomNav from './BottomNav';
 import AppTutorial from './AppTutorial';
-import { downloadDesktopApp, OPEN_DOWNLOAD_DIALOG_EVENT } from '@/lib/desktopApp';
 
 interface NavigationWrapperProps {
   children: React.ReactNode;
@@ -136,7 +134,6 @@ const SidebarContent = ({ user, menuItems, location, handleNavigate, signOut, st
 const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
   const [open, setOpen] = useState(false);
   const [tutorialRun, setTutorialRun] = useState(false);
-  const [downloadDialogOpen, setDownloadDialogOpen] = useState(false);
   const [desktopSidebarOpen, setDesktopSidebarOpen] = useState<boolean>(() => {
     if (typeof window === 'undefined') return true;
     const saved = localStorage.getItem('adonai_sidebar_open');
@@ -146,13 +143,6 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
   useEffect(() => {
     localStorage.setItem('adonai_sidebar_open', desktopSidebarOpen ? '1' : '0');
   }, [desktopSidebarOpen]);
-
-  // Allow any component (e.g. floating-window toggle) to request the dialog.
-  useEffect(() => {
-    const handler = () => setDownloadDialogOpen(true);
-    window.addEventListener(OPEN_DOWNLOAD_DIALOG_EVENT, handler);
-    return () => window.removeEventListener(OPEN_DOWNLOAD_DIALOG_EVENT, handler);
-  }, []);
 
   const { signOut, user } = useAuth();
   const navigate = useNavigate();
@@ -173,11 +163,12 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
     setOpen(false);
   };
 
-  // For /mini popup window or Auth Page — render children without any navigation chrome
+  // For /mini popup window, Auth Page, or Landing Page on web — render children without any navigation chrome
   const isAuthPage = location.pathname === '/auth';
   const isMiniPage = location.pathname === '/mini';
+  const isLandingOnWeb = location.pathname === '/' && !window.electronAPI;
   
-  if (isAuthPage || isMiniPage) {
+  if (isAuthPage || isMiniPage || isLandingOnWeb) {
     return <>{children}</>;
   }
 
@@ -254,71 +245,6 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
       </main>
 
       <BottomNav />
-      
-      {/* Desktop-only download promo — ONLY in web browser, NEVER in the app */}
-      {!window.electronAPI && location.pathname !== '/landing' && (
-        <div className="fixed top-4 right-4 z-[60] flex items-center gap-2">
-          <Button
-            onClick={downloadDesktopApp}
-            variant="outline"
-            className="hidden md:flex items-center gap-2 bg-card border border-border text-foreground hover:text-foreground hover:border-primary h-10 rounded-xl transition-all shadow-sm group"
-          >
-            <div className="w-6 h-6 rounded-lg bg-primary/15 flex items-center justify-center group-hover:bg-primary/25 transition-colors">
-              <Download className="w-3.5 h-3.5 text-foreground" />
-            </div>
-            <span className="text-xs font-bold tracking-tight">Descargar App</span>
-          </Button>
-          
-          {/* Mobile: download chip → opens informative dialog */}
-          <button
-            onClick={() => setDownloadDialogOpen(true)}
-            className="md:hidden flex items-center gap-1.5 bg-card border border-border text-foreground h-10 px-3 rounded-xl shadow-sm active:scale-95 transition-transform"
-            aria-label="Descargar app de escritorio"
-          >
-            <Download className="w-4 h-4 text-on-surface-variant" />
-            <span className="text-[11px] font-bold tracking-tight">Descarga app</span>
-          </button>
-        </div>
-      )}
-
-      <Dialog open={downloadDialogOpen} onOpenChange={setDownloadDialogOpen}>
-        <DialogContent className="max-w-[90vw] sm:max-w-md rounded-3xl">
-          <DialogHeader>
-            <div className="w-14 h-14 rounded-2xl bg-primary/15 flex items-center justify-center mx-auto mb-2">
-              <Monitor className="w-7 h-7 text-primary" />
-            </div>
-            <DialogTitle className="text-center text-xl font-black tracking-tight">
-              Pestaña flotante de escritorio
-            </DialogTitle>
-            <DialogDescription className="text-center text-sm leading-relaxed pt-2">
-              La <strong className="text-foreground">pestaña flotante</strong> solo funciona con la app nativa de escritorio.
-              Una vez instalada, estará siempre presente en tu computadora para ver y crear tareas al instante.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="bg-surface-container-low rounded-2xl p-4 text-sm space-y-2">
-            <p className="font-bold text-foreground">¿En el celular?</p>
-            <p className="text-on-surface-variant text-xs leading-relaxed">
-              Abre esta misma web desde tu computadora para instalar la app — la pestaña flotante solo está disponible en Windows.
-            </p>
-          </div>
-          <DialogFooter className="flex-col sm:flex-col gap-2">
-            <Button
-              onClick={() => { downloadDesktopApp(); setDownloadDialogOpen(false); }}
-              className="w-full rounded-xl font-bold h-11 gap-2"
-            >
-              <Download className="w-4 h-4" />
-              Descargar para Windows
-            </Button>
-            <Button
-              onClick={() => setDownloadDialogOpen(false)}
-              variant="ghost"
-              className="w-full rounded-xl font-bold"
-            >
-              Ahora no
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };
