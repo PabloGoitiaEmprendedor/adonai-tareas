@@ -100,9 +100,17 @@ autoUpdater.autoInstallOnAppQuit = true;
 autoUpdater.autoRunAppAfterInstall = true;
 
 function createMainWindow() {
+  const { screen } = require('electron');
+  const primaryDisplay = screen.getPrimaryDisplay();
+  const { width: displayWidth, height: displayHeight } = primaryDisplay.workAreaSize;
+  const windowWidth = 1280;
+  const windowHeight = 800;
+  
   mainWindow = new BrowserWindow({
-    width: 1280,
-    height: 800,
+    width: windowWidth,
+    height: windowHeight,
+    x: Math.round(displayWidth / 2 - windowWidth / 2),
+    y: Math.round(displayHeight / 2 - windowHeight / 2),
     title: 'Adonai — Productividad inteligente',
     backgroundColor: '#F8F9FA',
     webPreferences: {
