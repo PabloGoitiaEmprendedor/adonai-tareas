@@ -255,10 +255,8 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
 
       <BottomNav />
       
-      {/* Desktop-only floating window promo
-          - Desktop browser: actually downloads the .exe
-          - Mobile browser: informational chip explaining the floating widget is desktop-only */}
-      {!window.electronAPI && (
+      {/* Desktop-only download promo — ONLY in web browser, NEVER in the app */}
+      {!window.electronAPI && location.pathname !== '/landing' && (
         <div className="fixed top-4 right-4 z-[60] flex items-center gap-2">
           <Button
             onClick={downloadDesktopApp}

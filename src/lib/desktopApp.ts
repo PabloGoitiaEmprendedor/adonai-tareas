@@ -1,12 +1,11 @@
 /**
  * Single source of truth for the desktop (Windows) app installer.
- * Update this URL when you publish a new setup — every download button
- * (top-right chip, mobile dialog, floating-window prompt) reads from here.
+ * Uses GitHub's "latest release" redirect so it always points to the newest version.
  */
 export const DESKTOP_APP_DOWNLOAD_URL =
-  "https://github.com/PabloGoitiaEmprendedor/adonai-tareas/releases/download/v1.0.14/Adonai.Tasks.Setup.1.0.14.exe";
+  "https://github.com/PabloGoitiaEmprendedor/adonai-tareas/releases/latest/download/Adonai-Setup.exe";
 
-export const DESKTOP_APP_VERSION = "1.0.14";
+export const DESKTOP_APP_VERSION = "latest";
 
 /** Trigger the .exe download in any browser. */
 export function downloadDesktopApp() {

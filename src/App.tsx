@@ -78,27 +78,51 @@ const AppRoutes = () => {
     );
   }
 
+  // DESKTOP APP (Electron): ALWAYS protected. No landing page. Ever.
+  // If not logged in → redirect to /auth via ProtectedRoute.
+  if (isElectron) {
+    return (
+      <Routes>
+        <Route path="/auth" element={user ? <Navigate to="/" replace /> : <AuthPage />} />
+        <Route path="/onboarding" element={user ? <OnboardingPage /> : <Navigate to="/auth" replace />} />
+        <Route path="/" element={<ProtectedRoute><DailyPage /></ProtectedRoute>} />
+        <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
+        <Route path="/app" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
+        <Route path="/daily" element={<ProtectedRoute><DailyPage /></ProtectedRoute>} />
+        <Route path="/today" element={<Navigate to="/" replace />} />
+        <Route path="/week" element={<ProtectedRoute><WeeklyPage /></ProtectedRoute>} />
+        <Route path="/goals" element={<ProtectedRoute><GoalsPage /></ProtectedRoute>} />
+        <Route path="/folders" element={<ProtectedRoute><FoldersPage /></ProtectedRoute>} />
+        <Route path="/friends" element={<ProtectedRoute><FriendsPage /></ProtectedRoute>} />
+        <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+        <Route path="/trash" element={<ProtectedRoute><TrashPage /></ProtectedRoute>} />
+        <Route path="/achievements" element={<ProtectedRoute><AchievementsPage /></ProtectedRoute>} />
+        <Route path="/admin" element={<ProtectedRoute><AdminPanelPage /></ProtectedRoute>} />
+        <Route path="/mini" element={<MiniTasksPage />} />
+        <Route path="/privacy" element={<PrivacyPolicyPage />} />
+        <Route path="/terms" element={<TermsOfServicePage />} />
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    );
+  }
+
+  // WEB: Landing page for visitors, app for logged-in users
   return (
     <Routes>
       <Route path="/mini" element={<MiniTasksPage />} />
       <Route path="/auth" element={user ? <Navigate to="/" replace /> : <AuthPage />} />
       <Route path="/onboarding" element={user ? <OnboardingPage /> : <Navigate to="/auth" replace />} />
       
-      {/* 
-          ROOT ROUTE STRATEGY:
-          - Web + Not Logged In: Show LandingPage (Marketing/Onboarding)
-          - Web + Logged In: Show DailyPage (Today's productivity)
-          - Desktop App (Electron): ALWAYS Protected. If not logged in, ProtectedRoute handles redirect to /auth.
-      */}
+      {/* Web: Landing for visitors, DailyPage for logged-in users */}
       <Route 
         path="/" 
         element={
-          !user && !isElectron ? (
-            <LandingPage />
-          ) : (
+          user ? (
             <ProtectedRoute>
               <DailyPage />
             </ProtectedRoute>
+          ) : (
+            <LandingPage />
           )
         } 
       />
