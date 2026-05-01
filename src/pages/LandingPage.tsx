@@ -1,6 +1,18 @@
 import { useState } from "react";
-import { Download } from "lucide-react";
+import { Download, Monitor } from "lucide-react";
 import { Link } from "react-router-dom";
+
+const DOWNLOAD_URL = 'https://github.com/PabloGoitiaEmprendedor/adonai-tareas/releases/latest/download/Adonai-Setup.exe';
+
+function useDownload() {
+  const [downloading, setDownloading] = useState(false);
+  const handleDownload = () => {
+    setDownloading(true);
+    window.location.href = DOWNLOAD_URL;
+    setTimeout(() => setDownloading(false), 3000);
+  };
+  return { downloading, handleDownload };
+}
 
 export default function LandingPage() {
   return (
@@ -19,6 +31,8 @@ export default function LandingPage() {
 
 /* ---------- HERO ---------- */
 function Hero() {
+  const { downloading, handleDownload } = useDownload();
+
   return (
     <section className="relative overflow-hidden px-6 pt-10 pb-20 md:pt-16 md:pb-28">
       <nav className="mx-auto mb-16 flex max-w-6xl items-center justify-between">
@@ -33,12 +47,14 @@ function Hero() {
           >
             Entrar
           </Link>
-          <a
-            href="#probar"
-            className="rounded-full bg-foreground px-5 py-2 text-sm font-semibold text-background transition hover:opacity-90"
+          <button
+            onClick={handleDownload}
+            disabled={downloading}
+            className="inline-flex items-center gap-1.5 rounded-full bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:opacity-60"
           >
-            Descargar App
-          </a>
+            <Monitor className="w-4 h-4" />
+            {downloading ? "Descargando..." : "Descargar"}
+          </button>
         </div>
       </nav>
 
@@ -56,7 +72,14 @@ function Hero() {
             Una ventanita pequeña vive en tu escritorio. La miras, marcas lo que hiciste y listo. Sin abrir apps.
           </p>
           <div className="mt-8">
-            <DownloadButton />
+            <button
+              onClick={handleDownload}
+              disabled={downloading}
+              className="group inline-flex items-center justify-center gap-2 rounded-full bg-primary px-8 py-4 text-lg font-bold text-primary-foreground transition hover:opacity-90 disabled:opacity-60"
+            >
+              <Monitor className="w-5 h-5" />
+              {downloading ? "Descargando..." : "Descargar para Monitor"}
+            </button>
             <p className="mt-3 text-xs text-muted-foreground">
               Descárgala gratis. Sin cuenta. Sin tarjeta. Solo instala y empieza.
             </p>
@@ -284,6 +307,8 @@ function Quotes() {
 
 /* ---------- FINAL CTA ---------- */
 function FinalCTA() {
+  const { downloading, handleDownload } = useDownload();
+
   return (
     <section id="probar" className="bg-foreground px-6 py-24 text-background md:py-32">
       <div className="mx-auto max-w-2xl text-center">
@@ -294,38 +319,17 @@ function FinalCTA() {
           Descárgala gratis. Sin cuenta. Sin tarjeta. Solo instala y empieza.
         </p>
         <div className="mt-10">
-          <DownloadButton dark />
+          <button
+            onClick={handleDownload}
+            disabled={downloading}
+            className="group inline-flex items-center justify-center gap-2 rounded-full bg-primary px-8 py-4 text-lg font-bold text-primary-foreground transition hover:opacity-90 disabled:opacity-60"
+          >
+            <Monitor className="w-5 h-5" />
+            {downloading ? "Descargando..." : "Descargar para Monitor"}
+          </button>
         </div>
       </div>
     </section>
-  );
-}
-
-/* ---------- DOWNLOAD BUTTON ---------- */
-function DownloadButton({ dark = false }: { dark?: boolean }) {
-  const [downloading, setDownloading] = useState(false);
-
-  const handleDownload = () => {
-    setDownloading(true);
-    window.location.href = 'https://github.com/PabloGoitiaEmprendedor/adonai-tareas/releases/latest/download/Adonai-Setup.exe';
-    setTimeout(() => setDownloading(false), 2000);
-  };
-
-  return (
-    <div
-      className={`inline-flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-0 sm:rounded-full sm:p-1.5 ${
-        dark ? "sm:bg-background/10" : "sm:bg-foreground/5 sm:border sm:border-foreground/10"
-      }`}
-    >
-      <button
-        onClick={handleDownload}
-        disabled={downloading}
-        className="group inline-flex items-center justify-center gap-2 rounded-full bg-primary px-8 py-4 text-lg font-bold text-primary-foreground transition hover:opacity-90 disabled:opacity-60"
-      >
-        <Download className="w-5 h-5" />
-        {downloading ? "Descargando..." : "Descargar para Windows"}
-      </button>
-    </div>
   );
 }
 
