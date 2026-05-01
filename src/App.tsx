@@ -78,7 +78,6 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 const AppRoutes = () => {
   const { user, loading } = useAuth();
   
-  // Robust Electron detection
   const isElectron = !!window.electronAPI || 
                      navigator.userAgent.toLowerCase().includes('electron') ||
                      (window.process && window.process.versions && !!window.process.versions.electron);
@@ -91,42 +90,41 @@ const AppRoutes = () => {
     );
   }
 
-  // DESKTOP APP (Electron): ALWAYS protected. No landing page. Ever.
-  // If not logged in → redirect to /auth via ProtectedRoute.
-  if (isElectron) {
-    return (
-      <Routes>
-        <Route path="/auth" element={user ? <Navigate to="/" replace /> : <AuthPage />} />
-        <Route path="/onboarding" element={user ? <OnboardingPage /> : <Navigate to="/auth" replace />} />
-        <Route path="/" element={<ProtectedRoute><DailyPage /></ProtectedRoute>} />
-        <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
-        <Route path="/app" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
-        <Route path="/daily" element={<ProtectedRoute><DailyPage /></ProtectedRoute>} />
-        <Route path="/today" element={<Navigate to="/" replace />} />
-        <Route path="/week" element={<ProtectedRoute><WeeklyPage /></ProtectedRoute>} />
-        <Route path="/goals" element={<ProtectedRoute><GoalsPage /></ProtectedRoute>} />
-        <Route path="/folders" element={<ProtectedRoute><FoldersPage /></ProtectedRoute>} />
-        <Route path="/friends" element={<ProtectedRoute><FriendsPage /></ProtectedRoute>} />
-        <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
-        <Route path="/trash" element={<ProtectedRoute><TrashPage /></ProtectedRoute>} />
-        <Route path="/achievements" element={<ProtectedRoute><AchievementsPage /></ProtectedRoute>} />
-        <Route path="/admin" element={<ProtectedRoute><AdminPanelPage /></ProtectedRoute>} />
-        <Route path="/mini" element={<MiniTasksPage />} />
-        <Route path="/privacy" element={<PrivacyPolicyPage />} />
-        <Route path="/terms" element={<TermsOfServicePage />} />
-        <Route path="*" element={<NotFound />} />
-      </Routes>
-    );
-  }
+  // Helper: on web, redirect all app routes back to landing
+  const appRouteElement = (element: React.ReactNode) => 
+    isElectron ? <ProtectedRoute>{element}</ProtectedRoute> : <Navigate to="/" replace />;
 
-  // WEB: Landing page ONLY. No app functionality. The app is desktop-only.
   return (
     <Routes>
-      <Route path="/" element={<LandingPage />} />
+      <Route path="/mini" element={<MiniTasksPage />} />
       <Route path="/auth" element={user ? <Navigate to="/" replace /> : <AuthPage />} />
+      <Route path="/onboarding" element={isElectron && user ? <OnboardingPage /> : <Navigate to="/auth" replace />} />
+      
+      {/* Root: Electron → app | Web → landing */}
+      <Route 
+        path="/" 
+        element={
+          isElectron
+            ? <ProtectedRoute><DailyPage /></ProtectedRoute>
+            : <LandingPage />
+        } 
+      />
+
+      <Route path="/dashboard" element={appRouteElement(<DashboardPage />)} />
+      <Route path="/app" element={appRouteElement(<DashboardPage />)} />
+      <Route path="/daily" element={appRouteElement(<DailyPage />)} />
+      <Route path="/today" element={isElectron ? <Navigate to="/" replace /> : <Navigate to="/" replace />} />
+      <Route path="/week" element={appRouteElement(<WeeklyPage />)} />
+      <Route path="/goals" element={appRouteElement(<GoalsPage />)} />
+      <Route path="/folders" element={appRouteElement(<FoldersPage />)} />
+      <Route path="/friends" element={appRouteElement(<FriendsPage />)} />
+      <Route path="/profile" element={appRouteElement(<ProfilePage />)} />
+      <Route path="/trash" element={appRouteElement(<TrashPage />)} />
+      <Route path="/achievements" element={appRouteElement(<AchievementsPage />)} />
+      <Route path="/admin" element={appRouteElement(<AdminPanelPage />)} />
       <Route path="/privacy" element={<PrivacyPolicyPage />} />
       <Route path="/terms" element={<TermsOfServicePage />} />
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="*" element={<NotFound />} />
     </Routes>
   );
 };
