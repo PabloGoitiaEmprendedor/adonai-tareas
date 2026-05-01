@@ -99,7 +99,7 @@ export const useTasks = (filters?: { date?: string; startDate?: string; endDate?
     enabled: !!user,
   });
 
-  const tasks = (() => {
+  const tasks = useMemo(() => {
     if (!allData) return [];
     const { tasks: realTasks, rules, templates, materializedSet } = allData;
     
@@ -169,7 +169,7 @@ export const useTasks = (filters?: { date?: string; startDate?: string; endDate?
     });
 
     return [...realTasks, ...virtualTasks];
-  })();
+  }, [allData, filters]);
 
 
   const createTask = useMutation({

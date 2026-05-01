@@ -9,6 +9,7 @@ import { useProfile } from "@/hooks/useProfile";
 import AuthPage from "./pages/AuthPage";
 import OnboardingPage from "./pages/OnboardingPage";
 import DailyPage from "./pages/DailyPage";
+import DashboardPage from "./pages/DashboardPage";
 import WeeklyPage from "./pages/WeeklyPage";
 import GoalsPage from "./pages/GoalsPage";
 import ProfilePage from "./pages/ProfilePage";
@@ -43,23 +44,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     document.documentElement.classList.remove('dark');
-
-    // Emergency rescue: if it takes more than 5 seconds, something is wrong with the session
-    const timeout = setTimeout(() => {
-      if (profileLoading) {
-        console.log("Profile loading timeout - redirecting to auth");
-        navigate('/auth');
-      }
-    }, 5000);
-
-    return () => clearTimeout(timeout);
-  }, [profileLoading, navigate]);
-
-  if (!loading && !profileLoading) {
-    if (!user || profileError) {
-      return <Navigate to="/auth" replace />;
-    }
-  }
+  }, []);
 
   if (loading || profileLoading) {
     return (
@@ -70,11 +55,8 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     );
   }
 
-  const onboardingDoneInStorage = localStorage.getItem('adonai_onboarding_done') === 'true';
-  const onboardingComplete = profile?.onboarding_completed || onboardingDoneInStorage;
-
-  if (profile && !onboardingComplete) {
-    return <Navigate to="/onboarding" replace />;
+  if (!user || profileError) {
+    return <Navigate to="/auth" replace />;
   }
 
   return <>{children}</>;
@@ -82,12 +64,16 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
 const AppRoutes = () => {
   const { user, loading } = useAuth();
-  const isElectron = !!window.electronAPI;
+  
+  // Robust Electron detection
+  const isElectron = !!window.electronAPI || 
+                     navigator.userAgent.toLowerCase().includes('electron') ||
+                     (window.process && window.process.versions && !!window.process.versions.electron);
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-screen bg-[#F5F5E9] flex items-center justify-center">
+        <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -98,19 +84,29 @@ const AppRoutes = () => {
       <Route path="/auth" element={user ? <Navigate to="/" replace /> : <AuthPage />} />
       <Route path="/onboarding" element={user ? <OnboardingPage /> : <Navigate to="/auth" replace />} />
       
-      {/* ROOT: Landing on Web, App on Electron */}
+      {/* 
+          ROOT ROUTE STRATEGY:
+          - Web + Not Logged In: Show LandingPage (Marketing/Onboarding)
+          - Web + Logged In: Show DailyPage (Today's productivity)
+          - Desktop App (Electron): ALWAYS Protected. If not logged in, ProtectedRoute handles redirect to /auth.
+      */}
       <Route 
         path="/" 
         element={
-          user 
-            ? <Navigate to="/app" replace />
-            : <LandingPage />
+          !user && !isElectron ? (
+            <LandingPage />
+          ) : (
+            <ProtectedRoute>
+              <DailyPage />
+            </ProtectedRoute>
+          )
         } 
       />
 
-      {/* /app route for web users who are logged in (e.g. CEO admin access) */}
-      <Route path="/app" element={<ProtectedRoute><DailyPage /></ProtectedRoute>} />
-
+      <Route path="/landing" element={<LandingPage />} />
+      <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
+      <Route path="/app" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
+      <Route path="/daily" element={<ProtectedRoute><DailyPage /></ProtectedRoute>} />
       <Route path="/today" element={<Navigate to="/" replace />} />
       <Route path="/week" element={<ProtectedRoute><WeeklyPage /></ProtectedRoute>} />
       <Route path="/goals" element={<ProtectedRoute><GoalsPage /></ProtectedRoute>} />

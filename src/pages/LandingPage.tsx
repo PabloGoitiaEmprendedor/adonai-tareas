@@ -1,6 +1,6 @@
-// Version 1.0.24 - Landing page for direct download focus
 import { useState } from "react";
 import { Download } from "lucide-react";
+import { Link } from "react-router-dom";
 
 export default function LandingPage() {
   return (
@@ -26,12 +26,20 @@ function Hero() {
           <div className="h-8 w-8 rounded-lg bg-foreground" />
           <span className="text-lg font-bold">Adonai</span>
         </div>
-        <a
-          href="#probar"
-          className="rounded-full bg-foreground px-5 py-2 text-sm font-semibold text-background transition hover:opacity-90"
-        >
-          Descargar App
-        </a>
+        <div className="flex items-center gap-6">
+          <Link 
+            to="/auth" 
+            className="text-sm font-bold text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Entrar
+          </Link>
+          <a
+            href="#probar"
+            className="rounded-full bg-foreground px-5 py-2 text-sm font-semibold text-background transition hover:opacity-90"
+          >
+            Descargar App
+          </a>
+        </div>
       </nav>
 
       <div className="mx-auto grid max-w-6xl items-center gap-12 md:grid-cols-2">
