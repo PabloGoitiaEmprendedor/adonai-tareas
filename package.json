@@ -1,7 +1,7 @@
 {
   "name": "adonai-tasks",
   "private": true,
-  "version": "1.0.35",
+  "version": "1.0.37",
   "type": "module",
   "main": "electron/main.cjs",
   "repository": {
@@ -137,7 +137,8 @@
       {
         "provider": "github",
         "owner": "PabloGoitiaEmprendedor",
-        "repo": "adonai-tareas"
+        "repo": "adonai-tareas",
+        "releaseType": "draft"
       }
     ]
   }
