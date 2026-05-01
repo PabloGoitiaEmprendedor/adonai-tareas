@@ -92,6 +92,7 @@ app.setLoginItemSettings({
 // ── Auto-updater config ─────────────────────────────────────────────────────
 autoUpdater.autoDownload = true;
 autoUpdater.autoInstallOnAppQuit = true;
+autoUpdater.autoRunAppAfterInstall = true;
 
 function createMainWindow() {
   mainWindow = new BrowserWindow({
@@ -126,41 +127,35 @@ function createMainWindow() {
   });
 }
 
-// ── Premium update UX ───────────────────────────────────────────────────────
-// Send progress events to the renderer for a beautiful in-app update bar
+// ── Silent auto-updater (no UI notifications) ───────────────────────────────
 autoUpdater.on('checking-for-update', () => {
-  broadcastToAll('update-status', { status: 'checking' });
+  // silent
 });
 
 autoUpdater.on('update-available', (info) => {
-  broadcastToAll('update-status', { status: 'available', version: info.version });
+  // silent — auto-download enabled
 });
 
 autoUpdater.on('download-progress', (progress) => {
-  broadcastToAll('update-status', {
-    status: 'downloading',
-    percent: Math.round(progress.percent),
-    transferred: progress.transferred,
-    total: progress.total,
-  });
+  // silent
 });
 
 autoUpdater.on('update-downloaded', (info) => {
-  broadcastToAll('update-status', { status: 'ready', version: info.version });
+  // Auto-install silently after a short delay to let the UI settle
+  setTimeout(() => {
+    autoUpdater.quitAndInstall(false, true);
+  }, 2000);
 });
 
 autoUpdater.on('update-not-available', () => {
-  broadcastToAll('update-status', { status: 'up-to-date' });
+  // silent
 });
 
 autoUpdater.on('error', (err) => {
-  broadcastToAll('update-status', { status: 'error', message: err?.message });
+  // silent — will retry on next check
 });
 
-// IPC: user chose to restart now
-ipcMain.on('install-update-now', () => {
-  autoUpdater.quitAndInstall(false, true);
-});
+
 
 function broadcastToAll(channel, data) {
   if (mainWindow) mainWindow.webContents.send(channel, data);
