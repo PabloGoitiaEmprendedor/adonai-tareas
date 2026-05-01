@@ -22,6 +22,8 @@ export const useProfile = () => {
       return data;
     },
     enabled: !!user,
+    staleTime: 1000 * 60 * 5,
+    retry: 2,
   });
 
   const updateProfile = useMutation({

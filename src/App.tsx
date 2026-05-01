@@ -44,7 +44,16 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     document.documentElement.classList.remove('dark');
-  }, []);
+
+    const timeout = setTimeout(() => {
+      if (profileLoading) {
+        console.warn("Profile loading timeout - redirecting to auth");
+        navigate('/auth');
+      }
+    }, 5000);
+
+    return () => clearTimeout(timeout);
+  }, [profileLoading, navigate]);
 
   if (loading || profileLoading) {
     return (
@@ -57,6 +66,10 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
   if (!user || profileError) {
     return <Navigate to="/auth" replace />;
+  }
+
+  if (profile && !profile.onboarding_completed) {
+    return <Navigate to="/onboarding" replace />;
   }
 
   return <>{children}</>;
