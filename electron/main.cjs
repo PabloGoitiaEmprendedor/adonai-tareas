@@ -6,6 +6,11 @@ const { autoUpdater } = require('electron-updater');
 let mainWindow;
 let miniWindow;
 
+// ── Speech Recognition & Mic Flags ──────────────────────────────────────────
+app.commandLine.appendSwitch('enable-speech-dispatcher');
+app.commandLine.appendSwitch('use-fake-ui-for-media-stream');
+app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
+
 // ── Single Instance Lock & Protocol Registration ────────────────────────────
 const gotTheLock = app.requestSingleInstanceLock();
 
@@ -105,6 +110,7 @@ function createMainWindow() {
       contextIsolation: true,
       preload: path.join(__dirname, 'preload.cjs'),
       webSecurity: false,
+      enableBlinkFeatures: 'SpeechRecognition',
     },
   });
 
@@ -183,6 +189,7 @@ function createMiniWindow() {
       contextIsolation: true,
       preload: path.join(__dirname, 'preload.cjs'),
       webSecurity: false,
+      enableBlinkFeatures: 'SpeechRecognition',
     },
   });
 

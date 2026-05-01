@@ -327,9 +327,10 @@ export const useTasks = (filters?: { date?: string; startDate?: string; endDate?
       return { previousData };
     },
     onError: (err, variables, context) => {
-      console.error("Error updating task:", err);
+      console.error("Error updating task:", err, "variables:", variables);
       queryClient.setQueryData(['tasks', user?.id, filters], context?.previousData);
-      toast.error("No se pudo actualizar la tarea");
+      const errorMessage = err instanceof Error ? err.message : 'Error desconocido';
+      toast.error(`No se pudo actualizar la tarea: ${errorMessage}`);
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks', user?.id] });

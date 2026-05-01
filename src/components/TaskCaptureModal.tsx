@@ -262,20 +262,19 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
   }, [title, dueDate, sourceType, description, link, selectedGoalId]);
 
   useEffect(() => {
-    if (transcript && !isRecording && sourceType === 'voice' && !voiceProcessedRef.current) {
+    if (transcript && !isRecording && !isProcessing && sourceType === 'voice' && !voiceProcessedRef.current) {
       voiceProcessedRef.current = true;
       setTitle(transcript);
-      // Don't jump to "saving" — we no longer call the AI here.
       handleTitleDone(transcript);
     }
     
-    if (transcript && !isRecording && sourceType === 'image' && phase === 'image_date' && !voiceProcessedRef.current) {
+    if (transcript && !isRecording && !isProcessing && sourceType === 'image' && phase === 'image_date' && !voiceProcessedRef.current) {
       voiceProcessedRef.current = true;
       const parsed = parseVoiceTranscript(transcript);
       handleImageDateAssignment(parsed.dueDate || format(new Date(), 'yyyy-MM-dd'));
       resetTranscript();
     }
-  }, [transcript, isRecording, sourceType, handleTitleDone, phase, resetTranscript]);
+  }, [transcript, isRecording, isProcessing, sourceType, handleTitleDone, phase, resetTranscript]);
 
   const resizeImage = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
