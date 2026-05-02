@@ -7,7 +7,7 @@ import { useStreaks } from '@/hooks/useStreaks';
 import { useGlobalVoiceCapture } from '@/hooks/useGlobalVoiceCapture';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Check, Plus, Flame, Link as LinkIcon, ExternalLink, Settings } from 'lucide-react';
+import { Check, Plus, GripVertical, Timer, Flame, Link as LinkIcon, ExternalLink, Settings } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { triggerTaskCelebration, triggerDailyCelebration, triggerOnTimeCelebration } from '@/lib/celebrations';
@@ -21,7 +21,6 @@ import { useGamification } from '@/hooks/useGamification';
 import { TaskCard } from '@/components/TaskCard';
 import { openDownloadDialog } from '@/lib/desktopApp';
 import MiniTaskWidget from '@/components/MiniTaskWidget';
-import FloatingActionMenu from '@/components/ui/floating-action-menu';
 
 const getDynamicGreeting = (
   name: string,
@@ -115,13 +114,12 @@ const DailyPage = () => {
   const [orderedTasks, setOrderedTasks] = useState<any[]>([]);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [completingTaskId, setCompletingTaskId] = useState<string | null>(null);
-  // Removed quickAddTitle state - no longer needed
-  // const [quickAddTitle, setQuickAddTitle] = useState('');
+  const [quickAddTitle, setQuickAddTitle] = useState('');
   const [currentTime, setCurrentTime] = useState(new Date());
   const timerDurationRef = useRef(0);
   const captureModalRef = useRef<TaskCaptureModalHandle>(null);
   const hasTrackedDayRef = useRef(false);
-  const [miniWidgetOpen, setMiniWidgetOpen] = useState(() => typeof window !== 'undefined' && !!window.electronAPI);
+  const [miniWidgetOpen, setMiniWidgetOpen] = useState(() => !!window.electronAPI);
 
   useEffect(() => {
     const t = setInterval(() => setCurrentTime(new Date()), 30_000);
@@ -136,8 +134,18 @@ const DailyPage = () => {
     return () => clearInterval(t);
   }, []);
 
-  // Removed handleQuickAdd - no longer needed
-  // const handleQuickAdd = (e: React.FormEvent) => { ... };
+  const handleQuickAdd = (e: React.FormEvent) => {
+    e.preventDefault();
+    const title = quickAddTitle.trim();
+    if (!title) return;
+    createTask.mutate(
+      { title, due_date: today, source_type: 'text', creation_source: 'secondary' },
+      {
+        onSuccess: () => setQuickAddTitle(''),
+        onError: () => toast.error('No se pudo crear la tarea'),
+      }
+    );
+  };
 
   const openCapture = useCallback(() => setCaptureOpen(true), []);
   const openCaptureInVoiceMode = useCallback(() => {
@@ -324,29 +332,85 @@ const DailyPage = () => {
         </motion.div>
 
         <div className="pt-2 space-y-3">
-          <GamificationBar />
+          <GamificationBar /> 
 
-        {/* Floating Action Menu - replaces quick add box and mini toggle */}
-        <FloatingActionMenu
-          className="relative"
-          options={[
-            {
-              label: "Nueva tarea",
-              icon: <Plus className="w-4 h-4" />,
-              onClick: () => setCaptureOpen(true),
-            },
-            {
-              label: miniWidgetOpen ? "Cerrar pestaña" : "Pestaña flotante",
-              icon: <ExternalLink className="w-4 h-4" />,
-              onClick: toggleMiniWidget,
-            },
-          ]}
-        />
+          <FloatingActionMenu
+            className="relative"
+            options={[
+              {
+                label: "Nueva tarea",
+                icon: <Plus className="w-4 h-4" />,
+                onClick: () => setCaptureOpen(true),
+              },
+              {
+                label: miniWidgetOpen ? "Cerrar pestaña" : "Pestaña flotante",
+                icon: <ExternalLink className="w-4 h-4" />,
+                onClick: toggleMiniWidget,
+              },
+            ]}
+          />
+        </div>
 
-        {/* Removed quick add form */}
+        {orderedTasks.length > 0 ? (
+          <div className="space-y-4">
+            <AnimatePresence mode="popLayout">
+              {orderedTasks.map((task) => {
+                const idx = orderedTasks.findIndex(t => t.id === task.id);
+                const isDone = task.status === 'done';
+                return (
+                  <TaskCard
+                    key={task.id}
+                    task={task}
+                    taskIdx={idx}
+                    isDone={isDone}
+                    completingTaskId={completingTaskId}
+                    dragIdx={dragIdx}
+                    touchIdx={touchIdx}
+                    handleDragStart={handleDragStart}
+                    handleDragOver={handleDragOver}
+                    handleDragEnd={handleDragEnd}
+                    handleTouchStart={handleTouchStart}
+                    handleTouchMove={handleTouchMove}
+                    handleTouchEnd={handleTouchEnd}
+                    setSelectedTask={setSelectedTask}
+                    handleComplete={handleComplete}
+                    handleUncomplete={handleUncomplete}
+                    handleStartTimer={handleStartTimer}
+                    view="daily"
+                  />
+                );
+              })}
+            </AnimatePresence>
+          </div>
+        ) : null}
+
+        <form
+          onSubmit={handleQuickAdd}
+          className="flex items-center gap-3 p-4 rounded-[32px] bg-card border-4 border-outline-variant/10 shadow-xl focus-within:border-primary transition-all duration-500"
+        >
+          <div className="w-10 h-10 rounded-[14px] bg-primary/15 flex items-center justify-center flex-shrink-0">
+            <Plus className="w-5 h-5 text-primary" strokeWidth={3} />
+          </div>
+          <input
+            type="text"
+            value={quickAddTitle}
+            onChange={(e) => setQuickAddTitle(e.target.value)}
+            placeholder="Nueva tarea para hoy…"
+            className="flex-1 bg-transparent border-none focus:outline-none focus:ring-0 text-lg font-bold text-foreground placeholder:text-on-surface-variant/20 font-headline"
+          />
+          {quickAddTitle.trim() && (
+            <motion.button
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              type="submit"
+              className="text-xs font-black uppercase tracking-[0.2em] bg-foreground text-background px-5 py-2.5 rounded-[16px] hover:opacity-90 transition-all shadow-md active:scale-95"
+            >
+              Añadir
+            </motion.button>
+          )}
+        </form>
       </div>
 
-      <FAB onClick={() => setCaptureOpen(true)} />
       <TaskCaptureModal 
         ref={captureModalRef} 
         open={captureOpen} 
@@ -360,7 +424,9 @@ const DailyPage = () => {
         onClose={() => setTimerTask(null)} 
         durationRef={timerDurationRef}
       />
-      <MiniTaskWidget isOpen={miniWidgetOpen} onClose={() => setMiniWidgetOpen(false)} />
+      {!window.electronAPI && (
+        <MiniTaskWidget isOpen={miniWidgetOpen} onClose={() => setMiniWidgetOpen(false)} />
+      )}
     </div>
   );
 };
