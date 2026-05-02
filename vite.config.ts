@@ -8,6 +8,7 @@ export default defineConfig(({ mode }) => ({
   build: {
     target: "es2015",
     assetsDir: "assets",
+    modulePreload: false,
   },
   server: {
     host: "::",

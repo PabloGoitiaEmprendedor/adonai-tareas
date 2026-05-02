@@ -170,6 +170,7 @@ function createMainWindow() {
   mainWindow.once('ready-to-show', () => {
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.show();
+      mainWindow.webContents.openDevTools();
     }
   });
 
@@ -475,4 +476,8 @@ ipcMain.on('open-external', (event, url) => {
 
 ipcMain.on('restart-app', () => {
   autoUpdater.quitAndInstall(false, true);
+});
+
+ipcMain.on('log-message', (event, msg) => {
+  console.log(`[RendererLog] ${msg}`);
 });
