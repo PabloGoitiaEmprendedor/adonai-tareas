@@ -1,7 +1,7 @@
 {
   "name": "adonai-tasks",
   "private": true,
-  "version": "1.0.46",
+  "version": "1.0.47",
   "type": "module",
   "main": "electron/main.cjs",
   "repository": {
@@ -126,7 +126,8 @@
       "package.json"
     ],
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+      "sign": null
     },
     "nsis": {
       "oneClick": true,
