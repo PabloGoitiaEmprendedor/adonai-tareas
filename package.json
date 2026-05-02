@@ -128,25 +128,8 @@
     ],
     "win": {
       "target": "nsis",
-      "signAndEditExecutable": false
-    },
-    "nsis": {
-      "oneClick": true,
-      "perMachine": false,
-      "allowToChangeInstallationDirectory": false,
-      "artifactName": "Adonai-Setup-${version}.${ext}",
-      "deleteAppDataOnUninstall": false,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true"
-    },
-    "publish": [
-      {
-        "provider": "github",
-        "owner": "PabloGoitiaEmprendedor",
-        "repo": "adonai-tareas"
-      }
-    ]
-  }
+      "signAndEditExecutable": false,
+      "icon": "build/icon.ico"
     },
     "nsis": {
       "oneClick": true,
@@ -160,8 +143,7 @@
     "mac": {
       "target": ["dmg", "zip"],
       "category": "public.app-category.productivity",
-      "icon": "build/icon.icns",
-      "artifactName": "Adonai-${version}-${arch}.${ext}"
+      "icon": "build/icon.icns"
     },
     "dmg": {
       "title": "Adonai Tasks ${version}",
