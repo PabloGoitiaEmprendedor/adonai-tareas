@@ -53,7 +53,7 @@ const ThemeSync = () => {
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
-  const { profile, isLoading: profileLoading, error: profileError } = useProfile();
+  const { profile, isLoading: profileLoading } = useProfile();
   const navigate = useNavigate();
 
   // Si está cargando la sesión, mostrar loading
@@ -71,8 +71,18 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     return <Navigate to="/auth" replace />;
   }
 
-  // Si el perfil falla, igual dejamos pasar (no bloquear por error de perfil)
-  if (!profileLoading && profile && !profile.onboarding_completed) {
+  // Si el perfil está cargando, mostrar loading brevemente
+  if (profileLoading) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4">
+        <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+        <p className="text-primary font-bold animate-pulse text-sm">Cargando perfil...</p>
+      </div>
+    );
+  }
+
+  // Si no ha completado onboarding, redirigir
+  if (profile && !profile.onboarding_completed) {
     return <Navigate to="/onboarding" replace />;
   }
 

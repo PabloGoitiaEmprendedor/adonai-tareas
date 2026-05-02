@@ -18,19 +18,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let mounted = true;
+    
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!mounted) return;
       setSession(session);
       const currentUser = session?.user ?? null;
       setUser(currentUser);
       
-      // Track session start for analytics
       if (currentUser && _event === 'SIGNED_IN') {
         supabase.from('usage_events').insert({
           user_id: currentUser.id,
           event_type: 'session_start',
           metadata: { timestamp: new Date().toISOString() },
         }).then(() => {});
-        // Store session start time for duration calculation
         sessionStorage.setItem('adonai_session_start', Date.now().toString());
       }
       
@@ -38,11 +39,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     });
 
     supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!mounted) return;
       setSession(session);
       const currentUser = session?.user ?? null;
       setUser(currentUser);
       
-      // Track session start for returning users who have a persisted session
       if (currentUser && !sessionStorage.getItem('adonai_session_start')) {
         supabase.from('usage_events').insert({
           user_id: currentUser.id,
@@ -53,9 +54,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
       
       setLoading(false);
+    }).catch(() => {
+      if (mounted) setLoading(false);
     });
 
-    // Track session end and duration on unload
     const handleBeforeUnload = () => {
       const startStr = sessionStorage.getItem('adonai_session_start');
       if (startStr && user) {
@@ -68,7 +70,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           event_type: 'session_end',
           metadata: { duration_minutes: durationMinutes, timestamp: new Date().toISOString() },
         });
-        // sendBeacon doesn't support custom headers, so we use fetch with keepalive instead
         fetch(url, {
           method: 'POST',
           headers: {
@@ -84,7 +85,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
     window.addEventListener('beforeunload', handleBeforeUnload);
 
+    // Failsafe: si después de 5 segundos sigue cargando, forzar false
+    const timeout = setTimeout(() => {
+      if (mounted) {
+        console.log('AuthContext: Timeout, setting loading to false');
+        setLoading(false);
+      }
+    }, 5000);
+
     return () => {
+      mounted = false;
+      clearTimeout(timeout);
       subscription.unsubscribe();
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };

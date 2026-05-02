@@ -168,7 +168,10 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
   const isMiniPage = location.pathname === '/mini';
   const isLandingOnWeb = location.pathname === '/' && !window.electronAPI;
   
-  if (isAuthPage || isMiniPage || isLandingOnWeb) {
+  // Solo mostrar navegación si NO está cargando y NO es auth/mini/landing
+  const showNavigation = !loading && !isAuthPage && !isMiniPage && !isLandingOnWeb;
+
+  if (!showNavigation) {
     return <>{children}</>;
   }
 
