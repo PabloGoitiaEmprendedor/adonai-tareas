@@ -144,7 +144,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
     localStorage.setItem('adonai_sidebar_open', desktopSidebarOpen ? '1' : '0');
   }, [desktopSidebarOpen]);
 
-  const { signOut, user } = useAuth();
+  const { signOut, user, loading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
