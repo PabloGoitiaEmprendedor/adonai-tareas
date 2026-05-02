@@ -44,6 +44,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           $TAG = $env:GITHUB_REF -replace 'refs/tags/', ''
-          Get-ChildItem -Path dist -File | ForEach-Object {
+          Get-ChildItem -Path dist -Recurse -File -Include *.exe,*.blockmap,*.yml | ForEach-Object {
+            Write-Host "Uploading $($_.FullName)"
             gh release upload $TAG $_.FullName --clobber
           }
