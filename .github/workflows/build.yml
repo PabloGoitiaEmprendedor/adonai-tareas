@@ -24,10 +24,26 @@ jobs:
 
       - name: Install dependencies
         run: npm install --legacy-peer-deps
+        timeout-minutes: 30
 
-      - name: Build and Publish
+      - name: Run Vite build
+        run: npm run build
+        timeout-minutes: 15
+
+      - name: Build Electron app (without publish)
+        run: npx electron-builder --win --publish never
+        timeout-minutes: 30
+
+      - name: List build output
+        run: dir dist-electron
+        if: always()
+
+      - name: Create Release and Upload
+        uses: softprops/action-gh-release@v2
+        if: success()
+        with:
+          files: dist-electron/Adonai-Setup-*.exe
+          draft: false
+          prerelease: false
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VITE_SUPABASE_URL: "https://bpckgibqjrqdxzbvtiyn.supabase.co"
-          VITE_SUPABASE_PUBLISHABLE_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJwY2tnaWJxanJxZHh6YnZ0aXluIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc0OTMyNTAsImV4cCI6MjA5MzA2OTI1MH0.ztIsCHcdKbw6fQ0Hbl5CTv-6AEJww72Hb5b3pqy6sKU"
-        run: npm run electron:build
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
