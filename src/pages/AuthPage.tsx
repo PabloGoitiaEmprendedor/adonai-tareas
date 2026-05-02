@@ -8,7 +8,7 @@ import { ArrowLeft, Mail, ShieldCheck } from 'lucide-react';
 const AuthPage = () => {
   const [step, setStep] = useState<'email' | 'code'>('email');
   const [email, setEmail] = useState('');
-  const [code, setCode] = useState(['', '', '', '', '', '']);
+  const [code, setCode] = useState(['', '', '', '', '', '', '', '']);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
@@ -22,9 +22,7 @@ const AuthPage = () => {
     try {
       const { error } = await supabase.auth.signInWithOtp({
         email: email.trim().toLowerCase(),
-        options: {
-          shouldCreateUser: true,
-        },
+        options: { shouldCreateUser: true },
       });
       if (error) throw error;
       setStep('code');
@@ -39,7 +37,7 @@ const AuthPage = () => {
 
   const handleVerifyCode = async () => {
     const token = code.join('');
-    if (token.length !== 6) return;
+    if (token.length !== 8) return;
     setLoading(true);
     try {
       const { error } = await supabase.auth.verifyOtp({
@@ -52,7 +50,7 @@ const AuthPage = () => {
       navigate('/');
     } catch (err: any) {
       toast.error(err.message || 'Código incorrecto');
-      setCode(['', '', '', '', '', '']);
+      setCode(['', '', '', '', '', '', '', '']);
       setTimeout(() => inputRefs.current[0]?.focus(), 100);
     } finally {
       setLoading(false);
@@ -64,7 +62,7 @@ const AuthPage = () => {
     const newCode = [...code];
     newCode[index] = value.slice(-1);
     setCode(newCode);
-    if (value && index < 5) {
+    if (value && index < 7) {
       inputRefs.current[index + 1]?.focus();
     }
   };
@@ -77,8 +75,8 @@ const AuthPage = () => {
 
   const handlePaste = (e: React.ClipboardEvent) => {
     e.preventDefault();
-    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
-    if (pasted.length === 6) {
+    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 8);
+    if (pasted.length === 8) {
       setCode(pasted.split(''));
       setTimeout(() => {
         setLoading(true);
@@ -90,7 +88,7 @@ const AuthPage = () => {
           setLoading(false);
           if (error) {
             toast.error(error.message || 'Código incorrecto');
-            setCode(['', '', '', '', '', '']);
+            setCode(['', '', '', '', '', '', '', '']);
           } else {
             toast.success('¡Bienvenido!');
             navigate('/');
@@ -103,7 +101,7 @@ const AuthPage = () => {
   const handleResend = async () => {
     setStep('email');
     setEmail('');
-    setCode(['', '', '', '', '', '']);
+    setCode(['', '', '', '', '', '', '', '']);
   };
 
   return (
@@ -177,7 +175,7 @@ const AuthPage = () => {
             </div>
 
             <div className="space-y-6">
-              <div className="flex gap-2.5 justify-center" onPaste={handlePaste}>
+              <div className="flex gap-2 justify-center" onPaste={handlePaste}>
                 {code.map((digit, i) => (
                   <input
                     key={i}
@@ -188,7 +186,7 @@ const AuthPage = () => {
                     value={digit}
                     onChange={(e) => handleCodeChange(i, e.target.value)}
                     onKeyDown={(e) => handleKeyDown(i, e)}
-                    className="w-12 h-14 text-center text-xl font-bold bg-surface-container rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all border-none"
+                    className="w-11 h-14 text-center text-xl font-bold bg-surface-container rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all border-none"
                   />
                 ))}
               </div>

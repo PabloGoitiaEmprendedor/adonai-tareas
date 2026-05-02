@@ -143,6 +143,7 @@ function createMainWindow() {
     height: 800,
     title: 'Adonai — Productividad inteligente',
     backgroundColor: process.platform === 'darwin' ? '#18181B' : '#F8F9FA',
+    show: false,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -152,14 +153,26 @@ function createMainWindow() {
     },
   });
 
-  const indexPath = path.join(__dirname, '..', 'dist', 'index.html');
-  
+  const indexPath = app.isPackaged
+    ? path.join(process.resourcesPath, 'app.asar', 'dist', 'index.html')
+    : path.join(__dirname, '..', 'dist', 'index.html');
+
   if (!app.isPackaged) {
     mainWindow.loadURL('http://localhost:8080');
   } else {
-    mainWindow.loadFile(indexPath);
+    mainWindow.loadFile(indexPath, {
+      hash: '',
+    }).catch(err => {
+      console.error('Failed to load index.html:', err);
+    });
     autoUpdater.checkForUpdatesAndNotify();
   }
+
+  mainWindow.once('ready-to-show', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.show();
+    }
+  });
 
   mainWindow.on('closed', () => {
     mainWindow = null;
@@ -267,11 +280,15 @@ function createMiniWindow() {
   // Mini window starts hidden — renderer signals when session is ready
   let miniShown = false;
 
-  const indexPath = path.join(__dirname, '..', 'dist', 'index.html');
+  const indexPath = app.isPackaged
+    ? path.join(process.resourcesPath, 'app.asar', 'dist', 'index.html')
+    : path.join(__dirname, '..', 'dist', 'index.html');
   if (!app.isPackaged) {
     miniWindow.loadURL('http://localhost:8080/#/mini');
   } else {
-    miniWindow.loadFile(indexPath, { hash: 'mini' });
+    miniWindow.loadFile(indexPath, { hash: 'mini' }).catch(err => {
+      console.error('Mini window failed to load:', err);
+    });
   }
 
   miniWindow.on('closed', () => {
