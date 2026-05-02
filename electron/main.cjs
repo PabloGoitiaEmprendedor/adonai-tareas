@@ -144,6 +144,7 @@ function createMainWindow() {
     title: 'Adonai — Productividad inteligente',
     backgroundColor: process.platform === 'darwin' ? '#18181B' : '#F8F9FA',
     show: false,
+    autoHideMenuBar: true,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -243,6 +244,7 @@ function createMiniWindow() {
     resizable: false,
     hasShadow: false,
     show: false, // Hidden until renderer signals ready
+    autoHideMenuBar: true,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,

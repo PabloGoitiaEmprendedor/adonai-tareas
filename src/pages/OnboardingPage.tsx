@@ -31,7 +31,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 
-type StepType = 'welcome' | 'context_work' | 'first_tasks' | 'ready';
+type StepType = 'welcome' | 'context_work' | 'first_tasks' | 'recurring_tasks' | 'activate_mini' | 'ready';
 
 // Desktop = Electron app OR a browser window wider than the lg breakpoint.
 // We capture this once on mount; the flow shape shouldn't change mid-onboarding.
@@ -50,7 +50,7 @@ const OnboardingPage = () => {
   // Lock the step list to the user's environment for the entire flow.
   const [isDesktop] = useState(isDesktopEnv);
   const steps: StepType[] = isDesktop
-    ? ['welcome', 'context_work', 'first_tasks', 'ready']
+    ? ['welcome', 'context_work', 'first_tasks', 'recurring_tasks', 'activate_mini', 'ready']
     : ['welcome', 'context_work', 'ready'];
 
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
@@ -85,6 +85,12 @@ const OnboardingPage = () => {
   // First-tasks step (desktop only) — collected in memory, persisted on finish.
   const [firstTaskInput, setFirstTaskInput] = useState('');
   const [firstTasks, setFirstTasks] = useState<string[]>([]);
+  
+  // Recurring tasks step
+  const [recurringInput, setRecurringInput] = useState('');
+  const [recurringTasks, setRecurringTasks] = useState<string[]>([]);
+  
+  // Mini window activation step
   const [floatingActivated, setFloatingActivated] = useState(false);
 
   const currentStep = steps[currentStepIndex];
@@ -346,10 +352,10 @@ const OnboardingPage = () => {
                   <div className="w-16 h-16 mx-auto rounded-2xl bg-primary/15 flex items-center justify-center mb-2">
                     <Sparkles className="w-8 h-8 text-primary" />
                   </div>
-                  <h2 className="text-3xl font-extrabold tracking-tight text-foreground">Empieza con tus primeras tareas</h2>
-                  <p className="text-on-surface-variant">Añade una o varias tareas que quieras hacer hoy. Aparecerán en tu agenda al entrar.</p>
+                  <h2 className="text-3xl font-extrabold tracking-tight text-foreground">Tus primeras tareas</h2>
+                  <p className="text-on-surface-variant">Añade una o varias tareas que quieras hacer hoy. Aparecerán en tu agenda.</p>
                 </div>
-
+                
                 <div className="space-y-3">
                   <div className="flex gap-2">
                     <input
@@ -367,7 +373,7 @@ const OnboardingPage = () => {
                       <Plus className="w-4 h-4" /> Añadir
                     </button>
                   </div>
-
+                  
                   {firstTasks.length > 0 && (
                     <ul className="space-y-2">
                       {firstTasks.map((t, i) => (
@@ -382,8 +388,106 @@ const OnboardingPage = () => {
                     </ul>
                   )}
                 </div>
+              
+                <div className="flex gap-4 pt-2">
+                  <button onClick={back} className="px-6 h-16 bg-surface-container-low text-on-surface-variant rounded-2xl font-bold flex items-center justify-center">
+                    Atrás
+                  </button>
+                  <button
+                    onClick={next}
+                    className="flex-1 h-16 bg-primary text-primary-foreground rounded-2xl font-bold text-lg flex items-center justify-center gap-2 transition-all shadow-lg shadow-primary/20"
+                  >
+                    {firstTasks.length === 0 ? 'Saltar' : 'Siguiente'} <ArrowRight className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+            )}
 
-                {/* Floating window activation */}
+            {/* STEP: RECURRING TASKS — desktop only */}
+            {currentStep === 'recurring_tasks' && (
+              <div className="space-y-8">
+                <div className="space-y-2 text-center">
+                  <div className="w-16 h-16 mx-auto rounded-2xl bg-primary/15 flex items-center justify-center mb-2">
+                    <Clock className="w-8 h-8 text-primary" />
+                  </div>
+                  <h2 className="text-3xl font-extrabold tracking-tight text-foreground">Tareas recurrentes</h2>
+                  <p className="text-on-surface-variant">Añade tareas que se repiten todos los días (opcional). Te ayudarán a mantener tu rutina.</p>
+                </div>
+                
+                <div className="space-y-3">
+                  <div className="flex gap-2">
+                    <input
+                      value={recurringInput}
+                      onChange={(e) => setRecurringInput(e.target.value)}
+                      onKeyDown={(e) => { 
+                        if (e.key === 'Enter') { 
+                          e.preventDefault(); 
+                          const t = recurringInput.trim();
+                          if (!t) return;
+                          setRecurringTasks(prev => [...prev, t]);
+                          setRecurringInput('');
+                        } 
+                      }}
+                      placeholder="Ej: Revisar correo, Ejercicio"
+                      className="flex-1 bg-surface-container-low rounded-xl px-4 h-12 outline-none focus:ring-2 focus:ring-primary/20 text-base border border-transparent focus:border-primary/30"
+                    />
+                    <button
+                      onClick={() => {
+                        const t = recurringInput.trim();
+                        if (!t) return;
+                        setRecurringTasks(prev => [...prev, t]);
+                        setRecurringInput('');
+                      }}
+                      disabled={!recurringInput.trim()}
+                      className="h-12 px-4 rounded-xl bg-primary text-primary-foreground font-bold flex items-center gap-1 disabled:opacity-30"
+                    >
+                      <Plus className="w-4 h-4" /> Añadir
+                    </button>
+                  </div>
+                  
+                  {recurringTasks.length > 0 && (
+                    <ul className="space-y-2">
+                      {recurringTasks.map((t, i) => (
+                        <li key={i} className="flex items-center gap-3 p-3 rounded-xl bg-surface-container-low">
+                          <Clock className="w-4 h-4 text-primary/60 flex-shrink-0" />
+                          <span className="flex-1 text-sm font-semibold text-foreground truncate">{t}</span>
+                          <button 
+                            onClick={() => setRecurringTasks(prev => prev.filter((_, idx) => idx !== i))} 
+                            className="text-on-surface-variant hover:text-error"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              
+                <div className="flex gap-4 pt-2">
+                  <button onClick={back} className="px-6 h-16 bg-surface-container-low text-on-surface-variant rounded-2xl font-bold flex items-center justify-center">
+                    Atrás
+                  </button>
+                  <button
+                    onClick={next}
+                    className="flex-1 h-16 bg-primary text-primary-foreground rounded-2xl font-bold text-lg flex items-center justify-center gap-2 transition-all shadow-lg shadow-primary/20"
+                  >
+                    {recurringTasks.length === 0 ? 'Saltar' : 'Siguiente'} <ArrowRight className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* STEP: ACTIVATE MINI WINDOW — desktop only */}
+            {currentStep === 'activate_mini' && (
+              <div className="space-y-8">
+                <div className="space-y-2 text-center">
+                  <div className="w-16 h-16 mx-auto rounded-2xl bg-primary/15 flex items-center justify-center mb-2">
+                    <Monitor className="w-8 h-8 text-primary" />
+                  </div>
+                  <h2 className="text-3xl font-extrabold tracking-tight text-foreground">Pestaña flotante</h2>
+                  <p className="text-on-surface-variant">Tu lista de tareas siempre visible en el escritorio. ¡Actívala cuando quieras!</p>
+                </div>
+                
                 <div className="rounded-2xl border-2 border-dashed border-outline-variant p-5 space-y-3">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-xl bg-primary/15 flex items-center justify-center">
@@ -395,7 +499,16 @@ const OnboardingPage = () => {
                     </div>
                   </div>
                   <button
-                    onClick={activateFloatingWindow}
+                    onClick={() => {
+                      if (window.electronAPI?.toggleMiniWindow) {
+                        window.electronAPI.toggleMiniWindow();
+                        setFloatingActivated(true);
+                        toast.success('Pestaña flotante activada. Ya puedes verla en tu escritorio.');
+                      } else {
+                        setFloatingActivated(true);
+                        toast.info('La pestaña flotante requiere la app de escritorio. Puedes descargarla luego desde el botón "Descargar App".');
+                      }
+                    }}
                     className={`w-full h-12 rounded-xl font-bold flex items-center justify-center gap-2 transition-all ${
                       floatingActivated
                         ? 'bg-primary/15 text-primary border-2 border-primary/30'
@@ -403,10 +516,10 @@ const OnboardingPage = () => {
                     }`}
                   >
                     <ExternalLink className="w-4 h-4" />
-                    {floatingActivated ? 'Activada' : 'Activar pestaña flotante'}
+                    {floatingActivated ? '¡Activada!' : 'Activar pestaña flotante'}
                   </button>
                 </div>
-
+              
                 <div className="flex gap-4 pt-2">
                   <button onClick={back} className="px-6 h-16 bg-surface-container-low text-on-surface-variant rounded-2xl font-bold flex items-center justify-center">
                     Atrás
@@ -415,7 +528,7 @@ const OnboardingPage = () => {
                     onClick={next}
                     className="flex-1 h-16 bg-primary text-primary-foreground rounded-2xl font-bold text-lg flex items-center justify-center gap-2 transition-all shadow-lg shadow-primary/20"
                   >
-                    {firstTasks.length === 0 ? 'Saltar' : 'Siguiente'} <ArrowRight className="w-5 h-5" />
+                    Siguiente <ArrowRight className="w-5 h-5" />
                   </button>
                 </div>
               </div>
