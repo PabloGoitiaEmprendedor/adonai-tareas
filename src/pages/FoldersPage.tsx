@@ -487,7 +487,7 @@ const FoldersPage = () => {
         
         <FAB onClick={openCaptureInVoiceMode} />
         
-        <TaskCaptureModal ref={captureModalRef} open={captureOpen} onClose={() => setCaptureOpen(false)} folderId={selectedFolder} />
+        <TaskCaptureModal ref={captureModalRef} open={captureOpen} onClose={() => setCaptureOpen(false)} folderId={selectedFolder} creationSource="fab" />
         <TaskDetailModal task={selectedTask} open={!!selectedTask} onClose={() => setSelectedTask(null)} />
         <FullscreenTimer task={timerTask} open={!!timerTask} onClose={() => setTimerTask(null)} />
         
@@ -725,7 +725,7 @@ const FoldersPage = () => {
       
       <FAB onClick={openCapture} />
       
-      <TaskCaptureModal ref={captureModalRef} open={captureOpen} onClose={() => setCaptureOpen(false)} />
+      <TaskCaptureModal ref={captureModalRef} open={captureOpen} onClose={() => setCaptureOpen(false)} creationSource="fab" />
       <TaskDetailModal task={selectedTask} open={!!selectedTask} onClose={() => setSelectedTask(null)} />
       <FullscreenTimer task={timerTask} open={!!timerTask} onClose={() => setTimerTask(null)} />
       {renderCreateModal()}

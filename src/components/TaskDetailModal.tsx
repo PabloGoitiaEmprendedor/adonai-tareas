@@ -131,7 +131,7 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
     };
 
     if (task.isNew) {
-      createTask.mutate({ ...taskData, source_type: 'text' }, {
+      createTask.mutate({ ...taskData, source_type: 'text', creation_source: 'secondary' }, {
         onSuccess: () => { toast.success('Tarea creada'); onClose(); },
         onError: () => toast.error('Error al crear tarea')
       });

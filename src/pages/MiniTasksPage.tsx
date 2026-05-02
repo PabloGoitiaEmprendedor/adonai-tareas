@@ -362,6 +362,7 @@ const MiniTaskList = () => {
   const [timerSeconds, setTimerSeconds] = useState(0);
   const [captureOpen, setCaptureOpen] = useState(false);
   const [captureMode, setCaptureMode] = useState<'text' | 'voice' | 'recurrence'>('text');
+  const [captureCreationSource, setCaptureCreationSource] = useState<'mini_plus' | 'mini_voice'>('mini_plus');
   const [selectedTask, setSelectedTask] = useState<any>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [recurrenceFlowOpen, setRecurrenceFlowOpen] = useState(false);
@@ -786,7 +787,7 @@ const MiniTaskList = () => {
 
           {/* VOICE button — green background */}
           <div
-            onClick={(e) => { e.stopPropagation(); setCaptureMode('voice'); setCaptureOpen(true); }}
+            onClick={(e) => { e.stopPropagation(); setCaptureMode('voice'); setCaptureCreationSource('mini_voice'); setCaptureOpen(true); }}
             style={{
               width: 30, height: 26, borderRadius: 999,
               background: C.accent,
@@ -818,7 +819,7 @@ const MiniTaskList = () => {
 
           {/* TEXT button — + icon */}
           <div
-            onClick={(e) => { e.stopPropagation(); setCaptureMode('text'); setCaptureOpen(true); }}
+            onClick={(e) => { e.stopPropagation(); setCaptureMode('text'); setCaptureCreationSource('mini_plus'); setCaptureOpen(true); }}
             style={{
               width: 30, height: 26, borderRadius: 999,
               background: 'rgba(255,255,255,0.09)',
@@ -896,6 +897,7 @@ const MiniTaskList = () => {
         open={captureOpen}
         onClose={() => setCaptureOpen(false)}
         initialMode={captureMode}
+        creationSource={captureCreationSource}
       />
       <TaskDetailModal task={selectedTask} open={detailOpen} onClose={() => setDetailOpen(false)} />
       <QuickRecurrenceFlow open={recurrenceFlowOpen} onClose={() => setRecurrenceFlowOpen(false)} />

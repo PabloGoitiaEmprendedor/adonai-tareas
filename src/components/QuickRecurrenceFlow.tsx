@@ -193,6 +193,7 @@ const QuickRecurrenceFlow = ({ open, onClose }: QuickRecurrenceFlowProps) => {
           priority: 'medium',
           status: 'pending',
           source_type: 'text',
+          creation_source: 'secondary',
         },
         {
           onSuccess: () => {

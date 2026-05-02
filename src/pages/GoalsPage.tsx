@@ -361,6 +361,7 @@ const GoalsPage = () => {
         open={captureOpen} 
         onClose={() => { setCaptureOpen(false); setTargetGoalId(null); }} 
         goalId={targetGoalId}
+        creationSource="fab"
       />
     </div>
   );

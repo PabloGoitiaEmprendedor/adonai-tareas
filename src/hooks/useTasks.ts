@@ -194,7 +194,7 @@ export const useTasks = (filters?: { date?: string; startDate?: string; endDate?
       creation_source?: string;
     }) => {
       if (!user) throw new Error('No user');
-      const { creation_source, ...taskData } = task;
+      const { creation_source = 'fab', ...taskData } = task;
       const { data, error } = await supabase
         .from('tasks')
         .insert({
@@ -214,7 +214,7 @@ export const useTasks = (filters?: { date?: string; startDate?: string; endDate?
       await supabase.from('usage_events').insert({
         user_id: user.id,
         event_type: eventType,
-        metadata: creation_source ? { creation_source } : null,
+        metadata: { creation_source },
       });
 
       return data;

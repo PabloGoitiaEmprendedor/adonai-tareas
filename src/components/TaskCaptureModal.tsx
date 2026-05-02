@@ -20,6 +20,7 @@ interface TaskCaptureModalProps {
   folderId?: string | null;
   timeBlockId?: string | null;
   initialMode?: 'text' | 'voice' | 'recurrence' | null;
+  creationSource?: 'fab' | 'secondary' | 'mini_plus' | 'mini_voice';
 }
 
 
@@ -27,7 +28,7 @@ export interface TaskCaptureModalHandle {
   openInVoiceMode: () => Promise<boolean>;
 }
 
-const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProps>(({ open, onClose, goalId, folderId, timeBlockId, initialMode }, ref) => {
+const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProps>(({ open, onClose, goalId, folderId, timeBlockId, initialMode, creationSource }, ref) => {
   const { user } = useAuth();
   const { isRecording, isProcessing, transcript, confidence, voiceFallback, isSupported, startRecording, stopRecording, resetTranscript } = useVoiceCapture();
   const { createTask } = useTasks();
@@ -186,6 +187,7 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
         estimated_minutes: fallbackEstimatedMinutes || 30,
         due_date: finalDate,
         time_block_id: timeBlockId || null,
+        creation_source: creationSource,
       });
 
       if (sourceType === 'voice' && user) {
