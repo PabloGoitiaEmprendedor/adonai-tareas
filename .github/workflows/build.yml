@@ -42,7 +42,10 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: success()
         with:
-          files: dist-electron/Adonai-Setup-*.exe
+          files: |
+            dist-electron/Adonai-Setup-*.exe
+            dist-electron/latest.yml
+            dist-electron/*.blockmap
           draft: false
           prerelease: false
         env:
