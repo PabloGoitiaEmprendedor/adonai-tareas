@@ -10,7 +10,7 @@ export default defineConfig(({ mode }) => ({
     assetsDir: "assets",
     rollupOptions: {
       output: {
-        format: "iife", // No modules, just a self-executing script
+        format: "iife",
       }
     }
   },
