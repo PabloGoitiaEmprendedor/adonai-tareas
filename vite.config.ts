@@ -8,11 +8,6 @@ export default defineConfig(({ mode }) => ({
   build: {
     target: "es2015",
     assetsDir: "assets",
-    rollupOptions: {
-      output: {
-        format: "iife",
-      }
-    }
   },
   server: {
     host: "::",

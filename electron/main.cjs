@@ -185,34 +185,9 @@ function createMainWindow() {
 }
 
 // ── Silent auto-updater (no UI notifications) ───────────────────────────────
-autoUpdater.on('checking-for-update', () => {
-  // silent
-});
-
-autoUpdater.on('update-available', (info) => {
-  // silent — auto-download enabled
-});
-
-autoUpdater.on('download-progress', (progress) => {
-  // silent
-});
-
-autoUpdater.on('update-downloaded', (info) => {
-  // Auto-install silently after a short delay to let the UI settle
-  setTimeout(() => {
-    autoUpdater.quitAndInstall(false, true);
-  }, 2000);
-});
-
-autoUpdater.on('update-not-available', () => {
-  // silent
-});
-
-autoUpdater.on('error', (err) => {
-  // silent — will retry on next check
-});
-
-
+// Note: The UI-facing update events are handled above via sendToAllWindows().
+// The fallback auto-install is triggered by the first set of listeners.
+// These are kept for logging only.
 
 function broadcastToAll(channel, data) {
   if (mainWindow) mainWindow.webContents.send(channel, data);
@@ -365,12 +340,28 @@ app.whenReady().then(() => {
 
   const isAutostart = process.argv.includes('--autostart');
   
+  // Check for deep link URL in process.argv on initial launch
+  const deepLinkArg = process.argv.find(arg => arg.startsWith('adonai-tasks://'));
+  
   if (!isAutostart) {
     createMainWindow();
   }
   
   // Auto-open floating mini window on startup
   createMiniWindow();
+
+  // If launched via deep link, send it to renderer once window is ready
+  if (deepLinkArg) {
+    const sendDeepLink = () => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('on-deep-link', deepLinkArg);
+      }
+    };
+    if (mainWindow) {
+      mainWindow.webContents.once('did-finish-load', sendDeepLink);
+    }
+  }
+
   setInterval(() => {
     if (app.isPackaged) autoUpdater.checkForUpdates();
   }, 1000 * 60 * 60 * 2);

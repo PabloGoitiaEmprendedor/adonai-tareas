@@ -155,9 +155,22 @@ const App = () => {
       window.electronAPI.onDeepLink(async (url: string) => {
         console.log("Received deep link:", url);
         
+        let tokenString = '';
+        
+        // Try hash fragment first (adonai-tasks://#access_token=...)
         const hashPart = url.split('#')[1];
         if (hashPart) {
-          const params = new URLSearchParams(hashPart);
+          tokenString = hashPart;
+        } else {
+          // Try query params (adonai-tasks://?access_token=...)
+          const queryPart = url.split('?')[1];
+          if (queryPart) {
+            tokenString = queryPart;
+          }
+        }
+        
+        if (tokenString) {
+          const params = new URLSearchParams(tokenString);
           const access_token = params.get("access_token");
           const refresh_token = params.get("refresh_token");
           
