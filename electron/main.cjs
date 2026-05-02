@@ -100,17 +100,9 @@ autoUpdater.autoInstallOnAppQuit = true;
 autoUpdater.autoRunAppAfterInstall = true;
 
 function createMainWindow() {
-  const { screen } = require('electron');
-  const primaryDisplay = screen.getPrimaryDisplay();
-  const { width: displayWidth, height: displayHeight } = primaryDisplay.workAreaSize;
-  const windowWidth = 1280;
-  const windowHeight = 800;
-  
   mainWindow = new BrowserWindow({
-    width: windowWidth,
-    height: windowHeight,
-    x: Math.round(displayWidth / 2 - windowWidth / 2),
-    y: Math.round(displayHeight / 2 - windowHeight / 2),
+    width: 1280,
+    height: 800,
     title: 'Adonai — Productividad inteligente',
     backgroundColor: '#F8F9FA',
     webPreferences: {
@@ -176,16 +168,48 @@ function broadcastToAll(channel, data) {
   if (miniWindow) miniWindow.webContents.send(channel, data);
 }
 
+// Validate position is within any display; return centered fallback if not
+function clampMiniToDisplay(x, y) {
+  const { screen } = require('electron');
+  const displays = screen.getAllDisplays();
+  const COLLAPSED_W = 100;
+  const COLLAPSED_H = 52;
+  const EXPANDED_W = 340;
+  const EXPANDED_H = 520;
+  const PANEL_W = Math.max(COLLAPSED_W, EXPANDED_W);
+  const PANEL_H = Math.max(COLLAPSED_H, EXPANDED_H);
+
+  for (const display of displays) {
+    const wa = display.workArea;
+    if (x >= wa.x && y >= wa.y && x + COLLAPSED_W <= wa.x + wa.width && y + COLLAPSED_H <= wa.y + wa.height) {
+      return { x, y };
+    }
+  }
+
+  // Not in any display — center on primary
+  const primary = screen.getPrimaryDisplay();
+  const wa = primary.workArea;
+  return {
+    x: Math.round(wa.x + wa.width / 2 - COLLAPSED_W / 2),
+    y: Math.round(wa.y + wa.height / 2 - COLLAPSED_H / 2),
+  };
+}
+
 function createMiniWindow() {
   if (miniWindow) return;
   const state = loadWindowState();
   const miniState = state?.mini || {};
+  const { screen } = require('electron');
+
+  const rawX = miniState.x;
+  const rawY = miniState.y;
+  const safePos = clampMiniToDisplay(rawX ?? 0, rawY ?? 0);
 
   miniWindow = new BrowserWindow({
     width: miniState.width || 100,
     height: miniState.height || 52,
-    x: miniState.x,
-    y: miniState.y,
+    x: safePos.x,
+    y: safePos.y,
     frame: false,
     transparent: true,
     alwaysOnTop: true,
@@ -361,16 +385,29 @@ ipcMain.handle('get-mini-position', () => {
 // Set window bounds (position + size) — used for expand/collapse
 ipcMain.on('set-mini-bounds', (event, b) => {
   if (!miniWindow) return;
+  const { screen } = require('electron');
+  const displays = screen.getAllDisplays();
+  let safeX = Math.round(b.x);
+  let safeY = Math.round(b.y);
+  const COLLAPSED_W = 100;
+
+  for (const display of displays) {
+    const wa = display.workArea;
+    if (safeX >= wa.x - COLLAPSED_W + 10 && safeY >= wa.y - 20 && safeX <= wa.x + wa.width - 10 && safeY <= wa.y + wa.height - 20) {
+      break;
+    }
+  }
+
   miniWindow.setBounds({
-    x: Math.round(b.x), y: Math.round(b.y),
+    x: safeX, y: safeY,
     width: Math.round(b.w), height: Math.round(b.h),
   });
 
   // Save state (mostly for size changes if any, but also position)
   saveWindowState({
     mini: {
-      x: Math.round(b.x),
-      y: Math.round(b.y),
+      x: safeX,
+      y: safeY,
       width: Math.round(b.w),
       height: Math.round(b.h)
     }
