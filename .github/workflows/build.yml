@@ -23,11 +23,16 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm install
+        run: npm install --legacy-peer-deps
+        env:
+          npm_config_build: "false"
 
-      - name: Build and Publish
+      - name: Build Vite application
+        run: npm run build
+
+      - name: Build and Publish Electron app
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VITE_SUPABASE_URL: "https://bpckgibqjrqdxzbvtiyn.supabase.co"
           VITE_SUPABASE_PUBLISHABLE_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJwY2tnaWJxanJxZHh6YnZ0aXluIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc0OTMyNTAsImV4cCI6MjA5MzA2OTI1MH0.ztIsCHcdKbw6fQ0Hbl5CTv-6AEJww72Hb5b3pqy6sKU"
-        run: npm run electron:build
+        run: npx electron-builder --publish always --debug
