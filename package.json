@@ -107,6 +107,8 @@
     "wait-on": "^9.0.5"
   },
   "build": {
+    "npmRebuild": false,
+    "nodeGypRebuild": false,
     "protocols": [
       {
         "name": "adonai-tasks",
@@ -127,13 +129,16 @@
     ],
     "win": {
       "target": "nsis",
-      "sign": null
+      "signAndEditExecutable": false
     },
     "nsis": {
       "oneClick": true,
       "perMachine": false,
       "allowToChangeInstallationDirectory": false,
-      "artifactName": "Adonai-Setup-${version}.${ext}"
+      "artifactName": "Adonai-Setup-${version}.${ext}",
+      "deleteAppDataOnUninstall": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
     },
     "mac": {
       "target": ["dmg", "zip"],
