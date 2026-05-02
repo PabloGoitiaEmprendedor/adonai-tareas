@@ -99,12 +99,50 @@ autoUpdater.autoDownload = true;
 autoUpdater.autoInstallOnAppQuit = true;
 autoUpdater.autoRunAppAfterInstall = true;
 
+function sendToAllWindows(channel, data) {
+  if (mainWindow) mainWindow.webContents.send(channel, data);
+  if (miniWindow) miniWindow.webContents.send(channel, data);
+}
+
+autoUpdater.on('checking-for-update', () => {
+  // silent
+});
+
+autoUpdater.on('update-available', (info) => {
+  sendToAllWindows('update-available', {
+    version: info.version,
+    releaseNotes: info.releaseNotes || '',
+  });
+});
+
+autoUpdater.on('download-progress', (progressObj) => {
+  sendToAllWindows('update-download-progress', progressObj.percent);
+});
+
+autoUpdater.on('update-downloaded', (info) => {
+  sendToAllWindows('update-downloaded', null);
+  // Auto-install after 10 seconds if user hasn't restarted yet
+  setTimeout(() => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      autoUpdater.quitAndInstall(false, true);
+    }
+  }, 10000);
+});
+
+autoUpdater.on('update-not-available', () => {
+  // silent
+});
+
+autoUpdater.on('error', (err) => {
+  // silent
+});
+
 function createMainWindow() {
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 800,
     title: 'Adonai — Productividad inteligente',
-    backgroundColor: '#F8F9FA',
+    backgroundColor: process.platform === 'darwin' ? '#18181B' : '#F8F9FA',
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -421,4 +459,8 @@ ipcMain.on('sync-data', () => {
 
 ipcMain.on('open-external', (event, url) => {
   shell.openExternal(url);
+});
+
+ipcMain.on('restart-app', () => {
+  autoUpdater.quitAndInstall(false, true);
 });

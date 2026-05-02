@@ -1,17 +1,61 @@
 import { useState } from "react";
-import { Download, Monitor } from "lucide-react";
+import { Download, Monitor, Apple, Loader2 } from "lucide-react";
 import { Link } from "react-router-dom";
 
-const DOWNLOAD_URL = 'https://github.com/PabloGoitiaEmprendedor/adonai-tareas/releases/latest/download/Adonai-Setup.exe';
+const WIN_DOWNLOAD = 'https://github.com/PabloGoitiaEmprendedor/adonai-tareas/releases/latest/download/Adonai-Setup.exe';
+const MAC_DOWNLOAD = 'https://github.com/PabloGoitiaEmprendedor/adonai-tareas/releases/latest';
 
-function useDownload() {
+function useDownload(platform: 'win' | 'mac') {
   const [downloading, setDownloading] = useState(false);
   const handleDownload = () => {
     setDownloading(true);
-    window.location.href = DOWNLOAD_URL;
+    const url = platform === 'win' ? WIN_DOWNLOAD : MAC_DOWNLOAD;
+    window.location.href = url;
     setTimeout(() => setDownloading(false), 3000);
   };
   return { downloading, handleDownload };
+}
+
+function DownloadButton({ platform, variant }: { platform: 'win' | 'mac'; variant?: 'nav' | 'hero' | 'cta' }) {
+  const { downloading, handleDownload } = useDownload(platform);
+  const Icon = platform === 'win' ? Monitor : Apple;
+
+  if (variant === 'nav') {
+    return (
+      <button
+        onClick={handleDownload}
+        disabled={downloading}
+        className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground transition hover:opacity-90 disabled:opacity-60"
+      >
+        {downloading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Icon className="w-3.5 h-3.5" />}
+        {platform === 'win' ? 'Windows' : 'Mac'}
+      </button>
+    );
+  }
+
+  if (variant === 'cta') {
+    return (
+      <button
+        onClick={handleDownload}
+        disabled={downloading}
+        className="w-full inline-flex items-center justify-center gap-2 rounded-full bg-primary px-6 py-4 text-base font-bold text-primary-foreground transition hover:opacity-90 disabled:opacity-60"
+      >
+        {downloading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Icon className="w-5 h-5" />}
+        {downloading ? "Descargando..." : `Descargar para ${platform === 'win' ? 'Windows' : 'Mac'}`}
+      </button>
+    );
+  }
+
+  return (
+    <button
+      onClick={handleDownload}
+      disabled={downloading}
+      className="group inline-flex items-center justify-center gap-2 rounded-full bg-primary px-8 py-4 text-lg font-bold text-primary-foreground transition hover:opacity-90 disabled:opacity-60"
+    >
+      {downloading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Icon className="w-5 h-5" />}
+      {downloading ? "Descargando..." : `Descargar para ${platform === 'win' ? 'Windows' : 'Mac'}`}
+    </button>
+  );
 }
 
 export default function LandingPage() {
@@ -31,8 +75,6 @@ export default function LandingPage() {
 
 /* ---------- HERO ---------- */
 function Hero() {
-  const { downloading, handleDownload } = useDownload();
-
   return (
     <section className="relative overflow-hidden px-6 pt-10 pb-20 md:pt-16 md:pb-28">
       <nav className="mx-auto mb-16 flex max-w-6xl items-center justify-between">
@@ -40,28 +82,22 @@ function Hero() {
           <div className="h-8 w-8 rounded-lg bg-foreground" />
           <span className="text-lg font-bold">Adonai</span>
         </div>
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-3">
           <Link 
             to="/auth" 
             className="text-sm font-bold text-muted-foreground hover:text-foreground transition-colors"
           >
             Entrar
           </Link>
-          <button
-            onClick={handleDownload}
-            disabled={downloading}
-            className="inline-flex items-center gap-1.5 rounded-full bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:opacity-60"
-          >
-            <Monitor className="w-4 h-4" />
-            {downloading ? "Descargando..." : "Descargar"}
-          </button>
+          <DownloadButton platform="win" variant="nav" />
+          <DownloadButton platform="mac" variant="nav" />
         </div>
       </nav>
 
       <div className="mx-auto grid max-w-6xl items-center gap-12 md:grid-cols-2">
         <div>
           <span className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-1.5 text-xs font-bold text-primary-foreground">
-            🎯 Acceso anticipado gratis
+            Acceso anticipado gratis
           </span>
           <h1 className="mt-6 text-5xl font-black leading-[1.05] tracking-tight md:text-7xl">
             Tus tareas,
@@ -71,19 +107,13 @@ function Hero() {
           <p className="mt-6 max-w-md text-lg text-muted-foreground md:text-xl">
             Una ventanita pequeña vive en tu escritorio. La miras, marcas lo que hiciste y listo. Sin abrir apps.
           </p>
-          <div className="mt-8">
-            <button
-              onClick={handleDownload}
-              disabled={downloading}
-              className="group inline-flex items-center justify-center gap-2 rounded-full bg-primary px-8 py-4 text-lg font-bold text-primary-foreground transition hover:opacity-90 disabled:opacity-60"
-            >
-              <Monitor className="w-5 h-5" />
-              {downloading ? "Descargando..." : "Descargar para Monitor"}
-            </button>
-            <p className="mt-3 text-xs text-muted-foreground">
-              Descárgala gratis. Sin cuenta. Sin tarjeta. Solo instala y empieza.
-            </p>
+          <div className="mt-8 flex flex-col sm:flex-row gap-3">
+            <DownloadButton platform="win" />
+            <DownloadButton platform="mac" />
           </div>
+          <p className="mt-3 text-xs text-muted-foreground">
+            Descárgala gratis. Sin cuenta. Sin tarjeta. Solo instala y empieza.
+          </p>
         </div>
 
         <div className="relative">
@@ -112,7 +142,7 @@ function Pain() {
     "Me da pereza buscar botones, menús y pantallas.",
   ];
   return (
-    <section className="bg-foreground px-6 py-20 text-background md:py-28">
+    <section className="bg-foreground px-6 py-20 md:py-28">
       <div className="mx-auto max-w-4xl text-center">
         <p className="mb-4 text-sm font-bold uppercase tracking-widest text-primary">
           ¿Te suena familiar?
@@ -128,7 +158,6 @@ function Pain() {
               key={p}
               className="rounded-2xl border border-background/10 bg-background/5 p-6 text-left text-lg leading-snug"
             >
-              <span className="mb-3 block text-2xl">😮‍💨</span>
               <p>"{p}"</p>
             </div>
           ))}
@@ -221,6 +250,13 @@ function How() {
 
 /* ---------- FEATURES ---------- */
 function Features() {
+  const features = [
+    { icon: "🎯", title: "¿Qué hago primero?", desc: "Te ayudamos a ordenar tus tareas con un método simple: lo urgente y lo importante. Sin pensar mucho." },
+    { icon: "⏱️", title: "Pon tiempo a cada tarea", desc: "Así no te distraes. Cuando el tiempo se acaba, tú decides si sigues o pasas a la siguiente." },
+    { icon: "🔗", title: "Guarda tus links", desc: "¿Un video que ver? ¿Una página? Pégala en la tarea y la abres con un clic." },
+    { icon: "👀", title: "Siempre a la vista", desc: "Mientras trabajas, mientras lees mail, mientras navegas. Tus tareas no se esconden." },
+  ];
+
   return (
     <section className="px-6 py-20 md:py-28">
       <div className="mx-auto max-w-6xl">
@@ -234,40 +270,14 @@ function Features() {
         </div>
 
         <div className="grid gap-6 md:grid-cols-2">
-          <div className="rounded-3xl border-2 border-foreground/10 bg-secondary p-8">
-            <span className="text-3xl">🎯</span>
-            <h3 className="mt-4 text-2xl font-bold">¿Qué hago primero?</h3>
-            <p className="mt-2 text-muted-foreground">
-              Te ayudamos a ordenar tus tareas con un método simple: lo urgente
-              y lo importante. Sin pensar mucho.
-            </p>
-          </div>
-          <div className="rounded-3xl border-2 border-foreground/10 bg-secondary p-8">
-            <span className="text-3xl">⏱️</span>
-            <h3 className="mt-4 text-2xl font-bold">Pon tiempo a cada tarea</h3>
-            <p className="mt-2 text-muted-foreground">
-              Así no te distraes. Cuando el tiempo se acaba, tú decides si
-              sigues o pasas a la siguiente.
-            </p>
-          </div>
-          <div className="rounded-3xl border-2 border-foreground/10 bg-secondary p-8">
-            <span className="text-3xl">🔗</span>
-            <h3 className="mt-4 text-2xl font-bold">Guarda tus links</h3>
-            <p className="mt-2 text-muted-foreground">
-              ¿Un video que ver? ¿Una página? Pégala en la tarea y la abres con
-              un clic.
-            </p>
-          </div>
-          <div className="rounded-3xl border-2 border-foreground/10 bg-secondary p-8">
-            <span className="text-3xl">👀</span>
-            <h3 className="mt-4 text-2xl font-bold">Siempre a la vista</h3>
-            <p className="mt-2 text-muted-foreground">
-              Mientras trabajas, mientras lees mail, mientras navegas. Tus
-              tareas no se esconden.
-            </p>
-          </div>
+          {features.map((f) => (
+            <div key={f.title} className="rounded-3xl border-2 border-foreground/10 bg-secondary p-8">
+              <span className="text-3xl">{f.icon}</span>
+              <h3 className="mt-4 text-2xl font-bold">{f.title}</h3>
+              <p className="mt-2 text-muted-foreground">{f.desc}</p>
+            </div>
+          ))}
         </div>
-
       </div>
     </section>
   );
@@ -307,8 +317,6 @@ function Quotes() {
 
 /* ---------- FINAL CTA ---------- */
 function FinalCTA() {
-  const { downloading, handleDownload } = useDownload();
-
   return (
     <section id="probar" className="bg-foreground px-6 py-24 text-background md:py-32">
       <div className="mx-auto max-w-2xl text-center">
@@ -316,17 +324,11 @@ function FinalCTA() {
           Empieza a <span className="bg-primary text-primary-foreground px-2">enfocarte</span> hoy.
         </h2>
         <p className="mt-6 text-xl text-background/70">
-          Descárgala gratis. Sin cuenta. Sin tarjeta. Solo instala y empieza.
+          Disponible para Windows y Mac. Gratis, sin cuenta, sin tarjeta.
         </p>
-        <div className="mt-10">
-          <button
-            onClick={handleDownload}
-            disabled={downloading}
-            className="group inline-flex items-center justify-center gap-2 rounded-full bg-primary px-8 py-4 text-lg font-bold text-primary-foreground transition hover:opacity-90 disabled:opacity-60"
-          >
-            <Monitor className="w-5 h-5" />
-            {downloading ? "Descargando..." : "Descargar para Monitor"}
-          </button>
+        <div className="mt-10 flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
+          <DownloadButton platform="win" variant="cta" />
+          <DownloadButton platform="mac" variant="cta" />
         </div>
       </div>
     </section>

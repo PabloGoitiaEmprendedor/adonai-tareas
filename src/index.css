@@ -6,11 +6,6 @@
 
 @layer base {
   :root {
-    /* Notioneers + Google-style off-white background.
-       Background: #F8F9FA (Google) -> 210 17% 98%
-       Surface card: pure white
-       Lime accent kept from Notioneers
-    */
     --background: 210 17% 98%;
     --foreground: 130 11% 28%;
     --card: 0 0% 100%;
@@ -40,7 +35,6 @@
     --ring: 76 90% 60%;
     --radius: 2rem;
 
-    /* Surface system — Google-style neutrals */
     --surface: 0 0% 100%;
     --surface-dim: 210 17% 96%;
     --surface-container-lowest: 0 0% 100%;
@@ -59,6 +53,55 @@
 
     --tertiary: 210 17% 96%;
     --tertiary-container: 210 14% 90%;
+  }
+
+  .dark {
+    --background: 222 13% 9%;
+    --foreground: 210 17% 95%;
+    --card: 222 13% 12%;
+    --card-foreground: 210 17% 95%;
+    --popover: 222 13% 12%;
+    --popover-foreground: 210 17% 95%;
+    
+    --primary: 76 90% 60%;
+    --primary-foreground: 222 13% 9%;
+    --primary-container: 76 50% 15%;
+    
+    --secondary: 222 13% 16%;
+    --secondary-foreground: 210 17% 95%;
+    --secondary-container: 222 13% 20%;
+    
+    --muted: 222 13% 16%;
+    --muted-foreground: 220 9% 60%;
+    
+    --accent: 76 90% 60%;
+    --accent-foreground: 222 13% 9%;
+    
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    
+    --border: 222 13% 20%;
+    --input: 222 13% 20%;
+    --ring: 76 90% 60%;
+
+    --surface: 222 13% 12%;
+    --surface-dim: 222 13% 9%;
+    --surface-container-lowest: 222 13% 7%;
+    --surface-container-low: 222 13% 11%;
+    --surface-container: 222 13% 14%;
+    --surface-container-high: 222 13% 17%;
+    --surface-container-highest: 222 13% 22%;
+    --on-surface: 210 17% 95%;
+    --on-surface-variant: 220 9% 60%;
+    --outline: 222 13% 28%;
+    --outline-variant: 222 13% 20%;
+
+    --error: 0 84% 60%;
+    --error-container: 0 50% 20%;
+    --on-error: 0 0% 100%;
+
+    --tertiary: 222 13% 16%;
+    --tertiary-container: 222 13% 20%;
   }
 }
 

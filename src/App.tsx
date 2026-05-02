@@ -4,6 +4,7 @@ import { HashRouter, Route, Routes, Navigate, useNavigate } from "react-router-d
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { ThemeProvider, useTheme } from "@/contexts/ThemeProvider";
 import { useProfile } from "@/hooks/useProfile";
 
 import AuthPage from "./pages/AuthPage";
@@ -24,17 +25,31 @@ import AdminPanelPage from "./pages/AdminPanelPage";
 import LandingPage from "./pages/LandingPage";
 import NotFound from "./pages/NotFound";
 import { supabase } from "@/integrations/supabase/client";
+import UpdateDialog from "@/components/UpdateDialog";
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      refetchOnWindowFocus: true, // Crucial for Electron multi-window sync
-      staleTime: 1000 * 60 * 5, // 5 minutes
+      refetchOnWindowFocus: true,
+      staleTime: 1000 * 60 * 5,
     },
   },
 });
 
 import NavigationWrapper from "@/components/NavigationWrapper";
+
+const ThemeSync = () => {
+  const { setTheme } = useTheme();
+  const { profile } = useProfile();
+
+  useEffect(() => {
+    if (profile?.theme) {
+      setTheme(profile.theme as 'dark' | 'light' | 'system');
+    }
+  }, [profile?.theme, setTheme]);
+
+  return null;
+};
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
@@ -42,8 +57,6 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    document.documentElement.classList.remove('dark');
-
     const timeout = setTimeout(() => {
       if (profileLoading) {
         console.warn("Profile loading timeout - redirecting to auth");
@@ -56,7 +69,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
   if (loading || profileLoading) {
     return (
-      <div className="min-h-screen bg-[#F5F5E9] flex flex-col items-center justify-center gap-4">
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4">
         <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
         <p className="text-primary font-bold animate-pulse text-sm">Cargando Adonai...</p>
       </div>
@@ -83,62 +96,61 @@ const AppRoutes = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#F5F5E9] flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
-  // Helper: on web, redirect all app routes back to landing
   const appRouteElement = (element: React.ReactNode) => 
     isElectron ? <ProtectedRoute>{element}</ProtectedRoute> : <Navigate to="/" replace />;
 
   return (
-    <Routes>
-      <Route path="/mini" element={<MiniTasksPage />} />
-      <Route path="/auth" element={user ? <Navigate to="/" replace /> : <AuthPage />} />
-      <Route path="/onboarding" element={isElectron && user ? <OnboardingPage /> : <Navigate to="/auth" replace />} />
-      
-      {/* Root: Electron → app | Web → landing */}
-      <Route 
-        path="/" 
-        element={
-          isElectron
-            ? <ProtectedRoute><DailyPage /></ProtectedRoute>
-            : <LandingPage />
-        } 
-      />
+    <>
+      {isElectron && <ThemeSync />}
+      <Routes>
+        <Route path="/mini" element={<MiniTasksPage />} />
+        <Route path="/auth" element={user ? <Navigate to="/" replace /> : <AuthPage />} />
+        <Route path="/onboarding" element={isElectron && user ? <OnboardingPage /> : <Navigate to="/auth" replace />} />
+        
+        <Route 
+          path="/" 
+          element={
+            isElectron
+              ? <ProtectedRoute><DailyPage /></ProtectedRoute>
+              : <LandingPage />
+          } 
+        />
 
-      <Route path="/dashboard" element={appRouteElement(<DashboardPage />)} />
-      <Route path="/app" element={appRouteElement(<DashboardPage />)} />
-      <Route path="/daily" element={appRouteElement(<DailyPage />)} />
-      <Route path="/today" element={isElectron ? <Navigate to="/" replace /> : <Navigate to="/" replace />} />
-      <Route path="/week" element={appRouteElement(<WeeklyPage />)} />
-      <Route path="/goals" element={appRouteElement(<GoalsPage />)} />
-      <Route path="/folders" element={appRouteElement(<FoldersPage />)} />
-      <Route path="/friends" element={appRouteElement(<FriendsPage />)} />
-      <Route path="/profile" element={appRouteElement(<ProfilePage />)} />
-      <Route path="/trash" element={appRouteElement(<TrashPage />)} />
-      <Route path="/achievements" element={appRouteElement(<AchievementsPage />)} />
-      <Route path="/admin" element={appRouteElement(<AdminPanelPage />)} />
-      <Route path="/privacy" element={<PrivacyPolicyPage />} />
-      <Route path="/terms" element={<TermsOfServicePage />} />
-      <Route path="*" element={<NotFound />} />
-    </Routes>
+        <Route path="/dashboard" element={appRouteElement(<DashboardPage />)} />
+        <Route path="/app" element={appRouteElement(<DashboardPage />)} />
+        <Route path="/daily" element={appRouteElement(<DailyPage />)} />
+        <Route path="/today" element={isElectron ? <Navigate to="/" replace /> : <Navigate to="/" replace />} />
+        <Route path="/week" element={appRouteElement(<WeeklyPage />)} />
+        <Route path="/goals" element={appRouteElement(<GoalsPage />)} />
+        <Route path="/folders" element={appRouteElement(<FoldersPage />)} />
+        <Route path="/friends" element={appRouteElement(<FriendsPage />)} />
+        <Route path="/profile" element={appRouteElement(<ProfilePage />)} />
+        <Route path="/trash" element={appRouteElement(<TrashPage />)} />
+        <Route path="/achievements" element={appRouteElement(<AchievementsPage />)} />
+        <Route path="/admin" element={appRouteElement(<AdminPanelPage />)} />
+        <Route path="/privacy" element={<PrivacyPolicyPage />} />
+        <Route path="/terms" element={<TermsOfServicePage />} />
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+      {isElectron && <UpdateDialog />}
+    </>
   );
 };
 
 const App = () => {
   useEffect(() => {
-    // 1. Send session back to Desktop if we are on the Web and just logged in via OAuth
     const hash = window.location.hash;
     if (hash && hash.includes('access_token=') && !window.electronAPI) {
       console.log("Bridging session to desktop app...");
-      // Intentamos enviar la sesión a la app de escritorio
       window.location.assign(`adonai-tasks://${hash}`);
     }
 
-    // 2. Handle Deep Linking for Electron (Receiving the session from the Web)
     if (window.electronAPI?.onDeepLink) {
       window.electronAPI.onDeepLink(async (url: string) => {
         console.log("Received deep link:", url);
@@ -160,7 +172,6 @@ const App = () => {
       });
     }
 
-    // 3. Global Query Invalidation listener for multi-window sync
     if (window.electronAPI?.onInvalidateQueries) {
       window.electronAPI.onInvalidateQueries(() => {
         console.log("Global sync: Invalidate queries");
@@ -173,16 +184,18 @@ const App = () => {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Sonner position="top-center" duration={2000} />
-        <HashRouter>
-        <AuthProvider>
-          <NavigationWrapper>
-            <AppRoutes />
-          </NavigationWrapper>
-        </AuthProvider>
-      </HashRouter>
-      </TooltipProvider>
+      <ThemeProvider>
+        <TooltipProvider>
+          <Sonner position="top-center" duration={2000} />
+          <HashRouter>
+            <AuthProvider>
+              <NavigationWrapper>
+                <AppRoutes />
+              </NavigationWrapper>
+            </AuthProvider>
+          </HashRouter>
+        </TooltipProvider>
+      </ThemeProvider>
     </QueryClientProvider>
   );
 };

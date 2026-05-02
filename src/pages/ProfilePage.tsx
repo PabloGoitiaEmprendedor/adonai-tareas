@@ -3,6 +3,7 @@ import { useProfile } from '@/hooks/useProfile';
 import { useSettings } from '@/hooks/useSettings';
 import { useUserContext } from '@/hooks/useUserContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeProvider';
 import { useStreaks } from '@/hooks/useStreaks';
 import { useTasks } from '@/hooks/useTasks';
 import { useNavigate } from 'react-router-dom';
@@ -14,6 +15,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 const ProfilePage = () => {
   const { profile, updateProfile } = useProfile();
+  const { theme: appTheme, setTheme: setAppTheme } = useTheme();
   const { settings, updateSettings } = useSettings();
   const { userContext, updateContext } = useUserContext();
   const { signOut, user } = useAuth();
@@ -289,7 +291,7 @@ const ProfilePage = () => {
                 </div>
               </button>
               <OptionSelector field="theme" options={themeOptions} currentValue={profile?.theme || 'dark'}
-                onSelect={(v) => updateProfile.mutate({ theme: v })} />
+                onSelect={(v) => { setAppTheme(v as 'dark' | 'light' | 'system'); updateProfile.mutate({ theme: v }); }} />
             </div>
 
             {/* Input mode */}

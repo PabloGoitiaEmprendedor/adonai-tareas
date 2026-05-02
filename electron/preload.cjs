@@ -10,10 +10,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   syncData: () => ipcRenderer.send('sync-data'),
   onInvalidateQueries: (callback) => ipcRenderer.on('invalidate-queries', () => callback()),
   setIgnoreMouseEvents: (ignore, options) => ipcRenderer.send('set-ignore-mouse-events', ignore, options),
-  // Position + bounds
   getMiniPosition: () => ipcRenderer.invoke('get-mini-position'),
   setMiniBounds: (bounds) => ipcRenderer.send('set-mini-bounds', bounds),
-  // Auto-update
-  onUpdateStatus: (callback) => ipcRenderer.on('update-status', (_event, data) => callback(data)),
-  installUpdateNow: () => ipcRenderer.send('install-update-now'),
+  onUpdateAvailable: (callback) => ipcRenderer.on('update-available', (_event, data) => callback(data)),
+  onUpdateDownloadProgress: (callback) => ipcRenderer.on('update-download-progress', (_event, pct) => callback(pct)),
+  onUpdateDownloaded: (callback) => ipcRenderer.on('update-downloaded', () => callback()),
+  restartApp: () => ipcRenderer.send('restart-app'),
 });

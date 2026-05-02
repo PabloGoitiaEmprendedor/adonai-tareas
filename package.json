@@ -1,7 +1,7 @@
 {
   "name": "adonai-tasks",
   "private": true,
-  "version": "1.0.45",
+  "version": "1.0.46",
   "type": "module",
   "main": "electron/main.cjs",
   "repository": {
@@ -129,9 +129,24 @@
       "target": "nsis"
     },
     "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
-      "artifactName": "Adonai-Setup.${ext}"
+      "oneClick": true,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": false,
+      "artifactName": "Adonai-Setup-${version}.${ext}"
+    },
+    "mac": {
+      "target": ["dmg", "zip"],
+      "category": "public.app-category.productivity",
+      "icon": "build/icon.icns",
+      "artifactName": "Adonai-${version}-${arch}.${ext}"
+    },
+    "dmg": {
+      "title": "Adonai Tasks ${version}",
+      "icon": "build/icon.icns",
+      "window": {
+        "width": 540,
+        "height": 380
+      }
     },
     "publish": [
       {
