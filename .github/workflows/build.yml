@@ -26,25 +26,17 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Build app (no auto-publish)
+      - name: Build and Publish
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VITE_SUPABASE_URL: "https://bpckgibqjrqdxzbvtiyn.supabase.co"
           VITE_SUPABASE_PUBLISHABLE_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJwY2tnaWJxanJxZHh6YnZ0aXluIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc0OTMyNTAsImV4cCI6MjA5MzA2OTI1MH0.zitsCHcdKbw6fQ0Hbl5CTv-6AEJww72Hb5b3pqy6sKU"
-        run: npx electron-builder --publish never
+        run: npm run electron:build
 
-      - name: Create draft release
+      - name: Convert release to draft
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           $TAG = $env:GITHUB_REF -replace 'refs/tags/', ''
-          gh release create $TAG --draft --title $TAG --generate-notes
-
-      - name: Upload artifacts to draft
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          $TAG = $env:GITHUB_REF -replace 'refs/tags/', ''
-          Get-ChildItem -Path dist -Recurse -File -Include *.exe,*.blockmap,*.yml | ForEach-Object {
-            Write-Host "Uploading $($_.FullName)"
-            gh release upload $TAG $_.FullName --clobber
-          }
+          $REPO = $env:GITHUB_REPOSITORY
+          gh api repos/$REPO/releases/tags/$TAG -X PATCH -F draft=true
