@@ -13,21 +13,21 @@ jobs:
   release:
     runs-on: windows-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4/
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4/
         with:
-          node-version: 20
+          node-version: 20/
           cache: 'npm'
 
-      - name: Install dependencies
-        run: npm install
+      - run: npm install/
 
-      - name: Build and Publish (Draft)
+      - name: Build app (vite only)
+        run: npm run build/
+
+      - name: Build & Publish Electron
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VITE_SUPABASE_URL: "https://bpckgibqjrqdxzbvtiyn.supabase.co"
           VITE_SUPABASE_PUBLISHABLE_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJwY2tnaWJxanJxZHh6YnZ0aXluIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc0OTMyNTAsImV4cCI6MjA5MzA2OTI1MH0.ztIsCHcdKbw6fQ0Hbl5CTv-6AEJww72Hb5b3pqy6sKU"
-        run: npm run build && npx electron-builder --publish always --config.publish.type=github --config.publish.draft=true
+        run: npx electron-builder --publish always --config.publish.type=github --config.publish.draft=true
