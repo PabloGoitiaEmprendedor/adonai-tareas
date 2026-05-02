@@ -76,13 +76,13 @@ export const useVoiceCapture = () => {
   const startBrowserRecognition = useCallback((sessionId: number): boolean => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) return false;
-
+    
     const recognition = new SpeechRecognition();
     recognition.lang = 'es-ES';
     recognition.continuous = true;
     recognition.interimResults = true;
     recognition.maxAlternatives = 1;
-
+    
     recognition.onresult = (event: any) => {
       if (sessionRef.current !== sessionId) return;
       let final = '';
@@ -95,28 +95,34 @@ export const useVoiceCapture = () => {
       if (final) finalTranscriptRef.current += final;
       setTranscript((finalTranscriptRef.current + interim).trim());
     };
-
+    
     recognition.onstart = () => {
       if (sessionRef.current !== sessionId) return;
       console.log('[voice] SpeechRecognition started');
     };
-
+    
     recognition.onend = () => {
       if (sessionRef.current !== sessionId) return;
       console.log('[voice] SpeechRecognition ended');
+      // SOLO re-iniciar si TODAVÍA estamos grabando
       if (isRecordingRef.current) {
         try { recognition.start(); } catch {}
       } else {
+        // Limpiar cuando realmente paramos
         recognitionRef.current = null;
         setIsRecording(false);
       }
     };
-
+    
     recognition.onerror = (e: any) => {
       if (sessionRef.current !== sessionId) return;
       console.error('[voice] SpeechRecognition error:', e.error);
+      // Si hay error y no estamos grabando, limpiar
+      if (!isRecordingRef.current) {
+        recognitionRef.current = null;
+      }
     };
-
+    
     recognitionRef.current = recognition;
     try {
       recognition.start();
@@ -236,24 +242,59 @@ export const useVoiceCapture = () => {
   }, [ensureMicPermission, startBrowserRecognition, startServerTranscription]);
 
   const stopRecording = useCallback(() => {
+    const wasRecording = isRecordingRef.current;
+    if (!wasRecording) return;
+    
     isRecordingRef.current = false;
-
+    // No llamar setIsRecording aquí - dejar que onend lo haga
+    
+    // Detener SpeechRecognition
     if (recognitionRef.current) {
-      try { recognitionRef.current.stop(); } catch {}
-      recognitionRef.current = null;
+      try {
+        recognitionRef.current.stop(); 
+      } catch (e) {
+        console.log('[voice] Recognition stop error (ignored):', e);
+        setIsRecording(false);
+      }
+      // Fallback: si onend no se dispara en 500ms, limpiar y actualizar estado
+      setTimeout(() => {
+        if (recognitionRef.current) {
+          recognitionRef.current.onend = null;
+          recognitionRef.current = null;
+          setIsRecording(false);
+        }
+      }, 500);
+    } else {
+      setIsRecording(false);
     }
-
+    
+    // Detener MediaRecorder
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-      try { mediaRecorderRef.current.stop(); } catch {}
-      mediaRecorderRef.current = null;
+      try {
+        mediaRecorderRef.current.stop();
+      } catch (e) {
+        console.log('[voice] MediaRecorder stop error (ignored):', e);
+      }
+      // Fallback para MediaRecorder
+      setTimeout(() => {
+        if (mediaRecorderRef.current) {
+          mediaRecorderRef.current.onstop = null;
+          mediaRecorderRef.current = null;
+          setIsRecording(false);
+        }
+      }, 500);
     }
-
+    
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(t => t.stop());
       streamRef.current = null;
     }
-
-    setIsRecording(false);
+    
+    if (wasRecording) {
+      console.log('[voice] Recording stopped, final transcript:', finalTranscriptRef.current.substring(0, 50));
+    }
+    
+    dispatchMicPermissionGranted();
   }, []);
 
   const resetTranscript = useCallback(() => {

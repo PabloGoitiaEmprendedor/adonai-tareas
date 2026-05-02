@@ -56,18 +56,8 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { profile, isLoading: profileLoading, error: profileError } = useProfile();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      if (profileLoading) {
-        console.warn("Profile loading timeout - redirecting to auth");
-        navigate('/auth');
-      }
-    }, 5000);
-
-    return () => clearTimeout(timeout);
-  }, [profileLoading, navigate]);
-
-  if (loading || profileLoading) {
+  // Si está cargando la sesión, mostrar loading
+  if (loading) {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4">
         <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
@@ -76,11 +66,13 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     );
   }
 
-  if (!user || profileError) {
+  // Si no hay usuario, ir a auth (sesión cerrada)
+  if (!user) {
     return <Navigate to="/auth" replace />;
   }
 
-  if (profile && !profile.onboarding_completed) {
+  // Si el perfil falla, igual dejamos pasar (no bloquear por error de perfil)
+  if (!profileLoading && profile && !profile.onboarding_completed) {
     return <Navigate to="/onboarding" replace />;
   }
 
