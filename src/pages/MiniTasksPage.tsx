@@ -370,6 +370,13 @@ const MiniTaskList = () => {
 
   const { onMouseDown: onDragMouseDown, hasMovedRef } = useDragWindow();
 
+  // Store original pill position before expanding (to restore on collapse)
+  const originalPosRef = useRef<{ x: number; y: number } | null>(null);
+
+  // LED animation state
+  const [showLedGlow, setShowLedGlow] = useState(false);
+  const hasInteractedRef = useRef(false);
+
   // Timer logic
   const handleTimerToggle = useCallback((taskId: string, estimatedMinutes: number = 30) => {
     // 1. If there's an active timer, stop it and save progress first
@@ -434,8 +441,11 @@ const MiniTaskList = () => {
     }
 
     if (!isExpanded) {
+      // EXPANDING — save current pill position for later restore
       const pos = await api.getMiniPosition();
       if (!pos) { setIsExpanded(true); return; }
+
+      originalPosRef.current = { x: pos.x, y: pos.y };
 
       const pillCX = pos.x + pos.w / 2;
       const pillCY = pos.y + pos.h / 2;
@@ -455,10 +465,18 @@ const MiniTaskList = () => {
       api.setMiniBounds({ x: Math.round(panelX), y: Math.round(panelY), w: PANEL_W, h: PANEL_H });
       setIsExpanded(true);
     } else {
-      // COLLAPSING — center pill within current panel bounds
+      // COLLAPSING — restore pill to original saved position
       const pillW = activeTimerId ? PILL_TIMER_W : PILL_W;
       const pos = await api.getMiniPosition();
-      if (pos) {
+      if (originalPosRef.current) {
+        api.setMiniBounds({
+          x: originalPosRef.current.x,
+          y: originalPosRef.current.y,
+          w: pillW,
+          h: PILL_H,
+        });
+      } else if (pos) {
+        // Fallback: center pill within current panel bounds
         const pillX = pos.x + Math.round((pos.w - pillW) / 2);
         const pillY = pos.y + Math.round((pos.h - PILL_H) / 2);
         api.setMiniBounds({ x: pillX, y: pillY, w: pillW, h: PILL_H });
@@ -477,6 +495,23 @@ const MiniTaskList = () => {
     document.body.style.cssText += ';background:transparent!important';
     const root = document.getElementById('root');
     if (root) root.style.cssText += ';background:transparent!important';
+
+    // Inject LED animation keyframes
+    if (!document.getElementById('mini-led-keyframes')) {
+      const style = document.createElement('style');
+      style.id = 'mini-led-keyframes';
+      style.textContent = `
+        @keyframes ledPulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.7; }
+        }
+        @keyframes ledBorder {
+          0%, 100% { opacity: 0.4; transform: scale(1); }
+          50% { opacity: 0.8; transform: scale(1.05); }
+        }
+      `;
+      document.head.appendChild(style);
+    }
   }, []);
 
   // Hide window until session is ready and user is authenticated
@@ -486,6 +521,11 @@ const MiniTaskList = () => {
       setIsReady(ready);
       (window as any).electronAPI?.setIgnoreMouseEvents?.(ready, { forward: true });
       (window as any).electronAPI?.miniReady?.({ hasSession: ready });
+
+      // Trigger LED glow on first session start
+      if (ready && !hasInteractedRef.current) {
+        setShowLedGlow(true);
+      }
     }
   }, [loading, user]);
 
@@ -493,8 +533,10 @@ const MiniTaskList = () => {
     if (user) (window as any).electronAPI?.setIgnoreMouseEvents?.(false);
   }, [user]);
   const handleMouseLeaveUI = useCallback(() => {
-    if (user) (window as any).electronAPI?.setIgnoreMouseEvents?.(true, { forward: true });
-  }, [user]);
+    // Only ignore mouse events when collapsed (pill mode)
+    // When expanded, always keep mouse events active
+    if (user && !isExpanded) (window as any).electronAPI?.setIgnoreMouseEvents?.(true, { forward: true });
+  }, [user, isExpanded]);
 
   const quadrantRank = useCallback((t: any) =>
     t.urgency && t.importance ? 0
@@ -620,8 +662,22 @@ const MiniTaskList = () => {
         <div
           onMouseEnter={handleMouseEnterUI}
           onMouseLeave={handleMouseLeaveUI}
-          onMouseDown={onDragMouseDown}
-          onClick={handleToggleExpand}
+          onMouseDown={(e) => {
+            onDragMouseDown(e);
+            // First interaction dismisses LED animation
+            if (showLedGlow && !hasInteractedRef.current) {
+              hasInteractedRef.current = true;
+              setShowLedGlow(false);
+            }
+          }}
+          onClick={(e) => {
+            // First click also dismisses LED animation
+            if (showLedGlow && !hasInteractedRef.current) {
+              hasInteractedRef.current = true;
+              setShowLedGlow(false);
+            }
+            handleToggleExpand(e);
+          }}
           style={{
             height: 32, borderRadius: 999,
             padding: activeTimerId ? '0 12px' : '0',
@@ -629,13 +685,25 @@ const MiniTaskList = () => {
             minWidth: activeTimerId ? 110 : 64,
             background: C.bg,
             border: `1px solid ${activeTimerId ? (timerSeconds < 0 ? 'rgba(248,113,113,0.25)' : 'rgba(163,230,53,0.25)') : C.border}`,
-            boxShadow: activeTimerId
-              ? (timerSeconds < 0 ? '0 4px 20px rgba(248,113,113,0.15)' : '0 4px 20px rgba(163,230,53,0.15)')
-              : '0 4px 20px rgba(0,0,0,0.5)',
+            boxShadow: showLedGlow
+              ? '0 0 0 0 rgba(163,230,53,0.4), 0 0 20px 4px rgba(163,230,53,0.3), 0 0 40px 8px rgba(163,230,53,0.15), inset 0 0 8px rgba(163,230,53,0.1)'
+              : activeTimerId
+                ? (timerSeconds < 0 ? '0 4px 20px rgba(248,113,113,0.15)' : '0 4px 20px rgba(163,230,53,0.15)')
+                : '0 4px 20px rgba(0,0,0,0.5)',
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
             userSelect: 'none', cursor: 'grab',
+            position: 'relative',
+            animation: showLedGlow ? 'ledPulse 1.5s ease-in-out infinite' : 'none',
           }}
         >
+          {showLedGlow && (
+            <div style={{
+              position: 'absolute', inset: -3, borderRadius: 999,
+              border: `2px solid rgba(163,230,53,0.5)`,
+              animation: 'ledBorder 2s ease-in-out infinite',
+              pointerEvents: 'none',
+            }} />
+          )}
           {activeTimerId ? (
             <>
               <div style={{
@@ -662,7 +730,14 @@ const MiniTaskList = () => {
   return (
     <div
       onMouseEnter={handleMouseEnterUI}
-      onMouseLeave={handleMouseLeaveUI}
+      onMouseLeave={(e) => {
+        // Don't ignore mouse events when expanded - panel is solid
+        if (showLedGlow && !hasInteractedRef.current) {
+          hasInteractedRef.current = true;
+          setShowLedGlow(false);
+        }
+        handleMouseLeaveUI(e as any);
+      }}
       style={{
         position: 'fixed', inset: 0,
         background: C.bg, borderRadius: 20,

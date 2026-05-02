@@ -213,18 +213,23 @@ export const useVoiceCapture = () => {
     isRecordingRef.current = true;
     setIsRecording(true);
 
-    // Try SpeechRecognition for live text (works even in Electron with flags)
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (SpeechRecognition) {
-      const ok = startBrowserRecognition(sessionId);
-      if (ok) {
-        dispatchMicPermissionGranted();
-        return true;
+    // In Electron: use MediaRecorder + server transcription (more reliable)
+    // In browser: try SpeechRecognition first for live text
+    const isElectron = (window as any)?.electronAPI !== undefined;
+    
+    if (!isElectron) {
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (SpeechRecognition) {
+        const ok = startBrowserRecognition(sessionId);
+        if (ok) {
+          dispatchMicPermissionGranted();
+          return true;
+        }
       }
     }
 
-    // Fallback to server transcription
-    console.log('[voice] SpeechRecognition unavailable — falling back to server');
+    // Fallback to server transcription (primary for Electron)
+    console.log('[voice] Using server transcription' + (isElectron ? ' (Electron)' : ' (browser fallback)'));
     const ok = await startServerTranscription();
     if (ok) dispatchMicPermissionGranted();
     return ok;
