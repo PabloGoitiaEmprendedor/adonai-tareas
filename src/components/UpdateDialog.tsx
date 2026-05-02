@@ -29,9 +29,7 @@ const UpdateDialog = () => {
     });
 
     return () => {
-      window.electronAPI.onUpdateAvailable = undefined;
-      window.electronAPI.onUpdateDownloadProgress = undefined;
-      window.electronAPI.onUpdateDownloaded = undefined;
+      // Listeners are managed by Electron's IPC, we don't assign to them directly
     };
   }, []);
 

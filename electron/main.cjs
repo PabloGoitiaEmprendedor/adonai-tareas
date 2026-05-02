@@ -170,7 +170,6 @@ function createMainWindow() {
   mainWindow.once('ready-to-show', () => {
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.show();
-      mainWindow.webContents.openDevTools();
     }
   });
 
