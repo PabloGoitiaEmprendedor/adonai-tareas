@@ -161,9 +161,7 @@ function createMainWindow() {
   if (!app.isPackaged) {
     mainWindow.loadURL('http://localhost:8080');
   } else {
-    mainWindow.loadFile(indexPath, {
-      hash: '',
-    }).catch(err => {
+    mainWindow.loadFile(indexPath).catch(err => {
       console.error('Failed to load index.html:', err);
     });
     autoUpdater.checkForUpdatesAndNotify();
@@ -173,6 +171,10 @@ function createMainWindow() {
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.show();
     }
+  });
+
+  mainWindow.webContents.on('console-message', (event, level, message, line, sourceId) => {
+    console.log(`[Renderer] ${message}`);
   });
 
   mainWindow.on('closed', () => {
