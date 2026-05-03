@@ -7,6 +7,7 @@ import {
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Card, CardContent } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
 
 const ICONS: Record<string, any> = {
   sparkles: Sparkles, rocket: Rocket, zap: Zap, crown: Crown,

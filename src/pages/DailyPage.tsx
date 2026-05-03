@@ -150,10 +150,8 @@ const DailyPage = () => {
   const toggleMiniWidget = useCallback(() => {
     if (window.electronAPI) {
       window.electronAPI.toggleMiniWindow();
-      setMiniWidgetOpen(prev => !prev);
-      return;
     }
-    openDownloadDialog();
+    setMiniWidgetOpen(prev => !prev);
   }, []);
 
   const quadrantRank = (t: any) =>
@@ -358,9 +356,7 @@ const DailyPage = () => {
         onClose={() => setTimerTask(null)} 
         durationRef={timerDurationRef}
       />
-      {!window.electronAPI && (
-        <MiniTaskWidget isOpen={miniWidgetOpen} onClose={() => setMiniWidgetOpen(false)} />
-      )}
+      <MiniTaskWidget isOpen={miniWidgetOpen} onClose={() => setMiniWidgetOpen(false)} />
     </div>
   );
 };
