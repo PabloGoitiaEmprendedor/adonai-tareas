@@ -408,8 +408,6 @@ const FoldersPage = () => {
       {renderSharingModal()}
     </div>
   );
-};>
-  );
 };
 
 export default FoldersPage;
