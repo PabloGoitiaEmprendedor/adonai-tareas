@@ -31,112 +31,215 @@ const AchievementsPage = () => {
   }, {});
 
   const CATEGORY_LABELS: Record<string, string> = {
-    milestone: 'HITOS',
-    streak: 'CONSTANCIA',
-    level: 'NIVELES',
-    feature: 'EXPLORACIÓN',
-    general: 'GENERAL',
+    milestone: 'Hitos',
+    streak: 'Constancia',
+    level: 'Niveles',
+    feature: 'Exploración',
+    general: 'General',
+  };
+
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: { 
+      opacity: 1,
+      transition: { staggerChildren: 0.1 }
+    }
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: { opacity: 1, y: 0 }
   };
 
   return (
-    <div className="min-h-screen bg-[#F2F2F2] text-[#0D0D0D]">
-      <div className="max-w-4xl mx-auto px-6 pt-16 pb-32 space-y-16">
+    <div className="min-h-screen bg-background selection:bg-primary/30 pb-32">
+      <div className="max-w-5xl mx-auto px-6 pt-12 space-y-12">
         
-        <header className="space-y-2">
-          <p className="text-[11px] font-black uppercase tracking-[0.4em] text-[#8C8C8C]">ESTADÍSTICAS</p>
-          <div className="flex items-center justify-between">
-            <h1 className="text-5xl font-black tracking-tighter">Logros</h1>
-            <div className="bg-black text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
-              <Trophy className="w-3 h-3" />
-              {unlocked.length} INSIGNIAS
-            </div>
+        {/* Header Section */}
+        <header className="space-y-4">
+          <motion.div 
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="flex items-center gap-2 text-primary font-bold tracking-[0.2em] text-[10px] uppercase"
+          >
+            <Medal className="w-3 h-3" />
+            <span>Sistema de Honor</span>
+          </motion.div>
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+            <motion.h1 
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="text-5xl sm:text-7xl font-black tracking-tight leading-[0.85]"
+            >
+              Logros <br />
+              <span className="text-on-surface-variant/20 italic">Adonai.</span>
+            </motion.h1>
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="bg-primary/10 border border-primary/20 px-6 py-3 rounded-2xl backdrop-blur-md"
+            >
+              <p className="text-[10px] font-black uppercase tracking-widest text-primary mb-1">Tu Progreso</p>
+              <p className="text-2xl font-black tabular-nums leading-none">
+                {unlocked.length} <span className="text-sm font-bold text-on-surface-variant/40">Insignias</span>
+              </p>
+            </motion.div>
           </div>
         </header>
 
         {/* Stats Bento Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-white p-8 rounded-[40px] border border-black/5 shadow-sm space-y-8">
-            <div className="flex items-center gap-2 opacity-40">
-              <Star className="w-4 h-4" />
-              <span className="text-[10px] uppercase font-black tracking-widest">Nivel Actual</span>
-            </div>
-            <p className="text-7xl font-black tabular-nums tracking-tighter leading-none">{level}</p>
-            <div className="space-y-3">
-              <div className="flex justify-between text-[9px] font-black uppercase tracking-widest opacity-40">
-                <span>{current} / {needed} XP</span>
-                <span>{Math.round(percent)}%</span>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          
+          {/* Level Card - Large */}
+          <Card className="md:col-span-2 bg-primary/5 border-primary/20 p-8 flex flex-col justify-between gap-8 relative overflow-hidden group">
+            <div className="relative z-10 space-y-1">
+              <div className="flex items-center gap-2 text-primary">
+                <Star className="w-5 h-5 fill-current" />
+                <span className="text-[10px] uppercase font-black tracking-widest">Nivel de Maestría</span>
               </div>
-              <div className="h-1.5 bg-black/5 rounded-full overflow-hidden">
-                <motion.div initial={{ width: 0 }} animate={{ width: `${percent}%` }} className="h-full bg-black" />
+              <p className="text-7xl font-black tabular-nums tracking-tighter leading-none group-hover:scale-105 transition-transform duration-500">{level}</p>
+            </div>
+            
+            <div className="relative z-10 space-y-3">
+              <div className="flex justify-between items-end">
+                <p className="text-xs font-bold text-on-surface-variant/60 tabular-nums">
+                  <span className="text-foreground">{current}</span> / {needed} XP
+                </p>
+                <p className="text-xs font-black text-primary">{Math.round(percent)}%</p>
+              </div>
+              <div className="h-4 bg-black/10 rounded-full overflow-hidden border border-white/5">
+                <motion.div 
+                  initial={{ width: 0 }}
+                  animate={{ width: `${percent}%` }}
+                  transition={{ duration: 1.5, ease: "circOut" }}
+                  className="h-full bg-primary rounded-full shadow-[0_0_20px_rgba(33,217,4,0.3)]" 
+                />
               </div>
             </div>
-          </div>
 
-          <div className="bg-black text-white p-8 rounded-[40px] shadow-2xl space-y-8">
-            <div className="flex items-center gap-2 opacity-40">
-              <Flame className="w-4 h-4" />
-              <span className="text-[10px] uppercase font-black tracking-widest">Racha Activa</span>
-            </div>
-            <p className="text-7xl font-black tabular-nums tracking-tighter leading-none">{streak}</p>
-            <p className="text-[10px] font-black opacity-30 uppercase tracking-widest">RECORD PERSONAL: {streakMax}</p>
-          </div>
+            {/* Background Decor */}
+            <Crown className="absolute -top-6 -right-6 w-48 h-48 text-primary/5 -rotate-12 group-hover:rotate-0 transition-transform duration-700" />
+          </Card>
 
-          <div className="bg-white p-8 rounded-[40px] border border-black/5 shadow-sm space-y-8">
-            <div className="flex items-center gap-2 opacity-40">
-              <ShieldCheck className="w-4 h-4" />
-              <span className="text-[10px] uppercase font-black tracking-widest">Tareas Totales</span>
+          {/* Streak Card */}
+          <Card className="bg-orange-500/5 border-orange-500/20 p-6 flex flex-col justify-between gap-4 group">
+            <div className="flex items-center gap-2 text-orange-500">
+              <Flame className="w-5 h-5 fill-current animate-pulse" />
+              <span className="text-[10px] uppercase font-black tracking-widest">Racha</span>
             </div>
-            <p className="text-7xl font-black tabular-nums tracking-tighter leading-none">{tasksTotal}</p>
-            <p className="text-[10px] font-black opacity-30 uppercase tracking-widest">COMPLETADAS</p>
-          </div>
+            <div>
+              <p className="text-5xl font-black tabular-nums tracking-tight leading-none group-hover:translate-x-1 transition-transform">{streak}</p>
+              <p className="text-[10px] font-bold text-on-surface-variant/40 uppercase tracking-widest mt-2">Record: {streakMax} Días</p>
+            </div>
+          </Card>
+
+          {/* Tasks Total Card */}
+          <Card className="bg-surface-container-low border-white/5 p-6 flex flex-col justify-between gap-4 group">
+            <div className="flex items-center gap-2 text-primary">
+              <ShieldCheck className="w-5 h-5" />
+              <span className="text-[10px] uppercase font-black tracking-widest">Tareas</span>
+            </div>
+            <div>
+              <p className="text-5xl font-black tabular-nums tracking-tight leading-none group-hover:translate-x-1 transition-transform">{tasksTotal}</p>
+              <p className="text-[10px] font-bold text-on-surface-variant/40 uppercase tracking-widest mt-2">Completadas hoy</p>
+            </div>
+          </Card>
+
+          {/* Elite Insight Card */}
+          <Card className="md:col-span-4 bg-foreground text-background p-8 flex items-center justify-between group overflow-hidden relative">
+            <div className="flex items-center gap-8 relative z-10">
+              <div className="w-16 h-16 bg-primary text-primary-foreground rounded-2xl flex items-center justify-center shrink-0 shadow-2xl group-hover:rotate-6 transition-transform">
+                <Zap className="w-8 h-8 fill-current" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-2xl font-black leading-none tracking-tight">Elite del Enfoque</h3>
+                <p className="text-sm text-background/60 leading-relaxed font-medium">Estás en el top 5% de usuarios más consistentes. <span className="text-primary">¡Mantén el ritmo!</span></p>
+              </div>
+            </div>
+            <div className="hidden md:block">
+              <Rocket className="w-24 h-24 text-primary/10 absolute -right-4 -bottom-4 -rotate-12 group-hover:translate-x-2 group-hover:-translate-y-2 transition-transform duration-700" />
+            </div>
+          </Card>
+
         </div>
 
         {/* Achievements Section */}
-        <div className="space-y-20">
+        <div className="space-y-16 pt-8">
           {Object.entries(byCategory).map(([cat, list]: [string, any]) => (
-            <section key={cat} className="space-y-8">
-              <div className="flex items-center gap-6">
-                <h2 className="text-[11px] uppercase font-black tracking-[0.4em] text-[#8C8C8C]">
+            <motion.section 
+              key={cat}
+              variants={containerVariants}
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true }}
+              className="space-y-8"
+            >
+              <div className="flex items-center gap-4">
+                <h2 className="text-[11px] uppercase font-black tracking-[0.4em] text-on-surface-variant/40">
                   {CATEGORY_LABELS[cat] || cat}
-                  <span className="ml-3 text-[9px] opacity-40">
-                    {list.filter((a: any) => unlockedCodes.has(a.code)).length} / {list.length}
-                  </span>
                 </h2>
-                <div className="h-[1px] flex-1 bg-black/5" />
+                <div className="h-px flex-1 bg-gradient-to-r from-border/40 to-transparent" />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {list.map((ach: any) => {
                   const Icon = ICONS[ach.icon] || Trophy;
                   const isUnlocked = unlockedCodes.has(ach.code);
                   const unlockedAt = unlockedById.get(ach.code);
                   
                   return (
-                    <div key={ach.id} className={cn("group p-8 rounded-[32px] border transition-all duration-500", isUnlocked ? 'bg-white border-black/5 shadow-sm' : 'bg-black/5 border-transparent opacity-20 grayscale')}>
-                      <div className="flex items-center gap-6">
-                        <div className={cn("w-14 h-14 rounded-2xl flex items-center justify-center transition-all", isUnlocked ? 'bg-black text-white' : 'bg-black/5 text-black/10')}>
-                          <Icon className="w-7 h-7" />
+                    <motion.div
+                      key={ach.id}
+                      variants={itemVariants}
+                      className={`group relative p-8 rounded-[32px] border transition-all duration-500 ${
+                        isUnlocked
+                          ? 'bg-surface-container-low border-primary/20 shadow-xl shadow-black/5'
+                          : 'bg-surface-container-low/30 border-border/10 grayscale opacity-40 hover:grayscale-0 hover:opacity-100'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-4 mb-6">
+                        <div className={`w-16 h-16 rounded-2xl flex items-center justify-center flex-shrink-0 transition-all duration-500 shadow-2xl ${
+                          isUnlocked ? 'bg-primary text-primary-foreground rotate-0 scale-110 shadow-primary/20' : 'bg-surface-container-highest text-on-surface-variant/30 -rotate-3 scale-100 shadow-none'
+                        }`}>
+                          <Icon className="w-8 h-8" />
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <h4 className="text-xl font-black tracking-tighter truncate">{ach.name}</h4>
-                          <p className="text-xs text-[#8C8C8C] font-black uppercase tracking-widest mt-1">+{ach.xp_reward} XP</p>
-                        </div>
-                      </div>
-
-                      <div className="mt-8 pt-8 border-t border-black/5">
-                        <p className="text-xs text-[#8C8C8C] font-medium leading-relaxed">{ach.description}</p>
-                        {isUnlocked && unlockedAt && (
-                          <div className="mt-4 flex items-center justify-between">
-                            <span className="text-[9px] font-black text-[#BFBFBF] uppercase tracking-[0.2em]">DESBLOQUEADO</span>
-                            <span className="text-[9px] font-black text-black uppercase tracking-widest">{format(new Date(unlockedAt), "d MMM yyyy", { locale: es })}</span>
+                        {isUnlocked && (
+                           <div className="text-[10px] font-black bg-primary text-primary-foreground px-4 py-1.5 rounded-full uppercase tracking-widest shadow-lg shadow-primary/20">
+                            +{ach.xp_reward} XP
                           </div>
                         )}
                       </div>
-                    </div>
+
+                      <div className="space-y-3">
+                        <p className={`text-2xl font-black leading-tight tracking-tight ${isUnlocked ? 'text-foreground' : 'text-on-surface-variant'}`}>
+                          {ach.name}
+                        </p>
+                        <p className="text-sm text-on-surface-variant/60 font-medium leading-relaxed">
+                          {ach.description}
+                        </p>
+                      </div>
+
+                      {isUnlocked && unlockedAt && (
+                        <div className="mt-6 pt-6 border-t border-border/40 flex items-center justify-between">
+                          <p className="text-[10px] font-black text-on-surface-variant/30 uppercase tracking-[0.2em]">
+                            ADQUIRIDO
+                          </p>
+                          <p className="text-[10px] font-black text-primary uppercase tracking-widest">
+                            {format(new Date(unlockedAt), "d MMM yyyy", { locale: es })}
+                          </p>
+                        </div>
+                      )}
+
+                      {!isUnlocked && (
+                         <div className="absolute inset-0 bg-surface-container-low/10 backdrop-blur-[1px] rounded-[32px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                            <span className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/40 bg-background/80 px-4 py-2 rounded-full border border-border/10 shadow-xl">Bloqueado</span>
+                         </div>
+                      )}
+                    </motion.div>
                   );
                 })}
               </div>
-            </section>
+            </motion.section>
           ))}
         </div>
       </div>

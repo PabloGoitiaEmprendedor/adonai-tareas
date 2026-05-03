@@ -20,8 +20,6 @@ import { useGamification } from '@/hooks/useGamification';
 import { TaskCard } from '@/components/TaskCard';
 import { openDownloadDialog } from '@/lib/desktopApp';
 import MiniTaskWidget from '@/components/MiniTaskWidget';
-import { PriorityColorSettings } from '@/components/PriorityColorSettings';
-import { usePriorityColors } from '@/hooks/usePriorityColors';
 
 const getDynamicGreeting = (
   name: string,
@@ -258,12 +256,13 @@ const DailyPage = () => {
             </span>
           </div>
 
-          <div className="flex items-center justify-center">
+          <div className="w-10 h-10 flex items-center justify-center">
             <button
               onClick={toggleMiniWidget}
-              className="px-4 py-2 rounded-xl bg-black text-white text-[10px] font-black uppercase tracking-widest hover:bg-black/80 transition-all active:scale-95 shadow-lg shadow-black/10"
+              className="w-10 h-10 flex items-center justify-center rounded-xl hover:bg-surface-container text-on-surface-variant transition-colors"
+              title="Pestaña flotante"
             >
-              {miniWidgetOpen ? 'Desactivar mini ventana' : 'Activar mini ventana'}
+              <Monitor className="w-5 h-5" />
             </button>
           </div>
         </div>
@@ -307,11 +306,6 @@ const DailyPage = () => {
             onTextClick={openCapture} 
             onVoiceClick={openCaptureInVoiceMode} 
           />
-        </div>
-
-        <div className="flex justify-between items-center px-1">
-          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant/40">Mi Día</p>
-          <PriorityColorSettings />
         </div>
 
         {orderedTasks.length > 0 ? (

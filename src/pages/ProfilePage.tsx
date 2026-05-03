@@ -123,8 +123,15 @@ const ProfilePage = () => {
     { value: 'guided', label: 'Guiado' },
   ];
 
+  const themeOptions = [
+    { value: 'dark', label: 'Oscuro' },
+    { value: 'light', label: 'Claro' },
+    { value: 'system', label: 'Sistema' },
+  ];
+
   const inputLabels: Record<string, string> = { voice: 'Voz', text: 'Texto', both: 'Ambos' };
   const styleLabels: Record<string, string> = { simple: 'Simple', intermediate: 'Intermedio', guided: 'Guiado' };
+  const themeLabels: Record<string, string> = { dark: 'Oscuro', light: 'Claro', system: 'Sistema' };
 
 
   const OptionSelector = ({ field, options, currentValue, onSelect }: {
@@ -271,7 +278,21 @@ const ProfilePage = () => {
         <section className="space-y-1">
           <h3 className="text-xs font-bold text-on-surface-variant uppercase tracking-[0.2em] px-1 mb-2">Configuración</h3>
           <div className="bg-surface-container-low rounded-lg overflow-hidden divide-y divide-outline-variant/10">
-
+            {/* Theme */}
+            <div>
+              <button onClick={() => setEditingField(editingField === 'theme' ? null : 'theme')} className="w-full flex items-center justify-between p-4 hover:bg-surface-container-high transition-colors">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-surface-container-highest flex items-center justify-center"><Moon className="w-5 h-5 text-foreground" /></div>
+                  <span className="font-semibold text-foreground text-sm">Tema</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="text-sm text-primary font-medium">{themeLabels[profile?.theme || 'dark']}</span>
+                  <ChevronDown className={`w-4 h-4 text-on-surface-variant transition-transform ${editingField === 'theme' ? 'rotate-180' : ''}`} />
+                </div>
+              </button>
+              <OptionSelector field="theme" options={themeOptions} currentValue={profile?.theme || 'dark'}
+                onSelect={(v) => { setAppTheme(v as 'dark' | 'light' | 'system'); updateProfile.mutate({ theme: v }); }} />
+            </div>
 
             {/* Input mode */}
             <div>

@@ -18,7 +18,7 @@ import TaskDetailModal from '@/components/TaskDetailModal';
 import QuickRecurrenceFlow from '@/components/QuickRecurrenceFlow';
 import { useGamification } from '@/hooks/useGamification';
 import { triggerTaskCelebration, triggerDailyCelebration, triggerOnTimeCelebration } from '@/lib/celebrations';
-import { usePriorityColors } from '@/hooks/usePriorityColors';
+import { useProfile } from '@/hooks/useProfile';
 import '../index.css';
 
 const PANEL_W = 340;
@@ -27,17 +27,16 @@ const PILL_W = 100;
 const PILL_H = 52;
 const PILL_TIMER_W = 130;
 
-// Use CSS variables from index.css instead of hardcoded objects
 const C = {
-  bg: 'hsl(var(--background))',
-  border: 'hsl(var(--outline-variant))',
-  text: 'hsl(var(--foreground))',
-  muted: 'hsl(var(--on-surface-variant))',
-  accent: 'hsl(var(--primary))',
-  accentBg: 'hsl(var(--primary-container))',
-  taskBg: 'hsl(var(--surface-container-low))',
-  taskBorder: 'hsl(var(--outline-variant))',
-  subBg: 'hsl(var(--surface-container-lowest))',
+  bg: '#F2F2F2',
+  border: 'rgba(1, 38, 14, 0.1)',
+  text: '#01260E',
+  muted: 'rgba(1, 38, 14, 0.5)',
+  accent: '#21D904',
+  accentBg: 'rgba(33, 217, 4, 0.1)',
+  taskBg: '#FFFFFF',
+  taskBorder: 'rgba(1, 38, 14, 0.05)',
+  subBg: 'rgba(1, 38, 14, 0.03)',
 };
 
 function formatTimer(seconds: number): string {
@@ -72,10 +71,10 @@ const SubtaskRowRaw = ({ sub, onToggle, onUpdate }: { sub: any; onToggle: (sub: 
       <div onClick={(e) => { e.stopPropagation(); onToggle(sub); }} style={{
         width: 18, height: 18, borderRadius: 5, flexShrink: 0, cursor: 'pointer',
         background: isDone ? C.accent : 'transparent',
-        border: `2px solid ${isDone ? C.accent : 'var(--outline-variant)'}`,
+        border: `2px solid ${isDone ? C.accent : 'rgba(1, 38, 14, 0.15)'}`,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}>
-        {isDone && <Check style={{ width: 10, height: 10, color: 'var(--primary-foreground)', strokeWidth: 3 }} />}
+        {isDone && <Check style={{ width: 10, height: 10, color: '#F2F2F2', strokeWidth: 3 }} />}
       </div>
       {isEditing ? (
         <input
@@ -139,14 +138,9 @@ const TaskRowRaw = ({ task, onToggle, onDetail, activeTimerId, onTimerToggle, up
     }
   };
 
-  const { colors: priorityColors } = usePriorityColors();
-
-  const getPriorityColor = () => {
-    if (task.urgency && task.importance) return priorityColors.p1;
-    if (task.urgency && !task.importance) return priorityColors.p2;
-    if (!task.urgency && task.importance) return priorityColors.p3;
-    return priorityColors.p4;
-  };
+  const actualSeconds = task.actual_duration_seconds || 0;
+  const estimatedSeconds = (task.estimated_minutes || 0) * 60;
+  const isOverTime = actualSeconds > estimatedSeconds && estimatedSeconds > 0;
 
   return (
     <motion.div layout initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
@@ -156,10 +150,9 @@ const TaskRowRaw = ({ task, onToggle, onDetail, activeTimerId, onTimerToggle, up
         style={{
           display: 'flex', alignItems: 'center', gap: 10, padding: '10px',
           borderRadius: 12, cursor: 'pointer',
-          background: isDone ? 'transparent' : isTimerActive ? 'var(--primary-container)' : C.taskBg,
-          border: `1px solid ${isDone ? 'transparent' : isTimerActive ? 'var(--primary)' : C.taskBorder}`,
+          background: isDone ? 'transparent' : isTimerActive ? 'rgba(33, 217, 4, 0.06)' : C.taskBg,
+          border: `1px solid ${isDone ? 'transparent' : isTimerActive ? 'rgba(33, 217, 4, 0.15)' : C.taskBorder}`,
           opacity: isDone ? 0.45 : 1,
-          position: 'relative',
         }}
       >
         <div 
@@ -167,19 +160,12 @@ const TaskRowRaw = ({ task, onToggle, onDetail, activeTimerId, onTimerToggle, up
           style={{
             width: 26, height: 26, borderRadius: 8, flexShrink: 0,
             background: isDone ? C.accent : 'transparent',
-            border: `2px solid ${isDone ? C.accent : 'var(--outline)'}`,
+            border: `2px solid ${isDone ? C.accent : 'rgba(1, 38, 14, 0.15)'}`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}
         >
-          {isDone && <Check style={{ width: 13, height: 13, color: 'var(--primary-foreground)', strokeWidth: 3 }} />}
+          {isDone && <Check style={{ width: 13, height: 13, color: '#F2F2F2', strokeWidth: 3 }} />}
         </div>
-
-        {/* Priority Dot */}
-        <div style={{
-          width: 4, height: 4, borderRadius: '50%',
-          backgroundColor: getPriorityColor(),
-          position: 'absolute', left: 22, top: 12, zIndex: 1
-        }} />
         
         {isEditing ? (
           <input
@@ -279,9 +265,9 @@ const TaskRowRaw = ({ task, onToggle, onDetail, activeTimerId, onTimerToggle, up
                     cursor: 'pointer',
                   }}
                 >
-                    {isTimerActive
+                  {isTimerActive
                     ? <Pause style={{ width: 12, height: 12, color: C.accent }} />
-                    : <Clock style={{ width: 12, height: 12, color: 'var(--on-surface-variant)', opacity: 0.3 }} />
+                    : <Clock style={{ width: 12, height: 12, color: 'rgba(1, 38, 14, 0.3)' }} />
                   }
                 </div>
               )}
@@ -502,12 +488,8 @@ const MiniTaskList = () => {
 
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 1000);
-    // Ensure window is solid if expanded or if any modal is open
-    if (isExpanded || captureOpen || detailOpen || recurrenceFlowOpen) {
-      (window as any).electronAPI?.setIgnoreMouseEvents?.(false);
-    }
     return () => clearInterval(t);
-  }, [isExpanded, captureOpen, detailOpen, recurrenceFlowOpen]);
+  }, []);
 
   useEffect(() => {
     document.documentElement.style.cssText += ';background:transparent!important';
@@ -672,12 +654,12 @@ const MiniTaskList = () => {
 
   // ── COLLAPSED PILL ──
   if (!isReady) {
-    return <div style={{ width: '100vw', height: '100vh' }} />;
+    return <div style={{ width: '100%', height: '100%' }} />;
   }
 
   if (!isExpanded) {
     return (
-      <div style={{ width: '100vw', height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div
           onMouseEnter={handleMouseEnterUI}
           onMouseLeave={handleMouseLeaveUI}
@@ -708,7 +690,7 @@ const MiniTaskList = () => {
               ? '0 0 0 0 rgba(33, 217, 4, 0.4), 0 0 20px 4px rgba(33, 217, 4, 0.3), 0 0 40px 8px rgba(33, 217, 4, 0.15), inset 0 0 8px rgba(33, 217, 4, 0.1)'
               : activeTimerId
                 ? (timerSeconds < 0 ? '0 4px 20px rgba(248,113,113,0.15)' : '0 4px 20px rgba(33, 217, 4, 0.15)')
-                : '0 4px 20px rgba(0, 0, 0, 0.1)',
+                : '0 4px 20px rgba(1, 38, 14, 0.1)',
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
             userSelect: 'none', cursor: 'grab',
             position: 'relative',
@@ -738,7 +720,7 @@ const MiniTaskList = () => {
               </span>
             </>
           ) : (
-            <MoreHorizontal style={{ width: 20, height: 20, color: 'var(--on-surface-variant)', opacity: 0.5 }} />
+            <MoreHorizontal style={{ width: 20, height: 20, color: 'rgba(1, 38, 14, 0.6)' }} />
           )}
         </div>
       </div>
@@ -761,103 +743,102 @@ const MiniTaskList = () => {
         position: 'fixed', inset: 0,
         background: C.bg, borderRadius: 20,
         border: `1px solid ${C.border}`,
-        boxShadow: '0 12px 48px rgba(0,0,0,0.4)',
+        boxShadow: '0 12px 48px rgba(0,0,0,0.6)',
         display: 'flex', flexDirection: 'column',
         overflow: 'hidden',
         boxSizing: 'border-box',
-        fontFamily: 'Inter, system-ui, sans-serif',
+        fontFamily: 'system-ui, -apple-system, sans-serif',
         color: C.text,
-        paddingTop: window.electronAPI ? 10 : 0, // Avoid system buttons
       }}
     >
       {/* Top bar — fully draggable */}
       <div onMouseDown={onDragMouseDown} style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '16px 16px 10px', flexShrink: 0, cursor: 'grab', userSelect: 'none',
+        padding: '10px 16px 6px', flexShrink: 0, cursor: 'grab', userSelect: 'none',
       }}>
         {/* LEFT: collapse pill (…) + direct action buttons */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           {/* Collapse / timer pill — same ... design as collapsed state */}
           <div onClick={handleToggleExpand} style={{
-            height: 28, borderRadius: 999,
+            height: 26, borderRadius: 999,
             padding: activeTimerId ? '0 10px' : '0',
             width: activeTimerId ? 'auto' : 52,
             minWidth: activeTimerId ? 90 : 52,
-            background: 'var(--surface-container)',
-            border: `1px solid ${C.border}`,
+            background: activeTimerId ? 'rgba(33, 217, 4, 0.1)' : 'rgba(1, 38, 14, 0.05)',
+            border: `1px solid ${activeTimerId ? 'rgba(33, 217, 4, 0.2)' : C.border}`,
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
             cursor: 'pointer',
           }} title="Colapsar">
             {activeTimerId ? (
               <>
-                <div style={{ width: 5, height: 5, borderRadius: '50%', background: C.accent, animation: 'pulse 1.5s ease-in-out infinite' }} />
+                <div style={{ width: 5, height: 5, borderRadius: '50%', background: timerSeconds < 0 ? '#F87171' : C.accent, animation: 'pulse 1.5s ease-in-out infinite' }} />
                 <span style={{ 
-                   fontSize: 11, fontWeight: 900, 
-                   color: C.accent, 
-                   fontFamily: 'monospace' 
+                  fontSize: 11, fontWeight: 800, 
+                  color: timerSeconds < 0 ? '#F87171' : C.accent, 
+                  fontFamily: 'monospace' 
                 }}>
                   {formatTimer(timerSeconds)}
                 </span>
               </>
             ) : (
-              <MoreHorizontal style={{ width: 16, height: 16, color: 'var(--on-surface-variant)' }} />
+              <MoreHorizontal style={{ width: 16, height: 16, color: 'rgba(1, 38, 14, 0.4)' }} />
             )}
           </div>
 
-          {/* VOICE button */}
+          {/* VOICE button — green background */}
           <div
             onClick={(e) => { e.stopPropagation(); setCaptureMode('voice'); setCaptureCreationSource('mini_voice'); setCaptureOpen(true); }}
             style={{
-              width: 32, height: 28, borderRadius: 999,
-              background: 'var(--primary)',
+              width: 30, height: 26, borderRadius: 999,
+              background: C.accent,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               cursor: 'pointer', flexShrink: 0,
             }}
             title="Añadir por voz"
           >
-            <Mic style={{ width: 13, height: 13, color: 'var(--primary-foreground)' }} />
+            <Mic style={{ width: 13, height: 13, color: '#F2F2F2' }} />
           </div>
 
-          {/* RECURRENCE button */}
+          {/* RECURRENCE button — Repeat icon */}
           <div
             onClick={(e) => { 
               e.stopPropagation(); 
               setRecurrenceFlowOpen(true);
             }}
             style={{
-              width: 32, height: 28, borderRadius: 999,
-              background: 'var(--surface-container)',
+              width: 30, height: 26, borderRadius: 999,
+              background: 'rgba(255,255,255,0.09)',
               border: `1px solid ${C.border}`,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               cursor: 'pointer', flexShrink: 0,
             }}
             title="Crear tarea recurrente"
           >
-            <Repeat style={{ width: 12, height: 12, color: 'var(--on-surface-variant)' }} />
+            <Repeat style={{ width: 12, height: 12, color: '#fff' }} />
           </div>
 
-          {/* TEXT button */}
+          {/* TEXT button — + icon */}
           <div
             onClick={(e) => { e.stopPropagation(); setCaptureMode('text'); setCaptureCreationSource('mini_plus'); setCaptureOpen(true); }}
             style={{
-              width: 32, height: 28, borderRadius: 999,
-              background: 'var(--surface-container)',
+              width: 30, height: 26, borderRadius: 999,
+              background: 'rgba(255,255,255,0.09)',
               border: `1px solid ${C.border}`,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               cursor: 'pointer', flexShrink: 0,
             }}
             title="Añadir tarea"
           >
-            <Plus style={{ width: 14, height: 14, color: 'var(--on-surface-variant)' }} />
+            <Plus style={{ width: 14, height: 14, color: 'rgba(255,255,255,0.8)' }} />
           </div>
         </div>
 
         <div style={{ textAlign: 'right' }}>
-          <div style={{ fontSize: 20, fontWeight: 900, letterSpacing: '-0.03em', color: 'var(--foreground)', lineHeight: 1 }}>
+          <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.03em', color: C.text, lineHeight: 1 }}>
             {format(now, 'h:mm')}
-            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--on-surface-variant)', opacity: 0.5, marginLeft: 3 }}>{format(now, 'a')}</span>
+            <span style={{ fontSize: 13, fontWeight: 600, color: C.muted, marginLeft: 3 }}>{format(now, 'a')}</span>
           </div>
-          <div style={{ fontSize: 9, color: 'var(--on-surface-variant)', opacity: 0.4, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', marginTop: 2 }}>
+          <div style={{ fontSize: 10, color: C.muted, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
             {format(now, 'EEE d MMM', { locale: es })}
           </div>
         </div>
@@ -865,7 +846,7 @@ const MiniTaskList = () => {
 
       {/* Progress bar */}
       {totalCount > 0 && (
-        <div style={{ height: 3, background: 'var(--surface-container-high)', flexShrink: 0, margin: '0 0 2px' }}>
+        <div style={{ height: 3, background: 'rgba(255,255,255,0.06)', flexShrink: 0, margin: '0 0 2px' }}>
           <motion.div initial={{ width: 0 }} animate={{ width: `${progress}%` }}
             transition={{ duration: 0.5, ease: 'easeOut' }}
             style={{ height: '100%', background: C.accent }} />

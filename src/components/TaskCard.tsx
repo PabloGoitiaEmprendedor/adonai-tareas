@@ -4,7 +4,6 @@ import { Check, Clock, Link as LinkIcon } from 'lucide-react';
 import SubtasksSection from './SubtasksSection';
 import { useSubtasks } from '@/hooks/useSubtasks';
 import { useTasks } from '@/hooks/useTasks';
-import { usePriorityColors } from '@/hooks/usePriorityColors';
 
 interface TaskCardProps {
   task: any;
@@ -63,14 +62,15 @@ export const TaskCard = ({
   const completedSubtasks = subtasks.filter(s => s.status === 'done').length;
   const hasSubtasks = subtasks.length > 0;
 
-  const { colors: priorityColors } = usePriorityColors();
-
-  const getPriorityColor = () => {
-    if (task.urgency && task.importance) return priorityColors.p1;
-    if (task.urgency && !task.importance) return priorityColors.p2;
-    if (!task.urgency && task.importance) return priorityColors.p3;
-    return priorityColors.p4;
-  };
+  // Eisenhower quadrant color (subtle dot, not a loud accent)
+  // urg+imp = green, urg = orange, imp = yellow, none = gray
+  const quadrantColor = task.urgency && task.importance
+    ? 'bg-emerald-500'
+    : task.urgency
+      ? 'bg-orange-500'
+      : task.importance
+        ? 'bg-yellow-400'
+        : 'bg-on-surface-variant/30';
 
   return (
     <motion.div
@@ -92,13 +92,9 @@ export const TaskCard = ({
         isDone || completingTaskId === task.id
           ? 'bg-transparent border-transparent opacity-40' 
           : dragIdx === taskIdx || touchIdx === taskIdx 
-            ? 'scale-[1.02] shadow-lg border-primary z-30' 
-            : 'hover:border-on-surface-variant/30'
+            ? 'bg-card scale-[1.02] shadow-lg border-primary z-30' 
+            : 'bg-card hover:border-on-surface-variant/30 border-outline-variant'
       }`}
-      style={{ 
-        backgroundColor: (isDone || completingTaskId === task.id) ? 'transparent' : `${getPriorityColor()}15`,
-        borderColor: (isDone || completingTaskId === task.id) ? 'transparent' : (dragIdx === taskIdx || touchIdx === taskIdx ? undefined : `${getPriorityColor()}30`)
-      }}
     >
       {/* Checkbox */}
       <div className="relative flex-shrink-0">
@@ -122,22 +118,23 @@ export const TaskCard = ({
       </div>
 
       <div className="flex-1 min-w-0 relative flex flex-col justify-center min-h-[44px]">
+        <div className="flex items-center gap-2 mb-1">
+          <div
+            className={`w-2 h-2 rounded-full ${quadrantColor} flex-shrink-0`}
+            aria-hidden
+          />
+          
           {/* Subtasks Toggle directly to the left of the title */}
           <button
             onClick={(e) => {
               e.stopPropagation();
               setSubtasksOpen(!subtasksOpen);
             }}
-            className="flex-shrink-0 text-on-surface-variant/40 hover:text-primary transition-colors flex items-center mb-1 w-fit"
+            className="flex-shrink-0 text-on-surface-variant/40 hover:text-primary transition-colors flex items-center"
           >
             <span className={`text-[18px] font-black inline-block transition-transform ${subtasksOpen ? 'rotate-90 text-primary' : ''}`}>
-              +
+              {">"}
             </span>
-            {hasSubtasks && !subtasksOpen && (
-              <span className="text-[10px] font-black text-on-surface-variant/40 ml-1">
-                {completedSubtasks}/{subtasks.length}
-              </span>
-            )}
           </button>
 
           <div className={`text-lg font-black tracking-tight transition-all flex flex-1 items-center gap-2 font-headline break-words ${
@@ -181,7 +178,14 @@ export const TaskCard = ({
                 </span>
               );
             })()}
+            
+            {hasSubtasks && !subtasksOpen && (
+              <span className="text-[10px] font-black text-on-surface-variant/40 ml-1">
+                {completedSubtasks}/{subtasks.length}
+              </span>
+            )}
           </div>
+        </div>
         
         {(isDone || completingTaskId === task.id) && (
           <motion.div 

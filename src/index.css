@@ -7,76 +7,90 @@
 @layer base {
   :root {
     --background: 0 0% 95%; /* #F2F2F2 */
-    --foreground: 0 0% 5%;   /* #0D0D0D */
-
+    --foreground: 140 95% 8%; /* #01260E - Deep Green as text */
     --card: 0 0% 100%;
-    --card-foreground: 0 0% 5%;
-
+    --card-foreground: 140 95% 8%;
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 5%;
-
-    --primary: 112 91% 44%; /* #21D904 */
+    --popover-foreground: 140 95% 8%;
+    
+    --primary: 112 98% 44%; /* #21D904 - Bright Green */
     --primary-foreground: 0 0% 100%;
+    --primary-container: 101 64% 34%; /* #418C1F */
+    
+    --secondary: 140 95% 8%; /* #01260E */
+    --secondary-foreground: 0 0% 95%;
+    --secondary-container: 84 71% 51%; /* #93D929 */
+    
+    --muted: 0 0% 90%;
+    --muted-foreground: 140 95% 20%;
+    
+    --accent: 84 71% 51%; /* #93D929 */
+    --accent-foreground: 140 95% 8%;
+    
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    
+    --border: 140 95% 8% / 0.1;
+    --input: 140 95% 8% / 0.1;
+    --ring: 112 98% 44%;
+    --radius: 1.5rem;
 
-    --secondary: 0 0% 92%;
-    --secondary-foreground: 0 0% 5%;
+    --surface: 0 0% 100%;
+    --surface-dim: 0 0% 92%;
+    --surface-container-lowest: 0 0% 100%;
+    --surface-container-low: 0 0% 98%;
+    --surface-container: 0 0% 96%;
+    --surface-container-high: 0 0% 94%;
+    --surface-container-highest: 0 0% 90%;
+    --on-surface: 140 95% 8%;
+    --on-surface-variant: 140 95% 20%;
+    --outline: 140 95% 8% / 0.2;
+    --outline-variant: 140 95% 8% / 0.1;
 
-    --muted: 0 0% 92%;
-    --muted-foreground: 0 0% 35%; /* #595959 */
+    --error: 0 84% 60%;
+    --error-container: 0 100% 95%;
+    --on-error: 0 0% 100%;
 
-    --accent: 0 0% 92%;
-    --accent-foreground: 0 0% 5%;
-
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-
-    --border: 0 0% 88%;
-    --input: 0 0% 88%;
-    --ring: 112 91% 44%;
-
-    --radius: 1rem;
-
-    /* Bento specifics */
-    --surface: 0 0% 98%;
-    --on-surface: 0 0% 5%;
-    --outline-variant: 0 0% 90%;
-    --surface-container-low: 0 0% 96%;
-    --surface-container: 0 0% 94%;
-    --surface-container-high: 0 0% 92%;
+    --tertiary: 101 64% 34%;
+    --tertiary-container: 101 64% 44%;
   }
 
+  /* Forcing consistent palette across modes if needed, 
+     but keeping a refined dark mode structure using the deep green as base */
   .dark {
-    --background: 0 0% 5%; /* #0D0D0D */
-    --foreground: 0 0% 95%; /* #F2F2F2 */
-
-    --card: 0 0% 8%;
+    --background: 140 95% 4%; /* Even deeper green than #01260E */
+    --foreground: 0 0% 95%;
+    --card: 140 95% 6%;
     --card-foreground: 0 0% 95%;
-
-    --popover: 0 0% 8%;
+    --popover: 140 95% 6%;
     --popover-foreground: 0 0% 95%;
+    
+    --primary: 112 98% 44%;
+    --primary-foreground: 140 95% 4%;
+    --primary-container: 101 64% 34%;
+    
+    --secondary: 0 0% 95%;
+    --secondary-foreground: 140 95% 4%;
+    
+    --muted: 140 95% 10%;
+    --muted-foreground: 140 95% 60%;
+    
+    --accent: 84 71% 51%;
+    --accent-foreground: 140 95% 4%;
+    
+    --border: 0 0% 95% / 0.1;
+    --input: 0 0% 95% / 0.1;
+    --ring: 112 98% 44%;
 
-    --primary: 112 91% 44%; /* #21D904 */
-    --primary-foreground: 0 0% 100%;
-
-    --secondary: 0 0% 15%;
-    --secondary-foreground: 0 0% 95%;
-
-    --muted: 0 0% 15%;
-    --muted-foreground: 0 0% 55%; /* #8C8C8C */
-
-    --accent: 0 0% 15%;
-    --accent-foreground: 0 0% 95%;
-
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-
-    --border: 0 0% 15%;
-    --input: 0 0% 15%;
-    --ring: 112 91% 44%;
-
-    /* Bento specifics */
-    --surface: 0 0% 8%;
+    --surface: 140 95% 6%;
+    --surface-dim: 140 95% 4%;
+    --surface-container-lowest: 140 95% 3%;
+    --surface-container-low: 140 95% 5%;
+    --surface-container: 140 95% 8%;
+    --surface-container-high: 140 95% 10%;
+    --surface-container-highest: 140 95% 15%;
     --on-surface: 0 0% 95%;
+    --on-surface-variant: 0 0% 80%;
     --outline: 0 0% 95% / 0.2;
     --outline-variant: 0 0% 95% / 0.1;
   }
