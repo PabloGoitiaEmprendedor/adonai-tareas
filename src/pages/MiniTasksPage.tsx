@@ -299,10 +299,11 @@ const TaskRowRaw = ({ task, onToggle, onDetail, activeTimerId, onTimerToggle, up
             }}
           >
             <span style={{ fontSize: 10, fontWeight: 700, color: C.accent }}>{doneSubCount}/{subtasks.length}</span>
-            <ChevronRight style={{
-              width: 11, height: 11, color: C.accent,
-              transform: open ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s',
-            }} />
+            <span style={{ 
+              fontSize: 16, fontWeight: 900, color: C.accent,
+              transform: open ? 'rotate(45deg)' : 'none', transition: 'transform 0.2s',
+              display: 'inline-block'
+            }}>+</span>
           </div>
         )}
       </div>

@@ -119,7 +119,7 @@ const DailyPage = () => {
   const timerDurationRef = useRef(0);
   const captureModalRef = useRef<TaskCaptureModalHandle>(null);
   const hasTrackedDayRef = useRef(false);
-  const [miniWidgetOpen, setMiniWidgetOpen] = useState(() => !!window.electronAPI);
+  const [miniWidgetOpen, setMiniWidgetOpen] = useState(false);
 
   useEffect(() => {
     const t = setInterval(() => setCurrentTime(new Date()), 30_000);
@@ -356,7 +356,7 @@ const DailyPage = () => {
         onClose={() => setTimerTask(null)} 
         durationRef={timerDurationRef}
       />
-      <MiniTaskWidget isOpen={miniWidgetOpen} onClose={() => setMiniWidgetOpen(false)} />
+      {!window.electronAPI && <MiniTaskWidget isOpen={miniWidgetOpen} onClose={() => setMiniWidgetOpen(false)} />}
     </div>
   );
 };
