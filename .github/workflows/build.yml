@@ -11,7 +11,10 @@ permissions:
 
 jobs:
   release:
-    runs-on: windows-latest
+    strategy:
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -30,12 +33,18 @@ jobs:
         run: npm run build
         timeout-minutes: 15
 
-      - name: Build Electron app (without publish)
+      - name: Build Electron app (Win)
+        if: matrix.os == 'windows-latest'
         run: npx electron-builder --win --publish never
         timeout-minutes: 30
 
+      - name: Build Electron app (Mac)
+        if: matrix.os == 'macos-latest'
+        run: npx electron-builder --mac --publish never
+        timeout-minutes: 30
+
       - name: List build output
-        run: dir dist-electron
+        run: ls -R dist-electron || dir dist-electron
         if: always()
 
       - name: Create Release and Upload
@@ -44,6 +53,8 @@ jobs:
         with:
           files: |
             dist-electron/Adonai-Setup-*.exe
+            dist-electron/Adonai-*.dmg
+            dist-electron/Adonai-*-mac.zip
             dist-electron/latest.yml
             dist-electron/*.blockmap
           draft: false

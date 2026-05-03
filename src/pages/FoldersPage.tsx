@@ -548,21 +548,19 @@ const FoldersPage = () => {
 
       <div className="max-w-[430px] lg:max-w-6xl mx-auto px-6 pt-20 pb-40 space-y-16 relative">
         <div className="flex items-end justify-between">
-          <div className="space-y-6">
+          <div className="space-y-4">
             <motion.div 
-              initial={{ opacity: 0, x: -20 }}
+              initial={{ opacity: 0, x: -10 }}
               animate={{ opacity: 1, x: 0 }}
-              className="flex items-center gap-3"
+              className="inline-flex px-3 py-1 rounded-full bg-primary/10 border border-primary/20"
             >
-              <div className="px-4 py-2 rounded-2xl bg-surface-container-high flex items-center justify-center border border-outline-variant/10 shadow-sm">
-                <p className="text-[10px] font-black uppercase tracking-[0.4em] text-on-surface-variant/60">SISTEMA PRO</p>
-              </div>
+              <p className="text-[9px] font-black uppercase tracking-[0.3em] text-primary">Arquitectura</p>
             </motion.div>
             <motion.h1 
-              initial={{ opacity: 0, y: 30 }}
+              initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 }}
-              className="text-7xl lg:text-9xl font-black tracking-tighter font-headline text-foreground leading-none"
+              className="text-5xl lg:text-7xl font-black tracking-tight font-headline text-foreground leading-none"
             >
               Proyectos
             </motion.h1>
@@ -570,16 +568,16 @@ const FoldersPage = () => {
           <motion.button 
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
-            whileHover={{ scale: 1.05, rotate: 5 }}
+            whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => {
               setNewName('');
               setNewColor(FOLDER_COLORS[0]);
               setShowCreate(true);
             }}
-            className="w-20 h-20 lg:w-24 lg:h-24 rounded-[32px] lg:rounded-[40px] bg-primary text-primary-foreground flex items-center justify-center shadow-[0_20px_50px_rgba(195,245,60,0.4)] group transition-all"
+            className="w-16 h-16 lg:w-20 lg:h-20 rounded-[28px] lg:rounded-[32px] bg-primary text-primary-foreground flex items-center justify-center shadow-lg shadow-primary/20 group transition-all"
           >
-            <Plus className="w-10 h-10 lg:w-12 lg:h-12 group-hover:scale-110 transition-transform" strokeWidth={3} />
+            <Plus className="w-8 h-8 lg:w-10 lg:h-10 group-hover:rotate-90 transition-transform" strokeWidth={3} />
           </motion.button>
         </div>
 
@@ -659,7 +657,7 @@ const FoldersPage = () => {
 
                       <div className="space-y-8 relative z-10">
                         <div className="space-y-3">
-                          <h3 className="text-4xl font-black text-foreground tracking-tight leading-[0.9] font-headline">{folder.name}</h3>
+                          <h3 className="text-2xl font-black text-foreground tracking-tight leading-tight font-headline">{folder.name}</h3>
                           <div className="flex items-center gap-3">
                             <div className="flex -space-x-2.5">
                               <div className="w-7 h-7 rounded-full bg-surface-container-high border-2 border-card flex items-center justify-center text-[9px] font-black text-foreground shadow-sm">ME</div>

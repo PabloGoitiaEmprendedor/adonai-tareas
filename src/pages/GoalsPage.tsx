@@ -101,41 +101,43 @@ const GoalsPage = () => {
     <div className="min-h-screen bg-background text-foreground font-sans selection:bg-primary/30">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-8 pb-32 space-y-12">
         
-        {/* Hero Header */}
-        <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 border-b border-border/40 pb-8">
-          <div className="space-y-2">
+        {/* New Minimal Header */}
+        <header className="flex flex-col lg:flex-row lg:items-end justify-between gap-10 border-b border-outline-variant/10 pb-16">
+          <div className="space-y-6">
             <motion.div 
-              initial={{ opacity: 0, x: -20 }}
+              initial={{ opacity: 0, x: -10 }}
               animate={{ opacity: 1, x: 0 }}
-              className="flex items-center gap-2 text-primary font-bold tracking-[0.2em] text-[10px] uppercase"
+              className="inline-flex px-3 py-1 rounded-full bg-primary/10 border border-primary/20"
             >
-              <Target className="w-3 h-3" />
-              <span>Arquitectura de Vida</span>
+              <p className="text-[9px] font-black uppercase tracking-[0.3em] text-primary">Logros & Objetivos</p>
             </motion.div>
             <motion.h1 
-              initial={{ opacity: 0, y: 10 }}
+              initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="text-4xl sm:text-5xl font-black tracking-tight leading-[0.9] sm:max-w-md"
+              transition={{ delay: 0.1 }}
+              className="text-6xl lg:text-8xl font-black tracking-tight font-headline text-foreground leading-none"
             >
-              Tus Metas <span className="text-on-surface-variant/40">Elevadas.</span>
+              Niveles de <span className="opacity-20">Vida.</span>
             </motion.h1>
           </div>
           
           <motion.div 
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="flex items-center gap-4"
+            className="flex items-center gap-6"
           >
-            <div className="text-right hidden sm:block">
-              <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">Progreso Global</p>
-              <p className="text-2xl font-black text-primary leading-none">{completedGoalsCount} <span className="text-sm font-medium text-on-surface-variant/60">Logradas</span></p>
+            <div className="text-right">
+              <p className="text-[10px] font-black text-on-surface-variant/40 uppercase tracking-[0.2em] mb-1">Impacto Total</p>
+              <div className="flex items-center justify-end gap-2">
+                <Trophy className="w-5 h-5 text-primary" />
+                <span className="text-3xl font-black text-foreground">{completedGoalsCount}</span>
+              </div>
             </div>
             <button 
               onClick={() => setShowNewGoal(true)}
-              className="px-6 py-3 bg-primary text-primary-foreground rounded-2xl font-black text-sm flex items-center gap-2 shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all"
+              className="w-16 h-16 lg:w-20 lg:h-20 rounded-[28px] lg:rounded-[32px] bg-primary text-primary-foreground flex items-center justify-center shadow-lg shadow-primary/20 hover:scale-105 active:scale-95 transition-all group"
             >
-              <Plus className="w-4 h-4" />
-              Nueva Visión
+              <Plus className="w-8 h-8 lg:w-10 lg:h-10 group-hover:rotate-90 transition-transform" strokeWidth={3} />
             </button>
           </motion.div>
         </header>
@@ -235,7 +237,6 @@ const GoalsPage = () => {
                 {groupedGoals[h].map((goal, idx) => {
                   const { completed, total } = getGoalProgress(goal.id);
                   const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
-                  const isLarge = idx === 0 && h === 'annual'; // Example logic for varied sizes
                   
                   return (
                     <motion.div 
@@ -244,61 +245,53 @@ const GoalsPage = () => {
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: idx * 0.1 }}
-                      className={`group relative bg-surface-container-low border border-border/40 p-6 rounded-[2.5rem] hover:bg-surface-container transition-all hover:shadow-2xl hover:shadow-black/5 flex flex-col gap-6 ${
-                        isLarge ? 'md:col-span-2 lg:row-span-2' : ''
-                      }`}
+                      className="group relative bg-surface-container-low border border-outline-variant/10 p-8 rounded-[2.5rem] hover:bg-surface-container transition-all hover:shadow-xl flex flex-col gap-8"
                     >
-                      {/* Top Meta */}
                       <div className="flex justify-between items-start">
-                        <div className="flex items-center gap-2 px-3 py-1 bg-surface-container-highest rounded-full">
-                          <span className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant/60">{horizonLabels[h]}</span>
+                        <div className="px-3 py-1 rounded-full bg-primary/5 border border-primary/10">
+                          <span className="text-[8px] font-black uppercase tracking-[0.2em] text-primary">{horizonLabels[h]}</span>
                         </div>
-                        <div className="p-2 bg-primary/10 rounded-xl text-primary opacity-0 group-hover:opacity-100 transition-opacity">
-                          <Zap className="w-4 h-4 fill-current" />
-                        </div>
+                        <div className={`w-3 h-3 rounded-full ${pct === 100 ? 'bg-primary' : 'bg-primary/20 animate-pulse'}`} />
                       </div>
 
-                      {/* Content */}
-                      <div className="flex-1 space-y-2">
-                        <h3 className="text-xl sm:text-2xl font-black tracking-tight leading-tight">{goal.title}</h3>
-                        <div className="flex items-center gap-2 text-xs font-bold text-on-surface-variant/40">
-                          <Layout className="w-3 h-3" />
-                          <span>{total} hitos definidos</span>
-                        </div>
-                      </div>
-
-                      {/* Progress Section */}
-                      <div className="space-y-4">
-                        <div className="flex items-end justify-between">
-                          <div className="space-y-1">
-                            <p className="text-[10px] font-black text-on-surface-variant/40 uppercase tracking-widest">Ejecución</p>
-                            <p className="text-2xl font-black leading-none">{pct}%</p>
+                      <div className="flex-1 space-y-3">
+                        <h3 className="text-2xl font-black tracking-tight leading-tight group-hover:text-primary transition-colors">{goal.title}</h3>
+                        <div className="flex items-center gap-2">
+                          <div className="flex -space-x-1">
+                            {[1, 2, 3].map(i => (
+                              <div key={i} className={`w-4 h-4 rounded-full border-2 border-surface-container-low ${i <= completed ? 'bg-primary' : 'bg-primary/10'}`} />
+                            ))}
                           </div>
-                          <p className="text-xs font-bold text-on-surface-variant/60">{completed}/{total}</p>
+                          <span className="text-[10px] font-bold text-on-surface-variant/40 uppercase tracking-widest">{completed} / {total} Hitos</span>
                         </div>
-                        
-                        <div className="relative h-2.5 w-full bg-surface-container-highest rounded-full overflow-hidden">
+                      </div>
+
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/20">Progreso</span>
+                          <span className="text-lg font-black">{pct}%</span>
+                        </div>
+                        <div className="h-1.5 w-full bg-surface-container-highest rounded-full overflow-hidden">
                           <motion.div 
                             initial={{ width: 0 }}
                             animate={{ width: `${pct}%` }}
-                            className="absolute inset-0 bg-primary rounded-full"
+                            className="h-full bg-primary rounded-full shadow-[0_0_15px_rgba(var(--primary),0.5)]"
                           />
                         </div>
                       </div>
 
-                      {/* Actions */}
-                      <div className="flex gap-2 opacity-0 group-hover:opacity-100 transform translate-y-2 group-hover:translate-y-0 transition-all">
+                      <div className="flex gap-3 pt-4 border-t border-outline-variant/5">
                         <button 
                           onClick={() => { setTargetGoalId(goal.id); setCaptureOpen(true); }}
-                          className="flex-1 py-3 bg-surface-container-highest text-foreground rounded-2xl font-black text-xs flex items-center justify-center gap-2 hover:bg-border transition-colors"
+                          className="flex-1 py-3 px-4 bg-surface-container-highest rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-primary hover:text-primary-foreground transition-all"
                         >
-                          <Plus className="w-3.5 h-3.5" /> Hito
+                          Añadir Hito
                         </button>
                         <button 
                           onClick={() => handleCompleteGoal(goal.id)}
-                          className="flex-1 py-3 bg-primary/10 text-primary rounded-2xl font-black text-xs flex items-center justify-center gap-2 hover:bg-primary/20 transition-colors"
+                          className="px-4 py-3 bg-primary/10 text-primary rounded-2xl hover:bg-primary hover:text-primary-foreground transition-all"
                         >
-                          <Check className="w-3.5 h-3.5" /> Lograr
+                          <Check className="w-4 h-4" strokeWidth={3} />
                         </button>
                       </div>
                     </motion.div>

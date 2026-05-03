@@ -145,6 +145,8 @@ function createMainWindow() {
     backgroundColor: process.platform === 'darwin' ? '#18181B' : '#F8F9FA',
     show: false,
     autoHideMenuBar: true,
+    frame: false,
+    titleBarStyle: 'hidden', // Native buttons on Mac, custom on Windows
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -481,4 +483,22 @@ ipcMain.on('restart-app', () => {
 
 ipcMain.on('log-message', (event, msg) => {
   console.log(`[RendererLog] ${msg}`);
+});
+
+ipcMain.on('window-minimize', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (win) win.minimize();
+});
+
+ipcMain.on('window-maximize', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (win) {
+    if (win.isMaximized()) win.unmaximize();
+    else win.maximize();
+  }
+});
+
+ipcMain.on('window-close', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (win) win.close();
 });

@@ -350,31 +350,6 @@ const DailyPage = () => {
           </div>
         ) : null}
 
-        <form
-          onSubmit={handleQuickAdd}
-          className="flex items-center gap-3 p-4 rounded-[32px] bg-card border-4 border-outline-variant/10 shadow-xl focus-within:border-primary transition-all duration-500"
-        >
-          <div className="w-10 h-10 rounded-[14px] bg-primary/15 flex items-center justify-center flex-shrink-0">
-            <Plus className="w-5 h-5 text-primary" strokeWidth={3} />
-          </div>
-          <input
-            type="text"
-            value={quickAddTitle}
-            onChange={(e) => setQuickAddTitle(e.target.value)}
-            placeholder="Nueva tarea para hoy…"
-            className="flex-1 bg-transparent border-none focus:outline-none focus:ring-0 text-lg font-bold text-foreground placeholder:text-on-surface-variant/20 font-headline"
-          />
-          {quickAddTitle.trim() && (
-            <motion.button
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              type="submit"
-              className="text-xs font-black uppercase tracking-[0.2em] bg-foreground text-background px-5 py-2.5 rounded-[16px] hover:opacity-90 transition-all shadow-md active:scale-95"
-            >
-              Añadir
-            </motion.button>
-          )}
-        </form>
       </div>
 
       <TaskCaptureModal 

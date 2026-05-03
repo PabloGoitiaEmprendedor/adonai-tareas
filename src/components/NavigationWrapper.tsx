@@ -8,6 +8,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import BottomNav from './BottomNav';
 import AppTutorial from './AppTutorial';
+import TitleBar from './TitleBar';
 
 interface NavigationWrapperProps {
   children: React.ReactNode;
@@ -177,11 +178,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
 
   return (
     <div className="min-h-screen bg-background">
-      {window.electronAPI && (
-        <div className="fixed top-0 left-0 right-0 h-8 drag z-[100] pointer-events-none">
-          <div className="h-full w-full no-drag" />
-        </div>
-      )}
+      <TitleBar />
       <AppTutorial run={tutorialRun} onFinish={() => setTutorialRun(false)} />
       
       <Sheet open={open} onOpenChange={setOpen}>
