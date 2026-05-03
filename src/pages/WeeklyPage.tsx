@@ -3,6 +3,7 @@ import { useTasks } from '@/hooks/useTasks';
 import { useGoals } from '@/hooks/useGoals';
 import { useProfile } from '@/hooks/useProfile';
 import { useGlobalVoiceCapture } from '@/hooks/useGlobalVoiceCapture';
+import { usePriorityColors } from '@/hooks/usePriorityColors';
 import { format, startOfWeek, addDays, subDays, isSameDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { CalendarSearch as CalendarIcon, Check, GripVertical, Timer, Plus, Link as LinkIcon, LayoutList } from 'lucide-react';
@@ -209,6 +210,8 @@ const WeeklyPage = () => {
     setTimerTask(task);
   };
 
+  const { colors: priorityColors } = usePriorityColors();
+
   return (
       <div className="max-w-7xl mx-auto px-6 pt-12 pb-32 space-y-10">
         <header className="flex flex-col items-center justify-center space-y-4 px-2 animate-in fade-in slide-in-from-top-4 duration-700">
@@ -231,15 +234,22 @@ const WeeklyPage = () => {
         <section className="space-y-10">
           {view === 'calendar' ? (
             <EventManager 
-              events={tasks.map(t => ({
-                id: t.id,
-                title: t.title,
-                description: t.description || '',
-                startTime: new Date(t.due_date + 'T09:00:00'),
-                endTime: new Date(t.due_date + 'T10:00:00'),
-                color: t.priority === 'high' ? 'red' : t.priority === 'medium' ? 'orange' : 'blue',
-                category: 'Tarea'
-              }))}
+              events={tasks.map(t => {
+                const colorKey = t.urgency && t.importance ? 'p1' : 
+                                t.urgency && !t.importance ? 'p2' :
+                                !t.urgency && t.importance ? 'p3' : 'p4';
+                const color = priorityColors[colorKey] === 'transparent' ? 'var(--primary)' : priorityColors[colorKey];
+
+                return {
+                  id: t.id,
+                  title: t.title,
+                  description: t.description || '',
+                  startTime: new Date(t.due_date + 'T09:00:00'),
+                  endTime: new Date(t.due_date + 'T10:00:00'),
+                  color: color,
+                  category: 'Tarea'
+                };
+              })}
               onEventClick={(event) => {
                 const task = tasks.find(t => t.id === event.id);
                 if (task) setSelectedTask(task);

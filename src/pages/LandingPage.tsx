@@ -10,7 +10,14 @@ function useDownload(platform: 'win' | 'mac') {
   const handleDownload = () => {
     setDownloading(true);
     const url = platform === 'win' ? WIN_DOWNLOAD : MAC_DOWNLOAD;
-    window.location.href = url;
+    
+    const link = document.createElement('a');
+    link.href = url;
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
     setTimeout(() => setDownloading(false), 3000);
   };
   return { downloading, handleDownload };

@@ -435,9 +435,10 @@ function MonthView({
                         onClick={() => onEventClick(event)}
                         className={cn(
                           "cursor-pointer rounded-md px-2 py-0.5 text-[9px] font-bold truncate transition-all hover:brightness-110 active:scale-95",
-                          getColorClasses(event.color).bg,
+                          !event.color.startsWith('#') && !event.color.startsWith('var') && getColorClasses(event.color).bg,
                           "text-white shadow-sm"
                         )}
+                        style={{ backgroundColor: (event.color.startsWith('#') || event.color.startsWith('var')) ? event.color : undefined }}
                       >
                         {event.title}
                       </div>
@@ -476,7 +477,10 @@ function MonthView({
                             "group flex items-center gap-2 p-2 rounded-xl cursor-pointer transition-all hover:bg-white/5 border border-transparent hover:border-white/5",
                           )}
                         >
-                          <div className={cn("w-1.5 h-1.5 rounded-full shrink-0", getColorClasses(event.color).bg)} />
+                          <div 
+                            className={cn("w-1.5 h-1.5 rounded-full shrink-0", !event.color.startsWith('#') && !event.color.startsWith('var') && getColorClasses(event.color).bg)} 
+                            style={{ backgroundColor: (event.color.startsWith('#') || event.color.startsWith('var')) ? event.color : undefined }}
+                          />
                           <p className="text-[11px] font-black text-foreground truncate group-hover:text-primary">
                             {event.title}
                           </p>
