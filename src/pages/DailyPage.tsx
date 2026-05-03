@@ -113,7 +113,6 @@ const DailyPage = () => {
   const [orderedTasks, setOrderedTasks] = useState<any[]>([]);
   const [dragIdx] = useState<number | null>(null);
   const [completingTaskId, setCompletingTaskId] = useState<string | null>(null);
-  const [quickAddTitle, setQuickAddTitle] = useState('');
   const [currentTime, setCurrentTime] = useState(new Date());
   const timerDurationRef = useRef(0);
   const captureModalRef = useRef<TaskCaptureModalHandle>(null);
@@ -132,18 +131,6 @@ const DailyPage = () => {
     return () => clearInterval(t);
   }, []);
 
-  const handleQuickAdd = (e: React.FormEvent) => {
-    e.preventDefault();
-    const title = quickAddTitle.trim();
-    if (!title) return;
-    createTask.mutate(
-      { title, due_date: today, source_type: 'text', creation_source: 'secondary' },
-      {
-        onSuccess: () => setQuickAddTitle(''),
-        onError: () => toast.error('No se pudo crear la tarea'),
-      }
-    );
-  };
 
   const openCapture = useCallback(() => setCaptureOpen(true), []);
   const openCaptureInVoiceMode = useCallback(() => {

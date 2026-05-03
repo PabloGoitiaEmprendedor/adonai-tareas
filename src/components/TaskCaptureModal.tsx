@@ -1,6 +1,6 @@
 import { useState, useEffect, forwardRef, useImperativeHandle, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mic, X, Square, Type, Check, Edit2 } from 'lucide-react';
+import { Mic, X, Square, Type, Check, Edit2, ChevronRight, Calendar as CalendarIcon, Link as LinkIcon, Target } from 'lucide-react';
 import { AutoTextarea } from '@/components/ui/auto-textarea';
 import { useVoiceCapture } from '@/hooks/useVoiceCapture';
 import { parseVoiceTranscript } from '@/hooks/useVoiceParser';
@@ -8,10 +8,13 @@ import { useTasks } from '@/hooks/useTasks';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { format } from 'date-fns';
+import { format, addDays } from 'date-fns';
 import { dispatchVoiceCaptureClosed, dispatchVoiceCaptureOpened } from '@/lib/voiceEvents';
 import { AISphere } from './AISphere';
 import { useGoals } from '@/hooks/useGoals';
+import { CalendarDatePicker } from './ui/calendar-date-picker';
+import { Badge } from './ui/badge';
+import { cn } from '@/lib/utils';
 
 interface TaskCaptureModalProps {
   open: boolean;
@@ -23,7 +26,6 @@ interface TaskCaptureModalProps {
   creationSource?: 'fab' | 'secondary' | 'mini_plus' | 'mini_voice';
 }
 
-
 export interface TaskCaptureModalHandle {
   openInVoiceMode: () => Promise<boolean>;
 }
@@ -34,7 +36,7 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
   const { createTask } = useTasks();
   const { goals } = useGoals();
 
-  const [phase, setPhase] = useState<'select' | 'input' | 'date' | 'review' | 'saving' | 'image_date'>('select');
+  const [phase, setPhase] = useState<'select' | 'input' | 'planning' | 'saving' | 'image_date'>('select');
   const [selectedGoalId, setSelectedGoalId] = useState<string | null>(null);
   const [reviewImportance, setReviewImportance] = useState(false);
   const [reviewUrgency, setReviewUrgency] = useState(false);
@@ -206,7 +208,7 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
     } catch (err) {
       if (!isImageLoop) {
         toast.error('Error al crear tarea');
-        setPhase('review');
+        setPhase('planning');
       }
       throw err;
     } finally {
@@ -235,8 +237,7 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
     setDueDate(parsedDate);
     setClassificationSource(sourceForClassification);
 
-    // Voice and text both go to date phase first
-    setPhase('date');
+    setPhase('planning');
   }, [title, dueDate, sourceType]);
 
   useEffect(() => {
@@ -293,37 +294,15 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
 
     try {
       const resizedBase64 = await resizeImage(file);
-      const systemPrompt = `Eres Adonai, un asistente de productividad experto. Hoy es ${todayStr}.
-
-IMPORTANTE: Si el usuario dicta algo que parece contener varias tareas separadas, intenta consolidarlas en la tarea más importante o enfócate en la primera. Solo puedes devolver UNA tarea por cada llamada. No intentes meter una lista en el título.
-
-Tu trabajo es:`;
+      const systemPrompt = `Eres Adonai, un asistente de productividad experto. Hoy es ${todayStr}. Tu trabajo es extraer tareas de la imagen proporcionada.`;
       const mimeType = file.type;
 
       const { data, error } = await supabase.functions.invoke('extract-tasks-from-image', {
         body: { imageBase64: resizedBase64.split(',')[1], mimeType, systemPrompt }
       });
 
-      if (error) {
-        console.error("Functions invoke error:", error);
-        toast.error(`Error de conexión: ${error.message || 'Desconocido'}`);
-        setPhase('input');
-        return;
-      }
-
-      if (data?.error) {
-        console.error("Edge function returned error:", data.error, data.raw_content);
-        if (data.error === "parse_error") {
-          toast.error('La IA confundió el formato. Intenta con una letra más clara o menos texto.');
-        } else {
-          toast.error(`Error interno: ${data.error}`);
-        }
-        setPhase('input');
-        return;
-      }
-
-      if (!data.tasks || data.tasks.length === 0) {
-        toast.error('No se detectaron tareas escritas. Intenta con mejor luz o toma más cerca.');
+      if (error || !data?.tasks) {
+        toast.error('No se detectaron tareas');
         setPhase('input');
         return;
       }
@@ -340,7 +319,6 @@ Tu trabajo es:`;
         setPhase('image_date');
       }
     } catch (err) {
-      console.error("Image process error:", err);
       toast.error('Error al procesar la imagen');
       setPhase('input');
     }
@@ -365,7 +343,6 @@ Tu trabajo es:`;
     
     for (let i = 0; i < tasks.length; i++) {
       const task = tasks[i];
-      setSavingMessage(`Creando tarea ${i + 1} de ${tasks.length}...`);
       const date = task.assigned_date || task.detected_date || format(new Date(), 'yyyy-MM-dd');
       
       try {
@@ -379,27 +356,14 @@ Tu trabajo es:`;
         });
         createdCount++;
       } catch (e) {
-        console.error("Error creating task from image:", e);
+        console.error(e);
       }
     }
-
-    if (user) {
-      await (supabase as any).from('image_captures').insert({
-        user_id: user.id,
-        tasks_extracted: tasks.length,
-        tasks_created: createdCount
-      });
-    }
-
-    toast.success(`${createdCount} tareas creadas desde tu agenda 📸`);
+    toast.success(`${createdCount} tareas creadas 📸`);
     handleClose();
   };
 
-  const handleDateDone = async () => {
-    setPhase('review');
-  };
-
-  const handleReviewDone = async () => {
+  const handlePlanningDone = async () => {
     await saveTaskQuick({
       title: title.trim(),
       description: description.trim(),
@@ -416,13 +380,13 @@ Tu trabajo es:`;
   const waveformBars = [4, 8, 12, 14, 10, 16, 12, 14, 6, 10, 14, 8, 4];
 
   const C = {
-    bg: '#18181B',
-    surface: 'rgba(255,255,255,0.06)',
-    border: 'rgba(255,255,255,0.09)',
-    text: '#F4F4F5',
-    muted: 'rgba(255,255,255,0.35)',
-    accent: '#A3E635',
-    accentBg: 'rgba(163,230,53,0.13)',
+    bg: '#F2F2F2',
+    surface: 'rgba(1, 38, 14, 0.05)',
+    border: 'rgba(1, 38, 14, 0.1)',
+    text: '#01260E',
+    muted: 'rgba(1, 38, 14, 0.5)',
+    accent: '#21D904',
+    accentBg: 'rgba(33, 217, 4, 0.1)',
   };
 
   return (
@@ -437,23 +401,20 @@ Tu trabajo es:`;
             transition={{ type: 'spring', damping: 22, stiffness: 260 }}
             className="fixed inset-0 z-[70] flex items-center justify-center p-4 pointer-events-none"
           >
-            <div className="relative mx-auto w-full max-w-[340px] max-h-[90vh] overflow-y-auto pointer-events-auto"
+            <div className="relative mx-auto w-full max-w-[360px] max-h-[90vh] overflow-y-auto pointer-events-auto shadow-2xl"
                  style={{
-                   background: C.bg, borderRadius: 20,
+                   background: C.bg, borderRadius: 24,
                    border: `1px solid ${C.border}`,
-                   boxShadow: '0 16px 48px rgba(0,0,0,0.6)',
                  }}>
               <button
-                id="tutorial-close-capture"
                 onClick={handleClose}
-                aria-label="Cerrar"
-                className="absolute top-3 right-3 z-10 w-8 h-8 rounded-lg flex items-center justify-center transition-colors"
+                className="absolute top-4 right-4 z-10 w-8 h-8 rounded-full bg-on-surface/5 flex items-center justify-center transition-colors hover:bg-on-surface/10"
                 style={{ color: C.muted }}
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
-              <div className="p-5 pt-6 flex flex-col items-center gap-5">
 
+              <div className="p-6 pt-8 flex flex-col gap-6">
                 <AnimatePresence mode="wait">
                   {phase === 'select' && (
                     <motion.div 
@@ -461,50 +422,50 @@ Tu trabajo es:`;
                       initial={{ opacity: 0, scale: 0.95 }} 
                       animate={{ opacity: 1, scale: 1 }} 
                       exit={{ opacity: 0, scale: 0.95 }} 
-                      className="w-full flex flex-col items-center gap-8 pb-4"
+                      className="w-full flex flex-col items-center gap-8"
                     >
                       <div className="text-center space-y-2">
-                        <h2 className="text-xl font-bold tracking-tight" style={{ color: C.text }}>Añadir Tarea</h2>
-                        <p className="text-xs font-medium" style={{ color: C.muted }}>¿Cómo prefieres crearla?</p>
+                        <h2 className="text-2xl font-black tracking-tight" style={{ color: C.text }}>Añadir Tarea</h2>
+                        <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: C.muted }}>¿Cómo prefieres empezar?</p>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-3 w-full">
+                      <div className="grid grid-cols-2 gap-4 w-full">
                         <button
                           onClick={() => { setPhase('input'); setShowTextInput(true); setSourceType('text'); }}
-                          className="group flex flex-col items-center gap-2 p-3 rounded-[20px] transition-all active:scale-[0.96]"
-                          style={{ background: C.surface, border: `1px solid ${C.border}` }}
+                          className="group flex flex-col items-center gap-4 p-5 rounded-[28px] transition-all hover:bg-on-surface/5 active:scale-[0.96] border border-outline-variant"
+                          style={{ background: C.surface }}
                         >
-                          <div className="w-14 h-14 rounded-[16px] flex items-center justify-center transition-colors" style={{ background: 'rgba(255,255,255,0.05)' }}>
-                            <Type className="w-6 h-6" style={{ color: C.text }} strokeWidth={2} />
+                          <div className="w-16 h-16 rounded-[22px] flex items-center justify-center bg-on-surface/5">
+                            <Type className="w-7 h-7 text-foreground" />
                           </div>
                           <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: C.muted }}>Escribir</span>
                         </button>
 
                         <button
                           onClick={() => { setPhase('input'); beginVoiceCapture(); }}
-                          className="group flex flex-col items-center gap-2 p-3 rounded-[20px] transition-all active:scale-[0.96]"
-                          style={{ background: C.accentBg, border: `1px solid rgba(163,230,53,0.15)` }}
+                          className="group flex flex-col items-center gap-4 p-5 rounded-[28px] transition-all active:scale-[0.96] border border-primary/20"
+                          style={{ background: C.accentBg }}
                         >
-                          <div className="w-14 h-14 rounded-[16px] flex items-center justify-center transition-colors" style={{ background: 'rgba(163,230,53,0.2)' }}>
-                            <Mic className="w-6 h-6" style={{ color: C.accent }} strokeWidth={2} />
+                          <div className="w-16 h-16 rounded-[22px] flex items-center justify-center bg-primary/20">
+                            <Mic className="w-7 h-7 text-primary" />
                           </div>
-                          <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: C.accent }}>Voz</span>
+                          <span className="text-[10px] font-black uppercase tracking-widest text-primary">Por Voz</span>
                         </button>
                       </div>
                     </motion.div>
                   )}
 
                   {phase === 'input' && (
-                    <motion.div key="input" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="w-full flex flex-col items-center gap-6">
+                    <motion.div key="input" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="w-full flex flex-col gap-6">
                       {(isRecording || isProcessing) && (
-                        <div className="w-full flex flex-col items-center gap-3">
-                          <div className="flex items-center justify-center gap-1.5 h-16 w-full">
+                        <div className="w-full flex flex-col items-center gap-6 py-8">
+                          <div className="flex items-center justify-center gap-1.5 h-20 w-full">
                             {isProcessing ? (
-                              <div className="flex gap-1 items-center">
+                              <div className="flex gap-2 items-center">
                                 {[0, 1, 2].map((i) => (
                                   <motion.div
                                     key={i}
-                                    className="w-2 h-2 rounded-full bg-primary"
+                                    className="w-3 h-3 rounded-full bg-primary"
                                     animate={{ opacity: [0.3, 1, 0.3], scale: [0.8, 1.2, 0.8] }}
                                     transition={{ duration: 0.8, repeat: Infinity, delay: i * 0.2 }}
                                   />
@@ -512,422 +473,178 @@ Tu trabajo es:`;
                               </div>
                             ) : (
                               waveformBars.map((h, i) => (
-                                <motion.div key={i} className="w-1 rounded-full primary-gradient" animate={{ height: [h * 2, h * 4, h * 2] }} transition={{ duration: 0.8, repeat: Infinity, delay: i * 0.05 }} />
+                                <motion.div key={i} className="w-1.5 rounded-full bg-primary" animate={{ height: [h * 2.5, h * 5, h * 2.5] }} transition={{ duration: 0.8, repeat: Infinity, delay: i * 0.05 }} />
                               ))
                             )}
                           </div>
-                          {(transcript || isProcessing) && (
-                            <div
-                              className="w-full px-4 py-3 rounded-xl min-h-[48px] flex items-center justify-center"
-                              style={{ background: C.surface, border: `1px solid ${C.border}` }}
-                            >
-                              <p className="text-sm text-center leading-relaxed font-medium" style={{ color: C.text }}>
-                                {isProcessing ? "Procesando audio..." : transcript}
-                                {!isProcessing && <span className="inline-block w-0.5 h-4 ml-0.5 animate-pulse" style={{ background: C.accent }} />}
-                              </p>
-                            </div>
-                          )}
+                          <div className="w-full text-center px-4">
+                            <p className="text-lg font-bold leading-tight" style={{ color: C.text }}>
+                              {isProcessing ? "Analizando tu voz..." : transcript || "Escuchando..."}
+                              {!isProcessing && isRecording && <span className="inline-block w-1 h-5 ml-1 animate-pulse bg-primary" />}
+                            </p>
+                          </div>
                         </div>
                       )}
-                      {!isRecording && showTextInput && (
-                        <div className="w-full space-y-4">
-                          <div className="w-full text-center min-h-[40px]">
-                            <input 
-                              id="capture-title-input"
+                      
+                      {!isRecording && !isProcessing && (
+                        <div className="w-full space-y-5">
+                          <div className="space-y-1">
+                             <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Tarea</label>
+                             <input 
                               autoFocus 
                               value={title} 
                               onChange={(e) => setTitle(e.target.value)}
                               placeholder="¿Qué necesitas hacer?"
-                              className="w-full text-xl text-center focus:outline-none font-bold placeholder:text-white/20"
-                              style={{ 
-                                background: 'transparent', color: C.text, border: 'none', 
-                                outline: 'none', caretColor: C.accent 
-                              }}
+                              className="w-full text-xl font-black bg-surface border border-outline-variant rounded-[20px] px-5 py-4 focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-muted-foreground/30"
                               onKeyDown={(e) => { 
-                                if (e.key === 'Enter') {
-                                  if (!description.trim()) {
-                                    handleTitleDone();
-                                  } else {
-                                    document.getElementById('capture-description-input')?.focus();
-                                  }
-                                } 
+                                if (e.key === 'Enter') handleTitleDone();
                               }} 
                             />
                           </div>
 
-                          <div className="w-full text-center">
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Descripción (opcional)</label>
                             <AutoTextarea
-                              id="capture-description-input"
                               value={description} 
                               onChange={(e) => setDescription(e.target.value)}
-                              placeholder="Añade detalles o descripción... (opcional)"
-                              className="w-full text-sm text-center rounded-xl p-3 focus:outline-none min-h-[44px] max-h-[15vh] overflow-y-auto placeholder:text-white/20"
-                              style={{ 
-                                background: C.surface, color: C.text, border: `1px solid ${C.border}`,
-                                caretColor: C.accent 
-                              }}
+                              placeholder="Detalles adicionales..."
+                              className="w-full text-sm bg-surface border border-outline-variant rounded-[20px] p-5 focus:outline-none focus:ring-2 focus:ring-primary/50 min-h-[80px] placeholder:text-muted-foreground/30"
                             />
                           </div>
 
-                          <div className="w-full grid grid-cols-2 gap-3">
-                            <div className="w-full text-center">
-                              <input
-                                type="date"
-                                value={dueDate} 
-                                onChange={(e) => setDueDate(e.target.value)}
-                                className="w-full text-xs text-center rounded-xl p-2.5 focus:outline-none"
-                                style={{ 
-                                  background: C.surface, color: C.text, border: `1px solid ${C.border}`
-                                }}
-                              />
-                            </div>
-
-                            <div className="w-full text-center">
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Link (opcional)</label>
+                            <div className="relative">
+                              <LinkIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                               <input
                                 type="url"
                                 value={link} 
                                 onChange={(e) => setLink(e.target.value)}
-                                placeholder="Link..."
-                                className="w-full text-xs text-center rounded-xl p-2.5 focus:outline-none placeholder:text-white/20"
-                                style={{ 
-                                  background: C.surface, color: C.text, border: `1px solid ${C.border}`,
-                                  caretColor: C.accent 
-                                }}
+                                placeholder="https://..."
+                                className="w-full text-sm bg-surface border border-outline-variant rounded-[20px] pl-11 pr-5 py-4 focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-muted-foreground/30"
                               />
                             </div>
                           </div>
 
-                          {goals.filter(g => g.active).length > 0 && (
-                            <div className="w-full space-y-1">
-                              <div className="flex flex-wrap justify-center gap-1.5 max-h-[70px] overflow-y-auto">
-                                <button 
-                                  onClick={() => setSelectedGoalId(null)}
-                                  className="px-2.5 py-1.5 rounded-full text-[10px] font-bold transition-all border"
-                                  style={{
-                                    background: selectedGoalId === null ? C.text : C.surface,
-                                    color: selectedGoalId === null ? C.bg : C.muted,
-                                    borderColor: selectedGoalId === null ? 'transparent' : C.border
-                                  }}
+                          <button
+                            onClick={() => handleTitleDone()}
+                            disabled={!title.trim()}
+                            className="w-full h-16 bg-primary text-primary-foreground rounded-[24px] font-black text-sm shadow-xl hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                          >
+                            Continuar
+                            <ChevronRight className="w-5 h-5" />
+                          </button>
+                        </div>
+                      )}
+
+                      {isRecording && (
+                        <button onClick={() => stopRecording()} className="w-20 h-20 rounded-full bg-primary mx-auto flex items-center justify-center shadow-2xl shadow-primary/30 active:scale-90 transition-transform">
+                           <Square className="w-8 h-8 text-primary-foreground fill-primary-foreground" />
+                        </button>
+                      )}
+                    </motion.div>
+                  )}
+
+                  {phase === 'planning' && (
+                    <motion.div key="planning" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="w-full flex flex-col gap-6">
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-3 p-4 bg-surface border border-outline-variant rounded-2xl">
+                          <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center flex-shrink-0">
+                            <Check className="w-5 h-5 text-primary" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-xs font-black uppercase tracking-widest text-muted-foreground leading-none mb-1">Confirmar Tarea</p>
+                            <p className="text-sm font-bold truncate">{title}</p>
+                          </div>
+                          <button onClick={() => setPhase('input')} className="ml-auto p-2 hover:bg-on-surface/10 rounded-lg transition-colors">
+                            <Edit2 className="w-4 h-4 text-muted-foreground" />
+                          </button>
+                        </div>
+
+                        <CalendarDatePicker 
+                          date={dueDate} 
+                          onSelect={(d) => setDueDate(d)} 
+                          label="Programación"
+                        />
+
+                        {goals.filter(g => g.active).length > 0 && (
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Meta Asociada</label>
+                            <div className="flex flex-wrap gap-2">
+                              {goals.filter(g => g.active).map(goal => (
+                                <button
+                                  key={goal.id}
+                                  onClick={() => setSelectedGoalId(selectedGoalId === goal.id ? null : goal.id)}
+                                  className={cn(
+                                    "px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border flex items-center gap-2",
+                                    selectedGoalId === goal.id 
+                                      ? "bg-primary text-primary-foreground border-primary shadow-lg shadow-primary/20" 
+                                      : "bg-surface text-muted-foreground border-outline-variant hover:bg-on-surface/5"
+                                  )}
                                 >
-                                  Sin Meta
+                                  <Target className="w-3 h-3" />
+                                  {goal.title}
                                 </button>
-                                {goals.filter(g => g.active).map((goal) => (
-                                  <button 
-                                    key={goal.id} 
-                                    onClick={() => setSelectedGoalId(goal.id === selectedGoalId ? null : goal.id)}
-                                    className="px-2.5 py-1.5 rounded-full text-[10px] font-bold transition-all border"
-                                    style={{
-                                      background: selectedGoalId === goal.id ? C.text : C.surface,
-                                      color: selectedGoalId === goal.id ? C.bg : C.muted,
-                                      borderColor: selectedGoalId === goal.id ? 'transparent' : C.border
-                                    }}
-                                  >
-                                    {goal.title}
-                                  </button>
-                                ))}
-                              </div>
+                              ))}
                             </div>
-                          )}
-                        </div>
-                      )}
-
-                      {voiceFallback && sourceType === 'text' && (
-                        <div className="w-full flex flex-col items-center gap-2 py-2">
-                          <p className="text-xs text-orange-500/80 font-semibold text-center">El micrófono no está disponible.</p>
-                          <button
-                            onClick={beginVoiceCapture}
-                            className="px-4 py-2 rounded-full bg-primary/10 text-primary text-xs font-bold hover:bg-primary/20 transition-colors flex items-center gap-1.5"
-                          >
-                            <Mic className="w-3.5 h-3.5" />
-                            Reintentar voz
-                          </button>
-                        </div>
-                      )}
-
-                      <p className="text-[11px] text-on-surface-variant/60 text-center">
-                        {sourceType === 'voice' ? 'Toca para parar cuando termines.' : 'Escribe tu tarea.'}
-                      </p>
-                      <div className="flex gap-4 items-center min-h-[64px]">
-                        {isProcessing ? null : isRecording ? (
-                          <button onClick={() => stopRecording()} className="w-14 h-14 rounded-full flex items-center justify-center shadow-lg" style={{ background: C.accent }}>
-                            <Square className="w-5 h-5" style={{ color: C.bg }} fill="currentColor" />
-                          </button>
-                        ) : (
-                          <>
-                            {sourceType === 'voice' && isSupported && (
-                              <button onClick={beginVoiceCapture} className="w-12 h-12 rounded-full flex items-center justify-center" style={{ background: C.surface, border: `1px solid ${C.border}` }}>
-                                <Mic className="w-5 h-5" style={{ color: C.text }} />
-                              </button>
-                            )}
-                            {(title || showTextInput) && (
-                              <button onClick={() => handleTitleDone()} className="px-6 py-2.5 rounded-[14px] font-bold text-sm transition-opacity hover:opacity-90 active:scale-95" style={{ background: `linear-gradient(135deg, ${C.accent}, #65a30d)`, color: '#000' }}>
-                                Siguiente
-                              </button>
-                            )}
-                          </>
-                        )}
-                      </div>
-                    </motion.div>
-                  )}
-
-                  {phase === 'date' && (
-                    <motion.div key="date" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} className="w-full space-y-4">
-                      {/* Task title — editable */}
-                      <div className="text-center space-y-1">
-                        <span className="text-[10px] uppercase tracking-[0.2em] font-bold" style={{ color: C.muted }}>Tarea</span>
-                        {editingTitle ? (
-                          <div className="flex items-center gap-2 justify-center">
-                            <input
-                              autoFocus
-                              value={titleEditValue}
-                              onChange={(e) => setTitleEditValue(e.target.value)}
-                              className="w-full text-base font-bold text-center rounded-lg px-3 py-2 focus:outline-none"
-                              style={{ background: C.surface, color: C.text, border: `1px solid ${C.border}` }}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') {
-                                  setTitle(titleEditValue.trim() || title);
-                                  setEditingTitle(false);
-                                }
-                              }}
-                              onBlur={() => {
-                                setTitle(titleEditValue.trim() || title);
-                                setEditingTitle(false);
-                              }}
-                            />
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-2 justify-center">
-                            <p className="text-base font-bold truncate" style={{ color: C.text }}>"{title}"</p>
-                            <button
-                              onClick={() => { setTitleEditValue(title); setEditingTitle(true); }}
-                              className="p-1 rounded-md transition-colors flex-shrink-0"
-                              style={{ color: C.muted }}
-                            >
-                              <Edit2 className="w-3.5 h-3.5" />
-                            </button>
                           </div>
                         )}
-                      </div>
 
-                      {/* Date */}
-                      <div className="text-center">
-                        <span className="text-xs uppercase tracking-[0.2em] font-bold" style={{ color: C.muted }}>Fecha</span>
-                      </div>
-                      <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)}
-                        className="w-full rounded-lg p-3 text-center focus:outline-none text-sm"
-                        style={{ background: C.surface, color: C.text, border: `1px solid ${C.border}` }} />
-                      <div className="flex gap-2">
-                        <button onClick={() => { setDueDate(format(new Date(), 'yyyy-MM-dd')); }}
-                          className="flex-1 py-2.5 rounded-lg text-xs font-bold"
-                          style={{ background: 'rgba(163,230,53,0.15)', color: C.accent }}>Hoy</button>
-                        <button onClick={() => { setDueDate(format(new Date(Date.now() + 86400000), 'yyyy-MM-dd')); }}
-                          className="flex-1 py-2.5 rounded-lg text-xs font-bold"
-                          style={{ background: C.surface, color: C.text }}>Mañana</button>
-                      </div>
-
-                      {/* Link + Time — optional */}
-                      <div className="grid grid-cols-2 gap-2">
-                        <input
-                          type="url"
-                          value={link}
-                          onChange={(e) => setLink(e.target.value)}
-                          placeholder="🔗 Link (opcional)"
-                          className="w-full text-[11px] rounded-lg p-2.5 focus:outline-none placeholder:text-white/20"
-                          style={{ background: C.surface, color: C.text, border: `1px solid ${C.border}` }}
-                        />
-                        <input
-                          type="number"
-                          min={1}
-                          max={480}
-                          value={fallbackEstimatedMinutes || ''}
-                          onChange={(e) => setFallbackEstimatedMinutes(e.target.value ? Number(e.target.value) : null)}
-                          placeholder="⏱ Min (opcional)"
-                          className="w-full text-[11px] rounded-lg p-2.5 focus:outline-none placeholder:text-white/20"
-                          style={{ background: C.surface, color: C.text, border: `1px solid ${C.border}` }}
-                        />
-                      </div>
-
-                      {/* Create task button */}
-                      <button
-                        onClick={handleDateDone}
-                        className="w-full py-3 rounded-[14px] font-bold text-sm transition-opacity hover:opacity-90 active:scale-95"
-                        style={{ background: `linear-gradient(135deg, ${C.accent}, #65a30d)`, color: '#000' }}
-                      >
-                        Continuar
-                      </button>
-                    </motion.div>
-                  )}
-
-                  {phase === 'review' && (
-                    <motion.div key="review" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} className="w-full space-y-5">
-                      <div className="text-center">
-                        <span className="text-[10px] uppercase tracking-[0.2em] font-bold" style={{ color: C.muted }}>Prioridad</span>
-                        <h2 className="text-lg font-bold mt-1 truncate px-2" style={{ color: C.text }}>"{title}"</h2>
-                      </div>
-
-                      <div className="space-y-2">
-                        <div className="grid grid-cols-2 gap-2">
-                          <button
-                            onClick={() => setReviewImportance(!reviewImportance)}
-                            className="p-3 rounded-[16px] text-xs font-bold border-2 transition-all flex flex-col items-center gap-1"
-                            style={{ 
-                              background: reviewImportance ? C.accentBg : C.surface, 
-                              borderColor: reviewImportance ? C.accent : 'transparent',
-                              color: reviewImportance ? C.accent : C.text
-                            }}
-                          >
-                            {reviewImportance && <Check className="w-4 h-4" style={{ color: C.accent }} />}
-                            <span>Importante</span>
-                          </button>
-                          <button
-                            onClick={() => setReviewUrgency(!reviewUrgency)}
-                            className="p-3 rounded-[16px] text-xs font-bold border-2 transition-all flex flex-col items-center gap-1"
-                            style={{ 
-                              background: reviewUrgency ? 'rgba(249,115,22,0.15)' : C.surface, 
-                              borderColor: reviewUrgency ? '#f97316' : 'transparent',
-                              color: reviewUrgency ? '#f97316' : C.text
-                            }}
-                          >
-                            {reviewUrgency && <Check className="w-4 h-4" style={{ color: '#f97316' }} />}
-                            <span>Urgente</span>
-                          </button>
-                        </div>
-                      </div>
-
-                      {goals.filter(g => g.active).length > 0 && (
                         <div className="space-y-2">
-                          <p className="text-[11px] font-black uppercase tracking-widest text-center" style={{ color: C.muted }}>Meta</p>
-                          <div className="flex flex-wrap gap-2 justify-center max-h-[120px] overflow-y-auto">
+                          <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Prioridad (Matriz)</label>
+                          <div className="grid grid-cols-2 gap-3">
                             <button
-                              onClick={() => setSelectedGoalId(null)}
-                              className="px-3 py-1.5 rounded-full text-[10px] font-bold transition-all border"
-                              style={{
-                                background: selectedGoalId === null ? C.text : C.surface,
-                                color: selectedGoalId === null ? C.bg : C.muted,
-                                borderColor: selectedGoalId === null ? 'transparent' : C.border
-                              }}
+                              onClick={() => setReviewImportance(!reviewImportance)}
+                              className={cn(
+                                "flex flex-col items-center justify-center gap-1 h-16 rounded-[22px] font-black uppercase tracking-widest text-[9px] transition-all border",
+                                  reviewImportance 
+                                    ? "bg-amber-500/20 text-amber-600 border-amber-500/50 shadow-lg shadow-amber-500/10" 
+                                    : "bg-surface text-muted-foreground border-outline-variant hover:bg-on-surface/5"
+                              )}
                             >
-                              Sin Meta
+                              Importante
                             </button>
-                            {goals.filter(g => g.active).map(g => (
-                              <button
-                                key={g.id}
-                                onClick={() => setSelectedGoalId(g.id)}
-                                className="px-3 py-1.5 rounded-full text-[10px] font-bold transition-all border"
-                                style={{
-                                  background: selectedGoalId === g.id ? C.text : C.surface,
-                                  color: selectedGoalId === g.id ? C.bg : C.muted,
-                                  borderColor: selectedGoalId === g.id ? 'transparent' : C.border
-                                }}
-                              >
-                                {g.title}
-                              </button>
-                            ))}
+                            <button
+                              onClick={() => setReviewUrgency(!reviewUrgency)}
+                              className={cn(
+                                "flex flex-col items-center justify-center gap-1 h-16 rounded-[22px] font-black uppercase tracking-widest text-[9px] transition-all border",
+                                reviewUrgency 
+                                  ? "bg-red-500/20 text-red-600 border-red-500/50 shadow-lg shadow-red-500/10" 
+                                  : "bg-surface text-muted-foreground border-outline-variant hover:bg-on-surface/5"
+                              )}
+                            >
+                              Urgente
+                            </button>
                           </div>
                         </div>
-                      )}
+                      </div>
 
                       <button
-                        onClick={handleReviewDone}
-                        className="w-full py-3.5 rounded-[16px] font-black text-sm transition-opacity hover:opacity-90 active:scale-95"
-                        style={{ background: `linear-gradient(135deg, ${C.accent}, #65a30d)`, color: '#000' }}
+                        onClick={handlePlanningDone}
+                        disabled={!title.trim()}
+                        className="w-full h-16 bg-primary text-primary-foreground rounded-[24px] font-black text-sm shadow-2xl shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3 mt-4"
                       >
-                        Crear tarea
+                        <Check className="w-6 h-6" strokeWidth={3} />
+                        GUARDAR TAREA
                       </button>
                     </motion.div>
                   )}
 
-                  {phase === 'image_date' && extractedTasks[currentTaskIndex] && (
-                    <motion.div key="image_date" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} className="w-full space-y-6">
-                      <div className="text-center">
-                        <span className="text-xs uppercase tracking-[0.2em] font-bold text-on-surface-variant">
-                          Tarea {extractedTasks.filter((t, idx) => idx <= currentTaskIndex && !t.has_date).length} de {extractedTasks.filter(t => !t.has_date).length}
-                        </span>
-                        <h2 className="text-lg font-medium text-foreground mt-1">"{extractedTasks[currentTaskIndex].raw_text}"</h2>
-                        <p className="text-sm text-on-surface-variant mt-1 text-pretty px-4 italic leading-tight">Extraída de tu agenda</p>
+                  {phase === 'saving' && (
+                    <motion.div key="saving" className="flex flex-col items-center justify-center py-12 w-full min-h-[350px] gap-8">
+                      <div className="relative flex items-center justify-center w-full h-48">
+                        <AISphere />
                       </div>
-
-                      <div className="flex flex-col gap-4">
-                        <div className="flex gap-2">
-                          <button onClick={() => handleImageDateAssignment(format(new Date(), 'yyyy-MM-dd'))}
-                            className="flex-1 py-3 rounded-lg bg-primary/10 text-primary font-semibold text-sm">Hoy</button>
-                          <button onClick={() => handleImageDateAssignment(format(new Date(Date.now() + 86400000), 'yyyy-MM-dd'))}
-                            className="flex-1 py-3 rounded-lg bg-surface-container-high text-foreground font-semibold text-sm">Mañana</button>
-                        </div>
-                        
-                        <div className="relative">
-                          <input 
-                            type="text"
-                            placeholder="Escribe o di la fecha..."
-                            className="w-full bg-surface-container-high rounded-lg p-4 text-foreground pr-12 focus:outline-none focus:ring-1 focus:ring-primary"
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
-                                const target = e.target as HTMLInputElement;
-                                const parsed = parseVoiceTranscript(target.value);
-                                handleImageDateAssignment(parsed.dueDate || format(new Date(), 'yyyy-MM-dd'));
-                              }
-                            }}
-                          />
-                          <button 
-                            onClick={() => {
-                              if (isRecording) {
-                                stopRecording();
-                              } else {
-                                beginVoiceCapture();
-                              }
-                            }}
-                            className={`absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-full ${isRecording ? 'bg-primary text-white animate-pulse' : 'text-on-surface-variant'}`}
-                          >
-                            <Mic className="w-5 h-5" />
-                          </button>
+                      <div className="text-center space-y-4">
+                        <h3 className="text-2xl font-black text-foreground tracking-tighter">{savingMessage}</h3>
+                        <div className="flex flex-col items-center gap-1">
+                          <div className="h-0.5 w-10 bg-primary rounded-full animate-pulse" />
+                          <p className="text-[8px] font-black uppercase tracking-[0.5em] text-muted-foreground">Neural Sync...</p>
                         </div>
                       </div>
                     </motion.div>
                   )}
-
-                    {phase === 'saving' && (
-                      <motion.div 
-                        key="saving" 
-                        initial={{ opacity: 0, scale: 0.9 }} 
-                        animate={{ opacity: 1, scale: 1 }} 
-                        className="flex flex-col items-center justify-center py-12 w-full min-h-[350px] space-y-8"
-                      >
-                        <div className="relative flex items-center justify-center w-full h-48">
-                          <div className="absolute inset-0 flex items-center justify-center scale-150">
-                            <AISphere />
-                          </div>
-                        </div>
-                        
-                        <div className="flex flex-col items-center space-y-4 pt-4 relative z-10">
-                          <motion.p 
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            className="text-2xl font-black text-foreground tracking-tighter text-center max-w-[280px] leading-[0.9]"
-                          >
-                            {savingMessage}
-                          </motion.p>
-                          <div className="flex flex-col items-center gap-2">
-                             <div className="h-[2px] w-8 bg-primary rounded-full" />
-                             <p className="text-[9px] text-on-surface-variant/40 font-bold uppercase tracking-[0.4em]">
-                              Adonai Nano Processing
-                            </p>
-                          </div>
-                        </div>
-                      </motion.div>
-                    )}
                 </AnimatePresence>
-                
-                {/* Global File Input */}
-                <input 
-                  type="file" 
-                  ref={fileInputRef} 
-                  hidden 
-                  accept="image/*" 
-                  capture={/Android|webOS|iPhone|iPad|iPod/i.test(navigator.userAgent) ? "environment" : undefined}
-                  onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) handleImageSelected(file);
-                }} />
               </div>
             </div>
           </motion.div>

@@ -19,6 +19,7 @@ import { AISchedulerModal } from '@/components/AISchedulerModal';
 import SubtasksSection from '@/components/SubtasksSection';
 import { TaskCard } from '@/components/TaskCard';
 import { Sparkles } from 'lucide-react';
+import { EventManager } from '@/components/ui/event-manager';
 
 const WeeklyPage = () => {
   const [captureOpen, setCaptureOpen] = useState(false);
@@ -31,6 +32,7 @@ const WeeklyPage = () => {
   const [completingTaskId, setCompletingTaskId] = useState<string | null>(null);
 
   const [aiModalOpen, setAiModalOpen] = useState(false);
+  const [view, setView] = useState<'list' | 'calendar'>('list');
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 60000);
@@ -321,9 +323,45 @@ const WeeklyPage = () => {
                  <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/40">Foco del Día</p>
                </div>
              </div>
+             
+             <div className="flex items-center gap-2 bg-surface-container-low p-1 rounded-2xl border border-outline-variant/5">
+                <Button 
+                  variant={view === 'list' ? 'default' : 'ghost'} 
+                  size="sm" 
+                  onClick={() => setView('list')}
+                  className="rounded-xl px-4 h-9"
+                >
+                  Lista
+                </Button>
+                <Button 
+                  variant={view === 'calendar' ? 'default' : 'ghost'} 
+                  size="sm" 
+                  onClick={() => setView('calendar')}
+                  className="rounded-xl px-4 h-9"
+                >
+                  Calendario
+                </Button>
+             </div>
           </div>
 
-          {orderedTasks.length === 0 ? (
+          {view === 'calendar' ? (
+            <EventManager 
+              events={tasks.map(t => ({
+                id: t.id,
+                title: t.title,
+                description: t.description || '',
+                startTime: new Date(t.due_date + 'T09:00:00'),
+                endTime: new Date(t.due_date + 'T10:00:00'),
+                color: t.priority === 'high' ? 'red' : t.priority === 'medium' ? 'orange' : 'blue',
+                category: 'Tarea'
+              }))}
+              onEventClick={(event) => {
+                const task = tasks.find(t => t.id === event.id);
+                if (task) setSelectedTask(task);
+              }}
+              className="animate-in fade-in zoom-in-95 duration-500"
+            />
+          ) : orderedTasks.length === 0 ? (
             <motion.div 
               initial={{ opacity: 0, scale: 0.9, y: 20 }} 
               animate={{ opacity: 1, scale: 1, y: 0 }} 

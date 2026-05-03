@@ -340,7 +340,7 @@ const FoldersPage = () => {
                 </div>
                 <p className="text-[10px] font-black text-on-surface-variant/40 uppercase tracking-[0.4em]">Proyecto Activo</p>
               </div>
-              <h1 className="text-5xl lg:text-7xl font-black text-foreground tracking-tighter font-headline leading-none truncate">{currentFolder.name}</h1>
+              <h1 className="text-4xl lg:text-6xl font-black text-foreground tracking-tighter font-headline leading-none truncate">{currentFolder.name}</h1>
               
               <div className="flex items-center gap-6 pt-2">
                 <div className="flex items-center gap-2">

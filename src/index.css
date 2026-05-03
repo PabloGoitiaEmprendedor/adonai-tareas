@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Fraunces:opsz,wght@9..144,400;9..144,700;9..144,900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400;500;600;700;800;900&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,102 +6,93 @@
 
 @layer base {
   :root {
-    --background: 210 17% 98%;
-    --foreground: 130 11% 28%;
+    --background: 0 0% 95%; /* #F2F2F2 */
+    --foreground: 140 95% 8%; /* #01260E - Deep Green as text */
     --card: 0 0% 100%;
-    --card-foreground: 130 11% 28%;
+    --card-foreground: 140 95% 8%;
     --popover: 0 0% 100%;
-    --popover-foreground: 130 11% 28%;
+    --popover-foreground: 140 95% 8%;
     
-    --primary: 155 55% 45%;
+    --primary: 112 98% 44%; /* #21D904 - Bright Green */
     --primary-foreground: 0 0% 100%;
-    --primary-container: 155 41% 94%;
+    --primary-container: 101 64% 34%; /* #418C1F */
     
-    --secondary: 210 17% 96%;
-    --secondary-foreground: 130 11% 28%;
-    --secondary-container: 210 14% 92%;
+    --secondary: 140 95% 8%; /* #01260E */
+    --secondary-foreground: 0 0% 95%;
+    --secondary-container: 84 71% 51%; /* #93D929 */
     
-    --muted: 210 17% 96%;
-    --muted-foreground: 220 9% 46%;
+    --muted: 0 0% 90%;
+    --muted-foreground: 140 95% 20%;
     
-    --accent: 155 55% 45%;
-    --accent-foreground: 0 0% 100%;
+    --accent: 84 71% 51%; /* #93D929 */
+    --accent-foreground: 140 95% 8%;
     
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
     
-    --border: 220 13% 91%;
-    --input: 220 13% 91%;
-    --ring: 155 55% 45%;
-    --radius: 2rem;
+    --border: 140 95% 8% / 0.1;
+    --input: 140 95% 8% / 0.1;
+    --ring: 112 98% 44%;
+    --radius: 1.5rem;
 
     --surface: 0 0% 100%;
-    --surface-dim: 210 17% 96%;
+    --surface-dim: 0 0% 92%;
     --surface-container-lowest: 0 0% 100%;
-    --surface-container-low: 210 17% 98%;
-    --surface-container: 210 17% 96%;
-    --surface-container-high: 220 14% 93%;
-    --surface-container-highest: 220 13% 89%;
-    --on-surface: 130 11% 28%;
-    --on-surface-variant: 220 9% 46%;
-    --outline: 220 13% 80%;
-    --outline-variant: 220 13% 91%;
+    --surface-container-low: 0 0% 98%;
+    --surface-container: 0 0% 96%;
+    --surface-container-high: 0 0% 94%;
+    --surface-container-highest: 0 0% 90%;
+    --on-surface: 140 95% 8%;
+    --on-surface-variant: 140 95% 20%;
+    --outline: 140 95% 8% / 0.2;
+    --outline-variant: 140 95% 8% / 0.1;
 
     --error: 0 84% 60%;
     --error-container: 0 100% 95%;
     --on-error: 0 0% 100%;
 
-    --tertiary: 210 17% 96%;
-    --tertiary-container: 210 14% 90%;
+    --tertiary: 101 64% 34%;
+    --tertiary-container: 101 64% 44%;
   }
 
+  /* Forcing consistent palette across modes if needed, 
+     but keeping a refined dark mode structure using the deep green as base */
   .dark {
-    --background: 222 13% 9%;
-    --foreground: 210 17% 95%;
-    --card: 222 13% 12%;
-    --card-foreground: 210 17% 95%;
-    --popover: 222 13% 12%;
-    --popover-foreground: 210 17% 95%;
+    --background: 140 95% 4%; /* Even deeper green than #01260E */
+    --foreground: 0 0% 95%;
+    --card: 140 95% 6%;
+    --card-foreground: 0 0% 95%;
+    --popover: 140 95% 6%;
+    --popover-foreground: 0 0% 95%;
     
-    --primary: 155 55% 45%;
-    --primary-foreground: 222 13% 9%;
-    --primary-container: 155 50% 15%;
+    --primary: 112 98% 44%;
+    --primary-foreground: 140 95% 4%;
+    --primary-container: 101 64% 34%;
     
-    --secondary: 222 13% 16%;
-    --secondary-foreground: 210 17% 95%;
-    --secondary-container: 222 13% 20%;
+    --secondary: 0 0% 95%;
+    --secondary-foreground: 140 95% 4%;
     
-    --muted: 222 13% 16%;
-    --muted-foreground: 220 9% 60%;
+    --muted: 140 95% 10%;
+    --muted-foreground: 140 95% 60%;
     
-    --accent: 155 55% 45%;
-    --accent-foreground: 222 13% 9%;
+    --accent: 84 71% 51%;
+    --accent-foreground: 140 95% 4%;
     
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 100%;
-    
-    --border: 222 13% 20%;
-    --input: 222 13% 20%;
-    --ring: 155 55% 45%;
+    --border: 0 0% 95% / 0.1;
+    --input: 0 0% 95% / 0.1;
+    --ring: 112 98% 44%;
 
-    --surface: 222 13% 12%;
-    --surface-dim: 222 13% 9%;
-    --surface-container-lowest: 222 13% 7%;
-    --surface-container-low: 222 13% 11%;
-    --surface-container: 222 13% 14%;
-    --surface-container-high: 222 13% 17%;
-    --surface-container-highest: 222 13% 22%;
-    --on-surface: 210 17% 95%;
-    --on-surface-variant: 220 9% 60%;
-    --outline: 222 13% 28%;
-    --outline-variant: 222 13% 20%;
-
-    --error: 0 84% 60%;
-    --error-container: 0 50% 20%;
-    --on-error: 0 0% 100%;
-
-    --tertiary: 222 13% 16%;
-    --tertiary-container: 222 13% 20%;
+    --surface: 140 95% 6%;
+    --surface-dim: 140 95% 4%;
+    --surface-container-lowest: 140 95% 3%;
+    --surface-container-low: 140 95% 5%;
+    --surface-container: 140 95% 8%;
+    --surface-container-high: 140 95% 10%;
+    --surface-container-highest: 140 95% 15%;
+    --on-surface: 0 0% 95%;
+    --on-surface-variant: 0 0% 80%;
+    --outline: 0 0% 95% / 0.2;
+    --outline-variant: 0 0% 95% / 0.1;
   }
 }
 
@@ -118,26 +109,26 @@
     @apply bg-background text-foreground;
   }
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Fraunces', serif;
+    font-family: 'Inter', sans-serif;
     font-weight: 900;
   }
 }
-  /* Style scrollbars globally */
-  ::-webkit-scrollbar {
-    width: 5px;
-    height: 5px;
-  }
-  ::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  ::-webkit-scrollbar-thumb {
-    background: hsla(var(--on-surface-variant), 0.15);
-    border-radius: 10px;
-  }
-  ::-webkit-scrollbar-thumb:hover {
-    background: hsla(var(--primary), 0.3);
-  }
 
+/* Style scrollbars globally */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: hsla(var(--on-surface-variant), 0.15);
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: hsla(var(--primary), 0.3);
+}
 
 @layer utilities {
   .primary-gradient {
@@ -153,7 +144,7 @@
   .glass-sheet {
     background: hsl(var(--surface));
     border: 1px solid hsl(var(--outline-variant));
-    box-shadow: 0 20px 60px -10px hsla(220, 13%, 20%, 0.18);
+    box-shadow: 0 20px 60px -10px hsla(140, 95%, 8%, 0.1);
   }
   .pb-safe {
     padding-bottom: env(safe-area-inset-bottom);

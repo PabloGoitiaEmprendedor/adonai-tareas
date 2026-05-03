@@ -28,15 +28,15 @@ const PILL_H = 52;
 const PILL_TIMER_W = 130;
 
 const C = {
-  bg: '#18181B',
-  border: 'rgba(255,255,255,0.09)',
-  text: '#F4F4F5',
-  muted: 'rgba(255,255,255,0.35)',
-  accent: '#A3E635',
-  accentBg: 'rgba(163,230,53,0.13)',
-  taskBg: 'rgba(255,255,255,0.05)',
-  taskBorder: 'rgba(255,255,255,0.07)',
-  subBg: 'rgba(255,255,255,0.03)',
+  bg: '#F2F2F2',
+  border: 'rgba(1, 38, 14, 0.1)',
+  text: '#01260E',
+  muted: 'rgba(1, 38, 14, 0.5)',
+  accent: '#21D904',
+  accentBg: 'rgba(33, 217, 4, 0.1)',
+  taskBg: '#FFFFFF',
+  taskBorder: 'rgba(1, 38, 14, 0.05)',
+  subBg: 'rgba(1, 38, 14, 0.03)',
 };
 
 function formatTimer(seconds: number): string {
@@ -71,10 +71,10 @@ const SubtaskRowRaw = ({ sub, onToggle, onUpdate }: { sub: any; onToggle: (sub: 
       <div onClick={(e) => { e.stopPropagation(); onToggle(sub); }} style={{
         width: 18, height: 18, borderRadius: 5, flexShrink: 0, cursor: 'pointer',
         background: isDone ? C.accent : 'transparent',
-        border: `2px solid ${isDone ? C.accent : 'rgba(255,255,255,0.2)'}`,
+        border: `2px solid ${isDone ? C.accent : 'rgba(1, 38, 14, 0.15)'}`,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}>
-        {isDone && <Check style={{ width: 10, height: 10, color: '#000', strokeWidth: 3 }} />}
+        {isDone && <Check style={{ width: 10, height: 10, color: '#F2F2F2', strokeWidth: 3 }} />}
       </div>
       {isEditing ? (
         <input
@@ -150,8 +150,8 @@ const TaskRowRaw = ({ task, onToggle, onDetail, activeTimerId, onTimerToggle, up
         style={{
           display: 'flex', alignItems: 'center', gap: 10, padding: '10px',
           borderRadius: 12, cursor: 'pointer',
-          background: isDone ? 'transparent' : isTimerActive ? 'rgba(163,230,53,0.06)' : C.taskBg,
-          border: `1px solid ${isDone ? 'transparent' : isTimerActive ? 'rgba(163,230,53,0.15)' : C.taskBorder}`,
+          background: isDone ? 'transparent' : isTimerActive ? 'rgba(33, 217, 4, 0.06)' : C.taskBg,
+          border: `1px solid ${isDone ? 'transparent' : isTimerActive ? 'rgba(33, 217, 4, 0.15)' : C.taskBorder}`,
           opacity: isDone ? 0.45 : 1,
         }}
       >
@@ -160,11 +160,11 @@ const TaskRowRaw = ({ task, onToggle, onDetail, activeTimerId, onTimerToggle, up
           style={{
             width: 26, height: 26, borderRadius: 8, flexShrink: 0,
             background: isDone ? C.accent : 'transparent',
-            border: `2px solid ${isDone ? C.accent : 'rgba(255,255,255,0.22)'}`,
+            border: `2px solid ${isDone ? C.accent : 'rgba(1, 38, 14, 0.15)'}`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}
         >
-          {isDone && <Check style={{ width: 13, height: 13, color: '#000', strokeWidth: 3 }} />}
+          {isDone && <Check style={{ width: 13, height: 13, color: '#F2F2F2', strokeWidth: 3 }} />}
         </div>
         
         {isEditing ? (
@@ -259,15 +259,15 @@ const TaskRowRaw = ({ task, onToggle, onDetail, activeTimerId, onTimerToggle, up
                   onClick={(e) => { e.stopPropagation(); onTimerToggle(task.id, task.estimated_minutes || 30); }}
                   style={{
                     width: 24, height: 24, borderRadius: 6, flexShrink: 0,
-                    background: isTimerActive ? 'rgba(163,230,53,0.15)' : 'transparent',
-                    border: `1px solid ${isTimerActive ? 'rgba(163,230,53,0.3)' : 'rgba(255,255,255,0.1)'}`,
+                    background: isTimerActive ? 'rgba(33, 217, 4, 0.15)' : 'transparent',
+                    border: `1px solid ${isTimerActive ? 'rgba(33, 217, 4, 0.3)' : 'rgba(1, 38, 14, 0.1)'}`,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     cursor: 'pointer',
                   }}
                 >
                   {isTimerActive
                     ? <Pause style={{ width: 12, height: 12, color: C.accent }} />
-                    : <Clock style={{ width: 12, height: 12, color: 'rgba(255,255,255,0.3)' }} />
+                    : <Clock style={{ width: 12, height: 12, color: 'rgba(1, 38, 14, 0.3)' }} />
                   }
                 </div>
               )}
@@ -685,12 +685,12 @@ const MiniTaskList = () => {
             width: activeTimerId ? 'auto' : 64,
             minWidth: activeTimerId ? 110 : 64,
             background: C.bg,
-            border: `1px solid ${activeTimerId ? (timerSeconds < 0 ? 'rgba(248,113,113,0.25)' : 'rgba(163,230,53,0.25)') : C.border}`,
+            border: `1px solid ${activeTimerId ? (timerSeconds < 0 ? 'rgba(248,113,113,0.25)' : 'rgba(33, 217, 4, 0.25)') : C.border}`,
             boxShadow: showLedGlow
-              ? '0 0 0 0 rgba(163,230,53,0.4), 0 0 20px 4px rgba(163,230,53,0.3), 0 0 40px 8px rgba(163,230,53,0.15), inset 0 0 8px rgba(163,230,53,0.1)'
+              ? '0 0 0 0 rgba(33, 217, 4, 0.4), 0 0 20px 4px rgba(33, 217, 4, 0.3), 0 0 40px 8px rgba(33, 217, 4, 0.15), inset 0 0 8px rgba(33, 217, 4, 0.1)'
               : activeTimerId
-                ? (timerSeconds < 0 ? '0 4px 20px rgba(248,113,113,0.15)' : '0 4px 20px rgba(163,230,53,0.15)')
-                : '0 4px 20px rgba(0,0,0,0.5)',
+                ? (timerSeconds < 0 ? '0 4px 20px rgba(248,113,113,0.15)' : '0 4px 20px rgba(33, 217, 4, 0.15)')
+                : '0 4px 20px rgba(1, 38, 14, 0.1)',
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
             userSelect: 'none', cursor: 'grab',
             position: 'relative',
@@ -700,7 +700,7 @@ const MiniTaskList = () => {
           {showLedGlow && (
             <div style={{
               position: 'absolute', inset: -3, borderRadius: 999,
-              border: `2px solid rgba(163,230,53,0.5)`,
+              border: `2px solid rgba(33, 217, 4, 0.5)`,
               animation: 'ledBorder 2s ease-in-out infinite',
               pointerEvents: 'none',
             }} />
@@ -720,7 +720,7 @@ const MiniTaskList = () => {
               </span>
             </>
           ) : (
-            <MoreHorizontal style={{ width: 20, height: 20, color: 'rgba(255,255,255,0.75)' }} />
+            <MoreHorizontal style={{ width: 20, height: 20, color: 'rgba(1, 38, 14, 0.6)' }} />
           )}
         </div>
       </div>
@@ -764,8 +764,8 @@ const MiniTaskList = () => {
             padding: activeTimerId ? '0 10px' : '0',
             width: activeTimerId ? 'auto' : 52,
             minWidth: activeTimerId ? 90 : 52,
-            background: activeTimerId ? 'rgba(163,230,53,0.1)' : 'rgba(255,255,255,0.07)',
-            border: `1px solid ${activeTimerId ? 'rgba(163,230,53,0.2)' : C.border}`,
+            background: activeTimerId ? 'rgba(33, 217, 4, 0.1)' : 'rgba(1, 38, 14, 0.05)',
+            border: `1px solid ${activeTimerId ? 'rgba(33, 217, 4, 0.2)' : C.border}`,
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
             cursor: 'pointer',
           }} title="Colapsar">
@@ -781,7 +781,7 @@ const MiniTaskList = () => {
                 </span>
               </>
             ) : (
-              <MoreHorizontal style={{ width: 16, height: 16, color: 'rgba(255,255,255,0.5)' }} />
+              <MoreHorizontal style={{ width: 16, height: 16, color: 'rgba(1, 38, 14, 0.4)' }} />
             )}
           </div>
 
@@ -796,7 +796,7 @@ const MiniTaskList = () => {
             }}
             title="Añadir por voz"
           >
-            <Mic style={{ width: 13, height: 13, color: '#000' }} />
+            <Mic style={{ width: 13, height: 13, color: '#F2F2F2' }} />
           </div>
 
           {/* RECURRENCE button — Repeat icon */}

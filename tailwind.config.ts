@@ -94,7 +94,7 @@ export default {
       },
       fontFamily: {
         sans: ["Inter", "sans-serif"],
-        headline: ["Recoleta", "Inter", "sans-serif"],
+        headline: ["Inter", "sans-serif"],
         body: ["Inter", "sans-serif"],
         label: ["Inter", "sans-serif"],
       },

@@ -42,17 +42,6 @@ const SidebarContent = ({ user, menuItems, location, handleNavigate, signOut, st
     </div>
     
     <div className="px-6 py-2">
-      {isSheet ? (
-        <SheetHeader className="p-0">
-          <SheetTitle className="text-left text-xl font-black text-foreground tracking-tighter opacity-80">
-            Adonai
-          </SheetTitle>
-        </SheetHeader>
-      ) : (
-        <h2 className="text-left text-xl font-black text-foreground tracking-tighter opacity-80">
-          Adonai
-        </h2>
-      )}
     </div>
 
     <div className="flex-1 overflow-y-auto py-4">
