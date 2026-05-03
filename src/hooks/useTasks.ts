@@ -36,8 +36,9 @@ export const useTasks = (filters?: { date?: string; startDate?: string; endDate?
       if (filters?.date) {
         const todayStr = format(new Date(), 'yyyy-MM-dd');
         if (filters.date === todayStr && filters?.status !== 'history') {
-          // Rolling tasks: Include tasks due today, OR tasks due in the past that are not done
-          query = query.or(`due_date.eq.${filters.date},and(due_date.lt.${filters.date},status.neq.done,status.neq.deleted)`);
+          // Rolling tasks: Include tasks due today, OR tasks due in the past that are not done,
+          // OR tasks completed today (to keep them visible until end of day)
+          query = query.or(`due_date.eq.${filters.date},and(due_date.lt.${filters.date},status.neq.done,status.neq.deleted),completed_at.gte.${filters.date}T00:00:00`);
         } else {
           query = query.eq('due_date', filters.date);
         }
