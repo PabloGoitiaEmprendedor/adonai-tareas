@@ -33,25 +33,30 @@ export const useTasks = (filters?: { date?: string; startDate?: string; endDate?
       // 1. Fetch real tasks
       let query = supabase.from('tasks').select('*, contexts(*)').eq('user_id', user.id);
       
+      const todayStr = format(new Date(), 'yyyy-MM-dd');
+      const todayStart = `${todayStr}T00:00:00`;
+
+      if (filters?.status === 'history') {
+        query = query.in('status', ['done', 'deleted']);
+      } else {
+        // Main App Logic: Hide deleted, and archive done tasks from previous days
+        query = query.neq('status', 'deleted');
+        
+        // Only show done tasks if they were completed today
+        query = query.or(`status.neq.done,and(status.eq.done,completed_at.gte.${todayStart})`);
+      }
+
       if (filters?.date) {
-        const todayStr = format(new Date(), 'yyyy-MM-dd');
         if (filters.date === todayStr && filters?.status !== 'history') {
-          // Rolling tasks: Include tasks due today, OR tasks due in the past that are not done,
-          // OR tasks completed today (to keep them visible until end of day)
-          query = query.or(`due_date.eq.${filters.date},and(due_date.lt.${filters.date},status.neq.done,status.neq.deleted),completed_at.gte.${filters.date}T00:00:00`);
+          // Rolling tasks for Today view:
+          // We already filtered 'done' tasks above (only today's completions allowed).
+          // Now we just need to handle which tasks to fetch by due_date.
+          query = query.or(`due_date.eq.${filters.date},and(due_date.lt.${filters.date},status.neq.done)`);
         } else {
           query = query.eq('due_date', filters.date);
         }
       } else if (filters?.startDate && filters?.endDate) {
         query = query.gte('due_date', filters.startDate).lte('due_date', filters.endDate);
-      }
-
-      if (filters?.status === 'history') {
-        query = query.in('status', ['done', 'deleted']);
-      } else if (filters?.status) {
-        query = query.eq('status', filters.status);
-      } else {
-        query = query.neq('status', 'deleted');
       }
 
       // Exclude subtasks from main list — they are loaded per-parent via useSubtasks

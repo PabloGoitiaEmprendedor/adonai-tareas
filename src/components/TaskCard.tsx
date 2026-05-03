@@ -108,16 +108,24 @@ export const TaskCard = ({
             initial={{ scale: 0, rotate: -45 }}
             animate={{ scale: 1, rotate: 0 }}
             transition={{ type: "spring", stiffness: 500, damping: 30 }}
-            className="w-10 h-10 rounded-[14px] bg-primary flex items-center justify-center cursor-pointer shadow-sm"
+            className="w-10 h-10 rounded-[14px] flex items-center justify-center cursor-pointer shadow-sm"
+            style={{ backgroundColor: priorityColor === 'transparent' ? 'var(--primary)' : priorityColor }}
             onClick={(e) => handleUncomplete(task, e)}
           >
             <Check className="w-6 h-6 text-primary-foreground stroke-[3]" />
           </motion.div>
         ) : (
           <button onClick={(e) => { e.stopPropagation(); handleComplete(task, e); }}
-            className="w-9 h-9 rounded-[12px] border-2 border-outline flex items-center justify-center hover:border-primary hover:bg-primary/10 transition-all active:scale-75 group/check bg-surface"
+            className="w-9 h-9 rounded-[12px] border-2 flex items-center justify-center transition-all active:scale-75 group/check bg-surface"
+            style={{ 
+              borderColor: priorityColor === 'transparent' ? 'var(--outline)' : priorityColor,
+              backgroundColor: 'transparent'
+            }}
           >
-            <div className="w-3.5 h-3.5 rounded-[6px] bg-primary scale-0 group-hover/check:scale-100 transition-transform duration-300" />
+            <div 
+              className="w-3.5 h-3.5 rounded-[6px] scale-0 group-hover/check:scale-100 transition-transform duration-300" 
+              style={{ backgroundColor: priorityColor === 'transparent' ? 'var(--primary)' : priorityColor }}
+            />
           </button>
         )}
       </div>

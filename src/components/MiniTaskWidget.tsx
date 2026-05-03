@@ -5,6 +5,7 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Check, Flame, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { usePriorityColors } from '@/hooks/usePriorityColors';
 
 interface MiniTaskWidgetProps {
   isOpen: boolean;
@@ -14,6 +15,7 @@ interface MiniTaskWidgetProps {
 export const MiniTaskWidget = ({ isOpen, onClose }: MiniTaskWidgetProps) => {
   const today = format(new Date(), 'yyyy-MM-dd');
   const { tasks, updateTask } = useTasks({ date: today });
+  const { colors: priorityColors } = usePriorityColors();
   const [completingId, setCompletingId] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
 
@@ -110,8 +112,18 @@ export const MiniTaskWidget = ({ isOpen, onClose }: MiniTaskWidgetProps) => {
               const isDone = task.status === 'done';
               const isCompleting = completingId === task.id;
 
-              return (
-                <motion.div
+                const isDone = task.status === 'done';
+                const isCompleting = completingId === task.id;
+
+                const taskPriorityColor = (() => {
+                  if (task.urgency && task.importance) return priorityColors.p1;
+                  if (task.urgency && !task.importance) return priorityColors.p2;
+                  if (!task.urgency && task.importance) return priorityColors.p3;
+                  return priorityColors.p4;
+                })();
+
+                return (
+                  <motion.div
                   key={task.id}
                   layout
                   initial={{ opacity: 0, y: 8 }}
@@ -134,13 +146,20 @@ export const MiniTaskWidget = ({ isOpen, onClose }: MiniTaskWidgetProps) => {
                         initial={{ scale: 0, rotate: -45 }}
                         animate={{ scale: 1, rotate: 0 }}
                         transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                        className="w-8 h-8 rounded-xl bg-primary flex items-center justify-center shadow-sm"
+                        className="w-8 h-8 rounded-xl flex items-center justify-center shadow-sm"
+                        style={{ backgroundColor: taskPriorityColor === 'transparent' ? 'var(--primary)' : taskPriorityColor }}
                       >
                         <Check className="w-4 h-4 text-primary-foreground stroke-[3]" />
                       </motion.div>
                     ) : (
-                      <div className="w-8 h-8 rounded-xl border-2 border-outline/40 flex items-center justify-center hover:border-primary hover:bg-primary/10 transition-all bg-surface group/check">
-                        <div className="w-3 h-3 rounded-md bg-primary scale-0 group-hover/check:scale-100 transition-transform duration-300" />
+                      <div 
+                        className="w-8 h-8 rounded-xl border-2 flex items-center justify-center hover:bg-primary/10 transition-all bg-surface group/check"
+                        style={{ borderColor: taskPriorityColor === 'transparent' ? 'var(--outline)' : taskPriorityColor }}
+                      >
+                        <div 
+                          className="w-3 h-3 rounded-md scale-0 group-hover/check:scale-100 transition-transform duration-300" 
+                          style={{ backgroundColor: taskPriorityColor === 'transparent' ? 'var(--primary)' : taskPriorityColor }}
+                        />
                       </div>
                     )}
                   </div>
