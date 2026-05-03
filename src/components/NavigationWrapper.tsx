@@ -226,7 +226,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
       <main
         className={`pb-24 lg:pb-12 min-h-screen bg-background transition-[padding] duration-300 ${
           desktopSidebarOpen ? 'lg:pl-72' : 'lg:pl-0'
-        }`}
+        } ${window.electronAPI ? 'pt-10' : ''}`}
       >
         <div className="max-w-7xl mx-auto px-0 lg:px-4">
           {children}

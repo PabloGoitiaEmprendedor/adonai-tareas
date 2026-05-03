@@ -20,6 +20,8 @@ import { useGamification } from '@/hooks/useGamification';
 import { TaskCard } from '@/components/TaskCard';
 import { openDownloadDialog } from '@/lib/desktopApp';
 import MiniTaskWidget from '@/components/MiniTaskWidget';
+import { PriorityColorSettings } from '@/components/PriorityColorSettings';
+import { usePriorityColors } from '@/hooks/usePriorityColors';
 
 const getDynamicGreeting = (
   name: string,
@@ -306,6 +308,11 @@ const DailyPage = () => {
             onTextClick={openCapture} 
             onVoiceClick={openCaptureInVoiceMode} 
           />
+        </div>
+
+        <div className="flex justify-between items-center px-1">
+          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant/40">Mi Día</p>
+          <PriorityColorSettings />
         </div>
 
         {orderedTasks.length > 0 ? (

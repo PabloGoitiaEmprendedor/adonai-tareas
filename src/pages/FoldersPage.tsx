@@ -15,7 +15,7 @@ import FullscreenTimer from '@/components/FullscreenTimer';
 import { toast } from 'sonner';
 import { dispatchTutorialFolderCreated } from '@/lib/tutorialEvents';
 
-const FOLDER_COLORS = ['#C3F53C', '#4BE277', '#6B9FFF', '#FF8B7C', '#FFB86C', '#BD93F9', '#FF79C6', '#C7C6C6'];
+const FOLDER_COLORS = ['#0D0D0D', '#262626', '#595959', '#8C8C8C', '#BFBFBF', '#D9D9D9', '#E5E5E5', '#F2F2F2'];
 
 const FoldersPage = () => {
   const { folders, createFolder, updateFolder, deleteFolder } = useFolders();
@@ -54,7 +54,7 @@ const FoldersPage = () => {
           setNewColor(FOLDER_COLORS[0]);
           setShowCreate(false);
           dispatchTutorialFolderCreated();
-          toast.success('Proyecto creado con éxito');
+          toast.success('Proyecto creado');
         },
         onError: () => toast.error('Error al crear proyecto'),
       }
@@ -62,7 +62,7 @@ const FoldersPage = () => {
   };
 
   const handleDelete = (id: string) => {
-    if (window.confirm('¿Estás seguro de que quieres eliminar este proyecto?')) {
+    if (window.confirm('¿Eliminar este proyecto?')) {
       deleteFolder.mutate(id);
       setMenuFolder(null);
       if (selectedFolder === id) setSelectedFolder(null);
@@ -75,7 +75,7 @@ const FoldersPage = () => {
     if (!fId) return;
     const alreadyShared = shares.some((s: any) => s.shared_with_id === friendId);
     if (alreadyShared) {
-      toast.info('Ya compartido con este amigo');
+      toast.info('Ya compartido');
       return;
     }
     shareWithFriend.mutate({ folderId: fId, friendId });
@@ -108,7 +108,6 @@ const FoldersPage = () => {
   }, [JSON.stringify(friendUserIds)]);
 
   const sharedWithIds = shares.map((s: any) => s.shared_with_id);
-
   const folderTasks = selectedFolder ? tasks.filter((t) => t.folder_id === selectedFolder) : [];
   const currentFolder = folders.find((f) => f.id === selectedFolder);
 
@@ -123,113 +122,69 @@ const FoldersPage = () => {
     if (!folder) return null;
 
     return (
-      <>
-        <motion.div 
-          initial={{ opacity: 0 }} 
-          animate={{ opacity: 1 }} 
-          exit={{ opacity: 0 }} 
-          className="fixed inset-0 bg-black/60 z-[60] backdrop-blur-xl" 
-          onClick={() => setSharingFolder(null)} 
-        />
+      <AnimatePresence>
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/20 z-[80] backdrop-blur-sm" onClick={() => setSharingFolder(null)} />
         <motion.div
-          initial={{ y: '100%', opacity: 0 }} 
-          animate={{ y: 0, opacity: 1 }} 
-          exit={{ y: '100%', opacity: 0 }}
-          transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-          className="fixed inset-x-0 bottom-0 z-[70] px-4 pb-8 lg:px-0 lg:flex lg:items-center lg:justify-center lg:inset-0 lg:pb-0"
+          initial={{ opacity: 0, scale: 0.98, y: 10 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.98, y: 10 }}
+          className="fixed inset-0 z-[90] flex items-center justify-center p-4 pointer-events-none"
         >
-          <div className="mx-auto w-full max-w-[430px] lg:max-w-[500px] bg-card rounded-[48px] overflow-hidden shadow-[0_40px_80px_rgba(0,0,0,0.3)] border border-outline-variant/20">
-            <div className="flex justify-center pt-6 pb-2 lg:hidden">
-              <div className="w-12 h-1.5 bg-on-surface-variant/10 rounded-full" />
+          <div className="mx-auto w-full max-w-[400px] bg-[#F2F2F2] rounded-[32px] shadow-2xl border border-black/5 pointer-events-auto p-8 space-y-6">
+            <div className="flex justify-between items-center">
+              <h2 className="text-xl font-black text-[#0D0D0D] tracking-tight">Compartir</h2>
+              <button onClick={() => setSharingFolder(null)} className="p-2 hover:bg-black/5 rounded-full transition-colors">
+                <X className="w-4 h-4 text-[#8C8C8C]" />
+              </button>
             </div>
-            <div className="p-10 space-y-8">
-              <div className="flex justify-between items-center">
-                <div className="space-y-1">
-                  <h2 className="text-3xl font-black text-foreground font-headline tracking-tight leading-none">Colaborar</h2>
-                  <p className="text-sm font-medium text-on-surface-variant/40">Gestiona quién tiene acceso.</p>
-                </div>
-                <button 
-                  onClick={() => setSharingFolder(null)} 
-                  className="w-12 h-12 rounded-full bg-surface-container-high flex items-center justify-center text-on-surface-variant/40 hover:bg-surface-container-highest transition-colors"
-                >
-                  <X className="w-6 h-6" />
-                </button>
-              </div>
 
-              <div className="p-6 rounded-[32px] bg-surface-container-low border border-outline-variant/10 flex items-center gap-5">
-                <div 
-                  className="w-16 h-16 rounded-[24px] flex items-center justify-center shadow-inner" 
-                  style={{ backgroundColor: (folder.color || '#C3F53C') + '20' }}
-                >
-                  <FolderOpen className="w-8 h-8" style={{ color: folder.color || '#C3F53C' }} />
-                </div>
-                <div>
-                  <p className="text-xl font-black text-foreground tracking-tight">{folder.name}</p>
-                  <p className="text-[10px] font-black text-on-surface-variant/40 uppercase tracking-[0.2em]">Proyecto Compartido</p>
-                </div>
-              </div>
-
-              {shares.length > 0 && (
-                <div className="space-y-4">
-                  <p className="text-[10px] font-black text-on-surface-variant/40 uppercase tracking-[0.3em] ml-1">Miembros</p>
-                  <div className="space-y-3">
-                    {shares.map((share: any) => {
-                      const profile = friendProfiles.find(p => p.user_id === share.shared_with_id);
-                      return (
-                        <div key={share.id} className="flex items-center justify-between p-5 rounded-[28px] bg-surface-container-low border border-outline-variant/10 shadow-sm">
-                          <div className="flex items-center gap-4">
-                            <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-[12px] font-black text-primary">
-                              {(profile?.name || profile?.email || 'A')[0].toUpperCase()}
-                            </div>
-                            <span className="text-sm font-black text-foreground">{profile?.name || profile?.email || 'Miembro'}</span>
-                          </div>
-                          <button 
-                            onClick={() => handleRemoveShare(share.id)} 
-                            className="text-red-500 text-xs font-black hover:bg-red-50 px-4 py-2 rounded-xl transition-colors"
-                          >
-                            Quitar
-                          </button>
+            <div className="space-y-4">
+              <p className="text-[10px] font-black uppercase tracking-widest text-[#8C8C8C]">Miembros</p>
+              <div className="space-y-2">
+                {shares.map((share: any) => {
+                  const profile = friendProfiles.find(p => p.user_id === share.shared_with_id);
+                  return (
+                    <div key={share.id} className="flex items-center justify-between p-3 bg-white/50 rounded-2xl border border-black/5">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-black text-white flex items-center justify-center text-[10px] font-black">
+                          {(profile?.name || profile?.email || 'A')[0].toUpperCase()}
                         </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
+                        <span className="text-xs font-black text-[#0D0D0D]">{profile?.name || profile?.email || 'Miembro'}</span>
+                      </div>
+                      <button onClick={() => handleRemoveShare(share.id)} className="text-[9px] font-black text-[#8C8C8C] hover:text-black">REVOCAR</button>
+                    </div>
+                  );
+                })}
+                {shares.length === 0 && <p className="text-[10px] text-[#8C8C8C] text-center py-2 italic">Solo tú tienes acceso</p>}
+              </div>
+            </div>
 
-              <div className="space-y-4">
-                <p className="text-[10px] font-black text-on-surface-variant/40 uppercase tracking-[0.3em] ml-1">Añadir personas</p>
-                {friendProfiles.length === 0 ? (
-                  <div className="p-10 rounded-[32px] bg-surface-container-high border-2 border-dashed border-outline-variant/20 text-center">
-                    <p className="text-sm font-bold text-on-surface-variant/30">No tienes amigos para invitar aún.</p>
-                  </div>
-                ) : (
-                  <div className="space-y-2 max-h-[250px] overflow-y-auto no-scrollbar pr-1">
-                    {friendProfiles
-                      .filter(p => !sharedWithIds.includes(p.user_id))
-                      .map((profile) => (
-                        <button 
-                          key={profile.user_id} 
-                          onClick={() => handleShareWithFriend(profile.user_id)}
-                          className="w-full flex items-center justify-between p-5 rounded-[28px] bg-surface-container-low border border-outline-variant/10 hover:border-primary hover:shadow-lg transition-all group"
-                        >
-                          <div className="flex items-center gap-4">
-                            <div className="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center text-[12px] font-black text-foreground group-hover:bg-primary/20 transition-colors">
-                              {(profile?.name || profile?.email || 'A')[0].toUpperCase()}
-                            </div>
-                            <span className="text-sm font-black text-foreground group-hover:text-foreground transition-colors">{profile.name || profile.email}</span>
-                          </div>
-                          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-all shadow-sm">
-                            <Plus className="w-5 h-5" />
-                          </div>
-                        </button>
-                      ))}
-                  </div>
-                )}
+            <div className="space-y-4">
+              <p className="text-[10px] font-black uppercase tracking-widest text-[#8C8C8C]">Invitar Amigos</p>
+              <div className="space-y-2 max-h-[160px] overflow-y-auto pr-2 custom-scrollbar">
+                {friendProfiles
+                  .filter(p => !sharedWithIds.includes(p.user_id))
+                  .map((profile) => (
+                    <button 
+                      key={profile.user_id} 
+                      onClick={() => handleShareWithFriend(profile.user_id)}
+                      className="w-full flex items-center justify-between p-3 bg-black/5 rounded-2xl hover:bg-black/10 transition-all"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-[#8C8C8C]/20 flex items-center justify-center text-[10px] font-black text-[#0D0D0D]">
+                          {(profile?.name || profile?.email || 'A')[0].toUpperCase()}
+                        </div>
+                        <span className="text-xs font-black text-[#0D0D0D]">{profile.name || profile.email}</span>
+                      </div>
+                      <Plus className="w-4 h-4 text-black" />
+                    </button>
+                  ))}
+                {friendProfiles.length === 0 && <p className="text-[10px] text-[#8C8C8C] text-center py-2 italic">No tienes amigos para invitar</p>}
               </div>
             </div>
           </div>
         </motion.div>
-      </>
+      </AnimatePresence>
     );
   };
 
@@ -237,70 +192,40 @@ const FoldersPage = () => {
     <AnimatePresence>
       {showCreate && (
         <>
-          <motion.div 
-            initial={{ opacity: 0 }} 
-            animate={{ opacity: 1 }} 
-            exit={{ opacity: 0 }} 
-            className="fixed inset-0 bg-black/40 backdrop-blur-xl z-[80]"
-            onClick={() => setShowCreate(false)}
-          />
-          <motion.div 
-            initial={{ opacity: 0, scale: 0.9, y: 30 }} 
-            animate={{ opacity: 1, scale: 1, y: 0 }} 
-            exit={{ opacity: 0, scale: 0.9, y: 30 }}
-            className="fixed inset-x-4 top-[10%] lg:inset-x-0 lg:w-[500px] lg:mx-auto z-[90] bg-card p-10 rounded-[56px] border border-outline-variant/20 shadow-[0_50px_100px_rgba(0,0,0,0.2)] space-y-10"
-          >
-            <div className="space-y-2">
-              <h2 className="text-4xl font-black text-foreground font-headline tracking-tight leading-none">Nuevo Proyecto</h2>
-              <p className="text-base font-medium text-on-surface-variant/40">Crea un espacio para tus objetivos.</p>
-            </div>
-
-            <div className="space-y-8">
-              <div className="space-y-3">
-                <p className="text-[10px] font-black uppercase tracking-[0.4em] text-on-surface-variant/40 ml-1">Nombre del Proyecto</p>
-                <input 
-                  autoFocus 
-                  value={newName} 
-                  onChange={(e) => setNewName(e.target.value)}
-                  placeholder="Ej: Lanzamiento Producto, Boda..."
-                  className="w-full bg-surface-container-high border-4 border-transparent rounded-[32px] p-7 text-foreground text-2xl font-black placeholder:text-on-surface-variant/20 focus:border-primary/40 focus:bg-surface-container-highest transition-all outline-none shadow-inner"
-                  onKeyDown={(e) => e.key === 'Enter' && handleCreate()} 
-                />
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/20 backdrop-blur-sm z-[80]" onClick={() => setShowCreate(false)} />
+          <motion.div initial={{ opacity: 0, scale: 0.98, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.98, y: 10 }} className="fixed inset-0 z-[90] flex items-center justify-center p-4 pointer-events-none">
+            <div className="bg-[#F2F2F2] w-full max-w-[360px] p-8 rounded-[32px] border border-black/5 shadow-2xl space-y-8 pointer-events-auto">
+              <div className="space-y-1">
+                <h2 className="text-xl font-black text-[#0D0D0D] tracking-tight">Nuevo Proyecto</h2>
+                <p className="text-[10px] font-black uppercase tracking-widest text-[#8C8C8C]">Organización minimalista</p>
               </div>
 
-              <div className="space-y-4">
-                <p className="text-[10px] font-black uppercase tracking-[0.4em] text-on-surface-variant/40 ml-1">Color Distintivo</p>
-                <div className="grid grid-cols-4 gap-4">
-                  {FOLDER_COLORS.map((c) => (
-                    <button 
-                      key={c} 
-                      onClick={() => setNewColor(c)}
-                      className={`h-16 rounded-[24px] transition-all relative overflow-hidden group shadow-md ${newColor === c ? 'ring-4 ring-primary ring-offset-4 ring-offset-card scale-95' : 'hover:scale-105 hover:shadow-xl'}`}
-                      style={{ backgroundColor: c }}
-                    >
-                      {newColor === c && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-black/10">
-                          <Check className="w-6 h-6 text-white" strokeWidth={4} />
-                        </div>
-                      )}
-                    </button>
-                  ))}
+              <div className="space-y-6">
+                <div className="space-y-2">
+                  <p className="text-[9px] font-black uppercase tracking-widest text-[#8C8C8C] ml-1">Nombre</p>
+                  <input 
+                    autoFocus value={newName} onChange={(e) => setNewName(e.target.value)}
+                    placeholder="Ej: Personal, Trabajo..."
+                    className="w-full bg-white/50 border border-black/5 rounded-2xl p-4 text-[#0D0D0D] text-lg font-black outline-none focus:bg-white transition-all"
+                    onKeyDown={(e) => e.key === 'Enter' && handleCreate()} 
+                  />
                 </div>
-              </div>
 
-              <div className="flex gap-4 pt-4">
-                <button 
-                  onClick={() => setShowCreate(false)} 
-                  className="flex-1 py-6 rounded-[32px] bg-surface-container-high text-on-surface-variant text-sm font-black hover:bg-surface-container-highest transition-colors"
-                >
-                  Cancelar
-                </button>
-                <button 
-                  onClick={handleCreate} 
-                  className="flex-[2] py-6 rounded-[32px] bg-primary text-primary-foreground text-sm font-black hover:scale-[1.02] active:scale-[0.98] transition-all shadow-[0_20px_40px_rgba(195,245,60,0.4)]"
-                >
-                  Crear Espacio
-                </button>
+                <div className="space-y-3">
+                  <p className="text-[9px] font-black uppercase tracking-widest text-[#8C8C8C] ml-1">Estética</p>
+                  <div className="grid grid-cols-4 gap-3">
+                    {FOLDER_COLORS.map((c) => (
+                      <button key={c} onClick={() => setNewColor(c)} className={cn("h-10 rounded-xl transition-all relative flex items-center justify-center", newColor === c ? 'ring-2 ring-black ring-offset-2 ring-offset-[#F2F2F2]' : 'hover:scale-105')} style={{ backgroundColor: c }}>
+                        {newColor === c && <Check className="w-4 h-4 text-white" />}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex gap-3 pt-4">
+                  <button onClick={() => setShowCreate(false)} className="flex-1 py-4 rounded-2xl bg-black/5 text-[#8C8C8C] text-[10px] font-black hover:bg-black/10 transition-all">CERRAR</button>
+                  <button onClick={handleCreate} className="flex-[2] py-4 rounded-2xl bg-black text-white text-[10px] font-black shadow-xl active:scale-95 transition-all">CREAR ESPACIO</button>
+                </div>
               </div>
             </div>
           </motion.div>
@@ -310,431 +235,180 @@ const FoldersPage = () => {
   );
 
   if (selectedFolder && currentFolder) {
-    const folderShareCount = shares.length;
     const count = folderTasks.length;
     const doneCount = folderTasks.filter((t) => t.status === 'done').length;
     const progress = count > 0 ? (doneCount / count) * 100 : 0;
 
     return (
-      <div className="min-h-screen bg-background selection:bg-primary/30">
-        <div className="max-w-[430px] lg:max-w-5xl mx-auto px-6 pt-16 pb-32 space-y-12">
-          {/* Header Section */}
-          <motion.div 
-            initial={{ opacity: 0, y: -30 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex items-start gap-8"
-          >
-            <button 
-              onClick={() => setSelectedFolder(null)} 
-              className="w-16 h-16 rounded-[28px] bg-card flex items-center justify-center text-foreground hover:bg-primary hover:text-primary-foreground transition-all hover:scale-110 shadow-xl border border-outline-variant/10"
-            >
-              <ArrowLeft className="w-7 h-7" />
+      <div className="min-h-screen bg-[#F2F2F2] text-[#0D0D0D]">
+        <div className="max-w-4xl mx-auto px-6 pt-16 pb-32 space-y-12">
+          <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-6">
+            <button onClick={() => setSelectedFolder(null)} className="w-10 h-10 rounded-xl bg-black text-white flex items-center justify-center hover:scale-105 transition-all">
+              <ArrowLeft className="w-5 h-5" />
             </button>
-            <div className="flex-1 min-w-0 space-y-4">
-              <div className="flex items-center gap-3">
-                <div 
-                  className="w-10 h-10 rounded-xl flex items-center justify-center shadow-inner" 
-                  style={{ backgroundColor: (currentFolder.color || '#C3F53C') + '20' }}
-                >
-                  <FolderOpen className="w-5 h-5" style={{ color: currentFolder.color || '#C3F53C' }} />
-                </div>
-                <p className="text-[10px] font-black text-on-surface-variant/40 uppercase tracking-[0.4em]">Proyecto Activo</p>
-              </div>
-              <h1 className="text-4xl lg:text-6xl font-black text-foreground tracking-tighter font-headline leading-none truncate">{currentFolder.name}</h1>
-              
-              <div className="flex items-center gap-6 pt-2">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-                  <span className="text-xs font-black text-on-surface-variant/60 uppercase tracking-widest">{count} Tareas</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-black text-on-surface-variant/60 uppercase tracking-widest">{Math.round(progress)}% Completado</span>
-                </div>
-              </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-[9px] font-black text-[#8C8C8C] uppercase tracking-[0.3em] mb-1">PROYECTO</p>
+              <h1 className="text-3xl font-black tracking-tighter truncate leading-none">{currentFolder.name}</h1>
             </div>
             
-            <div className="flex gap-3">
-              <button 
-                onClick={() => setSharingFolder(currentFolder.id)} 
-                className={`w-16 h-16 rounded-[28px] flex items-center justify-center transition-all shadow-xl ${folderShareCount > 0 ? 'bg-primary text-primary-foreground' : 'bg-card text-on-surface-variant/30 hover:bg-card hover:text-foreground'}`}
-              >
-                {folderShareCount > 0 ? <Users className="w-7 h-7" /> : <Share2 className="w-7 h-7" />}
+            <div className="flex gap-2">
+              <button onClick={() => setSharingFolder(currentFolder.id)} className={cn("w-10 h-10 rounded-xl flex items-center justify-center transition-all", shares.length > 0 ? 'bg-black text-white' : 'bg-black/5 text-[#8C8C8C]')}>
+                <Users className="w-5 h-5" />
               </button>
-              <button 
-                onClick={() => {
-                  setEditingFolder(currentFolder.id);
-                  setNewName(currentFolder.name);
-                  setNewColor(currentFolder.color || FOLDER_COLORS[0]);
-                }}
-                className="w-16 h-16 rounded-[28px] bg-card flex items-center justify-center text-foreground hover:bg-surface-container-high transition-all shadow-xl border border-outline-variant/10"
-              >
-                <Edit2 className="w-7 h-7" />
+              <button onClick={() => { setEditingFolder(currentFolder.id); setNewName(currentFolder.name); setNewColor(currentFolder.color || FOLDER_COLORS[0]); setShowCreate(true); }} className="w-10 h-10 rounded-xl bg-black/5 flex items-center justify-center text-[#8C8C8C]">
+                <Edit2 className="w-5 h-5" />
               </button>
             </div>
           </motion.div>
 
-          {/* Progress Bar (Large) */}
-          <motion.div 
-            initial={{ opacity: 0, scaleX: 0 }}
-            animate={{ opacity: 1, scaleX: 1 }}
-            transition={{ delay: 0.2, duration: 0.8 }}
-            className="h-4 w-full bg-surface-container-high/50 rounded-full overflow-hidden border-2 border-outline-variant/10 shadow-inner p-1"
-          >
-            <motion.div 
-              initial={{ width: 0 }}
-              animate={{ width: `${progress}%` }}
-              transition={{ duration: 1.5, ease: "easeOut" }}
-              className="h-full rounded-full shadow-lg relative overflow-hidden"
-              style={{ backgroundColor: currentFolder.color || '#C3F53C' }}
-            >
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent animate-shimmer" />
-            </motion.div>
-          </motion.div>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <div className="md:col-span-3 bg-white/40 border border-black/5 rounded-[32px] p-8 space-y-8">
+              <div className="flex items-center justify-between">
+                <h2 className="text-[10px] font-black uppercase tracking-widest text-[#8C8C8C]">Lista de Tareas</h2>
+                <button onClick={openCapture} className="text-[10px] font-black text-black flex items-center gap-2 hover:underline"><Plus className="w-4 h-4" /> AÑADIR</button>
+              </div>
 
-          {/* Tasks List */}
-          <div className="space-y-8">
-            <div className="flex items-center justify-between border-b border-outline-variant/10 pb-8">
-              <h2 className="text-[12px] font-black text-on-surface-variant/40 uppercase tracking-[0.4em]">Listado de Tareas</h2>
-              <button 
-                onClick={openCapture} 
-                className="text-xs font-black text-primary-foreground bg-primary px-8 py-4 rounded-[20px] hover:scale-105 transition-all shadow-[0_15px_30px_rgba(195,245,60,0.3)] flex items-center gap-3 active:scale-95"
-              >
-                <Plus className="w-5 h-5" /> Nueva Tarea
-              </button>
-            </div>
-
-            {folderTasks.length === 0 ? (
-              <motion.div 
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="bg-surface-container-low/40 backdrop-blur-md border-4 border-dashed border-outline-variant/10 p-24 rounded-[64px] text-center space-y-8"
-              >
-                <div className="w-24 h-24 rounded-[32px] bg-card flex items-center justify-center mx-auto shadow-sm">
-                  <Plus className="w-10 h-10 text-on-surface-variant/10" />
+              {folderTasks.length === 0 ? (
+                <div className="py-20 text-center space-y-4">
+                  <div className="w-12 h-12 rounded-2xl bg-black/5 flex items-center justify-center mx-auto"><FolderOpen className="w-6 h-6 text-[#8C8C8C]/20" /></div>
+                  <p className="text-[#8C8C8C] text-xs font-black">VACÍO</p>
                 </div>
-                <div className="space-y-3">
-                  <p className="text-foreground font-black text-3xl font-headline tracking-tight">Espacio Limpio</p>
-                  <p className="text-on-surface-variant/40 text-lg max-w-[320px] mx-auto font-medium">Empieza a añadir tareas a este proyecto para ver tu progreso.</p>
-                </div>
-              </motion.div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <AnimatePresence mode="popLayout">
-                  {folderTasks.map((task, idx) => {
+              ) : (
+                <div className="space-y-2">
+                  {folderTasks.map((task) => {
                     const isDone = task.status === 'done';
                     return (
-                      <motion.div 
-                        key={task.id} 
-                        layout
-                        initial={{ opacity: 0, y: 20 }} 
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, scale: 0.9 }}
-                        transition={{ delay: idx * 0.05, type: 'spring', damping: 20 }}
-                        onClick={() => setSelectedTask(task)}
-                        className={`group p-8 rounded-[40px] flex items-center gap-6 cursor-pointer transition-all border-2 relative overflow-hidden ${
-                          isDone 
-                            ? 'bg-card/20 border-transparent opacity-40' 
-                            : 'bg-card hover:border-primary hover:shadow-[0_30px_60px_rgba(0,0,0,0.15)] border-outline-variant/10 shadow-sm'
-                        }`}
-                      >
-                        <div className="flex-shrink-0 relative z-10">
-                          {isDone ? (
-                            <div className="w-10 h-10 rounded-[14px] bg-surface-container-high flex items-center justify-center">
-                              <Check className="w-6 h-6 text-on-surface-variant/30" strokeWidth={4} />
-                            </div>
-                          ) : (
-                            <button 
-                              onClick={(e) => handleComplete(task.id, e)}
-                              className="w-10 h-10 rounded-[14px] border-2 border-outline-variant/20 flex items-center justify-center hover:border-primary hover:bg-primary transition-all group-hover:scale-110 active:scale-90 bg-card" 
-                            >
-                              <div className="w-5 h-5 rounded-[8px] bg-primary/0 group-hover:bg-primary transition-all scale-0 group-hover:scale-100 shadow-inner" />
-                            </button>
-                          )}
+                      <div key={task.id} onClick={() => setSelectedTask(task)} className={cn("group p-4 rounded-2xl flex items-center gap-4 cursor-pointer transition-all border", isDone ? 'bg-black/5 border-transparent opacity-40' : 'bg-white border-black/5 hover:border-black/20 shadow-sm')}>
+                        <button onClick={(e) => { e.stopPropagation(); handleComplete(task.id, e); }} className={cn("w-5 h-5 rounded-md border-2 transition-all flex items-center justify-center flex-shrink-0", isDone ? 'bg-black border-black' : 'border-black/10')}>
+                          {isDone && <Check className="w-3 h-3 text-white" strokeWidth={4} />}
+                        </button>
+                        <div className="flex-1 min-w-0">
+                          <h4 className={cn("text-sm font-black truncate", isDone && 'line-through opacity-40')}>{task.title}</h4>
+                          {task.due_date && <p className="text-[8px] font-black text-[#8C8C8C] uppercase tracking-widest mt-0.5">{task.due_date}</p>}
                         </div>
-                        <div className="flex-1 min-w-0 relative z-10">
-                          <h4 className={`text-xl font-black truncate tracking-tight font-headline ${isDone ? 'text-on-surface-variant/30 line-through' : 'text-foreground'}`}>{task.title}</h4>
-                          {task.due_date && (
-                            <div className="flex items-center gap-2 mt-2">
-                              <div className="w-1.5 h-1.5 rounded-full bg-primary" />
-                              <p className="text-[10px] font-black text-on-surface-variant/30 uppercase tracking-[0.2em]">{task.due_date}</p>
-                            </div>
-                          )}
-                        </div>
-                        {!isDone && (
-                          <button 
-                            onClick={(e) => { e.stopPropagation(); setTimerTask(task); }}
-                            className="w-12 h-12 rounded-[16px] bg-surface-container-high flex items-center justify-center opacity-0 group-hover:opacity-100 hover:bg-primary hover:text-primary-foreground transition-all hover:scale-110 relative z-10 shadow-sm active:scale-90"
-                          >
-                            <Timer className="w-5 h-5" />
-                          </button>
-                        )}
-                        
-                        {/* Hover accent */}
-                        {!isDone && (
-                          <div 
-                            className="absolute left-0 top-0 bottom-0 w-2 opacity-0 group-hover:opacity-100 transition-opacity" 
-                            style={{ backgroundColor: currentFolder.color || '#C3F53C' }}
-                          />
-                        )}
-                      </motion.div>
+                      </div>
                     );
                   })}
-                </AnimatePresence>
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-6">
+              <div className="bg-white rounded-[32px] p-6 border border-black/5 space-y-4 shadow-sm">
+                <p className="text-[10px] font-black uppercase tracking-widest text-[#8C8C8C]">Progreso</p>
+                <div className="space-y-2">
+                  <p className="text-4xl font-black tabular-nums tracking-tighter">{Math.round(progress)}%</p>
+                  <div className="h-2 w-full bg-black/5 rounded-full overflow-hidden">
+                    <motion.div initial={{ width: 0 }} animate={{ width: `${progress}%` }} className="h-full bg-black" />
+                  </div>
+                  <p className="text-[9px] font-black text-[#8C8C8C] uppercase tracking-widest">{doneCount} / {count} HECHAS</p>
+                </div>
               </div>
-            )}
+
+              {shares.length > 0 && (
+                <div className="bg-black text-white rounded-[32px] p-6 space-y-4 shadow-xl">
+                  <p className="text-[10px] font-black uppercase tracking-widest opacity-40">Colaborando</p>
+                  <div className="flex -space-x-2">
+                    {shares.slice(0, 4).map((s: any) => {
+                      const profile = friendProfiles.find(p => p.user_id === s.shared_with_id);
+                      return (
+                        <div key={s.id} className="w-8 h-8 rounded-full bg-white text-black border-2 border-black flex items-center justify-center text-[10px] font-black">
+                          {(profile?.name || profile?.email || 'A')[0].toUpperCase()}
+                        </div>
+                      );
+                    })}
+                    {shares.length > 4 && <div className="w-8 h-8 rounded-full bg-[#262626] text-white border-2 border-black flex items-center justify-center text-[10px] font-black">+{shares.length - 4}</div>}
+                  </div>
+                  <button onClick={() => setSharingFolder(currentFolder.id)} className="w-full py-2 bg-white/10 hover:bg-white/20 rounded-xl text-[9px] font-black uppercase transition-all">GESTIONAR</button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
         
-        <FAB 
-          onTextClick={openCapture} 
-          onVoiceClick={openCaptureInVoiceMode} 
-        />
-        
+        <FAB onTextClick={openCapture} onVoiceClick={openCaptureInVoiceMode} />
         <TaskCaptureModal ref={captureModalRef} open={captureOpen} onClose={() => setCaptureOpen(false)} folderId={selectedFolder} creationSource="fab" />
         <TaskDetailModal task={selectedTask} open={!!selectedTask} onClose={() => setSelectedTask(null)} />
-        <FullscreenTimer task={timerTask} open={!!timerTask} onClose={() => setTimerTask(null)} />
-        
-        <AnimatePresence>{editingFolder && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/40 backdrop-blur-xl" onClick={() => setEditingFolder(null)} />
-            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="relative bg-card w-full max-w-[500px] p-12 rounded-[56px] shadow-2xl border border-outline-variant/20 space-y-10">
-              <div className="space-y-2">
-                <h3 className="text-3xl font-black text-foreground font-headline tracking-tight">Editar Proyecto</h3>
-                <p className="text-sm font-medium text-on-surface-variant/40">Modifica los detalles de tu espacio.</p>
-              </div>
-              <div className="space-y-8">
-                <div className="space-y-3">
-                  <p className="text-[10px] font-black uppercase tracking-[0.4em] text-on-surface-variant/40 ml-1">Nombre</p>
-                  <input 
-                    autoFocus 
-                    value={newName} 
-                    onChange={(e) => setNewName(e.target.value)}
-                    className="w-full bg-surface-container-high rounded-[32px] p-7 text-foreground font-black text-2xl outline-none focus:bg-surface-container-highest border-4 border-transparent focus:border-primary/40 transition-all shadow-inner"
-                    onKeyDown={(e) => e.key === 'Enter' && handleUpdate(editingFolder)} 
-                  />
-                </div>
-                <div className="space-y-4">
-                  <p className="text-[10px] font-black uppercase tracking-[0.4em] text-on-surface-variant/40 ml-1">Color</p>
-                  <div className="grid grid-cols-4 gap-4">
-                    {FOLDER_COLORS.map((c) => (
-                      <button 
-                        key={c} 
-                        onClick={() => setNewColor(c)}
-                        className={`h-16 rounded-[24px] transition-all relative overflow-hidden ${newColor === c ? 'ring-4 ring-primary ring-offset-4 ring-offset-card scale-95 shadow-lg' : 'hover:scale-105'}`}
-                        style={{ backgroundColor: c }} 
-                      />
-                    ))}
-                  </div>
-                </div>
-              </div>
-              <div className="flex gap-4 pt-4">
-                <button onClick={() => setEditingFolder(null)} className="flex-1 py-6 rounded-[32px] bg-surface-container-high text-sm font-black text-on-surface-variant/40 hover:bg-surface-container-highest transition-colors">Cancelar</button>
-                <button onClick={() => handleUpdate(editingFolder)} className="flex-[2] py-6 rounded-[32px] bg-primary text-sm font-black text-primary-foreground shadow-xl shadow-primary/20">Guardar Cambios</button>
-              </div>
-            </motion.div>
-          </div>
-        )}</AnimatePresence>
-        
-        <AnimatePresence>{renderSharingModal()}</AnimatePresence>
+        {renderSharingModal()}
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background selection:bg-primary/30">
-      {/* Decorative grain/noise pattern like in DailyPage */}
-      <div className="fixed inset-0 pointer-events-none opacity-[0.03] contrast-150 grayscale mix-blend-multiply" 
-           style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3C%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")` }} />
-
-      <div className="max-w-[430px] lg:max-w-6xl mx-auto px-6 pt-20 pb-40 space-y-16 relative">
+    <div className="min-h-screen bg-[#F2F2F2] text-[#0D0D0D]">
+      <div className="max-w-6xl mx-auto px-6 pt-20 pb-32 space-y-16">
         <div className="flex items-end justify-between">
-          <div className="space-y-4">
-            <motion.div 
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
-              className="inline-flex px-3 py-1 rounded-full bg-primary/10 border border-primary/20"
-            >
-              <p className="text-[9px] font-black uppercase tracking-[0.3em] text-primary">Arquitectura</p>
-            </motion.div>
-            <motion.h1 
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
-              className="text-5xl lg:text-7xl font-black tracking-tight font-headline text-foreground leading-none"
-            >
-              Proyectos
-            </motion.h1>
+          <div className="space-y-1">
+            <p className="text-[11px] font-black uppercase tracking-[0.4em] text-[#8C8C8C]">ESTRUCTURA</p>
+            <h1 className="text-5xl font-black tracking-tighter">Proyectos</h1>
           </div>
-          <motion.button 
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => {
-              setNewName('');
-              setNewColor(FOLDER_COLORS[0]);
-              setShowCreate(true);
-            }}
-            className="w-16 h-16 lg:w-20 lg:h-20 rounded-[28px] lg:rounded-[32px] bg-primary text-primary-foreground flex items-center justify-center shadow-lg shadow-primary/20 group transition-all"
-          >
-            <Plus className="w-8 h-8 lg:w-10 lg:h-10 group-hover:rotate-90 transition-transform" strokeWidth={3} />
-          </motion.button>
+          <button onClick={() => setShowCreate(true)} className="w-14 h-14 rounded-[22px] bg-black text-white flex items-center justify-center shadow-2xl hover:scale-105 active:scale-95 transition-all">
+            <Plus className="w-7 h-7" strokeWidth={3} />
+          </button>
         </div>
 
         {folders.length === 0 ? (
-          <motion.div 
-            initial={{ opacity: 0, y: 40 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-surface-container-low/50 backdrop-blur-xl border-4 border-dashed border-outline-variant/10 p-20 lg:p-32 rounded-[64px] text-center space-y-10 shadow-sm"
-          >
-            <div className="w-32 h-32 rounded-[48px] bg-card flex items-center justify-center mx-auto shadow-xl shadow-black/10">
-              <FolderOpen className="w-16 h-16 text-on-surface-variant/10" />
+          <div className="py-32 text-center space-y-8 bg-white/50 rounded-[40px] border-2 border-dashed border-black/5">
+            <FolderOpen className="w-16 h-16 text-black/5 mx-auto" />
+            <div className="space-y-2">
+              <p className="font-black text-2xl tracking-tight">Tu espacio está vacío</p>
+              <p className="text-[#8C8C8C] text-sm font-medium">Crea proyectos para agrupar tus tareas más importantes.</p>
             </div>
-            <div className="space-y-4">
-              <h2 className="text-4xl font-black text-foreground font-headline tracking-tight">Tu arquitectura comienza aquí</h2>
-              <p className="text-on-surface-variant/40 font-medium max-w-[400px] mx-auto text-xl leading-relaxed">
-                Organiza tus objetivos complejos en espacios dedicados para mantener el máximo enfoque.
-              </p>
-            </div>
-            <button 
-              onClick={() => setShowCreate(true)} 
-              className="inline-flex items-center gap-4 px-14 py-7 rounded-[32px] bg-primary text-primary-foreground text-lg font-black hover:scale-105 transition-all shadow-[0_30px_60px_rgba(195,245,60,0.2)] active:scale-95"
-            >
-              <Plus className="w-7 h-7" /> Crear mi primer espacio
-            </button>
-          </motion.div>
+            <button onClick={() => setShowCreate(true)} className="px-10 py-4 rounded-2xl bg-black text-white text-[11px] font-black shadow-xl hover:scale-105 transition-all">EMPEZAR AHORA</button>
+          </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            <AnimatePresence mode="popLayout">
-              {folders.map((folder, index) => {
-                const folderTasksList = tasks.filter((t) => t.folder_id === folder.id);
-                const count = folderTasksList.length;
-                const doneCount = folderTasksList.filter((t) => t.status === 'done').length;
-                const progress = count > 0 ? (doneCount / count) * 100 : 0;
+            {folders.map((folder) => {
+              const folderTasksList = tasks.filter((t) => t.folder_id === folder.id);
+              const count = folderTasksList.length;
+              const doneCount = folderTasksList.filter((t) => t.status === 'done').length;
+              const progress = count > 0 ? (doneCount / count) * 100 : 0;
 
-                return (
-                  <motion.div 
-                    key={folder.id} 
-                    layout
-                    initial={{ opacity: 0, scale: 0.9, y: 30 }} 
-                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.9 }}
-                    transition={{ delay: index * 0.05, type: 'spring', damping: 20 }}
-                    className="group relative"
-                  >
-                    <div 
-                      onClick={() => setSelectedFolder(folder.id)}
-                      className="bg-card/80 backdrop-blur-xl hover:bg-card p-10 lg:p-12 rounded-[64px] border border-outline-variant/10 shadow-[0_20px_40px_rgba(0,0,0,0.1)] hover:shadow-[0_40px_80px_rgba(0,0,0,0.2)] cursor-pointer transition-all duration-700 hover:-translate-y-4 group/card flex flex-col min-h-[400px] justify-between relative overflow-hidden"
-                    >
-                      {/* Interactive background glow */}
-                      <div 
-                        className="absolute -right-20 -top-20 w-64 h-64 rounded-full blur-[100px] opacity-0 group-hover/card:opacity-30 transition-opacity duration-1000"
-                        style={{ backgroundColor: folder.color || '#C3F53C' }}
-                      />
-
-                      <div className="flex items-start justify-between relative z-10">
-                        <div 
-                          className="w-24 h-24 rounded-[36px] flex items-center justify-center transition-all duration-700 group-hover/card:scale-110 group-hover/card:rotate-6 shadow-inner" 
-                          style={{ backgroundColor: (folder.color || '#4BE277') + '20' }}
-                        >
-                          <FolderOpen className="w-12 h-12" style={{ color: folder.color || '#4BE277' }} />
-                        </div>
-                        <div className="flex gap-2.5 opacity-0 group-hover/card:opacity-100 transition-all duration-500 translate-y-4 group-hover/card:translate-y-0">
-                          <button 
-                            onClick={(e) => { e.stopPropagation(); setSharingFolder(folder.id); }}
-                            className="w-12 h-12 rounded-2xl bg-card shadow-lg flex items-center justify-center hover:bg-primary transition-colors"
-                          >
-                            <Users className="w-5 h-5 text-foreground" />
-                          </button>
-                          <button 
-                            onClick={(e) => { e.stopPropagation(); setMenuFolder(menuFolder === folder.id ? null : folder.id); }}
-                            className="w-12 h-12 rounded-2xl bg-card shadow-lg flex items-center justify-center hover:bg-destructive hover:text-destructive-foreground transition-colors"
-                          >
-                            <MoreVertical className="w-5 h-5" />
-                          </button>
-                        </div>
-                      </div>
-
-                      <div className="space-y-8 relative z-10">
-                        <div className="space-y-3">
-                          <h3 className="text-2xl font-black text-foreground tracking-tight leading-tight font-headline">{folder.name}</h3>
-                          <div className="flex items-center gap-3">
-                            <div className="flex -space-x-2.5">
-                              <div className="w-7 h-7 rounded-full bg-surface-container-high border-2 border-card flex items-center justify-center text-[9px] font-black text-foreground shadow-sm">ME</div>
-                              {count > 3 && <div className="w-7 h-7 rounded-full bg-primary border-2 border-card flex items-center justify-center text-[9px] font-black text-primary-foreground shadow-sm">+{count}</div>}
-                            </div>
-                            <p className="text-[11px] font-black text-on-surface-variant/40 uppercase tracking-[0.2em]">{count} Tareas activas</p>
-                          </div>
-                        </div>
-                        
-                        <div className="space-y-4">
-                          <div className="flex justify-between items-end px-1">
-                            <span className="text-[11px] font-black text-foreground uppercase tracking-[0.3em]">{Math.round(progress)}% Listo</span>
-                            {progress > 0 && <div className="w-2 h-2 rounded-full bg-primary animate-pulse shadow-[0_0_10px_rgba(195,245,60,0.8)]" />}
-                          </div>
-                          <div className="h-4 w-full bg-surface-container-high rounded-full overflow-hidden p-1 border border-outline-variant/10 shadow-inner">
-                            <motion.div 
-                              initial={{ width: 0 }}
-                              animate={{ width: `${progress}%` }}
-                              transition={{ duration: 1.5, ease: "easeOut" }}
-                              className="h-full rounded-full relative overflow-hidden shadow-lg"
-                              style={{ backgroundColor: folder.color || '#C3F53C' }}
-                            >
-                              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer" />
-                            </motion.div>
-                          </div>
-                        </div>
-                      </div>
-
-                      <AnimatePresence>
-                        {menuFolder === folder.id && (
-                          <motion.div 
-                            initial={{ opacity: 0, scale: 0.9, y: 15 }} 
-                            animate={{ opacity: 1, scale: 1, y: 0 }} 
-                            exit={{ opacity: 0, scale: 0.9, y: 15 }}
-                            className="absolute right-10 top-28 z-[30] bg-card rounded-[32px] shadow-2xl border border-outline-variant/10 p-5 min-w-[220px]"
-                          >
-                            <button 
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setEditingFolder(folder.id);
-                                setNewName(folder.name);
-                                setNewColor(folder.color || FOLDER_COLORS[0]);
-                                setMenuFolder(null);
-                              }}
-                              className="w-full flex items-center gap-4 px-6 py-5 rounded-2xl hover:bg-primary/20 text-sm font-black text-foreground transition-colors"
-                            >
-                              <Edit2 className="w-5 h-5" /> Editar Espacio
-                            </button>
-                            <button 
-                              onClick={(e) => { e.stopPropagation(); handleDelete(folder.id); }}
-                              className="w-full flex items-center gap-4 px-6 py-5 rounded-2xl hover:bg-destructive/10 text-sm font-black text-red-500 transition-colors"
-                            >
-                              <Trash2 className="w-5 h-5" /> Eliminar
-                            </button>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
+              return (
+                <div key={folder.id} onClick={() => setSelectedFolder(folder.id)} className="bg-white hover:bg-black group p-8 rounded-[40px] border border-black/5 shadow-sm cursor-pointer transition-all duration-500 flex flex-col justify-between min-h-[260px] relative overflow-hidden">
+                  <div className="flex items-start justify-between relative z-10">
+                    <div className="w-12 h-12 rounded-2xl flex items-center justify-center bg-black/5 group-hover:bg-white/10 transition-colors">
+                      <FolderOpen className="w-6 h-6 text-black group-hover:text-white" />
                     </div>
-                  </motion.div>
-                );
-              })}
-            </AnimatePresence>
+                    <button onClick={(e) => { e.stopPropagation(); setMenuFolder(menuFolder === folder.id ? null : folder.id); }} className="p-2 text-[#8C8C8C] group-hover:text-white/40 transition-colors"><MoreVertical className="w-4 h-4" /></button>
+                  </div>
+
+                  <div className="space-y-6 relative z-10">
+                    <h3 className="text-xl font-black tracking-tight truncate group-hover:text-white transition-colors">{folder.name}</h3>
+                    <div className="space-y-3">
+                      <div className="flex justify-between text-[10px] font-black uppercase tracking-widest opacity-40 group-hover:text-white transition-colors">
+                        <span>{count} TAREAS</span>
+                        <span>{Math.round(progress)}%</span>
+                      </div>
+                      <div className="h-1.5 w-full bg-black/5 group-hover:bg-white/10 rounded-full overflow-hidden">
+                        <div className="h-full bg-black group-hover:bg-white transition-all" style={{ width: `${progress}%` }} />
+                      </div>
+                    </div>
+                  </div>
+
+                  <AnimatePresence>
+                    {menuFolder === folder.id && (
+                      <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} className="absolute right-8 top-16 z-[30] bg-white rounded-2xl shadow-2xl border border-black/5 p-2 min-w-[140px]">
+                        <button onClick={(e) => { e.stopPropagation(); setEditingFolder(folder.id); setNewName(folder.name); setNewColor(folder.color || FOLDER_COLORS[0]); setShowCreate(true); setMenuFolder(null); }} className="w-full text-left px-4 py-2 rounded-xl hover:bg-black/5 text-[10px] font-black text-black">EDITAR</button>
+                        <button onClick={(e) => { e.stopPropagation(); handleDelete(folder.id); }} className="w-full text-left px-4 py-2 rounded-xl hover:bg-red-50 text-[10px] font-black text-red-500">ELIMINAR</button>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
       
-      <FAB 
-        onTextClick={openCapture} 
-        onVoiceClick={openCaptureInVoiceMode} 
-      />
-      
+      <FAB onTextClick={openCapture} onVoiceClick={openCaptureInVoiceMode} />
       <TaskCaptureModal ref={captureModalRef} open={captureOpen} onClose={() => setCaptureOpen(false)} creationSource="fab" />
       <TaskDetailModal task={selectedTask} open={!!selectedTask} onClose={() => setSelectedTask(null)} />
-      <FullscreenTimer task={timerTask} open={!!timerTask} onClose={() => setTimerTask(null)} />
       {renderCreateModal()}
-      <AnimatePresence>{renderSharingModal()}</AnimatePresence>
+      {renderSharingModal()}
     </div>
+  );
+};>
   );
 };
 

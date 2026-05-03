@@ -36,7 +36,7 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
   const { createTask } = useTasks();
   const { goals } = useGoals();
 
-  const [phase, setPhase] = useState<'select' | 'input' | 'planning' | 'saving' | 'image_date'>('select');
+  const [phase, setPhase] = useState<'input' | 'planning' | 'saving' | 'image_date'>('input');
   const [selectedGoalId, setSelectedGoalId] = useState<string | null>(null);
   const [reviewImportance, setReviewImportance] = useState(false);
   const [reviewUrgency, setReviewUrgency] = useState(false);
@@ -109,39 +109,29 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
     setReviewImportance(false);
     setReviewUrgency(false);
     setEditingTitle(false);
+    setTitle('');
+    setDescription('');
+    setLink('');
+    resetTranscript();
 
     if (requestedVoiceOpenRef.current) {
       requestedVoiceOpenRef.current = false;
+      setPhase('input');
+      setSourceType('voice');
       return;
     }
 
     if (initialMode === 'voice') {
       setPhase('input');
-      setTitle('');
-      setDescription('');
-      setLink('');
-      resetTranscript();
+      setSourceType('voice');
       beginVoiceCapture();
       return;
     }
-    if (initialMode === 'text') {
-      setPhase('input');
-      setTitle('');
-      setDescription('');
-      setLink('');
-      resetTranscript();
-      setShowTextInput(true);
-      setSourceType('text');
-      return;
-    }
 
-    setPhase('select');
-    setTitle('');
-    setDescription('');
-    setLink('');
-    resetTranscript();
-    setShowTextInput(true);
+    // Default to input text mode
+    setPhase('input');
     setSourceType('text');
+    setShowTextInput(true);
   }, [open, initialMode]);
 
   const handleClose = () => {
@@ -208,7 +198,7 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
     } catch (err) {
       if (!isImageLoop) {
         toast.error('Error al crear tarea');
-        setPhase('planning');
+        setPhase('input');
       }
       throw err;
     } finally {
@@ -236,8 +226,6 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
     setTitle(parsedTitle);
     setDueDate(parsedDate);
     setClassificationSource(sourceForClassification);
-
-    setPhase('planning');
   }, [title, dueDate, sourceType]);
 
   useEffect(() => {
@@ -363,7 +351,8 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
     handleClose();
   };
 
-  const handlePlanningDone = async () => {
+  const handleFinalSave = async () => {
+    if (!title.trim()) { toast.error('Escribe una tarea'); return; }
     await saveTaskQuick({
       title: title.trim(),
       description: description.trim(),
@@ -381,266 +370,195 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
 
   const C = {
     bg: '#F2F2F2',
-    surface: 'rgba(1, 38, 14, 0.05)',
-    border: 'rgba(1, 38, 14, 0.1)',
-    text: '#01260E',
-    muted: 'rgba(1, 38, 14, 0.5)',
-    accent: '#21D904',
-    accentBg: 'rgba(33, 217, 4, 0.1)',
+    surface: 'rgba(0, 0, 0, 0.03)',
+    border: 'rgba(0, 0, 0, 0.05)',
+    text: '#0D0D0D',
+    muted: '#8C8C8C',
+    accent: '#262626',
+    primary: '#0D0D0D',
   };
 
   return (
     <AnimatePresence>
       {open && (
         <>
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60]" onClick={handleClose} />
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[60]" onClick={handleClose} />
           <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: 10 }}
+            initial={{ opacity: 0, scale: 0.98, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 10 }}
-            transition={{ type: 'spring', damping: 22, stiffness: 260 }}
+            exit={{ opacity: 0, scale: 0.98, y: 10 }}
             className="fixed inset-0 z-[70] flex items-center justify-center p-4 pointer-events-none"
           >
-            <div className="relative mx-auto w-full max-w-[360px] max-h-[90vh] overflow-y-auto pointer-events-auto shadow-2xl"
+            <div className="relative mx-auto w-full max-w-[400px] max-h-[90vh] overflow-y-auto pointer-events-auto shadow-2xl"
                  style={{
-                   background: C.bg, borderRadius: 24,
+                   background: C.bg, borderRadius: 32,
                    border: `1px solid ${C.border}`,
                  }}>
               <button
                 onClick={handleClose}
-                className="absolute top-4 right-4 z-10 w-8 h-8 rounded-full bg-on-surface/5 flex items-center justify-center transition-colors hover:bg-on-surface/10"
+                className="absolute top-6 right-6 z-10 w-8 h-8 rounded-full bg-black/5 flex items-center justify-center transition-colors hover:bg-black/10"
                 style={{ color: C.muted }}
               >
                 <X className="w-4 h-4" />
               </button>
 
-              <div className="p-6 pt-8 flex flex-col gap-6">
+              <div className="p-8 flex flex-col gap-8">
                 <AnimatePresence mode="wait">
-                  {phase === 'select' && (
-                    <motion.div 
-                      key="select" 
-                      initial={{ opacity: 0, scale: 0.95 }} 
-                      animate={{ opacity: 1, scale: 1 }} 
-                      exit={{ opacity: 0, scale: 0.95 }} 
-                      className="w-full flex flex-col items-center gap-8"
-                    >
-                      <div className="text-center space-y-2">
-                        <h2 className="text-2xl font-black tracking-tight" style={{ color: C.text }}>Añadir Tarea</h2>
-                        <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: C.muted }}>¿Cómo prefieres empezar?</p>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-4 w-full">
-                        <button
-                          onClick={() => { setPhase('input'); setShowTextInput(true); setSourceType('text'); }}
-                          className="group flex flex-col items-center gap-4 p-5 rounded-[28px] transition-all hover:bg-on-surface/5 active:scale-[0.96] border border-outline-variant"
-                          style={{ background: C.surface }}
-                        >
-                          <div className="w-16 h-16 rounded-[22px] flex items-center justify-center bg-on-surface/5">
-                            <Type className="w-7 h-7 text-foreground" />
-                          </div>
-                          <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: C.muted }}>Escribir</span>
-                        </button>
-
-                        <button
-                          onClick={() => { setPhase('input'); beginVoiceCapture(); }}
-                          className="group flex flex-col items-center gap-4 p-5 rounded-[28px] transition-all active:scale-[0.96] border border-primary/20"
-                          style={{ background: C.accentBg }}
-                        >
-                          <div className="w-16 h-16 rounded-[22px] flex items-center justify-center bg-primary/20">
-                            <Mic className="w-7 h-7 text-primary" />
-                          </div>
-                          <span className="text-[10px] font-black uppercase tracking-widest text-primary">Por Voz</span>
-                        </button>
-                      </div>
-                    </motion.div>
-                  )}
-
                   {phase === 'input' && (
-                    <motion.div key="input" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="w-full flex flex-col gap-6">
+                    <motion.div key="input" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="w-full flex flex-col gap-8">
                       {(isRecording || isProcessing) && (
-                        <div className="w-full flex flex-col items-center gap-6 py-8">
-                          <div className="flex items-center justify-center gap-1.5 h-20 w-full">
+                        <div className="w-full flex flex-col items-center gap-6 py-4">
+                          <div className="flex items-center justify-center gap-1.5 h-16 w-full">
                             {isProcessing ? (
                               <div className="flex gap-2 items-center">
                                 {[0, 1, 2].map((i) => (
                                   <motion.div
                                     key={i}
-                                    className="w-3 h-3 rounded-full bg-primary"
-                                    animate={{ opacity: [0.3, 1, 0.3], scale: [0.8, 1.2, 0.8] }}
+                                    className="w-2 h-2 rounded-full bg-foreground"
+                                    animate={{ opacity: [0.3, 1, 0.3] }}
                                     transition={{ duration: 0.8, repeat: Infinity, delay: i * 0.2 }}
                                   />
                                 ))}
                               </div>
                             ) : (
                               waveformBars.map((h, i) => (
-                                <motion.div key={i} className="w-1.5 rounded-full bg-primary" animate={{ height: [h * 2.5, h * 5, h * 2.5] }} transition={{ duration: 0.8, repeat: Infinity, delay: i * 0.05 }} />
+                                <motion.div key={i} className="w-1 rounded-full bg-foreground" animate={{ height: [h * 2, h * 4, h * 2] }} transition={{ duration: 0.8, repeat: Infinity, delay: i * 0.05 }} />
                               ))
                             )}
                           </div>
-                          <div className="w-full text-center px-4">
-                            <p className="text-lg font-bold leading-tight" style={{ color: C.text }}>
-                              {isProcessing ? "Analizando tu voz..." : transcript || "Escuchando..."}
-                              {!isProcessing && isRecording && <span className="inline-block w-1 h-5 ml-1 animate-pulse bg-primary" />}
-                            </p>
-                          </div>
+                          <p className="text-sm font-black text-center px-4 leading-tight">
+                            {isProcessing ? "Procesando..." : transcript || "Escuchando..."}
+                          </p>
                         </div>
                       )}
                       
                       {!isRecording && !isProcessing && (
-                        <div className="w-full space-y-5">
+                        <div className="w-full space-y-6">
                           <div className="space-y-1">
-                             <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Tarea</label>
                              <input 
                               autoFocus 
                               value={title} 
                               onChange={(e) => setTitle(e.target.value)}
-                              placeholder="¿Qué necesitas hacer?"
-                              className="w-full text-xl font-black bg-surface border border-outline-variant rounded-[20px] px-5 py-4 focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-muted-foreground/30"
-                              onKeyDown={(e) => { 
-                                if (e.key === 'Enter') handleTitleDone();
-                              }} 
+                              placeholder="¿Qué quieres lograr?"
+                              className="w-full text-2xl font-black bg-transparent border-none p-0 focus:ring-0 placeholder:text-black/10"
                             />
                           </div>
 
-                          <div className="space-y-1">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Descripción (opcional)</label>
-                            <AutoTextarea
-                              value={description} 
-                              onChange={(e) => setDescription(e.target.value)}
-                              placeholder="Detalles adicionales..."
-                              className="w-full text-sm bg-surface border border-outline-variant rounded-[20px] p-5 focus:outline-none focus:ring-2 focus:ring-primary/50 min-h-[80px] placeholder:text-muted-foreground/30"
-                            />
-                          </div>
+                          <div className="space-y-4">
+                            <div className="flex items-center gap-2">
+                              <p className="text-[10px] font-black uppercase tracking-widest text-black/30">Fecha</p>
+                              <div className="flex gap-1">
+                                <button 
+                                  onClick={() => setDueDate(format(new Date(), 'yyyy-MM-dd'))}
+                                  className={cn("px-3 py-1 rounded-lg text-[10px] font-black transition-all", dueDate === format(new Date(), 'yyyy-MM-dd') ? "bg-black text-white" : "bg-black/5 text-black/40 hover:bg-black/10")}
+                                >
+                                  Hoy
+                                </button>
+                                <button 
+                                  onClick={() => setDueDate(format(addDays(new Date(), 1), 'yyyy-MM-dd'))}
+                                  className={cn("px-3 py-1 rounded-lg text-[10px] font-black transition-all", dueDate === format(addDays(new Date(), 1), 'yyyy-MM-dd') ? "bg-black text-white" : "bg-black/5 text-black/40 hover:bg-black/10")}
+                                >
+                                  Mañana
+                                </button>
+                                <Popover>
+                                  <PopoverTrigger asChild>
+                                    <button className="p-1 rounded-lg bg-black/5 text-black/40 hover:bg-black/10">
+                                      <CalendarIcon className="w-4 h-4" />
+                                    </button>
+                                  </PopoverTrigger>
+                                  <PopoverContent className="w-auto p-0 border-none shadow-2xl" align="start">
+                                    <CalendarDatePicker 
+                                      date={dueDate} 
+                                      onSelect={(d) => setDueDate(d)} 
+                                      label=""
+                                    />
+                                  </PopoverContent>
+                                </Popover>
+                              </div>
+                            </div>
 
-                          <div className="space-y-1">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Link (opcional)</label>
-                            <div className="relative">
-                              <LinkIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                              <input
-                                type="url"
-                                value={link} 
-                                onChange={(e) => setLink(e.target.value)}
-                                placeholder="https://..."
-                                className="w-full text-sm bg-surface border border-outline-variant rounded-[20px] pl-11 pr-5 py-4 focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-muted-foreground/30"
-                              />
+                            {goals.filter(g => g.active).length > 0 && (
+                              <div className="space-y-2">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-black/30">Meta</p>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {goals.filter(g => g.active).map(goal => (
+                                    <button
+                                      key={goal.id}
+                                      onClick={() => setSelectedGoalId(selectedGoalId === goal.id ? null : goal.id)}
+                                      className={cn(
+                                        "px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all border",
+                                        selectedGoalId === goal.id 
+                                          ? "bg-black text-white border-black" 
+                                          : "bg-black/5 text-black/40 border-transparent hover:bg-black/10"
+                                      )}
+                                    >
+                                      {goal.title}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            <div className="space-y-2">
+                              <p className="text-[10px] font-black uppercase tracking-widest text-black/30">Prioridad</p>
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => setReviewImportance(!reviewImportance)}
+                                  className={cn(
+                                    "flex-1 h-10 rounded-xl font-black uppercase tracking-widest text-[9px] transition-all border",
+                                      reviewImportance ? "bg-black text-white border-black" : "bg-black/5 text-black/40 border-transparent"
+                                  )}
+                                >
+                                  Importante
+                                </button>
+                                <button
+                                  onClick={() => setReviewUrgency(!reviewUrgency)}
+                                  className={cn(
+                                    "flex-1 h-10 rounded-xl font-black uppercase tracking-widest text-[9px] transition-all border",
+                                    reviewUrgency ? "bg-black text-white border-black" : "bg-black/5 text-black/40 border-transparent"
+                                  )}
+                                >
+                                  Urgente
+                                </button>
+                              </div>
                             </div>
                           </div>
 
-                          <button
-                            onClick={() => handleTitleDone()}
-                            disabled={!title.trim()}
-                            className="w-full h-16 bg-primary text-primary-foreground rounded-[24px] font-black text-sm shadow-xl hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-                          >
-                            Continuar
-                            <ChevronRight className="w-5 h-5" />
-                          </button>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => {
+                                setSourceType(sourceType === 'voice' ? 'text' : 'voice');
+                                if (sourceType === 'text') beginVoiceCapture();
+                              }}
+                              className="w-14 h-14 rounded-2xl bg-black/5 flex items-center justify-center text-black/30 hover:bg-black/10 transition-all"
+                            >
+                              {sourceType === 'voice' ? <Type className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+                            </button>
+                            <button
+                              onClick={handleFinalSave}
+                              disabled={!title.trim()}
+                              className="flex-1 h-14 bg-black text-white rounded-2xl font-black text-xs shadow-xl active:scale-95 transition-all disabled:opacity-20"
+                            >
+                              CREAR TAREA
+                            </button>
+                          </div>
                         </div>
                       )}
 
                       {isRecording && (
-                        <button onClick={() => stopRecording()} className="w-20 h-20 rounded-full bg-primary mx-auto flex items-center justify-center shadow-2xl shadow-primary/30 active:scale-90 transition-transform">
-                           <Square className="w-8 h-8 text-primary-foreground fill-primary-foreground" />
+                        <button onClick={() => stopRecording()} className="w-16 h-16 rounded-full bg-foreground mx-auto flex items-center justify-center shadow-xl active:scale-90 transition-transform">
+                           <Square className="w-6 h-6 text-background fill-background" />
                         </button>
                       )}
                     </motion.div>
                   )}
 
-                  {phase === 'planning' && (
-                    <motion.div key="planning" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="w-full flex flex-col gap-6">
-                      <div className="space-y-4">
-                        <div className="flex items-center gap-3 p-4 bg-surface border border-outline-variant rounded-2xl">
-                          <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center flex-shrink-0">
-                            <Check className="w-5 h-5 text-primary" />
-                          </div>
-                          <div className="min-w-0">
-                            <p className="text-xs font-black uppercase tracking-widest text-muted-foreground leading-none mb-1">Confirmar Tarea</p>
-                            <p className="text-sm font-bold truncate">{title}</p>
-                          </div>
-                          <button onClick={() => setPhase('input')} className="ml-auto p-2 hover:bg-on-surface/10 rounded-lg transition-colors">
-                            <Edit2 className="w-4 h-4 text-muted-foreground" />
-                          </button>
-                        </div>
-
-                        <CalendarDatePicker 
-                          date={dueDate} 
-                          onSelect={(d) => setDueDate(d)} 
-                          label="Programación"
-                        />
-
-                        {goals.filter(g => g.active).length > 0 && (
-                          <div className="space-y-2">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Meta Asociada</label>
-                            <div className="flex flex-wrap gap-2">
-                              {goals.filter(g => g.active).map(goal => (
-                                <button
-                                  key={goal.id}
-                                  onClick={() => setSelectedGoalId(selectedGoalId === goal.id ? null : goal.id)}
-                                  className={cn(
-                                    "px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border flex items-center gap-2",
-                                    selectedGoalId === goal.id 
-                                      ? "bg-primary text-primary-foreground border-primary shadow-lg shadow-primary/20" 
-                                      : "bg-surface text-muted-foreground border-outline-variant hover:bg-on-surface/5"
-                                  )}
-                                >
-                                  <Target className="w-3 h-3" />
-                                  {goal.title}
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        <div className="space-y-2">
-                          <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Prioridad (Matriz)</label>
-                          <div className="grid grid-cols-2 gap-3">
-                            <button
-                              onClick={() => setReviewImportance(!reviewImportance)}
-                              className={cn(
-                                "flex flex-col items-center justify-center gap-1 h-16 rounded-[22px] font-black uppercase tracking-widest text-[9px] transition-all border",
-                                  reviewImportance 
-                                    ? "bg-amber-500/20 text-amber-600 border-amber-500/50 shadow-lg shadow-amber-500/10" 
-                                    : "bg-surface text-muted-foreground border-outline-variant hover:bg-on-surface/5"
-                              )}
-                            >
-                              Importante
-                            </button>
-                            <button
-                              onClick={() => setReviewUrgency(!reviewUrgency)}
-                              className={cn(
-                                "flex flex-col items-center justify-center gap-1 h-16 rounded-[22px] font-black uppercase tracking-widest text-[9px] transition-all border",
-                                reviewUrgency 
-                                  ? "bg-red-500/20 text-red-600 border-red-500/50 shadow-lg shadow-red-500/10" 
-                                  : "bg-surface text-muted-foreground border-outline-variant hover:bg-on-surface/5"
-                              )}
-                            >
-                              Urgente
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-
-                      <button
-                        onClick={handlePlanningDone}
-                        disabled={!title.trim()}
-                        className="w-full h-16 bg-primary text-primary-foreground rounded-[24px] font-black text-sm shadow-2xl shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3 mt-4"
-                      >
-                        <Check className="w-6 h-6" strokeWidth={3} />
-                        GUARDAR TAREA
-                      </button>
-                    </motion.div>
-                  )}
-
                   {phase === 'saving' && (
-                    <motion.div key="saving" className="flex flex-col items-center justify-center py-12 w-full min-h-[350px] gap-8">
-                      <div className="relative flex items-center justify-center w-full h-48">
-                        <AISphere />
-                      </div>
-                      <div className="text-center space-y-4">
-                        <h3 className="text-2xl font-black text-foreground tracking-tighter">{savingMessage}</h3>
-                        <div className="flex flex-col items-center gap-1">
-                          <div className="h-0.5 w-10 bg-primary rounded-full animate-pulse" />
-                          <p className="text-[8px] font-black uppercase tracking-[0.5em] text-muted-foreground">Neural Sync...</p>
-                        </div>
+                    <motion.div key="saving" className="flex flex-col items-center justify-center py-12 w-full min-h-[300px] gap-8">
+                      <AISphere />
+                      <div className="text-center space-y-2">
+                        <h3 className="text-xl font-black">{savingMessage}</h3>
+                        <p className="text-[8px] font-black uppercase tracking-[0.4em] opacity-20 animate-pulse">Neural Sync</p>
                       </div>
                     </motion.div>
                   )}

@@ -4,6 +4,7 @@ import { Check, Clock, Link as LinkIcon } from 'lucide-react';
 import SubtasksSection from './SubtasksSection';
 import { useSubtasks } from '@/hooks/useSubtasks';
 import { useTasks } from '@/hooks/useTasks';
+import { usePriorityColors } from '@/hooks/usePriorityColors';
 
 interface TaskCardProps {
   task: any;
@@ -62,15 +63,14 @@ export const TaskCard = ({
   const completedSubtasks = subtasks.filter(s => s.status === 'done').length;
   const hasSubtasks = subtasks.length > 0;
 
-  // Eisenhower quadrant color (subtle dot, not a loud accent)
-  // urg+imp = green, urg = orange, imp = yellow, none = gray
-  const quadrantColor = task.urgency && task.importance
-    ? 'bg-emerald-500'
-    : task.urgency
-      ? 'bg-orange-500'
-      : task.importance
-        ? 'bg-yellow-400'
-        : 'bg-on-surface-variant/30';
+  const { colors: priorityColors } = usePriorityColors();
+
+  const getPriorityColor = () => {
+    if (task.urgency && task.importance) return priorityColors.p1;
+    if (task.urgency && !task.importance) return priorityColors.p2;
+    if (!task.urgency && task.importance) return priorityColors.p3;
+    return priorityColors.p4;
+  };
 
   return (
     <motion.div
@@ -120,7 +120,8 @@ export const TaskCard = ({
       <div className="flex-1 min-w-0 relative flex flex-col justify-center min-h-[44px]">
         <div className="flex items-center gap-2 mb-1">
           <div
-            className={`w-2 h-2 rounded-full ${quadrantColor} flex-shrink-0`}
+            className="w-2 h-2 rounded-full flex-shrink-0"
+            style={{ backgroundColor: getPriorityColor() }}
             aria-hidden
           />
           
