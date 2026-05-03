@@ -120,7 +120,7 @@ const FullscreenTimer = ({ task, open, onClose, durationRef }: FullscreenTimerPr
           // Save progress on close even if not done
           updateTask.mutate({ id: task.id, actual_duration_seconds: elapsed });
           onClose();
-        }} className="absolute top-6 right-6 text-on-surface-variant">
+        }} className="absolute top-6 left-6 text-on-surface-variant">
           <X className="w-6 h-6" />
         </button>
 

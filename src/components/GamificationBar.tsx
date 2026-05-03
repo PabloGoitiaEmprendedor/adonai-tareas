@@ -1,10 +1,10 @@
 import { motion } from 'framer-motion';
-import { Flame, Star, Trophy } from 'lucide-react';
+import { Trophy, Flame } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useStreaks } from '@/hooks/useStreaks';
 import { useGamification, xpProgressInLevel } from '@/hooks/useGamification';
 
-export const GamificationBar = () => {
+export const GamificationBar = ({ completedCount, totalCount }: { completedCount?: number, totalCount?: number }) => {
   const { metrics } = useStreaks();
   const { unlocked } = useGamification();
 
@@ -19,27 +19,19 @@ export const GamificationBar = () => {
       aria-label="Ver logros y progreso"
     >
       <div className="flex items-center gap-3 p-3 rounded-2xl bg-white dark:bg-surface-container-highest border border-black/5 dark:border-white/10 hover:border-primary/30 transition-all shadow-md hover:shadow-lg">
-        {/* Streak */}
-        <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-orange-50 dark:bg-orange-500/10 border border-orange-200 dark:border-orange-500/20">
-          <motion.div
-            animate={{ scale: streak > 0 ? [1, 1.15, 1] : 1 }}
-            transition={{ duration: 2, repeat: Infinity }}
-          >
-            <Flame className="w-4 h-4 text-orange-500" />
-          </motion.div>
-          <span className="text-[13px] font-black tabular-nums text-orange-600 dark:text-orange-400">
-            {streak}
-          </span>
-        </div>
-
         {/* Level + XP bar */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between mb-1.5">
-            <div className="flex items-center gap-1.5">
-              <Star className="w-3.5 h-3.5 text-primary fill-primary/50" />
-              <span className="text-[11px] font-black uppercase tracking-wider text-foreground">
-                Nivel {level}
-              </span>
+        <div className="flex flex-col gap-3 flex-1 min-w-0">
+          <div className="flex items-center justify-between px-1">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 bg-surface-container/50 px-3 py-1.5 rounded-full border border-outline-variant/10">
+                <span className="text-[10px] font-black tracking-[0.2em] uppercase text-primary">Nivel {level}</span>
+              </div>
+              {streak > 0 && (
+                <div className="flex items-center gap-1 bg-orange-500/10 px-1.5 py-0.5 rounded-lg border border-orange-500/20">
+                  <Flame className="w-3 h-3 text-orange-500 fill-orange-500/20" />
+                  <span className="text-[10px] font-black text-orange-500">{streak}</span>
+                </div>
+              )}
             </div>
             <span className="text-[10px] font-bold tabular-nums text-foreground/80">
               {current}/{needed} XP

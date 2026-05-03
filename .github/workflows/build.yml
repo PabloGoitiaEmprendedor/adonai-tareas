@@ -52,10 +52,11 @@ jobs:
         if: success()
         with:
           files: |
-            dist-electron/Adonai-Setup-*.exe
-            dist-electron/Adonai-*.dmg
-            dist-electron/Adonai-*-mac.zip
+            dist-electron/Adonai-Setup.exe
+            dist-electron/Adonai-Mac.dmg
+            dist-electron/Adonai-Mac.zip
             dist-electron/latest.yml
+            dist-electron/latest-mac.yml
             dist-electron/*.blockmap
           draft: false
           prerelease: false

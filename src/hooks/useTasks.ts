@@ -58,7 +58,11 @@ export const useTasks = (filters?: { date?: string; startDate?: string; endDate?
       query = query.is('parent_task_id', null);
 
       const { data: realTasks, error: tasksError } = await query.order('due_date', { ascending: true });
-      if (tasksError) throw tasksError;
+      if (tasksError) {
+        console.error("[useTasks] Error fetching tasks:", tasksError);
+        throw tasksError;
+      }
+      console.log(`[useTasks] Fetched ${realTasks?.length || 0} tasks for date ${filters?.date}`);
 
       // 2. Fetch recurrence rules
       const { data: rules, error: rulesError } = await supabase
@@ -204,8 +208,12 @@ export const useTasks = (filters?: { date?: string; startDate?: string; endDate?
           due_date: taskData.due_date || format(new Date(), 'yyyy-MM-dd'),
         })
         .select()
-        .maybeSingle();
-      if (error) throw error;
+        .single();
+      
+      if (error) {
+        console.error("[useTasks] Error inserting task:", error);
+        throw error;
+      }
 
       // Determine the event type based on source
       let eventType = 'task_created_text';

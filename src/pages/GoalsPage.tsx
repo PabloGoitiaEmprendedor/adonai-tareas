@@ -23,6 +23,7 @@ const GoalsPage = () => {
   const { tasks } = useTasks();
   const { profile, updateProfile } = useProfile();
   const [captureOpen, setCaptureOpen] = useState(false);
+  const [captureMode, setCaptureMode] = useState<'text' | 'voice' | null>(null);
   const [showNewGoal, setShowNewGoal] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newHorizon, setNewHorizon] = useState('monthly');
@@ -32,12 +33,16 @@ const GoalsPage = () => {
   const [targetGoalId, setTargetGoalId] = useState<string | null>(null);
   const captureModalRef = useRef<TaskCaptureModalHandle>(null);
 
-  const openCapture = useCallback(() => setCaptureOpen(true), []);
-  const openCaptureInVoiceMode = useCallback(() => {
-    captureModalRef.current?.openInVoiceMode();
+  const openCapture = useCallback(() => {
+    setCaptureMode('text');
     setCaptureOpen(true);
   }, []);
-  useGlobalVoiceCapture(captureModalRef, openCapture);
+
+  const openCaptureInVoiceMode = useCallback(() => {
+    setCaptureMode('voice');
+    setCaptureOpen(true);
+  }, []);
+  useGlobalVoiceCapture(captureModalRef, openCaptureInVoiceMode);
 
   const horizons = ['daily', 'weekly', 'monthly', 'quarterly', 'annual'];
   const activeGoals = goals.filter((g) => g.active);
@@ -355,7 +360,8 @@ const GoalsPage = () => {
       <TaskCaptureModal 
         ref={captureModalRef} 
         open={captureOpen} 
-        onClose={() => { setCaptureOpen(false); setTargetGoalId(null); }} 
+        initialMode={captureMode}
+        onClose={() => { setCaptureOpen(false); setTargetGoalId(null); setCaptureMode(null); }} 
         goalId={targetGoalId}
         creationSource="fab"
       />

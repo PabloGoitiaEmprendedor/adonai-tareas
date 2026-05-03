@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useMemo } from "react"
+import { useState, useCallback, useMemo, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -16,7 +16,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
-import { ChevronLeft, ChevronRight, Plus, Calendar, Clock, Grid3x3, List, Search, Filter, X } from "lucide-react"
+import { ChevronLeft, ChevronRight, Plus, Calendar, Clock, Grid3x3, List, Search, Filter, X, ChevronDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
   DropdownMenu,
@@ -26,6 +26,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from "@/components/ui/hover-card"
 
 export interface Event {
   id: string
@@ -72,6 +77,11 @@ export function EventManager({
   availableTags = ["Important", "Urgent", "Work", "Personal", "Team", "Client"],
 }: EventManagerProps) {
   const [events, setEvents] = useState<Event[]>(initialEvents)
+  
+  useEffect(() => {
+    setEvents(initialEvents)
+  }, [initialEvents])
+
   const [currentDate, setCurrentDate] = useState(new Date())
   const [view, setView] = useState<"month" | "week" | "day" | "list">(defaultView)
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null)
@@ -259,9 +269,9 @@ export function EventManager({
   return (
     <div className={cn("flex flex-col gap-4", className)}>
       {/* Header */}
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
-          <h2 className="text-xl font-semibold sm:text-2xl">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between px-2">
+        <div className="flex items-center justify-between w-full lg:w-auto gap-4">
+          <h2 className="text-[16px] font-black font-headline tracking-tight text-foreground uppercase">
             {view === "month" &&
               currentDate.toLocaleDateString("es-ES", {
                 month: "long",
@@ -279,85 +289,22 @@ export function EventManager({
                 day: "numeric",
                 year: "numeric",
               })}
-            {view === "list" && "Todos los eventos"}
           </h2>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="icon" onClick={() => navigateDate("prev")} className="h-8 w-8">
+          <div className="flex items-center gap-1.5">
+            <Button variant="ghost" size="icon" onClick={() => navigateDate("prev")} className="h-8 w-8 rounded-lg hover:bg-primary/10 hover:text-primary">
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <Button variant="outline" size="sm" onClick={() => setCurrentDate(new Date())}>
+            <Button variant="ghost" size="sm" onClick={() => setCurrentDate(new Date())} className="text-[11px] font-black uppercase tracking-widest h-8 px-3 rounded-lg hover:bg-primary/10 hover:text-primary">
               Hoy
             </Button>
-            <Button variant="outline" size="icon" onClick={() => navigateDate("next")} className="h-8 w-8">
+            <Button variant="ghost" size="icon" onClick={() => navigateDate("next")} className="h-8 w-8 rounded-lg hover:bg-primary/10 hover:text-primary">
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
         </div>
 
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <div className="sm:hidden">
-            <Select value={view} onValueChange={(value: any) => setView(value)}>
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="month">Mes</SelectItem>
-                <SelectItem value="week">Semana</SelectItem>
-                <SelectItem value="day">Día</SelectItem>
-                <SelectItem value="list">Lista</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="hidden sm:flex items-center gap-1 rounded-lg border bg-background p-1">
-            <Button
-              variant={view === "month" ? "secondary" : "ghost"}
-              size="sm"
-              onClick={() => setView("month")}
-              className="h-8"
-            >
-              <Calendar className="h-4 w-4" />
-              <span className="ml-1">Mes</span>
-            </Button>
-            <Button
-              variant={view === "week" ? "secondary" : "ghost"}
-              size="sm"
-              onClick={() => setView("week")}
-              className="h-8"
-            >
-              <Grid3x3 className="h-4 w-4" />
-              <span className="ml-1">Semana</span>
-            </Button>
-            <Button
-              variant={view === "day" ? "secondary" : "ghost"}
-              size="sm"
-              onClick={() => setView("day")}
-              className="h-8"
-            >
-              <Clock className="h-4 w-4" />
-              <span className="ml-1">Día</span>
-            </Button>
-            <Button
-              variant={view === "list" ? "secondary" : "ghost"}
-              size="sm"
-              onClick={() => setView("list")}
-              className="h-8"
-            >
-              <List className="h-4 w-4" />
-              <span className="ml-1">Lista</span>
-            </Button>
-          </div>
-
-          <Button
-            onClick={() => {
-              setIsCreating(true)
-              setIsDialogOpen(true)
-            }}
-            className="w-full sm:w-auto"
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Nuevo Evento
-          </Button>
+        <div className="hidden">
+          {/* View selector hidden since week and day views are not implemented */}
         </div>
       </div>
 
@@ -450,8 +397,8 @@ function MonthView({
   }
 
   return (
-    <Card className="overflow-hidden border-white/10 bg-black/20">
-      <div className="grid grid-cols-7 border-b border-white/10">
+    <Card className="overflow-hidden border-outline-variant/10 bg-surface-container/30 backdrop-blur-sm shadow-sm">
+      <div className="grid grid-cols-7 border-b border-outline-variant/5">
         {["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"].map((day) => (
           <div key={day} className="p-3 text-center text-xs font-bold uppercase tracking-widest text-muted-foreground">
             {day}
@@ -465,36 +412,81 @@ function MonthView({
           const isToday = day.toDateString() === new Date().toDateString()
 
           return (
-            <div
-              key={index}
-              className={cn(
-                "min-h-24 border-b border-r border-white/10 p-2 transition-colors last:border-r-0",
-                !isCurrentMonth && "opacity-20",
-                "hover:bg-white/5",
-              )}
-            >
-              <div className={cn(
-                "mb-2 flex h-7 w-7 items-center justify-center rounded-lg text-sm transition-all",
-                isToday && "bg-primary text-black font-black shadow-lg shadow-primary/20 scale-110"
-              )}>
-                {day.getDate()}
-              </div>
-              <div className="space-y-1">
-                {dayEvents.map(event => (
-                  <div 
-                    key={event.id}
-                    onClick={() => onEventClick(event)}
-                    className={cn(
-                      "cursor-pointer rounded-md px-2 py-1 text-[10px] font-bold truncate transition-all hover:scale-105 active:scale-95",
-                      getColorClasses(event.color).bg,
-                      "text-white shadow-sm"
-                    )}
-                  >
-                    {event.title}
+            <HoverCard openDelay={100} closeDelay={100}>
+              <HoverCardTrigger asChild>
+                <div
+                  key={index}
+                  className={cn(
+                    "min-h-24 border-b border-r border-outline-variant/5 p-2 transition-colors last:border-r-0",
+                    !isCurrentMonth && "opacity-20",
+                    "hover:bg-primary/5 cursor-default",
+                  )}
+                >
+                  <div className={cn(
+                    "mb-2 flex h-6 w-6 items-center justify-center rounded-lg text-xs font-bold transition-all",
+                    isToday && "bg-primary text-black font-black shadow-lg shadow-primary/20 scale-110"
+                  )}>
+                    {day.getDate()}
                   </div>
-                ))}
-              </div>
-            </div>
+                  <div className="space-y-1">
+                    {dayEvents.slice(0, 3).map(event => (
+                      <div 
+                        key={event.id}
+                        onClick={() => onEventClick(event)}
+                        className={cn(
+                          "cursor-pointer rounded-md px-2 py-0.5 text-[9px] font-bold truncate transition-all hover:brightness-110 active:scale-95",
+                          getColorClasses(event.color).bg,
+                          "text-white shadow-sm"
+                        )}
+                      >
+                        {event.title}
+                      </div>
+                    ))}
+                    {dayEvents.length > 3 && (
+                      <div className="text-[9px] font-black text-on-surface-variant/40 pl-2 flex items-center gap-1">
+                        <Plus className="w-2 h-2" />
+                        {dayEvents.length - 3} más
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </HoverCardTrigger>
+              {dayEvents.length > 0 && (
+                <HoverCardContent 
+                  className="w-64 p-3 bg-surface-container-high/95 backdrop-blur-xl border-outline-variant/20 shadow-2xl rounded-[20px]"
+                  side="right"
+                  align="start"
+                  sideOffset={5}
+                >
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between border-b border-outline-variant/10 pb-2">
+                      <p className="text-[11px] font-black uppercase tracking-widest text-on-surface-variant/60">
+                        {day.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'short' })}
+                      </p>
+                      <Badge variant="secondary" className="text-[9px] font-black bg-primary/10 text-primary border-none">
+                        {dayEvents.length} {dayEvents.length === 1 ? 'Tarea' : 'Tareas'}
+                      </Badge>
+                    </div>
+                    <div className="space-y-1.5 max-h-[200px] overflow-y-auto pr-1 custom-scrollbar">
+                      {dayEvents.map(event => (
+                        <div 
+                          key={event.id}
+                          onClick={() => onEventClick(event)}
+                          className={cn(
+                            "group flex items-center gap-2 p-2 rounded-xl cursor-pointer transition-all hover:bg-white/5 border border-transparent hover:border-white/5",
+                          )}
+                        >
+                          <div className={cn("w-1.5 h-1.5 rounded-full shrink-0", getColorClasses(event.color).bg)} />
+                          <p className="text-[11px] font-black text-foreground truncate group-hover:text-primary">
+                            {event.title}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </HoverCardContent>
+              )}
+            </HoverCard>
           )
         })}
       </div>

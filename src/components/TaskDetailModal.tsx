@@ -11,6 +11,7 @@ import { useGoals } from '@/hooks/useGoals';
 import { toast } from 'sonner';
 import FullscreenTimer from './FullscreenTimer';
 import SubtasksSection from './SubtasksSection';
+import { AutoTextarea } from '@/components/ui/auto-textarea';
 
 
 interface TaskDetailModalProps {
@@ -191,7 +192,13 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
                 
                 {/* Top bar */}
                 <div className="flex items-center justify-between px-5 pt-4 pb-3">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-3">
+                    <button onClick={handleSaveAndClose}
+                      className="w-8 h-8 rounded-full flex items-center justify-center transition-all active:scale-90 bg-white/5 hover:bg-white/10"
+                      title="Cerrar">
+                      <X className="w-4 h-4 text-white/40" />
+                    </button>
+                    <div className="w-[1px] h-4 bg-white/10 mx-1" />
                     <button onClick={() => setTimerOpen(true)}
                       className="w-8 h-8 rounded-full flex items-center justify-center transition-colors"
                       style={{ background: 'rgba(163,230,53,0.15)' }}
@@ -205,9 +212,9 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
-                  <button onClick={handleSaveAndClose}
-                    className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 ${hasChanges ? 'bg-[#A3E635] text-black' : 'bg-white/10 text-white/60'}`}>
-                    <Check className="w-3 h-3" /> {hasChanges ? 'Guardar' : 'Listo'}
+                  <button onClick={handleSave}
+                    className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 ${hasChanges ? 'bg-[#A3E635] text-black' : 'bg-white/5 text-white/20'}`}>
+                    {hasChanges ? <><Check className="w-3 h-3" /> Guardar</> : 'Sin cambios'}
                   </button>
                 </div>
 
@@ -224,72 +231,85 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
                   {/* Date + Time row */}
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label className="text-[9px] font-black uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.3)' }}>
-                        <Calendar className="w-3 h-3 inline mr-1" />Fecha
+                      <label className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant/40 ml-1 flex items-center">
+                        <Calendar className="w-3 h-3 mr-1" />FECHA
                       </label>
-                      <input type="date" value={dueDate} onChange={(e) => { setDueDate(e.target.value); markChanged(); }}
-                        className="w-full rounded-lg p-2 text-sm focus:outline-none mt-1"
-                        style={{ background: 'rgba(255,255,255,0.06)', color: '#F4F4F5', border: '1px solid rgba(255,255,255,0.09)' }} />
+                      <input 
+                        type="date" 
+                        value={dueDate} 
+                        onChange={(e) => { setDueDate(e.target.value); markChanged(); }}
+                        className="w-full text-sm bg-surface-container/30 border border-outline-variant/10 rounded-[20px] px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary/30 mt-1"
+                      />
                     </div>
                     <div>
-                      <label className="text-[9px] font-black uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.3)' }}>
-                        <Clock className="w-3 h-3 inline mr-1" />Min
+                      <label className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant/40 ml-1 flex items-center">
+                        <Clock className="w-3 h-3 mr-1" />MIN
                       </label>
-                      <input type="number" min={1} max={480} value={estimatedMinutes} onChange={(e) => { setEstimatedMinutes(Number(e.target.value)); markChanged(); }}
-                        className="w-full rounded-lg p-2 text-sm focus:outline-none mt-1"
-                        style={{ background: 'rgba(255,255,255,0.06)', color: '#F4F4F5', border: '1px solid rgba(255,255,255,0.09)' }} />
+                      <input 
+                        type="number" 
+                        min={1} 
+                        max={480} 
+                        value={estimatedMinutes} 
+                        onChange={(e) => { setEstimatedMinutes(Number(e.target.value)); markChanged(); }}
+                        className="w-full text-sm bg-surface-container/30 border border-outline-variant/10 rounded-[20px] px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary/30 mt-1"
+                      />
                     </div>
                   </div>
 
                   {/* Priority */}
                   <div className="grid grid-cols-2 gap-2">
                     <button onClick={() => { setImportance(!importance); markChanged(); }}
-                      className={`p-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all border ${importance ? 'border-[#A3E635] text-[#A3E635]' : 'border-transparent text-white/40'}`}
-                      style={{ background: importance ? 'rgba(163,230,53,0.1)' : 'rgba(255,255,255,0.04)' }}>
+                      className={`p-2 rounded-[20px] text-xs font-bold flex items-center justify-center gap-1.5 transition-all border ${importance ? 'border-primary text-primary bg-primary/10' : 'border-transparent text-on-surface-variant/60 bg-surface-container'}`}>
                       <Flag className="w-3.5 h-3.5" /> Importante
                     </button>
                     <button onClick={() => { setUrgency(!urgency); markChanged(); }}
-                      className={`p-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all border ${urgency ? 'border-[#f97316] text-[#f97316]' : 'border-transparent text-white/40'}`}
-                      style={{ background: urgency ? 'rgba(249,115,22,0.1)' : 'rgba(255,255,255,0.04)' }}>
+                      className={`p-2 rounded-[20px] text-xs font-bold flex items-center justify-center gap-1.5 transition-all border ${urgency ? 'border-[#f97316] text-[#f97316] bg-[#f97316]/10' : 'border-transparent text-on-surface-variant/60 bg-surface-container'}`}>
                       <Clock className="w-3.5 h-3.5" /> Urgente
                     </button>
                   </div>
 
                   {/* Link */}
                   <div>
-                    <label className="text-[9px] font-black uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.3)' }}>
-                      <LinkIcon className="w-3 h-3 inline mr-1" />Link
+                    <label className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant/40 ml-1">
+                      <LinkIcon className="w-3 h-3 inline mr-1" />Link o Referencia
                     </label>
-                    <input type="url" value={link} onChange={(e) => { setLink(e.target.value); markChanged(); }} placeholder="https://..."
-                      className="w-full rounded-lg p-2 text-sm focus:outline-none mt-1 placeholder:text-white/20"
-                      style={{ background: 'rgba(255,255,255,0.06)', color: '#F4F4F5', border: '1px solid rgba(255,255,255,0.09)' }} />
+                    <div className="relative mt-1">
+                      <input 
+                        type="url" 
+                        value={link} 
+                        onChange={(e) => { setLink(e.target.value); markChanged(); }} 
+                        placeholder="https://..."
+                        className="w-full text-sm bg-surface-container/30 border border-outline-variant/10 rounded-[24px] px-5 py-4 focus:outline-none focus:ring-2 focus:ring-primary/30 placeholder:text-on-surface-variant/20"
+                      />
+                    </div>
                   </div>
 
                   {/* Description */}
                   <div>
-                    <label className="text-[9px] font-black uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.3)' }}>Descripción</label>
-                    <textarea value={description} onChange={(e) => { setDescription(e.target.value); markChanged(); }}
-                      placeholder="Detalles opcionales..." rows={2}
-                      className="w-full rounded-lg p-2 text-sm focus:outline-none mt-1 placeholder:text-white/20 resize-none"
-                      style={{ background: 'rgba(255,255,255,0.06)', color: '#F4F4F5', border: '1px solid rgba(255,255,255,0.09)' }} />
+                    <label className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant/40 ml-1">Descripción</label>
+                    <AutoTextarea 
+                      value={description} 
+                      onChange={(e) => { setDescription(e.target.value); markChanged(); }}
+                      placeholder="Detalles opcionales..."
+                      className="w-full text-sm bg-surface-container/30 border border-outline-variant/10 rounded-[24px] p-5 focus:outline-none focus:ring-2 focus:ring-primary/30 min-h-[100px] placeholder:text-on-surface-variant/20 mt-1"
+                    />
                   </div>
 
                   {/* Folder */}
                   {folders.length > 0 && (
                     <div>
-                      <label className="text-[9px] font-black uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.3)' }}>
-                        <FolderOpen className="w-3 h-3 inline mr-1" />Carpeta
+                      <label className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant/40 ml-1 flex items-center">
+                        <FolderOpen className="w-3 h-3 mr-1" />CARPETA
                       </label>
                       <div className="flex flex-wrap gap-1.5 mt-1">
                         <button onClick={() => { setFolderId(null); markChanged(); }}
-                          className={`px-2.5 py-1 rounded-full text-[10px] font-bold transition-all border ${!folderId ? 'border-[#A3E635] text-[#A3E635]' : 'border-transparent text-white/40'}`}
-                          style={{ background: !folderId ? 'rgba(163,230,53,0.1)' : 'rgba(255,255,255,0.04)' }}>
+                          className={`px-2.5 py-1 rounded-full text-[10px] font-bold transition-all border ${!folderId ? 'border-primary text-primary bg-primary/10' : 'border-transparent text-on-surface-variant/60 bg-surface-container'}`}>
                           Sin carpeta
                         </button>
                         {folders.map((folder) => (
                           <button key={folder.id} onClick={() => { setFolderId(folder.id === folderId ? null : folder.id); markChanged(); }}
-                            className={`px-2.5 py-1 rounded-full text-[10px] font-bold transition-all border ${folderId === folder.id ? 'border-transparent' : 'border-transparent text-white/40'}`}
-                            style={folderId === folder.id ? { backgroundColor: (folder.color || '#4BE277') + '30', color: folder.color || '#4BE277' } : { background: 'rgba(255,255,255,0.04)' }}>
+                            className={`px-2.5 py-1 rounded-full text-[10px] font-bold transition-all border ${folderId === folder.id ? 'border-transparent' : 'border-transparent text-on-surface-variant/60 bg-surface-container'}`}
+                            style={folderId === folder.id ? { backgroundColor: (folder.color || '#4BE277') + '30', color: folder.color || '#4BE277' } : {}}>
                             {folder.name}
                           </button>
                         ))}
@@ -300,19 +320,17 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
                   {/* Goal */}
                   {goals.filter(g => g.active).length > 0 && (
                     <div>
-                      <label className="text-[9px] font-black uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.3)' }}>
-                        <Target className="w-3 h-3 inline mr-1" />Meta
+                      <label className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant/40 ml-1 flex items-center">
+                        <Target className="w-3 h-3 mr-1" />META
                       </label>
                       <div className="flex flex-wrap gap-1.5 mt-1">
                         <button onClick={() => { setGoalId(null); markChanged(); }}
-                          className={`px-2.5 py-1 rounded-full text-[10px] font-bold transition-all border ${!goalId ? 'border-[#A3E635] text-[#A3E635]' : 'border-transparent text-white/40'}`}
-                          style={{ background: !goalId ? 'rgba(163,230,53,0.1)' : 'rgba(255,255,255,0.04)' }}>
+                          className={`px-2.5 py-1 rounded-full text-[10px] font-bold transition-all border ${!goalId ? 'border-primary text-primary bg-primary/10' : 'border-transparent text-on-surface-variant/60 bg-surface-container'}`}>
                           Sin meta
                         </button>
                         {goals.filter(g => g.active).map((goal) => (
                           <button key={goal.id} onClick={() => { setGoalId(goal.id === goalId ? null : goal.id); markChanged(); }}
-                            className={`px-2.5 py-1 rounded-full text-[10px] font-bold transition-all border ${goalId === goal.id ? 'border-transparent' : 'border-transparent text-white/40'}`}
-                            style={{ background: goalId === goal.id ? 'rgba(163,230,53,0.2)' : 'rgba(255,255,255,0.04)', color: goalId === goal.id ? '#A3E635' : undefined }}>
+                            className={`px-2.5 py-1 rounded-full text-[10px] font-bold transition-all border ${goalId === goal.id ? 'border-transparent bg-primary/20 text-primary' : 'border-transparent text-on-surface-variant/60 bg-surface-container'}`}>
                             {goal.title}
                           </button>
                         ))}
@@ -323,8 +341,8 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
                   {/* Recurrence */}
                   <div>
                     <button onClick={() => setShowRecurrence(!showRecurrence)}
-                      className={`w-full p-2.5 rounded-xl text-xs font-bold flex items-center justify-between transition-all ${recurrenceFreq !== 'none' ? 'text-[#A3E635]' : 'text-white/40'}`}
-                      style={{ background: 'rgba(255,255,255,0.04)' }}>
+                      className={`w-full p-2.5 rounded-xl text-xs font-bold flex items-center justify-between transition-all ${recurrenceFreq !== 'none' ? 'text-primary' : 'text-on-surface-variant/60'}`}
+                      style={{ background: 'var(--surface-container)' }}>
                       <span className="flex items-center gap-1.5"><Repeat className="w-3.5 h-3.5" /> {recurrenceLabel}</span>
                       <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showRecurrence ? 'rotate-180' : ''}`} />
                     </button>
@@ -332,10 +350,10 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
                       {showRecurrence && (
                         <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
                           <div className="pt-2 space-y-3">
-                            <div className="grid grid-cols-5 gap-1 p-1 rounded-xl" style={{ background: 'rgba(255,255,255,0.04)' }}>
+                            <div className="grid grid-cols-5 gap-1 p-1 rounded-xl bg-surface-container">
                               {[{ id: 'none', label: 'No' }, { id: 'daily', label: 'Día' }, { id: 'weekly', label: 'Sem' }, { id: 'monthly', label: 'Mes' }, { id: 'yearly', label: 'Año' }].map((f) => (
                                 <button key={f.id} onClick={() => { setRecurrenceFreq(f.id as any); markChanged(); if (f.id === 'monthly' && !selectedMonthDay) setSelectedMonthDay(new Date().getDate()); }}
-                                  className={`py-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${recurrenceFreq === f.id ? 'bg-[#A3E635] text-black' : 'text-white/40'}`}>
+                                  className={`py-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${recurrenceFreq === f.id ? 'bg-primary text-primary-foreground' : 'text-on-surface-variant/60 hover:text-foreground'}`}>
                                   {f.label}
                                 </button>
                               ))}
@@ -344,8 +362,7 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
                               <div className="flex justify-between gap-1">
                                 {weekDayLabels.map(({ label, value }) => (
                                   <button key={value} onClick={() => toggleWeekDay(value)}
-                                    className={`w-8 h-8 rounded-full text-[11px] font-bold transition-all ${selectedWeekDays.includes(value) ? 'bg-[#A3E635] text-black' : 'text-white/40'}`}
-                                    style={{ background: selectedWeekDays.includes(value) ? undefined : 'rgba(255,255,255,0.04)' }}>
+                                    className={`w-8 h-8 rounded-full text-[11px] font-bold transition-all ${selectedWeekDays.includes(value) ? 'bg-primary text-primary-foreground' : 'text-on-surface-variant/60 bg-surface-container'}`}>
                                     {label}
                                   </button>
                                 ))}
@@ -355,8 +372,7 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
                               <div className="grid grid-cols-7 gap-1">
                                 {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
                                   <button key={day} onClick={() => { setSelectedMonthDay(day); markChanged(); }}
-                                    className={`py-1 rounded text-[10px] font-bold transition-all ${selectedMonthDay === day ? 'bg-[#A3E635] text-black' : 'text-white/40'}`}
-                                    style={{ background: selectedMonthDay === day ? undefined : 'rgba(255,255,255,0.04)' }}>
+                                    className={`py-1 rounded text-[10px] font-bold transition-all ${selectedMonthDay === day ? 'bg-primary text-primary-foreground' : 'text-on-surface-variant/60 bg-surface-container'}`}>
                                     {day}
                                   </button>
                                 ))}

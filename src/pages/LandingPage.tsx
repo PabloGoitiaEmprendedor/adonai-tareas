@@ -3,7 +3,7 @@ import { Download, Monitor, Apple, Loader2 } from "lucide-react";
 import { Link } from "react-router-dom";
 
 const WIN_DOWNLOAD = 'https://github.com/PabloGoitiaEmprendedor/adonai-tareas/releases/latest/download/Adonai-Setup.exe';
-const MAC_DOWNLOAD = 'https://github.com/PabloGoitiaEmprendedor/adonai-tareas/releases/latest';
+const MAC_DOWNLOAD = 'https://github.com/PabloGoitiaEmprendedor/adonai-tareas/releases/latest/download/Adonai-Mac.dmg';
 
 function useDownload(platform: 'win' | 'mac') {
   const [downloading, setDownloading] = useState(false);

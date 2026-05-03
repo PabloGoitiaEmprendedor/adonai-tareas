@@ -19,6 +19,7 @@ import QuickRecurrenceFlow from '@/components/QuickRecurrenceFlow';
 import { useGamification } from '@/hooks/useGamification';
 import { triggerTaskCelebration, triggerDailyCelebration, triggerOnTimeCelebration } from '@/lib/celebrations';
 import { useProfile } from '@/hooks/useProfile';
+import { usePriorityColors } from '@/hooks/usePriorityColors';
 import '../index.css';
 
 const PANEL_W = 340;
@@ -28,15 +29,15 @@ const PILL_H = 52;
 const PILL_TIMER_W = 130;
 
 const C = {
-  bg: '#F2F2F2',
-  border: 'rgba(1, 38, 14, 0.1)',
-  text: '#01260E',
-  muted: 'rgba(1, 38, 14, 0.5)',
-  accent: '#21D904',
-  accentBg: 'rgba(33, 217, 4, 0.1)',
-  taskBg: '#FFFFFF',
-  taskBorder: 'rgba(1, 38, 14, 0.05)',
-  subBg: 'rgba(1, 38, 14, 0.03)',
+  bg: 'hsl(var(--surface-container))',
+  border: 'hsl(var(--outline))',
+  text: 'hsl(var(--on-surface))',
+  muted: 'hsl(var(--on-surface-variant))',
+  accent: 'hsl(var(--primary))',
+  accentBg: 'hsl(var(--primary) / 0.1)',
+  taskBg: 'hsl(var(--surface))',
+  taskBorder: 'hsl(var(--outline-variant))',
+  subBg: 'hsl(var(--surface-dim))',
 };
 
 function formatTimer(seconds: number): string {
@@ -138,6 +139,16 @@ const TaskRowRaw = ({ task, onToggle, onDetail, activeTimerId, onTimerToggle, up
     }
   };
 
+  const { colors } = usePriorityColors();
+  const getTaskPriorityColor = () => {
+    if (task.urgency && task.importance) return colors.p1;
+    if (task.urgency && !task.importance) return colors.p2;
+    if (!task.urgency && task.importance) return colors.p3;
+    return colors.p4;
+  };
+  const priorityColor = getTaskPriorityColor();
+  const baseBg = priorityColor === 'transparent' ? C.taskBg : `${priorityColor}4D`;
+
   const actualSeconds = task.actual_duration_seconds || 0;
   const estimatedSeconds = (task.estimated_minutes || 0) * 60;
   const isOverTime = actualSeconds > estimatedSeconds && estimatedSeconds > 0;
@@ -150,7 +161,7 @@ const TaskRowRaw = ({ task, onToggle, onDetail, activeTimerId, onTimerToggle, up
         style={{
           display: 'flex', alignItems: 'center', gap: 10, padding: '10px',
           borderRadius: 12, cursor: 'pointer',
-          background: isDone ? 'transparent' : isTimerActive ? 'rgba(33, 217, 4, 0.06)' : C.taskBg,
+          background: isDone ? 'transparent' : isTimerActive ? 'rgba(33, 217, 4, 0.06)' : baseBg,
           border: `1px solid ${isDone ? 'transparent' : isTimerActive ? 'rgba(33, 217, 4, 0.15)' : C.taskBorder}`,
           opacity: isDone ? 0.45 : 1,
         }}
@@ -167,6 +178,28 @@ const TaskRowRaw = ({ task, onToggle, onDetail, activeTimerId, onTimerToggle, up
           {isDone && <Check style={{ width: 13, height: 13, color: '#F2F2F2', strokeWidth: 3 }} />}
         </div>
         
+        {hasSubtasks && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setOpen(!open);
+            }}
+            style={{
+              flexShrink: 0, color: C.muted, cursor: 'pointer', background: 'transparent', border: 'none', padding: 0,
+              display: 'flex', alignItems: 'center', justifyContent: 'center'
+            }}
+          >
+            <span style={{
+              fontSize: '18px', fontWeight: 900, display: 'inline-block',
+              transition: 'transform 0.2s, color 0.2s',
+              transform: open ? 'rotate(45deg)' : 'none',
+              color: open ? C.accent : C.muted
+            }}>
+              +
+            </span>
+          </button>
+        )}
+
         {isEditing ? (
           <input
             autoFocus
@@ -206,15 +239,20 @@ const TaskRowRaw = ({ task, onToggle, onDetail, activeTimerId, onTimerToggle, up
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           {isDone ? (
             actualSeconds > 0 && (
-              <div style={{
-                fontSize: 10, fontWeight: 700,
-                color: isOverTime ? '#F87171' : '#A3E635',
-                fontFamily: 'monospace',
-                padding: '2px 6px',
-                borderRadius: 6,
-                background: isOverTime ? 'rgba(248,113,113,0.1)' : 'rgba(163,230,53,0.1)',
-                border: `1px solid ${isOverTime ? 'rgba(248,113,113,0.2)' : 'rgba(163,230,53,0.2)'}`
-              }}>
+                <div style={{
+                  fontSize: 11, fontWeight: 800,
+                  color: isOverTime ? '#F87171' : '#A3E635',
+                  fontFamily: 'monospace',
+                  padding: '2px 8px',
+                  borderRadius: 999,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  minWidth: '46px',
+                  lineHeight: '1',
+                  background: isOverTime ? 'rgba(248,113,113,0.2)' : 'rgba(163,230,53,0.2)',
+                  border: `1px solid ${isOverTime ? 'rgba(248,113,113,0.3)' : 'rgba(163,230,53,0.3)'}`
+                }}>
                 {formatTimer(actualSeconds)}
               </div>
             )
@@ -233,12 +271,12 @@ const TaskRowRaw = ({ task, onToggle, onDetail, activeTimerId, onTimerToggle, up
                   style={{
                     width: 24, height: 24, borderRadius: 8, flexShrink: 0,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    cursor: 'pointer', background: 'rgba(16, 185, 129, 0.15)',
-                    border: '1px solid rgba(16, 185, 129, 0.3)',
+                    cursor: 'pointer', background: 'rgba(0,0,0,0.2)',
+                    border: '1px solid rgba(255,255,255,0.05)',
                   }}
                   title="Abrir link"
                 >
-                  <LinkIcon style={{ width: 12, height: 12, color: '#10b981' }} />
+                  <LinkIcon style={{ width: 12, height: 12, color: priorityColor === 'transparent' ? 'var(--primary)' : priorityColor }} />
                 </div>
               )}
               
@@ -259,38 +297,21 @@ const TaskRowRaw = ({ task, onToggle, onDetail, activeTimerId, onTimerToggle, up
                   onClick={(e) => { e.stopPropagation(); onTimerToggle(task.id, task.estimated_minutes || 30); }}
                   style={{
                     width: 24, height: 24, borderRadius: 6, flexShrink: 0,
-                    background: isTimerActive ? 'rgba(33, 217, 4, 0.15)' : 'transparent',
-                    border: `1px solid ${isTimerActive ? 'rgba(33, 217, 4, 0.3)' : 'rgba(1, 38, 14, 0.1)'}`,
+                    background: isTimerActive ? (priorityColor === 'transparent' ? 'var(--primary)' : priorityColor) : 'rgba(0,0,0,0.2)',
+                    border: '1px solid rgba(255,255,255,0.05)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     cursor: 'pointer',
                   }}
                 >
                   {isTimerActive
-                    ? <Pause style={{ width: 12, height: 12, color: C.accent }} />
-                    : <Clock style={{ width: 12, height: 12, color: 'rgba(1, 38, 14, 0.3)' }} />
+                    ? <Pause style={{ width: 12, height: 12, color: '#000' }} />
+                    : <Clock style={{ width: 12, height: 12, color: priorityColor === 'transparent' ? 'var(--primary)' : priorityColor }} />
                   }
                 </div>
               )}
             </>
           )}
         </div>
-
-        {hasSubtasks && (
-          <div 
-            onClick={(e) => { e.stopPropagation(); setOpen(o => !o); }} 
-            style={{
-              display: 'flex', alignItems: 'center', gap: 3,
-              padding: '2px 6px', borderRadius: 6,
-              background: C.accentBg, cursor: 'pointer', flexShrink: 0,
-            }}
-          >
-            <span style={{ fontSize: 10, fontWeight: 700, color: C.accent }}>{doneSubCount}/{subtasks.length}</span>
-            <ChevronRight style={{
-              width: 11, height: 11, color: C.accent,
-              transform: open ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s',
-            }} />
-          </div>
-        )}
       </div>
       <AnimatePresence>
         {open && hasSubtasks && (
@@ -361,7 +382,7 @@ const MiniTaskList = () => {
   const [activeTimerId, setActiveTimerId] = useState<string | null>(null);
   const [timerSeconds, setTimerSeconds] = useState(0);
   const [captureOpen, setCaptureOpen] = useState(false);
-  const [captureMode, setCaptureMode] = useState<'text' | 'voice' | 'recurrence'>('text');
+  const [captureMode, setCaptureMode] = useState<'text' | 'voice' | 'recurrence' | null>(null);
   const [captureCreationSource, setCaptureCreationSource] = useState<'mini_plus' | 'mini_voice'>('mini_plus');
   const [selectedTask, setSelectedTask] = useState<any>(null);
   const [detailOpen, setDetailOpen] = useState(false);
@@ -708,19 +729,20 @@ const MiniTaskList = () => {
           {activeTimerId ? (
             <>
               <div style={{
-                width: 6, height: 6, borderRadius: '50%',
+                width: 8, height: 8, borderRadius: '50%',
                 background: timerSeconds < 0 ? '#F87171' : C.accent, animation: 'pulse 1.5s ease-in-out infinite',
               }} />
               <span style={{
-                fontSize: 14, fontWeight: 800, 
+                fontSize: 16, fontWeight: 900, 
                 color: timerSeconds < 0 ? '#F87171' : C.accent,
                 fontFamily: 'monospace', letterSpacing: '0.05em',
+                textShadow: '0 0 10px rgba(33, 217, 4, 0.3)'
               }}>
                 {formatTimer(timerSeconds)}
               </span>
             </>
           ) : (
-            <MoreHorizontal style={{ width: 20, height: 20, color: 'rgba(1, 38, 14, 0.6)' }} />
+            <MoreHorizontal style={{ width: 20, height: 20, color: C.text }} />
           )}
         </div>
       </div>
@@ -764,24 +786,25 @@ const MiniTaskList = () => {
             padding: activeTimerId ? '0 10px' : '0',
             width: activeTimerId ? 'auto' : 52,
             minWidth: activeTimerId ? 90 : 52,
-            background: activeTimerId ? 'rgba(33, 217, 4, 0.1)' : 'rgba(1, 38, 14, 0.05)',
+            background: activeTimerId ? 'rgba(33, 217, 4, 0.1)' : C.subBg,
             border: `1px solid ${activeTimerId ? 'rgba(33, 217, 4, 0.2)' : C.border}`,
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
             cursor: 'pointer',
           }} title="Colapsar">
             {activeTimerId ? (
               <>
-                <div style={{ width: 5, height: 5, borderRadius: '50%', background: timerSeconds < 0 ? '#F87171' : C.accent, animation: 'pulse 1.5s ease-in-out infinite' }} />
+                <div style={{ width: 6, height: 6, borderRadius: '50%', background: timerSeconds < 0 ? '#F87171' : C.accent, animation: 'pulse 1.5s ease-in-out infinite' }} />
                 <span style={{ 
-                  fontSize: 11, fontWeight: 800, 
+                  fontSize: 13, fontWeight: 900, 
                   color: timerSeconds < 0 ? '#F87171' : C.accent, 
-                  fontFamily: 'monospace' 
+                  fontFamily: 'monospace',
+                  textShadow: '0 0 8px rgba(33, 217, 4, 0.2)'
                 }}>
                   {formatTimer(timerSeconds)}
                 </span>
               </>
             ) : (
-              <MoreHorizontal style={{ width: 16, height: 16, color: 'rgba(1, 38, 14, 0.4)' }} />
+              <MoreHorizontal style={{ width: 16, height: 16, color: C.muted }} />
             )}
           </div>
 
@@ -789,14 +812,15 @@ const MiniTaskList = () => {
           <div
             onClick={(e) => { e.stopPropagation(); setCaptureMode('voice'); setCaptureCreationSource('mini_voice'); setCaptureOpen(true); }}
             style={{
-              width: 30, height: 26, borderRadius: 999,
+              width: 34, height: 28, borderRadius: 10,
               background: C.accent,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               cursor: 'pointer', flexShrink: 0,
+              boxShadow: '0 4px 12px rgba(33, 217, 4, 0.3)',
             }}
             title="Añadir por voz"
           >
-            <Mic style={{ width: 13, height: 13, color: '#F2F2F2' }} />
+            <Mic style={{ width: 15, height: 15, color: '#F2F2F2' }} />
           </div>
 
           {/* RECURRENCE button — Repeat icon */}
@@ -806,30 +830,32 @@ const MiniTaskList = () => {
               setRecurrenceFlowOpen(true);
             }}
             style={{
-              width: 30, height: 26, borderRadius: 999,
-              background: 'rgba(255,255,255,0.09)',
+              width: 34, height: 28, borderRadius: 10,
+              background: C.subBg,
               border: `1px solid ${C.border}`,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               cursor: 'pointer', flexShrink: 0,
+              transition: 'all 0.2s ease',
             }}
             title="Crear tarea recurrente"
           >
-            <Repeat style={{ width: 12, height: 12, color: '#fff' }} />
+            <Repeat style={{ width: 14, height: 14, color: C.text }} />
           </div>
 
           {/* TEXT button — + icon */}
           <div
             onClick={(e) => { e.stopPropagation(); setCaptureMode('text'); setCaptureCreationSource('mini_plus'); setCaptureOpen(true); }}
             style={{
-              width: 30, height: 26, borderRadius: 999,
-              background: 'rgba(255,255,255,0.09)',
+              width: 34, height: 28, borderRadius: 10,
+              background: C.subBg,
               border: `1px solid ${C.border}`,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               cursor: 'pointer', flexShrink: 0,
+              transition: 'all 0.2s ease',
             }}
             title="Añadir tarea"
           >
-            <Plus style={{ width: 14, height: 14, color: 'rgba(255,255,255,0.8)' }} />
+            <Plus style={{ width: 16, height: 16, color: C.text }} />
           </div>
         </div>
 
@@ -895,7 +921,7 @@ const MiniTaskList = () => {
 
       <TaskCaptureModal
         open={captureOpen}
-        onClose={() => setCaptureOpen(false)}
+        onClose={() => { setCaptureOpen(false); setCaptureMode(null); }}
         initialMode={captureMode}
         creationSource={captureCreationSource}
       />

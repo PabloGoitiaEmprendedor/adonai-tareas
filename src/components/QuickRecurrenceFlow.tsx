@@ -15,13 +15,13 @@ import { useRecurrenceRules } from '@/hooks/useRecurrenceRules';
 import { toast } from 'sonner';
 
 const C = {
-  bg: '#18181B',
-  surface: 'rgba(255,255,255,0.06)',
-  border: 'rgba(255,255,255,0.09)',
-  text: '#F4F4F5',
-  muted: 'rgba(255,255,255,0.35)',
-  accent: '#A3E635',
-  accentBg: 'rgba(163,230,53,0.13)',
+  bg: '#F2F2F2',
+  surface: 'rgba(1, 38, 14, 0.05)',
+  border: 'rgba(1, 38, 14, 0.1)',
+  text: '#01260E',
+  muted: 'rgba(1, 38, 14, 0.5)',
+  accent: '#21D904',
+  accentBg: 'rgba(33, 217, 4, 0.1)',
 };
 
 type Frequency = 'daily' | 'weekdays' | 'weekly' | 'biweekly' | 'monthly' | 'custom';
@@ -244,26 +244,29 @@ const QuickRecurrenceFlow = ({ open, onClose }: QuickRecurrenceFlowProps) => {
         exit={{ opacity: 0 }}
         onClick={onClose}
         style={{
-          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',
-          zIndex: 100,
+          position: 'fixed', inset: 0, 
+          background: 'rgba(0,0,0,0.6)',
+          backdropFilter: 'blur(8px)',
+          zIndex: 9998,
         }}
       />
+
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 10 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 10 }}
         transition={{ type: 'spring', damping: 22, stiffness: 260 }}
         style={{
-          position: 'fixed', inset: 0, zIndex: 101,
+          position: 'fixed', inset: 0, zIndex: 9999,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           padding: 16, pointerEvents: 'none',
         }}
       >
         <div style={{
           width: '100%', maxWidth: 340,
-          background: C.bg, borderRadius: 20,
+          background: C.bg, borderRadius: 28,
           border: `1px solid ${C.border}`,
-          boxShadow: '0 16px 48px rgba(0,0,0,0.6)',
+          boxShadow: '0 20px 60px -10px hsla(140, 95%, 8%, 0.15)',
           pointerEvents: 'auto',
           overflow: 'hidden',
         }}>
@@ -271,17 +274,18 @@ const QuickRecurrenceFlow = ({ open, onClose }: QuickRecurrenceFlowProps) => {
           <div style={{
             padding: '14px 16px 8px',
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            flexDirection: 'row-reverse', // Put close button on the left
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <Repeat style={{ width: 16, height: 16, color: C.accent }} />
-              <span style={{ fontSize: 14, fontWeight: 800, color: C.text }}>Tarea recurrente</span>
-            </div>
             <button onClick={onClose} style={{
               background: 'transparent', border: 'none', cursor: 'pointer',
               padding: 4, borderRadius: 8, display: 'flex', alignItems: 'center',
             }}>
               <X style={{ width: 16, height: 16, color: C.muted }} />
             </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Repeat style={{ width: 16, height: 16, color: C.accent }} />
+              <span style={{ fontSize: 14, fontWeight: 800, color: C.text }}>Tarea recurrente</span>
+            </div>
           </div>
 
           {/* Phase dots */}
@@ -293,7 +297,7 @@ const QuickRecurrenceFlow = ({ open, onClose }: QuickRecurrenceFlowProps) => {
               <div key={i} style={{
                 width: i === phase ? 20 : 6, height: 6,
                 borderRadius: 999,
-                background: i <= phase ? C.accent : 'rgba(255,255,255,0.1)',
+                background: i <= phase ? C.accent : 'rgba(1, 38, 14, 0.1)',
                 transition: 'all 0.3s ease',
               }} />
             ))}
@@ -515,11 +519,11 @@ const QuickRecurrenceFlow = ({ open, onClose }: QuickRecurrenceFlowProps) => {
               disabled={!canAdvance || saving}
               style={{
                 flex: 1, padding: '10px 0',
-                borderRadius: 12, border: 'none',
+                borderRadius: 14, border: 'none',
                 background: canAdvance
-                  ? 'linear-gradient(135deg, #A3E635, #65a30d)'
-                  : 'rgba(255,255,255,0.08)',
-                color: canAdvance ? '#000' : 'rgba(255,255,255,0.25)',
+                  ? 'linear-gradient(135deg, #21D904, #1aa103)'
+                  : 'rgba(1, 38, 14, 0.08)',
+                color: canAdvance ? '#F2F2F2' : 'rgba(1, 38, 14, 0.25)',
                 fontSize: 13, fontWeight: 800,
                 cursor: canAdvance ? 'pointer' : 'default',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
@@ -531,13 +535,13 @@ const QuickRecurrenceFlow = ({ open, onClose }: QuickRecurrenceFlowProps) => {
                 <>Guardando...</>
               ) : phase === totalPhases || (phase === 2 && !needsDetail) ? (
                 <>
-                  <Check style={{ width: 14, height: 14 }} />
+                  <Check style={{ width: 14, height: 14, strokeWidth: 3 }} />
                   Crear tarea
                 </>
               ) : (
                 <>
                   Siguiente
-                  <ArrowRight style={{ width: 14, height: 14 }} />
+                  <ArrowRight style={{ width: 14, height: 14, strokeWidth: 3 }} />
                 </>
               )}
             </button>

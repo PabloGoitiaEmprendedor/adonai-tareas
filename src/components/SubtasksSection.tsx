@@ -127,7 +127,7 @@ export const SubtasksSection = ({ parentTaskId, defaultOpen = false, compact = f
               }
             }}
             onClick={e => e.stopPropagation()}
-            className="flex-1 bg-transparent border-b border-primary focus:outline-none p-0 text-lg font-black tracking-tight font-headline text-foreground min-w-0"
+            className="flex-1 bg-transparent border-b border-primary focus:outline-none p-0 text-sm font-bold tracking-tight font-headline text-foreground min-w-0"
           />
         ) : (
           <span 
@@ -137,8 +137,8 @@ export const SubtasksSection = ({ parentTaskId, defaultOpen = false, compact = f
               setDraftTitle(st.title);
             }}
             title="Haz clic para editar"
-            className={`flex-1 text-lg font-black tracking-tight font-headline cursor-text transition-all leading-tight rounded px-1 -ml-1 hover:bg-on-surface-variant/5 min-w-0 break-words ${
-              done ? 'text-on-surface-variant/30 line-through' : 'text-foreground'
+            className={`flex-1 text-sm font-bold tracking-tight font-headline cursor-text transition-all leading-tight rounded px-1 -ml-1 hover:bg-on-surface-variant/5 min-w-0 break-words ${
+              done ? 'text-on-surface-variant/20 line-through' : 'text-foreground/80'
             }`}
           >
             {st.title}
@@ -214,7 +214,7 @@ export const SubtasksSection = ({ parentTaskId, defaultOpen = false, compact = f
                   value={draft}
                   onChange={(e) => setDraft(e.target.value)}
                   placeholder="Nueva subtarea…"
-                  className="flex-1 bg-transparent border-none p-0 text-lg font-black tracking-tight font-headline text-foreground focus:outline-none focus:ring-0 placeholder:text-on-surface-variant/20"
+                  className="flex-1 bg-transparent border-none p-0 text-sm font-bold tracking-tight font-headline text-foreground focus:outline-none focus:ring-0 placeholder:text-on-surface-variant/20"
                 />
               </form>
             </div>

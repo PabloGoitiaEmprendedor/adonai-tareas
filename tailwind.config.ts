@@ -93,10 +93,10 @@ export default {
         DEFAULT: "var(--radius)",
       },
       fontFamily: {
-        sans: ["Inter", "sans-serif"],
-        headline: ["Inter", "sans-serif"],
-        body: ["Inter", "sans-serif"],
-        label: ["Inter", "sans-serif"],
+        sans: ["'Inter'", "sans-serif"],
+        headline: ["'Inter'", "sans-serif"],
+        body: ["'Inter'", "sans-serif"],
+        label: ["'Inter'", "sans-serif"],
       },
       keyframes: {
         "accordion-down": {

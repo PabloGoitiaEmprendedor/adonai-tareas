@@ -9,9 +9,9 @@ export type PriorityColors = {
 
 const DEFAULT_COLORS: PriorityColors = {
   p1: '#EF4444', // Red
-  p2: '#F59E0B', // Orange
-  p3: '#3B82F6', // Blue
-  p4: '#9CA3AF', // Gray
+  p2: '#F97316', // Orange
+  p3: '#EAB308', // Yellow
+  p4: 'transparent', // Transparent
 };
 
 export const usePriorityColors = () => {

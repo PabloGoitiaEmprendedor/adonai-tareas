@@ -31,10 +31,10 @@ const FloatingActionMenu = ({ options, className }: FloatingActionMenuProps) => 
   }, []);
 
   const toggleMenu = () => setIsOpen(!isOpen);
+  const handleClose = () => setIsOpen(false);
 
   return (
     <>
-      {/* Backdrop for premium feel and focus */}
       <AnimatePresence>
         {isOpen && (
           <motion.div
@@ -42,12 +42,12 @@ const FloatingActionMenu = ({ options, className }: FloatingActionMenuProps) => 
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setIsOpen(false)}
-            className="fixed inset-0 bg-black/40 backdrop-blur-[2px] z-[45]"
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9998]"
           />
         )}
       </AnimatePresence>
 
-      <div className={cn("fixed bottom-8 right-8 z-50 flex flex-col items-end gap-3", className)}>
+      <div className={cn("fixed bottom-8 right-8 z-[9999] flex flex-col items-end gap-3", className)}>
         <AnimatePresence>
           {isOpen && (
             <motion.div

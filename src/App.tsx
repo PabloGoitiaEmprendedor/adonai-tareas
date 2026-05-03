@@ -1,4 +1,6 @@
 import { useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Target, Sparkles } from "lucide-react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { HashRouter, Route, Routes, Navigate, useNavigate } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -23,6 +25,7 @@ import AchievementsPage from "./pages/AchievementsPage";
 import MiniTasksPage from "./pages/MiniTasksPage";
 import AdminPanelPage from "./pages/AdminPanelPage";
 import LandingPage from "./pages/LandingPage";
+import PrioritySettingsPage from "./pages/PrioritySettingsPage";
 import NotFound from "./pages/NotFound";
 import { supabase } from "@/integrations/supabase/client";
 import UpdateDialog from "@/components/UpdateDialog";
@@ -51,37 +54,57 @@ const ThemeSync = () => {
   return null;
 };
 
+const LoadingScreen = ({ message }: { message: string }) => (
+  <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.8 }}
+      className="flex flex-col items-center gap-8"
+    >
+      <div className="relative">
+        <Target className="w-8 h-8 text-primary/30" />
+        <motion.div
+          animate={{ scale: [1, 1.2, 1], opacity: [0.2, 0.5, 0.2] }}
+          transition={{ repeat: Infinity, duration: 4, ease: "easeInOut" }}
+          className="absolute inset-0 bg-primary/10 rounded-full -m-4"
+        />
+      </div>
+
+      <div className="flex flex-col items-center gap-3">
+        <p className="text-[9px] font-bold text-on-surface-variant uppercase tracking-[0.6em] ml-[0.6em]">
+          {message}
+        </p>
+        <div className="w-24 h-[1px] bg-surface-container-high overflow-hidden">
+          <motion.div 
+            animate={{ x: [-100, 100] }}
+            transition={{ repeat: Infinity, duration: 2.5, ease: "easeInOut" }}
+            className="w-12 h-full bg-primary/30"
+          />
+        </div>
+      </div>
+    </motion.div>
+  </div>
+);
+
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
   const { profile, isLoading: profileLoading } = useProfile();
-  const navigate = useNavigate();
 
-  // Si está cargando la sesión, mostrar loading
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4">
-        <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-        <p className="text-primary font-bold animate-pulse text-sm">Cargando Adonai...</p>
-      </div>
-    );
+  // Solo bloquear si la sesión de Auth aún no se ha determinado
+  if (loading && !user) {
+    return <LoadingScreen message="Sincronizando Adonai" />;
   }
 
-  // Si no hay usuario, ir a auth (sesión cerrada)
-  if (!user) {
+  // Si no hay usuario después de cargar, al login
+  if (!loading && !user) {
     return <Navigate to="/auth" replace />;
   }
 
-  // Si el perfil está cargando, mostrar loading brevemente
-  if (profileLoading) {
-    return (
-      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4">
-        <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-        <p className="text-primary font-bold animate-pulse text-sm">Cargando perfil...</p>
-      </div>
-    );
-  }
-
-  // Si no ha completado onboarding, redirigir
+  // No bloqueamos por profileLoading para que la UI cargue instantáneamente.
+  // El perfil se actualizará en la sidebar y en el contenido cuando llegue.
+  
+  // Si el perfil ya cargó y el onboarding no está completo, redirigir
   if (profile && !profile.onboarding_completed) {
     return <Navigate to="/onboarding" replace />;
   }
@@ -96,30 +119,24 @@ const AppRoutes = () => {
                      navigator.userAgent.toLowerCase().includes('electron') ||
                      (window.process && window.process.versions && !!window.process.versions.electron);
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
+  // El loading de auth lo maneja ProtectedRoute para ser más fluido
 
   const appRouteElement = (element: React.ReactNode) => 
-    isElectron ? <ProtectedRoute>{element}</ProtectedRoute> : <Navigate to="/" replace />;
+    <ProtectedRoute>{element}</ProtectedRoute>;
 
   return (
     <>
-      {isElectron && <ThemeSync />}
+      <ThemeSync />
       <Routes>
         <Route path="/mini" element={<MiniTasksPage />} />
-        <Route path="/auth" element={user ? <Navigate to="/" replace /> : <AuthPage />} />
-        <Route path="/onboarding" element={isElectron && user ? <OnboardingPage /> : <Navigate to="/auth" replace />} />
+        <Route path="/auth" element={user ? <Navigate to="/daily" replace /> : <AuthPage />} />
+        <Route path="/onboarding" element={user ? <OnboardingPage /> : <Navigate to="/auth" replace />} />
         
         <Route 
           path="/" 
           element={
-            isElectron
-              ? <ProtectedRoute><DailyPage /></ProtectedRoute>
+            user
+              ? <Navigate to="/daily" replace />
               : <LandingPage />
           } 
         />
@@ -127,12 +144,13 @@ const AppRoutes = () => {
         <Route path="/dashboard" element={appRouteElement(<DashboardPage />)} />
         <Route path="/app" element={appRouteElement(<DashboardPage />)} />
         <Route path="/daily" element={appRouteElement(<DailyPage />)} />
-        <Route path="/today" element={isElectron ? <Navigate to="/" replace /> : <Navigate to="/" replace />} />
+        <Route path="/today" element={<Navigate to="/daily" replace />} />
         <Route path="/week" element={appRouteElement(<WeeklyPage />)} />
         <Route path="/goals" element={appRouteElement(<GoalsPage />)} />
         <Route path="/folders" element={appRouteElement(<FoldersPage />)} />
         <Route path="/friends" element={appRouteElement(<FriendsPage />)} />
         <Route path="/profile" element={appRouteElement(<ProfilePage />)} />
+        <Route path="/priority-settings" element={appRouteElement(<PrioritySettingsPage />)} />
         <Route path="/trash" element={appRouteElement(<TrashPage />)} />
         <Route path="/achievements" element={appRouteElement(<AchievementsPage />)} />
         <Route path="/admin" element={appRouteElement(<AdminPanelPage />)} />

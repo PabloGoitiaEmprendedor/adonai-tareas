@@ -107,8 +107,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signOut = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) throw error;
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+    } catch (err) {
+      console.error("Error signing out, forcing local clear", err);
+      // Fallback: forcefully clear local storage if token was expired and network fails
+      localStorage.clear();
+      window.location.reload();
+    }
   };
 
   return (

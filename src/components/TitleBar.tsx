@@ -7,7 +7,7 @@ const TitleBar = () => {
   if (!isElectron) return null;
 
   return (
-    <div className="h-10 w-full bg-background/50 backdrop-blur-md flex items-center justify-end px-2 fixed top-0 left-0 z-[100] drag select-none">
+    <div className="h-10 w-full bg-background/50 backdrop-blur-md flex items-center justify-end px-2 fixed top-0 left-0 z-[40] drag select-none">
       <div className="flex items-center no-drag">
         <button
           onClick={() => window.electronAPI?.minimize()}

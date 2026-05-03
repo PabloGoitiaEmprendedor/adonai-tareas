@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400;500;600;700;800;900&display=swap');
+
 
 @tailwind base;
 @tailwind components;
@@ -6,93 +6,107 @@
 
 @layer base {
   :root {
-    --background: 0 0% 95%; /* #F2F2F2 */
-    --foreground: 140 95% 8%; /* #01260E - Deep Green as text */
-    --card: 0 0% 100%;
-    --card-foreground: 140 95% 8%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 140 95% 8%;
+    /* Notion Light Mode */
+    --background: 0 0% 100%; /* #FFFFFF */
+    --foreground: 45 8% 20%; /* #37352F */
+    
+    --card: 0 0% 100%; /* #FFFFFF */
+    --card-foreground: 45 8% 20%; /* #37352F */
+    
+    --popover: 0 0% 100%; /* #FFFFFF */
+    --popover-foreground: 45 8% 20%; /* #37352F */
     
     --primary: 112 98% 44%; /* #21D904 - Bright Green */
-    --primary-foreground: 0 0% 100%;
+    --primary-foreground: 0 0% 100%; /* #FFFFFF */
     --primary-container: 101 64% 34%; /* #418C1F */
     
-    --secondary: 140 95% 8%; /* #01260E */
-    --secondary-foreground: 0 0% 95%;
-    --secondary-container: 84 71% 51%; /* #93D929 */
+    --secondary: 60 9% 94%; /* #F1F1EF Gray Bg */
+    --secondary-foreground: 45 8% 20%; /* #37352F */
+    --secondary-container: 60 9% 94%; /* #F1F1EF Gray Bg */
     
-    --muted: 0 0% 90%;
-    --muted-foreground: 140 95% 20%;
+    --muted: 60 9% 94%; /* #F1F1EF Gray Bg */
+    --muted-foreground: 45 2% 46%; /* #787774 Gray Text */
     
-    --accent: 84 71% 51%; /* #93D929 */
-    --accent-foreground: 140 95% 8%;
+    --accent: 60 9% 94%; /* #F1F1EF Gray Bg */
+    --accent-foreground: 45 8% 20%; /* #37352F */
     
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 100%;
+    --destructive: 2 61% 55%; /* #D44C47 Red Text */
+    --destructive-foreground: 0 0% 100%; /* #FFFFFF */
     
-    --border: 140 95% 8% / 0.1;
-    --input: 140 95% 8% / 0.1;
-    --ring: 112 98% 44%;
-    --radius: 1.5rem;
+    --border: 60 9% 90%; /* Slightly darker than Gray Bg for borders */
+    --input: 60 9% 94%; /* #F1F1EF Gray Bg */
+    --ring: 202 54% 43%; /* #337EA9 Blue Text */
+    
+    --radius: 0.5rem; /* Notion uses smaller border radius */
 
-    --surface: 0 0% 100%;
-    --surface-dim: 0 0% 92%;
+    --surface: 0 0% 100%; /* #FFFFFF */
+    --surface-dim: 60 9% 94%; /* #F1F1EF Gray Bg */
     --surface-container-lowest: 0 0% 100%;
-    --surface-container-low: 0 0% 98%;
-    --surface-container: 0 0% 96%;
-    --surface-container-high: 0 0% 94%;
-    --surface-container-highest: 0 0% 90%;
-    --on-surface: 140 95% 8%;
-    --on-surface-variant: 140 95% 20%;
-    --outline: 140 95% 8% / 0.2;
-    --outline-variant: 140 95% 8% / 0.1;
+    --surface-container-low: 60 9% 98%;
+    --surface-container: 60 9% 94%; /* #F1F1EF Gray Bg */
+    --surface-container-high: 45 5% 90%;
+    --surface-container-highest: 45 5% 86%;
+    
+    --on-surface: 45 8% 20%; /* #37352F */
+    --on-surface-variant: 45 2% 46%; /* #787774 Gray Text */
+    --outline: 60 9% 90%;
+    --outline-variant: 60 9% 94%; /* #F1F1EF Gray Bg */
 
-    --error: 0 84% 60%;
-    --error-container: 0 100% 95%;
+    --error: 2 61% 55%; /* #D44C47 Red Text */
+    --error-container: 351 54% 96%; /* #FDEBEC Red Bg */
     --on-error: 0 0% 100%;
 
-    --tertiary: 101 64% 34%;
-    --tertiary-container: 101 64% 44%;
+    --tertiary: 148 32% 39%; /* #448361 Green Text */
+    --tertiary-container: 111 25% 94%; /* #EDF3EC Green Bg */
   }
 
-  /* Forcing consistent palette across modes if needed, 
-     but keeping a refined dark mode structure using the deep green as base */
   .dark {
-    --background: 140 95% 4%; /* Even deeper green than #01260E */
-    --foreground: 0 0% 95%;
-    --card: 140 95% 6%;
-    --card-foreground: 0 0% 95%;
-    --popover: 140 95% 6%;
-    --popover-foreground: 0 0% 95%;
+    /* Notion Dark Mode */
+    --background: 202 8% 20%; /* #2F3437 Default Bg */
+    --foreground: 0 0% 92%; /* #EBEBEB Default Text */
+    
+    --card: 202 8% 20%; /* #2F3437 Default Bg */
+    --card-foreground: 0 0% 92%; /* #EBEBEB Default Text */
+    
+    --popover: 200 6% 29%; /* #454B4E Gray Bg */
+    --popover-foreground: 0 0% 92%; /* #EBEBEB Default Text */
     
     --primary: 112 98% 44%;
-    --primary-foreground: 140 95% 4%;
+    --primary-foreground: 202 8% 20%; /* #2F3437 Default Bg */
     --primary-container: 101 64% 34%;
     
-    --secondary: 0 0% 95%;
-    --secondary-foreground: 140 95% 4%;
+    --secondary: 200 6% 29%; /* #454B4E Gray Bg */
+    --secondary-foreground: 0 0% 92%; /* #EBEBEB Default Text */
     
-    --muted: 140 95% 10%;
-    --muted-foreground: 140 95% 60%;
+    --muted: 200 6% 29%; /* #454B4E Gray Bg */
+    --muted-foreground: 45 2% 60%; /* #9B9A97 Gray Text */
     
-    --accent: 84 71% 51%;
-    --accent-foreground: 140 95% 4%;
+    --accent: 200 6% 29%; /* #454B4E Gray Bg */
+    --accent-foreground: 0 0% 92%; /* #EBEBEB Default Text */
     
-    --border: 0 0% 95% / 0.1;
-    --input: 0 0% 95% / 0.1;
-    --ring: 112 98% 44%;
+    --border: 200 6% 35%; /* Slightly lighter for visibility */
+    --input: 200 6% 29%; /* #454B4E Gray Bg */
+    --ring: 203 54% 55%; /* #529CCA Blue Text */
 
-    --surface: 140 95% 6%;
-    --surface-dim: 140 95% 4%;
-    --surface-container-lowest: 140 95% 3%;
-    --surface-container-low: 140 95% 5%;
-    --surface-container: 140 95% 8%;
-    --surface-container-high: 140 95% 10%;
-    --surface-container-highest: 140 95% 15%;
-    --on-surface: 0 0% 95%;
-    --on-surface-variant: 0 0% 80%;
-    --outline: 0 0% 95% / 0.2;
-    --outline-variant: 0 0% 95% / 0.1;
+    --surface: 202 8% 20%; /* #2F3437 Default Bg */
+    --surface-dim: 200 6% 29%; /* #454B4E Gray Bg */
+    --surface-container-lowest: 200 8% 15%;
+    --surface-container-low: 202 8% 20%;
+    --surface-container: 200 6% 29%; /* #454B4E Gray Bg */
+    --surface-container-high: 200 6% 35%;
+    --surface-container-highest: 200 6% 40%;
+    
+    --on-surface: 0 0% 92%; /* #EBEBEB Default Text */
+    --on-surface-variant: 45 2% 60%; /* #9B9A97 Gray Text */
+    --outline: 200 6% 29%; /* #454B4E Gray Bg */
+    --outline-variant: 200 6% 35%;
+
+    --error: 4 100% 70%; /* #FF7369 Red Text */
+    --error-container: 0 15% 30%; /* #594141 Red Bg */
+    --on-error: 202 8% 20%; /* #2F3437 Default Bg */
+    
+    --tertiary: 169 38% 49%; /* #4DAB9A Green Text */
+    --tertiary-container: 177 18% 25%; /* #354C4B Green Bg */
   }
 }
 

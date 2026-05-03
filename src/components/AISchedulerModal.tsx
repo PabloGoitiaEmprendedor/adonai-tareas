@@ -131,7 +131,7 @@ export const AISchedulerModal = ({ open, onClose, selectedDate }: AISchedulerMod
                   <Sparkles className="w-8 h-8 text-primary animate-pulse" />
                 </div>
                 <div className="text-center space-y-2">
-                  <h2 className="text-2xl font-black tracking-tight">Agenda Inteligente</h2>
+                  <h2 className="text-2xl font-black tracking-tight">Calendario Inteligente</h2>
                   <p className="text-on-surface-variant text-sm leading-relaxed px-4">
                     Deja que Adonai AI diseñe tu estructura de trabajo óptima basándose en tus objetivos y nivel de energía.
                   </p>
@@ -297,7 +297,7 @@ export const AISchedulerModal = ({ open, onClose, selectedDate }: AISchedulerMod
         {step !== 'generating' && (
           <button 
             onClick={onClose}
-            className="absolute top-6 right-6 p-2 rounded-full hover:bg-surface-container-high transition-colors"
+            className="absolute top-6 left-6 p-2 rounded-full hover:bg-surface-container-high transition-colors"
           >
             <X className="w-5 h-5 text-on-surface-variant/40" />
           </button>

@@ -1,7 +1,7 @@
 {
   "name": "adonai-tasks",
   "private": true,
-  "version": "1.0.80",
+  "version": "1.0.81",
   "type": "module",
   "main": "electron/main.cjs",
   "repository": {
@@ -139,7 +139,7 @@
       "oneClick": true,
       "perMachine": false,
       "allowToChangeInstallationDirectory": false,
-      "artifactName": "Adonai-Setup-${version}.${ext}",
+      "artifactName": "Adonai-Setup.${ext}",
       "deleteAppDataOnUninstall": false,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true
@@ -149,6 +149,7 @@
         "dmg",
         "zip"
       ],
+      "artifactName": "Adonai-Mac.${ext}",
       "category": "public.app-category.productivity",
       "icon": "build/icon.png"
     },

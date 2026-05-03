@@ -4,6 +4,7 @@ import { Check, Clock, Link as LinkIcon } from 'lucide-react';
 import SubtasksSection from './SubtasksSection';
 import { useSubtasks } from '@/hooks/useSubtasks';
 import { useTasks } from '@/hooks/useTasks';
+import { usePriorityColors } from '@/hooks/usePriorityColors';
 
 interface TaskCardProps {
   task: any;
@@ -62,15 +63,18 @@ export const TaskCard = ({
   const completedSubtasks = subtasks.filter(s => s.status === 'done').length;
   const hasSubtasks = subtasks.length > 0;
 
-  // Eisenhower quadrant color (subtle dot, not a loud accent)
-  // urg+imp = green, urg = orange, imp = yellow, none = gray
-  const quadrantColor = task.urgency && task.importance
-    ? 'bg-emerald-500'
-    : task.urgency
-      ? 'bg-orange-500'
-      : task.importance
-        ? 'bg-yellow-400'
-        : 'bg-on-surface-variant/30';
+  const { colors } = usePriorityColors();
+
+  const getTaskPriorityColor = () => {
+    if (task.urgency && task.importance) return colors.p1;
+    if (task.urgency && !task.importance) return colors.p2;
+    if (!task.urgency && task.importance) return colors.p3;
+    return colors.p4; // Will be 'transparent' by default
+  };
+
+  const priorityColor = getTaskPriorityColor();
+  // If transparent, use transparent, otherwise append 4D for ~30% opacity
+  const backgroundColor = priorityColor === 'transparent' ? 'transparent' : `${priorityColor}4D`;
 
   return (
     <motion.div
@@ -88,12 +92,13 @@ export const TaskCard = ({
       }
       exit={view === 'daily' ? { opacity: 0, scale: 0.8, transition: { duration: 0.2 } } : undefined}
       onClick={() => setSelectedTask(task)}
-      className={`p-4 rounded-[28px] flex items-start gap-4 cursor-pointer transition-all border group/task ${
+      style={{ backgroundColor }}
+      className={`p-4 rounded-[28px] flex items-start gap-4 cursor-pointer transition-all border group/task shadow-sm ${
         isDone || completingTaskId === task.id
           ? 'bg-transparent border-transparent opacity-40' 
           : dragIdx === taskIdx || touchIdx === taskIdx 
-            ? 'bg-card scale-[1.02] shadow-lg border-primary z-30' 
-            : 'bg-card hover:border-on-surface-variant/30 border-outline-variant'
+            ? `scale-[1.02] shadow-lg border-primary z-30` 
+            : `hover:border-on-surface-variant/30 border-outline-variant/10`
       }`}
     >
       {/* Checkbox */}
@@ -119,11 +124,6 @@ export const TaskCard = ({
 
       <div className="flex-1 min-w-0 relative flex flex-col justify-center min-h-[44px]">
         <div className="flex items-center gap-2 mb-1">
-          <div
-            className={`w-2 h-2 rounded-full ${quadrantColor} flex-shrink-0`}
-            aria-hidden
-          />
-          
           {/* Subtasks Toggle directly to the left of the title */}
           <button
             onClick={(e) => {
@@ -132,12 +132,12 @@ export const TaskCard = ({
             }}
             className="flex-shrink-0 text-on-surface-variant/40 hover:text-primary transition-colors flex items-center"
           >
-            <span className={`text-[18px] font-black inline-block transition-transform ${subtasksOpen ? 'rotate-90 text-primary' : ''}`}>
-              {">"}
+            <span className={`text-[18px] font-black inline-block transition-transform ${subtasksOpen ? 'rotate-45 text-primary' : ''}`}>
+              {"+"}
             </span>
           </button>
 
-          <div className={`text-lg font-black tracking-tight transition-all flex flex-1 items-center gap-2 font-headline break-words ${
+          <div className={`text-[16px] font-black tracking-tight transition-all flex flex-1 items-center gap-2 font-headline break-words ${
             isDone || completingTaskId === task.id ? 'text-on-surface-variant/30 line-through' : 'text-foreground'
           }`}>
             {isEditing ? (
@@ -169,32 +169,30 @@ export const TaskCard = ({
             {isDone && task.actual_duration_seconds > 0 && (() => {
               const isOver = task.estimated_minutes > 0 && task.actual_duration_seconds > (task.estimated_minutes * 60);
               return (
-                <span className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded ml-1 transition-colors ${
-                  isOver 
-                    ? 'bg-red-500/5 text-red-400/70 border border-red-500/10' 
-                    : 'bg-emerald-500/5 text-emerald-400/70 border border-emerald-500/10'
-                }`}>
-                  {Math.floor(task.actual_duration_seconds / 60)}:{String(task.actual_duration_seconds % 60).padStart(2, '0')}
+                <span 
+                  style={{
+                    fontSize: '11px',
+                    fontWeight: 800,
+                    fontFamily: 'monospace',
+                    padding: '2px 8px',
+                    borderRadius: '999px',
+                    marginLeft: '8px',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    minWidth: '46px',
+                    color: isOver ? '#F87171' : '#A3E635',
+                    background: isOver ? 'rgba(248, 113, 113, 0.2)' : 'rgba(163, 230, 53, 0.2)',
+                    border: `1px solid ${isOver ? 'rgba(248, 113, 113, 0.3)' : 'rgba(163, 230, 53, 0.3)'}`,
+                    lineHeight: '1'
+                  }}
+                >
+                  {String(Math.floor(task.actual_duration_seconds / 60)).padStart(2, '0')}:{String(task.actual_duration_seconds % 60).padStart(2, '0')}
                 </span>
               );
             })()}
-            
-            {hasSubtasks && !subtasksOpen && (
-              <span className="text-[10px] font-black text-on-surface-variant/40 ml-1">
-                {completedSubtasks}/{subtasks.length}
-              </span>
-            )}
           </div>
         </div>
-        
-        {(isDone || completingTaskId === task.id) && (
-          <motion.div 
-            initial={completingTaskId === task.id ? { width: 0 } : { width: '105%' }}
-            animate={{ width: '105%' }}
-            transition={{ delay: 0.1, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-            className="absolute top-1/2 left-[-2.5%] h-[4px] bg-on-surface-variant/10 -translate-y-1/2 pointer-events-none rounded-full"
-          />
-        )}
 
         {!isDone && (
           <div className="mt-1">
@@ -217,10 +215,13 @@ export const TaskCard = ({
             target="_blank"
             rel="noopener noreferrer"
             onClick={(e) => e.stopPropagation()}
-            className="w-9 h-9 rounded-[12px] flex items-center justify-center transition-all active:scale-90 bg-emerald-500/15 border border-emerald-500/30 hover:bg-emerald-500/25 hover:scale-110"
+            className="w-9 h-9 rounded-[12px] flex items-center justify-center transition-all active:scale-90 bg-black/20 border border-white/5 hover:bg-black/30 group/link"
             aria-label="Abrir link"
           >
-            <LinkIcon className="w-4 h-4 text-emerald-500" />
+            <LinkIcon 
+              className="w-4 h-4 transition-colors" 
+              style={{ color: priorityColor === 'transparent' ? 'var(--primary)' : priorityColor }} 
+            />
           </a>
         )}
 
@@ -236,10 +237,13 @@ export const TaskCard = ({
           ) : (
             <button
               onClick={(e) => handleStartTimer(task, e)}
-              className="w-9 h-9 rounded-[12px] border border-outline-variant text-on-surface-variant flex items-center justify-center hover:border-primary hover:text-foreground transition-all active:scale-90 bg-transparent"
+              className="w-9 h-9 rounded-[12px] border border-white/5 flex items-center justify-center transition-all active:scale-90 bg-black/20 hover:bg-black/30"
               aria-label="Iniciar temporizador"
             >
-              <Clock className="w-4 h-4" />
+              <Clock 
+                className="w-4 h-4" 
+                style={{ color: priorityColor === 'transparent' ? 'var(--primary)' : priorityColor }} 
+              />
             </button>
           )
         )}

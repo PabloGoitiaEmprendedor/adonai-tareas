@@ -59,6 +59,53 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
   const mountedRef = useRef(false);
   const voiceProcessedRef = useRef(false);
   const isCurrentlySavingRef = useRef(false);
+  const audioContextRef = useRef<AudioContext | null>(null);
+
+  // Submit voice task via Enter key
+  useEffect(() => {
+    if (!open || !isRecording) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Enter' && transcript.trim()) {
+        e.preventDefault();
+        stopRecording();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [open, isRecording, transcript, stopRecording]);
+
+  const [prevOpen, setPrevOpen] = useState(open);
+  if (open !== prevOpen) {
+    setPrevOpen(open);
+    if (open) {
+      setDueDate(format(new Date(), 'yyyy-MM-dd'));
+      setClassificationSource('');
+      setFallbackEstimatedMinutes(null);
+      setSelectedGoalId(null);
+      setReviewImportance(false);
+      setReviewUrgency(false);
+      setEditingTitle(false);
+      setTitle('');
+      setDescription('');
+      setLink('');
+      
+      if (!requestedVoiceOpenRef.current) {
+        if (initialMode === 'voice') {
+          setPhase('input');
+          setSourceType('voice');
+          setShowTextInput(false);
+        } else if (initialMode === 'text') {
+          setPhase('input');
+          setSourceType('text');
+          setShowTextInput(true);
+        } else {
+          setPhase('select');
+          setSourceType('text');
+          setShowTextInput(true);
+        }
+      }
+    }
+  }
 
   const beginVoiceCapture = useCallback(async () => {
     voiceProcessedRef.current = false;
@@ -83,6 +130,15 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
       setFallbackEstimatedMinutes(null);
       return beginVoiceCapture();
     },
+    openInTextMode: () => {
+      setPhase('input');
+      setTitle('');
+      setDueDate(format(new Date(), 'yyyy-MM-dd'));
+      setClassificationSource('');
+      setFallbackEstimatedMinutes(null);
+      setSourceType('text');
+      setShowTextInput(true);
+    }
   }), [beginVoiceCapture]);
 
   useEffect(() => {
@@ -102,47 +158,17 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
   useEffect(() => {
     if (!open) return;
 
-    setDueDate(format(new Date(), 'yyyy-MM-dd'));
-    setClassificationSource('');
-    setFallbackEstimatedMinutes(null);
-    setSelectedGoalId(null);
-    setReviewImportance(false);
-    setReviewUrgency(false);
-    setEditingTitle(false);
-
     if (requestedVoiceOpenRef.current) {
       requestedVoiceOpenRef.current = false;
       return;
     }
 
-    if (initialMode === 'voice') {
-      setPhase('input');
-      setTitle('');
-      setDescription('');
-      setLink('');
-      resetTranscript();
-      beginVoiceCapture();
-      return;
-    }
-    if (initialMode === 'text') {
-      setPhase('input');
-      setTitle('');
-      setDescription('');
-      setLink('');
-      resetTranscript();
-      setShowTextInput(true);
-      setSourceType('text');
-      return;
-    }
-
-    setPhase('select');
-    setTitle('');
-    setDescription('');
-    setLink('');
     resetTranscript();
-    setShowTextInput(true);
-    setSourceType('text');
-  }, [open, initialMode]);
+
+    if (initialMode === 'voice') {
+      beginVoiceCapture();
+    }
+  }, [open, initialMode, beginVoiceCapture, resetTranscript]);
 
   const handleClose = () => {
     if (isRecording) {
@@ -174,6 +200,7 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
     const finalDate = date || format(new Date(), 'yyyy-MM-dd');
 
     try {
+      console.log("[TaskCaptureModal] Attempting to create task:", { title: taskTitle, priority, goal_id: chosenGoalId || goalId });
       const task = await createTask.mutateAsync({
         title: taskTitle,
         priority,
@@ -192,6 +219,11 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
         creation_source: creationSource,
       });
 
+      if (!task) {
+        console.error("[TaskCaptureModal] Task creation returned null. Check RLS policies.");
+        throw new Error("No se pudo recuperar la tarea creada. Verifica los permisos (RLS).");
+      }
+
       if (sourceType === 'voice' && user) {
         await supabase.from('voice_inputs').insert({
           user_id: user.id,
@@ -205,9 +237,17 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
         handleClose();
       }
       return task;
-    } catch (err) {
+    } catch (err: any) {
+      console.error("[TaskCaptureModal] Error in saveTaskQuick:", err);
       if (!isImageLoop) {
-        toast.error('Error al crear tarea');
+        let errorMsg = 'Error desconocido';
+        if (err instanceof Error) {
+          errorMsg = err.message;
+        } else if (err && typeof err === 'object') {
+          errorMsg = err.message || err.details || JSON.stringify(err);
+        }
+        
+        toast.error(`Error al crear tarea: ${errorMsg}`);
         setPhase('planning');
       }
       throw err;
@@ -369,7 +409,7 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
       description: description.trim(),
       link: link.trim(),
       dueDate,
-      goalId: selectedGoalId,
+      goalId: selectedGoalId || null,
       importance: reviewImportance,
       urgency: reviewUrgency,
     });
@@ -380,41 +420,40 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
   const waveformBars = [4, 8, 12, 14, 10, 16, 12, 14, 6, 10, 14, 8, 4];
 
   const C = {
-    bg: '#F2F2F2',
-    surface: 'rgba(1, 38, 14, 0.05)',
-    border: 'rgba(1, 38, 14, 0.1)',
-    text: '#01260E',
-    muted: 'rgba(1, 38, 14, 0.5)',
-    accent: '#21D904',
-    accentBg: 'rgba(33, 217, 4, 0.1)',
+    // Replaced with semantic tailwind classes
   };
 
   return (
     <AnimatePresence>
       {open && (
         <>
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60]" onClick={handleClose} />
+          <motion.div 
+            initial={{ opacity: 0 }} 
+            animate={{ opacity: 1 }} 
+            exit={{ opacity: 0 }} 
+            className="fixed inset-0 bg-[#01260E]/40 z-[9998] backdrop-blur-xl" 
+            onClick={handleClose} 
+          />
           <motion.div
             initial={{ opacity: 0, scale: 0.95, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 10 }}
             transition={{ type: 'spring', damping: 22, stiffness: 260 }}
-            className="fixed inset-0 z-[70] flex items-center justify-center p-4 pointer-events-none"
+            className="fixed inset-0 z-[9999] flex items-center justify-center p-4 pointer-events-none"
           >
-            <div className="relative mx-auto w-full max-w-[360px] max-h-[90vh] overflow-y-auto pointer-events-auto shadow-2xl"
-                 style={{
-                   background: C.bg, borderRadius: 24,
-                   border: `1px solid ${C.border}`,
-                 }}>
-              <button
-                onClick={handleClose}
-                className="absolute top-4 right-4 z-10 w-8 h-8 rounded-full bg-on-surface/5 flex items-center justify-center transition-colors hover:bg-on-surface/10"
-                style={{ color: C.muted }}
-              >
-                <X className="w-4 h-4" />
-              </button>
-
-              <div className="p-6 pt-8 flex flex-col gap-6">
+            <div className="relative mx-auto w-full max-w-[400px] max-h-[90vh] overflow-y-auto pointer-events-auto shadow-[0_20px_60px_-10px_hsla(140,95%,8%,0.15)] bg-background rounded-[32px] border border-border"
+                 style={{}}>
+              <div className="p-6 flex flex-col gap-6">
+                {phase !== 'saving' && (
+                  <div className="w-full flex justify-end -mt-2 -mr-2">
+                    <button
+                      onClick={handleClose}
+                      className="p-2 rounded-xl hover:bg-black/5 transition-all active:scale-90 text-muted-foreground"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
                 <AnimatePresence mode="wait">
                   {phase === 'select' && (
                     <motion.div 
@@ -424,27 +463,27 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
                       exit={{ opacity: 0, scale: 0.95 }} 
                       className="w-full flex flex-col items-center gap-8"
                     >
-                      <div className="text-center space-y-2">
-                        <h2 className="text-2xl font-black tracking-tight" style={{ color: C.text }}>Añadir Tarea</h2>
-                        <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: C.muted }}>¿Cómo prefieres empezar?</p>
-                      </div>
+                      {phase === 'select' && (
+                        <div className="text-center space-y-1">
+                          <p className="text-[10px] font-black uppercase tracking-[0.3em] text-primary mb-2">Nueva Tarea</p>
+                          <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">¿Cómo prefieres empezar?</p>
+                        </div>
+                      )}
 
                       <div className="grid grid-cols-2 gap-4 w-full">
                         <button
                           onClick={() => { setPhase('input'); setShowTextInput(true); setSourceType('text'); }}
-                          className="group flex flex-col items-center gap-4 p-5 rounded-[28px] transition-all hover:bg-on-surface/5 active:scale-[0.96] border border-outline-variant"
-                          style={{ background: C.surface }}
+                          className="group flex flex-col items-center gap-4 p-5 rounded-[28px] transition-all hover:bg-on-surface/5 active:scale-[0.96] border border-outline-variant bg-surface"
                         >
                           <div className="w-16 h-16 rounded-[22px] flex items-center justify-center bg-on-surface/5">
                             <Type className="w-7 h-7 text-foreground" />
                           </div>
-                          <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: C.muted }}>Escribir</span>
+                          <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Escribir</span>
                         </button>
 
                         <button
                           onClick={() => { setPhase('input'); beginVoiceCapture(); }}
-                          className="group flex flex-col items-center gap-4 p-5 rounded-[28px] transition-all active:scale-[0.96] border border-primary/20"
-                          style={{ background: C.accentBg }}
+                          className="group flex flex-col items-center gap-4 p-5 rounded-[28px] transition-all active:scale-[0.96] border border-primary/20 bg-primary/10"
                         >
                           <div className="w-16 h-16 rounded-[22px] flex items-center justify-center bg-primary/20">
                             <Mic className="w-7 h-7 text-primary" />
@@ -478,10 +517,49 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
                             )}
                           </div>
                           <div className="w-full text-center px-4">
-                            <p className="text-lg font-bold leading-tight" style={{ color: C.text }}>
+                            <p className="text-lg font-bold leading-tight text-foreground">
                               {isProcessing ? "Analizando tu voz..." : transcript || "Escuchando..."}
                               {!isProcessing && isRecording && <span className="inline-block w-1 h-5 ml-1 animate-pulse bg-primary" />}
                             </p>
+                          </div>
+
+                          {/* Action row: send button (when transcript) + stop button */}
+                          <div className="flex flex-col items-center gap-3 w-full">
+                            <AnimatePresence>
+                              {isRecording && transcript.trim() && (
+                                <motion.button
+                                  key="send-voice"
+                                  initial={{ opacity: 0, scale: 0.85, y: 8 }}
+                                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                                  exit={{ opacity: 0, scale: 0.85, y: 8 }}
+                                  transition={{ type: 'spring', damping: 18, stiffness: 280 }}
+                                  onClick={() => stopRecording()}
+                                  className="flex items-center gap-2.5 px-8 py-3.5 rounded-[20px] bg-primary text-primary-foreground font-black text-sm shadow-xl shadow-primary/30 hover:scale-[1.04] active:scale-95 transition-transform"
+                                >
+                                  <Check className="w-4 h-4" />
+                                  Enviar tarea
+                                </motion.button>
+                              )}
+                            </AnimatePresence>
+
+                            <div className="flex items-center gap-3">
+                              <button
+                                onClick={() => stopRecording()}
+                                className="w-14 h-14 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center shadow-lg active:scale-90 transition-transform"
+                                title="Detener grabación"
+                              >
+                                <Square className="w-5 h-5 text-primary fill-primary" />
+                              </button>
+                              {isRecording && transcript.trim() && (
+                                <motion.span
+                                  initial={{ opacity: 0 }}
+                                  animate={{ opacity: 1 }}
+                                  className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/50"
+                                >
+                                  o presiona ↵ Enter
+                                </motion.span>
+                              )}
+                            </div>
                           </div>
                         </div>
                       )}
@@ -491,37 +569,36 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
                           <div className="space-y-1">
                              <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Tarea</label>
                              <input 
-                              autoFocus 
-                              value={title} 
-                              onChange={(e) => setTitle(e.target.value)}
-                              placeholder="¿Qué necesitas hacer?"
-                              className="w-full text-xl font-black bg-surface border border-outline-variant rounded-[20px] px-5 py-4 focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-muted-foreground/30"
-                              onKeyDown={(e) => { 
-                                if (e.key === 'Enter') handleTitleDone();
-                              }} 
-                            />
+                               autoFocus 
+                               value={title} 
+                               onChange={(e) => setTitle(e.target.value)}
+                               placeholder="¿Qué necesitas hacer?"
+                               className="w-full text-xl font-black bg-surface border border-outline-variant rounded-[20px] px-5 py-4 focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-muted-foreground/30"
+                               onKeyDown={(e) => { 
+                                 if (e.key === 'Enter') handleTitleDone();
+                               }} 
+                             />
                           </div>
-
                           <div className="space-y-1">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Descripción (opcional)</label>
+                            <label className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/40 ml-2">Descripción</label>
                             <AutoTextarea
                               value={description} 
                               onChange={(e) => setDescription(e.target.value)}
                               placeholder="Detalles adicionales..."
-                              className="w-full text-sm bg-surface border border-outline-variant rounded-[20px] p-5 focus:outline-none focus:ring-2 focus:ring-primary/50 min-h-[80px] placeholder:text-muted-foreground/30"
+                              className="w-full text-sm bg-surface-container/30 border border-outline-variant/10 rounded-[24px] p-5 focus:outline-none focus:ring-2 focus:ring-primary/30 min-h-[100px] placeholder:text-on-surface-variant/20"
                             />
                           </div>
 
                           <div className="space-y-1">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Link (opcional)</label>
+                            <label className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/40 ml-2">Link o Referencia</label>
                             <div className="relative">
-                              <LinkIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                              <LinkIcon className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-on-surface-variant/30" />
                               <input
                                 type="url"
                                 value={link} 
                                 onChange={(e) => setLink(e.target.value)}
                                 placeholder="https://..."
-                                className="w-full text-sm bg-surface border border-outline-variant rounded-[20px] pl-11 pr-5 py-4 focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-muted-foreground/30"
+                                className="w-full text-sm bg-surface-container/30 border border-outline-variant/10 rounded-[24px] pl-12 pr-5 py-4 focus:outline-none focus:ring-2 focus:ring-primary/30 placeholder:text-on-surface-variant/20"
                               />
                             </div>
                           </div>
@@ -537,39 +614,50 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
                         </div>
                       )}
 
-                      {isRecording && (
-                        <button onClick={() => stopRecording()} className="w-20 h-20 rounded-full bg-primary mx-auto flex items-center justify-center shadow-2xl shadow-primary/30 active:scale-90 transition-transform">
-                           <Square className="w-8 h-8 text-primary-foreground fill-primary-foreground" />
-                        </button>
-                      )}
+
+                    </motion.div>
+                  )}
+
+                  {phase === 'image_date' && extractedTasks[currentTaskIndex] && (
+                    <motion.div key="image_date" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="w-full flex flex-col gap-6">
+                      <div className="text-center space-y-2">
+                        <h2 className="text-xl font-black tracking-tight text-foreground">Fecha</h2>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                          {currentTaskIndex + 1} de {extractedTasks.length}: "{extractedTasks[currentTaskIndex].raw_text}"
+                        </p>
+                      </div>
+                      <CalendarDatePicker 
+                        date={dueDate} 
+                        onSelect={handleImageDateAssignment} 
+                        label="ASIGNAR FECHA"
+                      />
                     </motion.div>
                   )}
 
                   {phase === 'planning' && (
                     <motion.div key="planning" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="w-full flex flex-col gap-6">
                       <div className="space-y-4">
-                        <div className="flex items-center gap-3 p-4 bg-surface border border-outline-variant rounded-2xl">
-                          <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center flex-shrink-0">
-                            <Check className="w-5 h-5 text-primary" />
-                          </div>
-                          <div className="min-w-0">
-                            <p className="text-xs font-black uppercase tracking-widest text-muted-foreground leading-none mb-1">Confirmar Tarea</p>
-                            <p className="text-sm font-bold truncate">{title}</p>
-                          </div>
-                          <button onClick={() => setPhase('input')} className="ml-auto p-2 hover:bg-on-surface/10 rounded-lg transition-colors">
-                            <Edit2 className="w-4 h-4 text-muted-foreground" />
+                        <div className="flex items-center gap-3 p-4 bg-surface-container/30 border border-outline-variant/30 rounded-2xl pr-10">
+                          <div className="w-5 h-5 rounded-md border-2 border-outline-variant/40 flex-shrink-0" />
+                          <p className="text-sm font-black truncate flex-1 text-foreground">{title}</p>
+                          <button
+                            onClick={() => setPhase('input')}
+                            className="p-1.5 hover:bg-on-surface/5 rounded-lg transition-colors flex-shrink-0"
+                            title="Editar"
+                          >
+                            <Edit2 className="w-3.5 h-3.5 text-on-surface-variant/40" />
                           </button>
                         </div>
 
                         <CalendarDatePicker 
                           date={dueDate} 
                           onSelect={(d) => setDueDate(d)} 
-                          label="Programación"
+                          label="FECHA"
                         />
 
                         {goals.filter(g => g.active).length > 0 && (
                           <div className="space-y-2">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Meta Asociada</label>
+                            <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 ml-2">Meta Asociada</label>
                             <div className="flex flex-wrap gap-2">
                               {goals.filter(g => g.active).map(goal => (
                                 <button
@@ -591,7 +679,7 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
                         )}
 
                         <div className="space-y-2">
-                          <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Prioridad (Matriz)</label>
+                          <label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60 ml-2">Prioridad</label>
                           <div className="grid grid-cols-2 gap-3">
                             <button
                               onClick={() => setReviewImportance(!reviewImportance)}
@@ -602,7 +690,7 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
                                     : "bg-surface text-muted-foreground border-outline-variant hover:bg-on-surface/5"
                               )}
                             >
-                              Importante
+                              IMPORTANTE
                             </button>
                             <button
                               onClick={() => setReviewUrgency(!reviewUrgency)}
@@ -613,7 +701,7 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
                                   : "bg-surface text-muted-foreground border-outline-variant hover:bg-on-surface/5"
                               )}
                             >
-                              Urgente
+                              URGENTE
                             </button>
                           </div>
                         </div>
@@ -624,7 +712,6 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
                         disabled={!title.trim()}
                         className="w-full h-16 bg-primary text-primary-foreground rounded-[24px] font-black text-sm shadow-2xl shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3 mt-4"
                       >
-                        <Check className="w-6 h-6" strokeWidth={3} />
                         GUARDAR TAREA
                       </button>
                     </motion.div>

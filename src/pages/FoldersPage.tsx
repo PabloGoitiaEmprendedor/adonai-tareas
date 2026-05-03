@@ -128,7 +128,7 @@ const FoldersPage = () => {
           initial={{ opacity: 0 }} 
           animate={{ opacity: 1 }} 
           exit={{ opacity: 0 }} 
-          className="fixed inset-0 bg-black/60 z-[60] backdrop-blur-xl" 
+          className="fixed inset-0 bg-[#01260E]/40 z-[9998] backdrop-blur(12px)" 
           onClick={() => setSharingFolder(null)} 
         />
         <motion.div
@@ -136,9 +136,9 @@ const FoldersPage = () => {
           animate={{ y: 0, opacity: 1 }} 
           exit={{ y: '100%', opacity: 0 }}
           transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-          className="fixed inset-x-0 bottom-0 z-[70] px-4 pb-8 lg:px-0 lg:flex lg:items-center lg:justify-center lg:inset-0 lg:pb-0"
+          className="fixed inset-x-0 bottom-0 z-[9999] px-4 pb-8 lg:px-0 lg:flex lg:items-center lg:justify-center lg:inset-0 lg:pb-0"
         >
-          <div className="mx-auto w-full max-w-[430px] lg:max-w-[500px] bg-card rounded-[48px] overflow-hidden shadow-[0_40px_80px_rgba(0,0,0,0.3)] border border-outline-variant/20">
+          <div className="mx-auto w-full max-w-[430px] lg:max-w-[500px] bg-card rounded-[40px] overflow-hidden shadow-[0_20px_60px_-10px_hsla(140,95%,8%,0.15)] border border-outline-variant/10">
             <div className="flex justify-center pt-6 pb-2 lg:hidden">
               <div className="w-12 h-1.5 bg-on-surface-variant/10 rounded-full" />
             </div>
@@ -241,14 +241,14 @@ const FoldersPage = () => {
             initial={{ opacity: 0 }} 
             animate={{ opacity: 1 }} 
             exit={{ opacity: 0 }} 
-            className="fixed inset-0 bg-black/40 backdrop-blur-xl z-[80]"
+            className="fixed inset-0 bg-[#01260E]/40 z-[9998] backdrop-blur(12px)"
             onClick={() => setShowCreate(false)}
           />
           <motion.div 
             initial={{ opacity: 0, scale: 0.9, y: 30 }} 
             animate={{ opacity: 1, scale: 1, y: 0 }} 
             exit={{ opacity: 0, scale: 0.9, y: 30 }}
-            className="fixed inset-x-4 top-[10%] lg:inset-x-0 lg:w-[500px] lg:mx-auto z-[90] bg-card p-10 rounded-[56px] border border-outline-variant/20 shadow-[0_50px_100px_rgba(0,0,0,0.2)] space-y-10"
+            className="fixed inset-x-4 top-[10%] lg:inset-x-0 lg:w-[500px] lg:mx-auto z-[9999] bg-card p-10 rounded-[40px] border border-outline-variant/10 shadow-[0_20px_60px_-10px_hsla(140,95%,8%,0.15)] space-y-10"
           >
             <div className="space-y-2">
               <h2 className="text-4xl font-black text-foreground font-headline tracking-tight leading-none">Nuevo Proyecto</h2>
@@ -495,9 +495,9 @@ const FoldersPage = () => {
         <FullscreenTimer task={timerTask} open={!!timerTask} onClose={() => setTimerTask(null)} />
         
         <AnimatePresence>{editingFolder && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/40 backdrop-blur-xl" onClick={() => setEditingFolder(null)} />
-            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="relative bg-card w-full max-w-[500px] p-12 rounded-[56px] shadow-2xl border border-outline-variant/20 space-y-10">
+          <div className="fixed inset-0 z-[9998] flex items-center justify-center p-6">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-[#01260E]/40 backdrop-blur(12px)" onClick={() => setEditingFolder(null)} />
+            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="relative z-[9999] bg-card w-full max-w-[500px] p-12 rounded-[40px] shadow-[0_20px_60px_-10px_hsla(140,95%,8%,0.15)] border border-outline-variant/10 space-y-10">
               <div className="space-y-2">
                 <h3 className="text-3xl font-black text-foreground font-headline tracking-tight">Editar Proyecto</h3>
                 <p className="text-sm font-medium text-on-surface-variant/40">Modifica los detalles de tu espacio.</p>

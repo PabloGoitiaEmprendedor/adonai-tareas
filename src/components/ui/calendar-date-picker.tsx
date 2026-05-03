@@ -11,6 +11,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { format } from "date-fns"
+import { es } from 'date-fns/locale'
 import { parseDate, CalendarDate } from "@internationalized/date"
 
 export function CalendarDatePicker({ 
@@ -25,6 +26,20 @@ export function CalendarDatePicker({
   const [open, setOpen] = React.useState(false)
   
   // Convert string date (YYYY-MM-DD) to CalendarDate for react-aria-components
+  const displayDate = React.useMemo(() => {
+    if (!date) return "¿Cuándo se debe hacer?";
+    const d = new Date(date + 'T12:00:00');
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1);
+
+    if (format(d, 'yyyy-MM-dd') === format(today, 'yyyy-MM-dd')) return "Hoy";
+    if (format(d, 'yyyy-MM-dd') === format(tomorrow, 'yyyy-MM-dd')) return "Mañana";
+    
+    return format(d, "PPP", { locale: es });
+  }, [date]);
+
   const selectedDate = React.useMemo(() => {
     if (!date) return undefined;
     try {
@@ -36,7 +51,7 @@ export function CalendarDatePicker({
 
   return (
     <div className="flex flex-col gap-2">
-      {label && <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">{label}</Label>}
+      {label && <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 ml-2">{label}</label>}
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button
@@ -45,7 +60,7 @@ export function CalendarDatePicker({
           >
             <div className="flex items-center gap-2">
               <CalendarIcon className="w-4 h-4 text-primary" />
-              {date ? format(new Date(date + 'T12:00:00'), "PPP") : "Seleccionar fecha"}
+              {displayDate}
             </div>
             <ChevronDown className="w-4 h-4 opacity-50" />
           </Button>

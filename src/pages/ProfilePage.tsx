@@ -162,8 +162,12 @@ const ProfilePage = () => {
             <span className="text-2xl font-bold text-primary">{(profile?.name || 'U')[0].toUpperCase()}</span>
           </div>
           <div>
-            <h2 className="text-2xl font-extrabold tracking-tight text-foreground">{profile?.name || 'Usuario'}</h2>
-            <p className="text-on-surface-variant text-sm">{profile?.email}</p>
+            <h2 className="text-2xl font-extrabold tracking-tight text-foreground">
+              {(profile?.name && profile.name.trim()) || 
+               (user?.user_metadata?.full_name && user.user_metadata.full_name.trim()) || 
+               'Usuario'}
+            </h2>
+            <p className="text-on-surface-variant text-sm">{user?.email}</p>
           </div>
         </motion.section>
 

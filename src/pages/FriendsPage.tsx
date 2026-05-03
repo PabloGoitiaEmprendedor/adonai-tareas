@@ -6,6 +6,8 @@ import { Users, Search, UserPlus, Check, X, FolderOpen, ChevronRight, ChevronDow
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import NavigationWrapper from '@/components/NavigationWrapper';
+import { Flame } from 'lucide-react';
 
 const FriendsPage = () => {
   const { user } = useAuth();
@@ -272,8 +274,12 @@ const FriendsPage = () => {
             className={`flex-1 py-2 rounded-md text-sm font-bold transition-all ${tab === 'friends' ? 'bg-primary text-primary-foreground' : 'text-on-surface-variant'}`}>
             Amigos ({friends.length})
           </button>
-          <button onClick={() => setTab('requests')}
-            className={`flex-1 py-2 rounded-md text-sm font-bold transition-all relative ${tab === 'requests' ? 'bg-primary text-primary-foreground' : 'text-on-surface-variant'}`}>
+          <button 
+            onClick={() => setTab('requests')}
+            className={`flex-1 py-3 rounded-[24px] text-xs font-black uppercase tracking-widest transition-all relative ${
+              tab === 'requests' ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20' : 'text-on-surface-variant/60 hover:text-foreground'
+            }`}
+          >
             Solicitudes
             {pendingReceived.length > 0 && (
               <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-error text-[10px] text-error-foreground flex items-center justify-center font-bold">

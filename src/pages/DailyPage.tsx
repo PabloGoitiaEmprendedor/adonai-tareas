@@ -4,12 +4,12 @@ import { useTasks } from '@/hooks/useTasks';
 import { useGoals } from '@/hooks/useGoals';
 import { useProfile } from '@/hooks/useProfile';
 import { useStreaks } from '@/hooks/useStreaks';
+import { useAuth } from '@/contexts/AuthContext';
 import { useGlobalVoiceCapture } from '@/hooks/useGlobalVoiceCapture';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Check, Plus, Mic, GripVertical, Timer, Flame, Monitor } from 'lucide-react';
+import { Flame, Monitor, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { toast } from 'sonner';
 import { triggerTaskCelebration, triggerDailyCelebration, triggerOnTimeCelebration } from '@/lib/celebrations';
 import FAB from '@/components/FAB';
 import TaskCaptureModal, { type TaskCaptureModalHandle } from '@/components/TaskCaptureModal';
@@ -100,7 +100,8 @@ const getDynamicGreeting = (
 const DailyPage = () => {
   const today = format(new Date(), 'yyyy-MM-dd');
 
-  const { tasks, updateTask } = useTasks({ date: today });
+  const { user } = useAuth();
+  const { tasks, updateTask, isLoading } = useTasks({ date: today });
   const { createTask } = useTasks();
   const { goals } = useGoals();
   const { profile } = useProfile();
@@ -108,6 +109,7 @@ const DailyPage = () => {
   const { checkAndUnlock } = useGamification();
   const streakCount = metrics?.streak_current || 0;
   const [captureOpen, setCaptureOpen] = useState(false);
+  const [captureMode, setCaptureMode] = useState<'text' | 'voice' | null>(null);
   const [selectedTask, setSelectedTask] = useState<any>(null);
   const [timerTask, setTimerTask] = useState<any>(null);
   const [orderedTasks, setOrderedTasks] = useState<any[]>([]);
@@ -132,12 +134,17 @@ const DailyPage = () => {
   }, []);
 
 
-  const openCapture = useCallback(() => setCaptureOpen(true), []);
-  const openCaptureInVoiceMode = useCallback(() => {
-    captureModalRef.current?.openInVoiceMode();
+  const openCapture = useCallback(() => {
+    setCaptureMode('text');
     setCaptureOpen(true);
   }, []);
-  useGlobalVoiceCapture(captureModalRef, openCapture);
+  
+  const openCaptureInVoiceMode = useCallback(() => {
+    setCaptureMode('voice');
+    setCaptureOpen(true);
+  }, []);
+  
+  useGlobalVoiceCapture(captureModalRef, openCaptureInVoiceMode);
 
   useEffect(() => {
     if (hasTrackedDayRef.current) return;
@@ -182,13 +189,13 @@ const DailyPage = () => {
     });
   }, [sortedTasks]);
 
-  const mainGoal = goals.find((g) => g.id === profile?.main_goal_id);
   const completedCount = tasks.filter((t) => t.status === 'done').length;
-  const totalCount = tasks.length;
 
-  const greeting = useMemo(
-    () => getDynamicGreeting(profile?.name || 'Emprendedor', completedCount, totalCount, mainGoal?.title),
-    [profile?.name, completedCount, totalCount, mainGoal?.title]
+  const greeting = getDynamicGreeting(
+    profile?.name || user?.user_metadata?.full_name || (user?.email?.split('@')[0]) || 'Emprendedor',
+    completedCount,
+    orderedTasks.length,
+    profile?.main_goal_id ? goals.find((g: any) => g.id === profile.main_goal_id)?.title : undefined
   );
 
   const handleComplete = async (task: any, e: React.MouseEvent) => {
@@ -247,45 +254,53 @@ const DailyPage = () => {
           <div className="w-10 h-10" />
 
           <div className="flex flex-col items-center">
-            <span className="text-[44px] font-black tracking-tighter tabular-nums text-foreground font-headline leading-none">
-              {format(currentTime, 'h:mm')}
-              <span className="text-xl ml-1 text-on-surface-variant/40">{format(currentTime, 'a')}</span>
-            </span>
-            <span className="text-[10px] uppercase tracking-[0.3em] font-black text-on-surface-variant/40 mt-1">
-              {format(currentTime, "EEEE d 'de' MMMM", { locale: es })}
-            </span>
+            <div className="relative">
+              <motion.div
+                key={format(currentTime, 'h:mm')}
+                initial={{ opacity: 0, y: 5 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="text-[48px] font-black tracking-[-0.05em] tabular-nums text-foreground font-headline leading-none flex items-end gap-1"
+              >
+                {format(currentTime, 'h:mm')}
+                <span className="text-[11px] mb-1 font-black text-primary uppercase tracking-tight opacity-40">
+                  {format(currentTime, 'a')}
+                </span>
+              </motion.div>
+            </div>
+            
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="flex items-center gap-4 mt-4"
+            >
+              <div className="h-px w-8 bg-primary/20" />
+              <div className="flex items-center gap-4">
+                <span className="text-[11px] uppercase tracking-[0.2em] font-black text-on-surface-variant/40">
+                  {format(currentTime, "EEEE, d 'de' MMMM", { locale: es })}
+                </span>
+              </div>
+              <div className="h-px w-6 bg-primary/10" />
+            </motion.div>
           </div>
 
-          <div className="w-10 h-10 flex items-center justify-center">
-            <button
-              onClick={toggleMiniWidget}
-              className="w-10 h-10 flex items-center justify-center rounded-xl hover:bg-surface-container text-on-surface-variant transition-colors"
-              title="Pestaña flotante"
-            >
-              <Monitor className="w-5 h-5" />
-            </button>
-          </div>
+          <div className="w-10 h-10" />
         </div>
 
-        <div className="flex flex-col items-center justify-center">
-          {streakCount > 0 && (
-            <motion.div
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              whileHover={{ scale: 1.05 }}
-              className="mt-8 flex items-center gap-2.5 px-5 py-2.5 rounded-full bg-foreground text-background shadow-md border border-foreground"
-            >
-              <motion.div
-                animate={{ scale: [1, 1.2, 1] }}
-                transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
-              >
-                <Flame className="w-4 h-4 text-primary fill-primary/40" />
-              </motion.div>
-              <span className="text-[13px] font-black leading-none tabular-nums tracking-tight">
-                {streakCount} días imparable
-              </span>
-            </motion.div>
-          )}
+        <div className="flex flex-col items-center justify-center space-y-4">
+
+          <motion.button
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={toggleMiniWidget}
+            className="flex items-center gap-2.5 px-6 py-3 rounded-2xl bg-surface-container/50 border border-outline-variant/20 hover:border-primary/30 transition-all shadow-sm group"
+          >
+            <Monitor className={`w-4 h-4 transition-colors ${miniWidgetOpen ? 'text-red-400' : 'text-primary'}`} />
+            <span className="text-[11px] font-black uppercase tracking-[0.1em] text-on-surface-variant group-hover:text-foreground">
+              {miniWidgetOpen ? 'Desactivar ventana flotante' : 'Activar ventana flotante'}
+            </span>
+          </motion.button>
         </div>
 
         <motion.div 
@@ -294,13 +309,13 @@ const DailyPage = () => {
           transition={{ delay: 0.2 }}
           className="text-center px-4"
         >
-          <p className="text-2xl font-black text-foreground font-headline tracking-tight leading-tight">
+          <p className="text-[16px] font-black text-foreground font-headline tracking-tight leading-tight">
             {greeting}
           </p>
         </motion.div>
 
         <div className="pt-2 space-y-3">
-          <GamificationBar /> 
+          <GamificationBar completedCount={completedCount} totalCount={orderedTasks.length} /> 
 
           <FAB 
             onTextClick={openCapture} 
@@ -308,7 +323,13 @@ const DailyPage = () => {
           />
         </div>
 
-        {orderedTasks.length > 0 ? (
+        {isLoading ? (
+          <div className="space-y-4 py-8">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-24 bg-surface/50 border border-outline-variant rounded-[24px] animate-pulse" />
+            ))}
+          </div>
+        ) : orderedTasks.length > 0 ? (
           <div className="space-y-4">
             <AnimatePresence mode="popLayout">
               {orderedTasks.map((task, idx) => (
@@ -335,14 +356,32 @@ const DailyPage = () => {
               ))}
             </AnimatePresence>
           </div>
-        ) : null}
+        ) : (
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="flex flex-col items-center justify-center py-20 px-6 text-center bg-surface/30 border border-dashed border-outline-variant rounded-[32px] mt-4"
+          >
+            <div className="w-16 h-16 rounded-2xl bg-primary/5 flex items-center justify-center mb-6">
+              <Sparkles className="w-8 h-8 text-primary/40" />
+            </div>
+            <h3 className="text-lg font-black mb-2">Todo en orden</h3>
+            <p className="text-sm text-muted-foreground max-w-[240px]">
+              No hay tareas para hoy. Es un buen momento para planificar o descansar.
+            </p>
+          </motion.div>
+        )}
 
       </div>
 
       <TaskCaptureModal 
         ref={captureModalRef} 
         open={captureOpen} 
-        onClose={() => setCaptureOpen(false)} 
+        onClose={() => {
+          setCaptureOpen(false);
+          setCaptureMode(null);
+        }} 
+        initialMode={captureMode}
         creationSource="fab"
       />
       <TaskDetailModal task={selectedTask} open={!!selectedTask} onClose={() => setSelectedTask(null)} />
