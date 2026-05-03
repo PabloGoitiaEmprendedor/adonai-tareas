@@ -92,9 +92,13 @@ export const TaskCard = ({
         isDone || completingTaskId === task.id
           ? 'bg-transparent border-transparent opacity-40' 
           : dragIdx === taskIdx || touchIdx === taskIdx 
-            ? 'bg-card scale-[1.02] shadow-lg border-primary z-30' 
-            : 'bg-card hover:border-on-surface-variant/30 border-outline-variant'
+            ? 'scale-[1.02] shadow-lg border-primary z-30' 
+            : 'hover:border-on-surface-variant/30'
       }`}
+      style={{ 
+        backgroundColor: (isDone || completingTaskId === task.id) ? 'transparent' : `${getPriorityColor()}15`,
+        borderColor: (isDone || completingTaskId === task.id) ? 'transparent' : (dragIdx === taskIdx || touchIdx === taskIdx ? undefined : `${getPriorityColor()}30`)
+      }}
     >
       {/* Checkbox */}
       <div className="relative flex-shrink-0">
@@ -118,24 +122,22 @@ export const TaskCard = ({
       </div>
 
       <div className="flex-1 min-w-0 relative flex flex-col justify-center min-h-[44px]">
-        <div className="flex items-center gap-2 mb-1">
-          <div
-            className="w-2 h-2 rounded-full flex-shrink-0"
-            style={{ backgroundColor: getPriorityColor() }}
-            aria-hidden
-          />
-          
           {/* Subtasks Toggle directly to the left of the title */}
           <button
             onClick={(e) => {
               e.stopPropagation();
               setSubtasksOpen(!subtasksOpen);
             }}
-            className="flex-shrink-0 text-on-surface-variant/40 hover:text-primary transition-colors flex items-center"
+            className="flex-shrink-0 text-on-surface-variant/40 hover:text-primary transition-colors flex items-center mb-1 w-fit"
           >
             <span className={`text-[18px] font-black inline-block transition-transform ${subtasksOpen ? 'rotate-90 text-primary' : ''}`}>
-              {">"}
+              +
             </span>
+            {hasSubtasks && !subtasksOpen && (
+              <span className="text-[10px] font-black text-on-surface-variant/40 ml-1">
+                {completedSubtasks}/{subtasks.length}
+              </span>
+            )}
           </button>
 
           <div className={`text-lg font-black tracking-tight transition-all flex flex-1 items-center gap-2 font-headline break-words ${
@@ -179,14 +181,7 @@ export const TaskCard = ({
                 </span>
               );
             })()}
-            
-            {hasSubtasks && !subtasksOpen && (
-              <span className="text-[10px] font-black text-on-surface-variant/40 ml-1">
-                {completedSubtasks}/{subtasks.length}
-              </span>
-            )}
           </div>
-        </div>
         
         {(isDone || completingTaskId === task.id) && (
           <motion.div 

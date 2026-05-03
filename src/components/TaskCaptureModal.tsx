@@ -15,6 +15,7 @@ import { useGoals } from '@/hooks/useGoals';
 import { CalendarDatePicker } from './ui/calendar-date-picker';
 import { Badge } from './ui/badge';
 import { cn } from '@/lib/utils';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 interface TaskCaptureModalProps {
   open: boolean;

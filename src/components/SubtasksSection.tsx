@@ -180,7 +180,7 @@ export const SubtasksSection = ({ parentTaskId, defaultOpen = false, compact = f
             </div>
           ) : (
             <div className="flex items-center gap-1">
-              <span className="text-[14px] font-black">{">"}</span>
+              <span className="text-[14px] font-black">+</span>
               {subtasks.length > 0 && (
                 <span className="text-[10px] font-black opacity-60">
                   {completed}/{subtasks.length}

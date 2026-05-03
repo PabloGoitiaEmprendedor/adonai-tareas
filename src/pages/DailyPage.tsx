@@ -258,13 +258,12 @@ const DailyPage = () => {
             </span>
           </div>
 
-          <div className="w-10 h-10 flex items-center justify-center">
+          <div className="flex items-center justify-center">
             <button
               onClick={toggleMiniWidget}
-              className="w-10 h-10 flex items-center justify-center rounded-xl hover:bg-surface-container text-on-surface-variant transition-colors"
-              title="Pestaña flotante"
+              className="px-4 py-2 rounded-xl bg-black text-white text-[10px] font-black uppercase tracking-widest hover:bg-black/80 transition-all active:scale-95 shadow-lg shadow-black/10"
             >
-              <Monitor className="w-5 h-5" />
+              {miniWidgetOpen ? 'Desactivar mini ventana' : 'Activar mini ventana'}
             </button>
           </div>
         </div>

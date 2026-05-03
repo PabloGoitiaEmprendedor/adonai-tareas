@@ -98,6 +98,9 @@ const AchievementsPage = () => {
               <div className="flex items-center gap-6">
                 <h2 className="text-[11px] uppercase font-black tracking-[0.4em] text-[#8C8C8C]">
                   {CATEGORY_LABELS[cat] || cat}
+                  <span className="ml-3 text-[9px] opacity-40">
+                    {list.filter((a: any) => unlockedCodes.has(a.code)).length} / {list.length}
+                  </span>
                 </h2>
                 <div className="h-[1px] flex-1 bg-black/5" />
               </div>

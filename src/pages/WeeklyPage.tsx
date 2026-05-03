@@ -214,18 +214,9 @@ const WeeklyPage = () => {
       <div className="flex-1 flex flex-col max-w-7xl mx-auto w-full px-6 pt-8 pb-32">
         <header className="flex justify-between items-center mb-8">
           <h1 className="text-4xl font-black font-headline tracking-tight text-foreground">
-            Planificación
+            Calendario
           </h1>
           <div className="flex gap-3">
-             <Button 
-                onClick={() => setAiModalOpen(true)} 
-                variant="outline" 
-                size="sm" 
-                className="h-11 px-6 gap-3 rounded-[22px] border-primary/10 bg-surface-container hover:bg-surface-container-high text-foreground font-black transition-all"
-              >
-                <Sparkles className="w-4 h-4 text-primary" />
-                <span>IA Planner</span>
-              </Button>
           </div>
         </header>
 

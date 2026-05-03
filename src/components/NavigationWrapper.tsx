@@ -140,7 +140,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
 
   const menuItems = [
     { label: 'Hoy', icon: Home, path: '/' },
-    { label: 'Planificación', icon: Calendar, path: '/week' },
+    { label: 'Calendario', icon: Calendar, path: '/week' },
     { label: 'Carpetas', icon: FolderOpen, path: '/folders' },
     { label: 'Logros', icon: Trophy, path: '/achievements' },
     { label: 'Amigos', icon: Users, path: '/friends' },

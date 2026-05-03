@@ -14,6 +14,7 @@ import TaskDetailModal from '@/components/TaskDetailModal';
 import FullscreenTimer from '@/components/FullscreenTimer';
 import { toast } from 'sonner';
 import { dispatchTutorialFolderCreated } from '@/lib/tutorialEvents';
+import { cn } from '@/lib/utils';
 
 const FOLDER_COLORS = ['#0D0D0D', '#262626', '#595959', '#8C8C8C', '#BFBFBF', '#D9D9D9', '#E5E5E5', '#F2F2F2'];
 
@@ -365,16 +366,16 @@ const FoldersPage = () => {
               const progress = count > 0 ? (doneCount / count) * 100 : 0;
 
               return (
-                <div key={folder.id} onClick={() => setSelectedFolder(folder.id)} className="bg-white hover:bg-black group p-8 rounded-[40px] border border-black/5 shadow-sm cursor-pointer transition-all duration-500 flex flex-col justify-between min-h-[260px] relative overflow-hidden">
+                <div key={folder.id} onClick={() => setSelectedFolder(folder.id)} className="bg-white hover:bg-black group p-6 rounded-[32px] border border-black/5 shadow-sm cursor-pointer transition-all duration-500 flex flex-col justify-between min-h-[220px] relative overflow-hidden">
                   <div className="flex items-start justify-between relative z-10">
-                    <div className="w-12 h-12 rounded-2xl flex items-center justify-center bg-black/5 group-hover:bg-white/10 transition-colors">
-                      <FolderOpen className="w-6 h-6 text-black group-hover:text-white" />
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-black/5 group-hover:bg-white/10 transition-colors">
+                      <FolderOpen className="w-5 h-5 text-black group-hover:text-white" />
                     </div>
                     <button onClick={(e) => { e.stopPropagation(); setMenuFolder(menuFolder === folder.id ? null : folder.id); }} className="p-2 text-[#8C8C8C] group-hover:text-white/40 transition-colors"><MoreVertical className="w-4 h-4" /></button>
                   </div>
 
-                  <div className="space-y-6 relative z-10">
-                    <h3 className="text-xl font-black tracking-tight truncate group-hover:text-white transition-colors">{folder.name}</h3>
+                  <div className="space-y-4 relative z-10">
+                    <h3 className="text-lg font-black tracking-tight truncate group-hover:text-white transition-colors">{folder.name}</h3>
                     <div className="space-y-3">
                       <div className="flex justify-between text-[10px] font-black uppercase tracking-widest opacity-40 group-hover:text-white transition-colors">
                         <span>{count} TAREAS</span>
