@@ -423,6 +423,8 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
     // Replaced with semantic tailwind classes
   };
 
+  const isMini = creationSource?.startsWith('mini_');
+
   return (
     <AnimatePresence>
       {open && (
@@ -441,16 +443,18 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
             transition={{ type: 'spring', damping: 22, stiffness: 260 }}
             className="fixed inset-0 z-[9999] flex items-center justify-center p-4 pointer-events-none"
           >
-            <div className="relative mx-auto w-full max-w-[400px] max-h-[90vh] overflow-y-auto pointer-events-auto shadow-[0_20px_60px_-10px_hsla(140,95%,8%,0.15)] bg-background rounded-[32px] border border-border"
-                 style={{}}>
-              <div className="p-6 flex flex-col gap-6">
+            <div className={cn(
+              "relative mx-auto w-full max-h-[90vh] overflow-y-auto pointer-events-auto shadow-[0_20px_60px_-10px_hsla(140,95%,8%,0.15)] bg-background border border-border",
+              isMini ? "max-w-[340px] rounded-[24px]" : "max-w-[400px] rounded-[32px]"
+            )}>
+              <div className={cn("flex flex-col", isMini ? "p-4 gap-4" : "p-6 gap-6")}>
                 {phase !== 'saving' && (
-                  <div className="w-full flex justify-end -mt-2 -mr-2">
+                  <div className="w-full flex justify-end -mt-1 -mr-1">
                     <button
                       onClick={handleClose}
-                      className="p-2 rounded-xl hover:bg-black/5 transition-all active:scale-90 text-muted-foreground"
+                      className="p-1.5 rounded-xl hover:bg-black/5 transition-all active:scale-90 text-muted-foreground"
                     >
-                      <X className="w-4 h-4" />
+                      <X className={isMini ? "w-3.5 h-3.5" : "w-4 h-4"} />
                     </button>
                   </div>
                 )}
@@ -461,50 +465,54 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
                       initial={{ opacity: 0, scale: 0.95 }} 
                       animate={{ opacity: 1, scale: 1 }} 
                       exit={{ opacity: 0, scale: 0.95 }} 
-                      className="w-full flex flex-col items-center gap-8"
+                      className={cn("w-full flex flex-col items-center", isMini ? "gap-6" : "gap-8")}
                     >
-                      {phase === 'select' && (
-                        <div className="text-center space-y-1">
-                          <p className="text-[10px] font-black uppercase tracking-[0.3em] text-primary mb-2">Nueva Tarea</p>
-                          <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">¿Cómo prefieres empezar?</p>
-                        </div>
-                      )}
+                      <div className="text-center space-y-1">
+                        <p className="text-[10px] font-black uppercase tracking-[0.3em] text-primary mb-2">Nueva Tarea</p>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">¿Cómo prefieres empezar?</p>
+                      </div>
 
                       <div className="grid grid-cols-2 gap-4 w-full">
                         <button
                           onClick={() => { setPhase('input'); setShowTextInput(true); setSourceType('text'); }}
-                          className="group flex flex-col items-center gap-4 p-5 rounded-[28px] transition-all hover:bg-on-surface/5 active:scale-[0.96] border border-outline-variant bg-surface"
+                          className={cn(
+                            "group flex flex-col items-center gap-3 rounded-[24px] transition-all hover:bg-on-surface/5 active:scale-[0.96] border border-outline-variant bg-surface",
+                            isMini ? "p-4" : "p-5"
+                          )}
                         >
-                          <div className="w-16 h-16 rounded-[22px] flex items-center justify-center bg-on-surface/5">
-                            <Type className="w-7 h-7 text-foreground" />
+                          <div className={cn("rounded-[18px] flex items-center justify-center bg-on-surface/5", isMini ? "w-12 h-12" : "w-16 h-16")}>
+                            <Type className={isMini ? "w-5 h-5" : "w-7 h-7"} />
                           </div>
-                          <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Escribir</span>
+                          <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Escribir</span>
                         </button>
 
                         <button
                           onClick={() => { setPhase('input'); beginVoiceCapture(); }}
-                          className="group flex flex-col items-center gap-4 p-5 rounded-[28px] transition-all active:scale-[0.96] border border-primary/20 bg-primary/10"
+                          className={cn(
+                            "group flex flex-col items-center gap-3 rounded-[24px] transition-all active:scale-[0.96] border border-primary/20 bg-primary/10",
+                            isMini ? "p-4" : "p-5"
+                          )}
                         >
-                          <div className="w-16 h-16 rounded-[22px] flex items-center justify-center bg-primary/20">
-                            <Mic className="w-7 h-7 text-primary" />
+                          <div className={cn("rounded-[18px] flex items-center justify-center bg-primary/20", isMini ? "w-12 h-12" : "w-16 h-16")}>
+                            <Mic className={isMini ? "w-5 h-5" : "w-7 h-7"} />
                           </div>
-                          <span className="text-[10px] font-black uppercase tracking-widest text-primary">Por Voz</span>
+                          <span className="text-[9px] font-black uppercase tracking-widest text-primary">Por Voz</span>
                         </button>
                       </div>
                     </motion.div>
                   )}
 
                   {phase === 'input' && (
-                    <motion.div key="input" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="w-full flex flex-col gap-6">
-                      {(isRecording || isProcessing) && (
-                        <div className="w-full flex flex-col items-center gap-6 py-8">
-                          <div className="flex items-center justify-center gap-1.5 h-20 w-full">
+                    <motion.div key="input" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className={cn("w-full flex flex-col", isMini ? "gap-4" : "gap-6")}>
+                      {(isRecording || isProcessing || sourceType === 'voice') && (
+                        <div className={cn("w-full flex flex-col items-center", isMini ? "gap-4 py-4" : "gap-6 py-8")}>
+                          <div className={cn("flex items-center justify-center gap-1.5 w-full", isMini ? "h-12" : "h-20")}>
                             {isProcessing ? (
                               <div className="flex gap-2 items-center">
                                 {[0, 1, 2].map((i) => (
                                   <motion.div
                                     key={i}
-                                    className="w-3 h-3 rounded-full bg-primary"
+                                    className={cn("rounded-full bg-primary", isMini ? "w-2 h-2" : "w-3 h-3")}
                                     animate={{ opacity: [0.3, 1, 0.3], scale: [0.8, 1.2, 0.8] }}
                                     transition={{ duration: 0.8, repeat: Infinity, delay: i * 0.2 }}
                                   />
@@ -512,19 +520,19 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
                               </div>
                             ) : (
                               waveformBars.map((h, i) => (
-                                <motion.div key={i} className="w-1.5 rounded-full bg-primary" animate={{ height: [h * 2.5, h * 5, h * 2.5] }} transition={{ duration: 0.8, repeat: Infinity, delay: i * 0.05 }} />
+                                <motion.div key={i} className={cn("rounded-full bg-primary", isMini ? "w-1" : "w-1.5")} animate={{ height: [h * (isMini ? 1.5 : 2.5), h * (isMini ? 3 : 5), h * (isMini ? 1.5 : 2.5)] }} transition={{ duration: 0.8, repeat: Infinity, delay: i * 0.05 }} />
                               ))
                             )}
                           </div>
                           <div className="w-full text-center px-4">
-                            <p className="text-lg font-bold leading-tight text-foreground">
-                              {isProcessing ? "Analizando tu voz..." : transcript || "Escuchando..."}
-                              {!isProcessing && isRecording && <span className="inline-block w-1 h-5 ml-1 animate-pulse bg-primary" />}
+                            <p className={cn("font-bold leading-tight text-foreground", isMini ? "text-base" : "text-lg")}>
+                              {isProcessing ? "Analizando tu voz..." : (transcript || (isRecording ? "Escuchando..." : ""))}
+                              {!isProcessing && isRecording && <span className={cn("inline-block ml-1 animate-pulse bg-primary", isMini ? "w-0.5 h-4" : "w-1 h-5")} />}
                             </p>
                           </div>
 
                           {/* Action row: send button (when transcript) + stop button */}
-                          <div className="flex flex-col items-center gap-3 w-full">
+                          <div className={cn("flex flex-col items-center w-full", isMini ? "gap-2" : "gap-3")}>
                             <AnimatePresence>
                               {isRecording && transcript.trim() && (
                                 <motion.button
@@ -534,9 +542,12 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
                                   exit={{ opacity: 0, scale: 0.85, y: 8 }}
                                   transition={{ type: 'spring', damping: 18, stiffness: 280 }}
                                   onClick={() => stopRecording()}
-                                  className="flex items-center gap-2.5 px-8 py-3.5 rounded-[20px] bg-primary text-primary-foreground font-black text-sm shadow-xl shadow-primary/30 hover:scale-[1.04] active:scale-95 transition-transform"
+                                  className={cn(
+                                    "flex items-center gap-2 rounded-[20px] bg-primary text-primary-foreground font-black text-xs shadow-xl shadow-primary/30 hover:scale-[1.04] active:scale-95 transition-transform",
+                                    isMini ? "px-6 py-3" : "px-8 py-3.5"
+                                  )}
                                 >
-                                  <Check className="w-4 h-4" />
+                                  <Check className="w-3.5 h-3.5" />
                                   Enviar tarea
                                 </motion.button>
                               )}
@@ -545,12 +556,15 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
                             <div className="flex items-center gap-3">
                               <button
                                 onClick={() => stopRecording()}
-                                className="w-14 h-14 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center shadow-lg active:scale-90 transition-transform"
+                                className={cn(
+                                  "rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center shadow-lg active:scale-90 transition-transform",
+                                  isMini ? "w-11 h-11" : "w-14 h-14"
+                                )}
                                 title="Detener grabación"
                               >
-                                <Square className="w-5 h-5 text-primary fill-primary" />
+                                <Square className={cn("text-primary fill-primary", isMini ? "w-4 h-4" : "w-5 h-5")} />
                               </button>
-                              {isRecording && transcript.trim() && (
+                              {isRecording && transcript.trim() && !isMini && (
                                 <motion.span
                                   initial={{ opacity: 0 }}
                                   animate={{ opacity: 1 }}
@@ -564,8 +578,8 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
                         </div>
                       )}
                       
-                      {!isRecording && !isProcessing && (
-                        <div className="w-full space-y-5">
+                      {!isRecording && !isProcessing && sourceType === 'text' && (
+                        <div className={cn("w-full", isMini ? "space-y-4" : "space-y-5")}>
                           <div className="space-y-1">
                              <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Tarea</label>
                              <input 
@@ -573,7 +587,10 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
                                value={title} 
                                onChange={(e) => setTitle(e.target.value)}
                                placeholder="¿Qué necesitas hacer?"
-                               className="w-full text-xl font-black bg-surface border border-outline-variant rounded-[20px] px-5 py-4 focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-muted-foreground/30"
+                               className={cn(
+                                 "w-full font-black bg-surface border border-outline-variant rounded-[20px] px-5 py-4 focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-muted-foreground/30",
+                                 isMini ? "text-lg py-3" : "text-xl py-4"
+                               )}
                                onKeyDown={(e) => { 
                                  if (e.key === 'Enter') handleTitleDone();
                                }} 
@@ -585,7 +602,10 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
                               value={description} 
                               onChange={(e) => setDescription(e.target.value)}
                               placeholder="Detalles adicionales..."
-                              className="w-full text-sm bg-surface-container/30 border border-outline-variant/10 rounded-[24px] p-5 focus:outline-none focus:ring-2 focus:ring-primary/30 min-h-[100px] placeholder:text-on-surface-variant/20"
+                              className={cn(
+                                "w-full text-sm bg-surface-container/30 border border-outline-variant/10 rounded-[24px] p-5 focus:outline-none focus:ring-2 focus:ring-primary/30 placeholder:text-on-surface-variant/20",
+                                isMini ? "min-h-[80px] p-4" : "min-h-[100px] p-5"
+                              )}
                             />
                           </div>
 
@@ -598,7 +618,10 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
                                 value={link} 
                                 onChange={(e) => setLink(e.target.value)}
                                 placeholder="https://..."
-                                className="w-full text-sm bg-surface-container/30 border border-outline-variant/10 rounded-[24px] pl-12 pr-5 py-4 focus:outline-none focus:ring-2 focus:ring-primary/30 placeholder:text-on-surface-variant/20"
+                                className={cn(
+                                  "w-full text-sm bg-surface-container/30 border border-outline-variant/10 rounded-[24px] pl-12 pr-5 focus:outline-none focus:ring-2 focus:ring-primary/30 placeholder:text-on-surface-variant/20",
+                                  isMini ? "py-3" : "py-4"
+                                )}
                               />
                             </div>
                           </div>
@@ -606,7 +629,10 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
                           <button
                             onClick={() => handleTitleDone()}
                             disabled={!title.trim()}
-                            className="w-full h-16 bg-primary text-primary-foreground rounded-[24px] font-black text-sm shadow-xl hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                            className={cn(
+                              "w-full bg-primary text-primary-foreground rounded-[24px] font-black text-sm shadow-xl hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50",
+                              isMini ? "h-14" : "h-16"
+                            )}
                           >
                             Continuar
                             <ChevronRight className="w-5 h-5" />
@@ -635,9 +661,9 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
                   )}
 
                   {phase === 'planning' && (
-                    <motion.div key="planning" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="w-full flex flex-col gap-6">
-                      <div className="space-y-4">
-                        <div className="flex items-center gap-3 p-4 bg-surface-container/30 border border-outline-variant/30 rounded-2xl pr-10">
+                    <motion.div key="planning" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className={cn("w-full flex flex-col", isMini ? "gap-4" : "gap-6")}>
+                      <div className={cn("space-y-4", isMini && "space-y-3")}>
+                        <div className={cn("flex items-center gap-3 bg-surface-container/30 border border-outline-variant/30 rounded-2xl pr-10", isMini ? "p-3" : "p-4")}>
                           <div className="w-5 h-5 rounded-md border-2 border-outline-variant/40 flex-shrink-0" />
                           <p className="text-sm font-black truncate flex-1 text-foreground">{title}</p>
                           <button
@@ -684,7 +710,8 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
                             <button
                               onClick={() => setReviewImportance(!reviewImportance)}
                               className={cn(
-                                "flex flex-col items-center justify-center gap-1 h-16 rounded-[22px] font-black uppercase tracking-widest text-[9px] transition-all border",
+                                "flex flex-col items-center justify-center gap-1 rounded-[22px] font-black uppercase tracking-widest text-[9px] transition-all border",
+                                isMini ? "h-14" : "h-16",
                                   reviewImportance 
                                     ? "bg-amber-500/20 text-amber-600 border-amber-500/50 shadow-lg shadow-amber-500/10" 
                                     : "bg-surface text-muted-foreground border-outline-variant hover:bg-on-surface/5"
@@ -695,7 +722,8 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
                             <button
                               onClick={() => setReviewUrgency(!reviewUrgency)}
                               className={cn(
-                                "flex flex-col items-center justify-center gap-1 h-16 rounded-[22px] font-black uppercase tracking-widest text-[9px] transition-all border",
+                                "flex flex-col items-center justify-center gap-1 rounded-[22px] font-black uppercase tracking-widest text-[9px] transition-all border",
+                                isMini ? "h-14" : "h-16",
                                 reviewUrgency 
                                   ? "bg-red-500/20 text-red-600 border-red-500/50 shadow-lg shadow-red-500/10" 
                                   : "bg-surface text-muted-foreground border-outline-variant hover:bg-on-surface/5"
@@ -710,7 +738,10 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
                       <button
                         onClick={handlePlanningDone}
                         disabled={!title.trim()}
-                        className="w-full h-16 bg-primary text-primary-foreground rounded-[24px] font-black text-sm shadow-2xl shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3 mt-4"
+                        className={cn(
+                          "w-full bg-primary text-primary-foreground rounded-[24px] font-black text-sm shadow-2xl shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3 mt-2",
+                          isMini ? "h-14" : "h-16"
+                        )}
                       >
                         GUARDAR TAREA
                       </button>
