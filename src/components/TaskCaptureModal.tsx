@@ -496,21 +496,34 @@ Tu trabajo es:`;
 
                   {phase === 'input' && (
                     <motion.div key="input" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="w-full flex flex-col items-center gap-6">
-                      {isRecording && (
+                      {(isRecording || isProcessing) && (
                         <div className="w-full flex flex-col items-center gap-3">
                           <div className="flex items-center justify-center gap-1.5 h-16 w-full">
-                            {waveformBars.map((h, i) => (
-                              <motion.div key={i} className="w-1 rounded-full primary-gradient" animate={{ height: [h * 2, h * 4, h * 2] }} transition={{ duration: 0.8, repeat: Infinity, delay: i * 0.05 }} />
-                            ))}
+                            {isProcessing ? (
+                              <div className="flex gap-1 items-center">
+                                {[0, 1, 2].map((i) => (
+                                  <motion.div
+                                    key={i}
+                                    className="w-2 h-2 rounded-full bg-primary"
+                                    animate={{ opacity: [0.3, 1, 0.3], scale: [0.8, 1.2, 0.8] }}
+                                    transition={{ duration: 0.8, repeat: Infinity, delay: i * 0.2 }}
+                                  />
+                                ))}
+                              </div>
+                            ) : (
+                              waveformBars.map((h, i) => (
+                                <motion.div key={i} className="w-1 rounded-full primary-gradient" animate={{ height: [h * 2, h * 4, h * 2] }} transition={{ duration: 0.8, repeat: Infinity, delay: i * 0.05 }} />
+                              ))
+                            )}
                           </div>
-                          {transcript && (
+                          {(transcript || isProcessing) && (
                             <div
                               className="w-full px-4 py-3 rounded-xl min-h-[48px] flex items-center justify-center"
                               style={{ background: C.surface, border: `1px solid ${C.border}` }}
                             >
-                              <p className="text-sm text-center leading-relaxed" style={{ color: C.text }}>
-                                {transcript}
-                                <span className="inline-block w-0.5 h-4 ml-0.5 animate-pulse" style={{ background: C.accent }} />
+                              <p className="text-sm text-center leading-relaxed font-medium" style={{ color: C.text }}>
+                                {isProcessing ? "Procesando audio..." : transcript}
+                                {!isProcessing && <span className="inline-block w-0.5 h-4 ml-0.5 animate-pulse" style={{ background: C.accent }} />}
                               </p>
                             </div>
                           )}
@@ -634,8 +647,8 @@ Tu trabajo es:`;
                       <p className="text-[11px] text-on-surface-variant/60 text-center">
                         {sourceType === 'voice' ? 'Toca para parar cuando termines.' : 'Escribe tu tarea.'}
                       </p>
-                      <div className="flex gap-4 items-center">
-                        {isRecording ? (
+                      <div className="flex gap-4 items-center min-h-[64px]">
+                        {isProcessing ? null : isRecording ? (
                           <button onClick={() => stopRecording()} className="w-14 h-14 rounded-full flex items-center justify-center shadow-lg" style={{ background: C.accent }}>
                             <Square className="w-5 h-5" style={{ color: C.bg }} fill="currentColor" />
                           </button>

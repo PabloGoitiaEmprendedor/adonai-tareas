@@ -7,17 +7,15 @@ import { useStreaks } from '@/hooks/useStreaks';
 import { useGlobalVoiceCapture } from '@/hooks/useGlobalVoiceCapture';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Check, Plus, GripVertical, Timer, Flame, Link as LinkIcon, ExternalLink, Settings } from 'lucide-react';
+import { Check, Plus, Mic, GripVertical, Timer, Flame, Monitor } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { triggerTaskCelebration, triggerDailyCelebration, triggerOnTimeCelebration } from '@/lib/celebrations';
 import FAB from '@/components/FAB';
-import FloatingActionMenu from '@/components/ui/floating-action-menu';
 import TaskCaptureModal, { type TaskCaptureModalHandle } from '@/components/TaskCaptureModal';
 import TaskDetailModal from '@/components/TaskDetailModal';
 import FullscreenTimer from '@/components/FullscreenTimer';
 import GamificationBar from '@/components/GamificationBar';
-import SubtasksSection from '@/components/SubtasksSection';
 import { useGamification } from '@/hooks/useGamification';
 import { TaskCard } from '@/components/TaskCard';
 import { openDownloadDialog } from '@/lib/desktopApp';
@@ -102,7 +100,7 @@ const getDynamicGreeting = (
 const DailyPage = () => {
   const today = format(new Date(), 'yyyy-MM-dd');
 
-  const { tasks, updateTask, deleteTask } = useTasks({ date: today });
+  const { tasks, updateTask } = useTasks({ date: today });
   const { createTask } = useTasks();
   const { goals } = useGoals();
   const { profile } = useProfile();
@@ -113,7 +111,7 @@ const DailyPage = () => {
   const [selectedTask, setSelectedTask] = useState<any>(null);
   const [timerTask, setTimerTask] = useState<any>(null);
   const [orderedTasks, setOrderedTasks] = useState<any[]>([]);
-  const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const [dragIdx] = useState<number | null>(null);
   const [completingTaskId, setCompletingTaskId] = useState<string | null>(null);
   const [quickAddTitle, setQuickAddTitle] = useState('');
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -125,7 +123,6 @@ const DailyPage = () => {
   useEffect(() => {
     const t = setInterval(() => setCurrentTime(new Date()), 30_000);
     
-    // Electron IPC listener
     if (window.electronAPI) {
       window.electronAPI.onMiniWindowClosed(() => {
         setMiniWidgetOpen(false);
@@ -161,25 +158,15 @@ const DailyPage = () => {
     trackDayActive.mutate();
   }, [trackDayActive]);
 
-  // Toggle floating mini-window (Electron independent window)
-  // - Electron desktop app: open the real floating window
-  // - Any browser (desktop or mobile): show download dialog — the floating
-  //   window is a native-only feature.
   const toggleMiniWidget = useCallback(() => {
     if (window.electronAPI) {
       window.electronAPI.toggleMiniWindow();
       setMiniWidgetOpen(prev => !prev);
       return;
     }
-    // Browser (desktop or mobile): prompt to download the native app.
     openDownloadDialog();
   }, []);
 
-  // Eisenhower quadrant rank: lower = shown first
-  // 0 = urgent + important (green)
-  // 1 = urgent only        (orange)
-  // 2 = important only     (yellow)
-  // 3 = neither            (gray)
   const quadrantRank = (t: any) =>
     t.urgency && t.importance ? 0
     : t.urgency ? 1
@@ -221,11 +208,9 @@ const DailyPage = () => {
     e.stopPropagation();
     setCompletingTaskId(task.id);
 
-    // If this task is being timed, use the current elapsed duration
     const isCurrentlyTiming = timerTask?.id === task.id;
     const finalDuration = isCurrentlyTiming ? timerDurationRef.current : task.actual_duration_seconds;
 
-    // If this task had an active timer, close it
     if (isCurrentlyTiming) {
       setTimerTask(null);
     }
@@ -261,16 +246,6 @@ const DailyPage = () => {
     updateTask.mutate({ id: task.id, status: 'pending', completed_at: null });
   };
 
-  // Drag & touch reordering disabled per user request — keep no-op handlers
-  // so child components keep their props contract.
-  const handleDragStart = (_idx: number) => {};
-  const handleDragOver = (_e: React.DragEvent, _idx: number) => {};
-  const handleDragEnd = () => {};
-  const touchIdx: number | null = null;
-  const handleTouchStart = (_idx: number, _e: React.TouchEvent) => {};
-  const handleTouchMove = (_e: React.TouchEvent) => {};
-  const handleTouchEnd = () => {};
-
   const handleStartTimer = (task: any, e: React.MouseEvent) => {
     e.stopPropagation();
     setTimerTask(task);
@@ -280,9 +255,8 @@ const DailyPage = () => {
     <div className="min-h-screen bg-background text-foreground selection:bg-primary/20">
       <div className="max-w-[430px] lg:max-w-4xl mx-auto px-6 pt-4 pb-32 space-y-6 relative">
         
-        {/* Header — just time + date centered, menu is provided by NavigationWrapper */}
+        {/* Header */}
         <div className="flex items-center justify-between pt-2 pb-4">
-          {/* Left: placeholder to keep center alignment (NavigationWrapper provides the global menu) */}
           <div className="w-10 h-10" />
 
           <div className="flex flex-col items-center">
@@ -295,12 +269,18 @@ const DailyPage = () => {
             </span>
           </div>
 
-          {/* Right: empty space to keep center alignment */}
-          <div className="w-10 h-10" />
+          <div className="w-10 h-10 flex items-center justify-center">
+            <button
+              onClick={toggleMiniWidget}
+              className="w-10 h-10 flex items-center justify-center rounded-xl hover:bg-surface-container text-on-surface-variant transition-colors"
+              title="Pestaña flotante"
+            >
+              <Monitor className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         <div className="flex flex-col items-center justify-center">
-
           {streakCount > 0 && (
             <motion.div
               initial={{ scale: 0.8, opacity: 0 }}
@@ -335,52 +315,37 @@ const DailyPage = () => {
         <div className="pt-2 space-y-3">
           <GamificationBar /> 
 
-          <FloatingActionMenu
-            className="relative"
-            options={[
-              {
-                label: "Nueva tarea",
-                icon: <Plus className="w-4 h-4" />,
-                onClick: () => setCaptureOpen(true),
-              },
-              {
-                label: miniWidgetOpen ? "Cerrar pestaña" : "Pestaña flotante",
-                icon: <ExternalLink className="w-4 h-4" />,
-                onClick: toggleMiniWidget,
-              },
-            ]}
+          <FAB 
+            onTextClick={openCapture} 
+            onVoiceClick={openCaptureInVoiceMode} 
           />
         </div>
 
         {orderedTasks.length > 0 ? (
           <div className="space-y-4">
             <AnimatePresence mode="popLayout">
-              {orderedTasks.map((task) => {
-                const idx = orderedTasks.findIndex(t => t.id === task.id);
-                const isDone = task.status === 'done';
-                return (
-                  <TaskCard
-                    key={task.id}
-                    task={task}
-                    taskIdx={idx}
-                    isDone={isDone}
-                    completingTaskId={completingTaskId}
-                    dragIdx={dragIdx}
-                    touchIdx={touchIdx}
-                    handleDragStart={handleDragStart}
-                    handleDragOver={handleDragOver}
-                    handleDragEnd={handleDragEnd}
-                    handleTouchStart={handleTouchStart}
-                    handleTouchMove={handleTouchMove}
-                    handleTouchEnd={handleTouchEnd}
-                    setSelectedTask={setSelectedTask}
-                    handleComplete={handleComplete}
-                    handleUncomplete={handleUncomplete}
-                    handleStartTimer={handleStartTimer}
-                    view="daily"
-                  />
-                );
-              })}
+              {orderedTasks.map((task, idx) => (
+                <TaskCard
+                  key={task.id}
+                  task={task}
+                  taskIdx={idx}
+                  isDone={task.status === 'done'}
+                  completingTaskId={completingTaskId}
+                  dragIdx={dragIdx}
+                  touchIdx={null}
+                  handleDragStart={() => {}}
+                  handleDragOver={() => {}}
+                  handleDragEnd={() => {}}
+                  handleTouchStart={() => {}}
+                  handleTouchMove={() => {}}
+                  handleTouchEnd={() => {}}
+                  setSelectedTask={setSelectedTask}
+                  handleComplete={handleComplete}
+                  handleUncomplete={handleUncomplete}
+                  handleStartTimer={handleStartTimer}
+                  view="daily"
+                />
+              ))}
             </AnimatePresence>
           </div>
         ) : null}

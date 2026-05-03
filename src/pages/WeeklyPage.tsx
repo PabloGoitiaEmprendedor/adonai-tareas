@@ -371,7 +371,10 @@ const WeeklyPage = () => {
 
       </div>
 
-      <FAB onClick={() => setCaptureOpen(true)} />
+      <FAB 
+        onTextClick={() => setCaptureOpen(true)} 
+        onVoiceClick={openCaptureInVoiceMode} 
+      />
       <TaskCaptureModal 
         ref={captureModalRef} 
         open={captureOpen} 

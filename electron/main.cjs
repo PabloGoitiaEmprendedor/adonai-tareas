@@ -152,6 +152,7 @@ function createMainWindow() {
       webSecurity: false,
       enableBlinkFeatures: 'SpeechRecognition',
     },
+    icon: path.join(__dirname, app.isPackaged ? '../dist/favicon.ico' : '../public/favicon.ico'),
   });
 
   const indexPath = app.isPackaged
@@ -254,6 +255,7 @@ function createMiniWindow() {
       webSecurity: false,
       enableBlinkFeatures: 'SpeechRecognition',
     },
+    icon: path.join(__dirname, app.isPackaged ? '../dist/favicon.ico' : '../public/favicon.ico'),
   });
 
   // Mini window starts hidden — renderer signals when session is ready

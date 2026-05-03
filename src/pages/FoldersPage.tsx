@@ -485,7 +485,10 @@ const FoldersPage = () => {
           </div>
         </div>
         
-        <FAB onClick={openCaptureInVoiceMode} />
+        <FAB 
+          onTextClick={openCapture} 
+          onVoiceClick={openCaptureInVoiceMode} 
+        />
         
         <TaskCaptureModal ref={captureModalRef} open={captureOpen} onClose={() => setCaptureOpen(false)} folderId={selectedFolder} creationSource="fab" />
         <TaskDetailModal task={selectedTask} open={!!selectedTask} onClose={() => setSelectedTask(null)} />
@@ -723,7 +726,10 @@ const FoldersPage = () => {
         )}
       </div>
       
-      <FAB onClick={openCapture} />
+      <FAB 
+        onTextClick={openCapture} 
+        onVoiceClick={openCaptureInVoiceMode} 
+      />
       
       <TaskCaptureModal ref={captureModalRef} open={captureOpen} onClose={() => setCaptureOpen(false)} creationSource="fab" />
       <TaskDetailModal task={selectedTask} open={!!selectedTask} onClose={() => setSelectedTask(null)} />
