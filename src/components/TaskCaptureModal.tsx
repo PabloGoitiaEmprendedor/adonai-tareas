@@ -1,6 +1,8 @@
 import { useState, useEffect, forwardRef, useImperativeHandle, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Mic, X, Square, Type, Check, Edit2, ChevronRight, Calendar as CalendarIcon, Link as LinkIcon, Target } from 'lucide-react';
+import { CalendarRac } from '@/components/ui/calendar-rac';
+import { parseDate } from '@internationalized/date';
 import { AutoTextarea } from '@/components/ui/auto-textarea';
 import { useVoiceCapture } from '@/hooks/useVoiceCapture';
 import { parseVoiceTranscript } from '@/hooks/useVoiceParser';
@@ -441,7 +443,8 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
                               value={title} 
                               onChange={(e) => setTitle(e.target.value)}
                               placeholder="¿Qué quieres lograr?"
-                              className="w-full text-2xl font-black bg-transparent border-none p-0 focus:ring-0 placeholder:text-black/10"
+                              className="w-full text-2xl font-black bg-transparent border-none p-0 outline-none focus:outline-none focus:ring-0 focus:border-none placeholder:text-black/10"
+                              style={{ outline: 'none', boxShadow: 'none' }}
                             />
                           </div>
 
@@ -463,15 +466,16 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
                                 </button>
                                 <Popover>
                                   <PopoverTrigger asChild>
-                                    <button className="p-1 rounded-lg bg-black/5 text-black/40 hover:bg-black/10">
+                                    <button className="p-1 rounded-lg bg-black/5 text-black/40 hover:bg-black/10 transition-all">
                                       <CalendarIcon className="w-4 h-4" />
                                     </button>
                                   </PopoverTrigger>
-                                  <PopoverContent className="w-auto p-0 border-none shadow-2xl" align="start">
-                                    <CalendarDatePicker 
-                                      date={dueDate} 
-                                      onSelect={(d) => setDueDate(d)} 
-                                      label=""
+                                  <PopoverContent className="w-auto p-0 border-none shadow-2xl z-[100]" align="start">
+                                    <CalendarRac
+                                      value={dueDate ? (() => { try { return parseDate(dueDate); } catch { return undefined; } })() : undefined}
+                                      onChange={(d) => {
+                                        setDueDate(d.toString());
+                                      }}
                                     />
                                   </PopoverContent>
                                 </Popover>
@@ -526,15 +530,6 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
                           </div>
 
                           <div className="flex gap-2">
-                            <button
-                              onClick={() => {
-                                setSourceType(sourceType === 'voice' ? 'text' : 'voice');
-                                if (sourceType === 'text') beginVoiceCapture();
-                              }}
-                              className="w-14 h-14 rounded-2xl bg-black/5 flex items-center justify-center text-black/30 hover:bg-black/10 transition-all"
-                            >
-                              {sourceType === 'voice' ? <Type className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
-                            </button>
                             <button
                               onClick={handleFinalSave}
                               disabled={!title.trim()}
