@@ -299,11 +299,10 @@ const TaskRowRaw = ({ task, onToggle, onDetail, activeTimerId, onTimerToggle, up
             }}
           >
             <span style={{ fontSize: 10, fontWeight: 700, color: C.accent }}>{doneSubCount}/{subtasks.length}</span>
-            <span style={{ 
-              fontSize: 16, fontWeight: 900, color: C.accent,
-              transform: open ? 'rotate(45deg)' : 'none', transition: 'transform 0.2s',
-              display: 'inline-block'
-            }}>+</span>
+            <ChevronRight style={{
+              width: 11, height: 11, color: C.accent,
+              transform: open ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s',
+            }} />
           </div>
         )}
       </div>
@@ -673,12 +672,12 @@ const MiniTaskList = () => {
 
   // ── COLLAPSED PILL ──
   if (!isReady) {
-    return <div style={{ width: '100%', height: '100%' }} />;
+    return <div style={{ width: '100vw', height: '100vh' }} />;
   }
 
   if (!isExpanded) {
     return (
-      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ width: '100vw', height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div
           onMouseEnter={handleMouseEnterUI}
           onMouseLeave={handleMouseLeaveUI}
