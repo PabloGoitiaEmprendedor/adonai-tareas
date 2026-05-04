@@ -135,7 +135,7 @@ const AppRoutes = () => {
         <Route 
           path="/" 
           element={
-            user
+            (user && isElectron)
               ? <Navigate to="/daily" replace />
               : <LandingPage />
           } 

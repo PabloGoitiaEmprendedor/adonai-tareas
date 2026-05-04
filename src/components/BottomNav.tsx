@@ -6,7 +6,7 @@ const BottomNav = () => {
   const location = useLocation();
 
   const navItems = [
-    { icon: Sun, label: 'Hoy', path: '/', id: 'nav-today' },
+    { icon: Sun, label: 'Hoy', path: '/daily', id: 'nav-today' },
     { icon: CalendarArrowUp, label: 'Calendario', path: '/week', id: 'nav-week' },
     { icon: FolderOpen, label: 'Carpetas', path: '/folders', id: 'nav-folders' },
   ];

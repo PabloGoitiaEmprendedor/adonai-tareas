@@ -134,7 +134,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
   const location = useLocation();
 
   const menuItems = [
-    { label: 'Hoy', icon: Sun, path: '/' },
+    { label: 'Hoy', icon: Sun, path: '/daily' },
     { label: 'Calendario', icon: Calendar, path: '/week' },
     { label: 'Metas', icon: Target, path: '/goals' },
     { label: 'Carpetas', icon: FolderOpen, path: '/folders' },
