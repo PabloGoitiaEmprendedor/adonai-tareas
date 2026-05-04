@@ -103,22 +103,22 @@ function Hero() {
 
       <div className="mx-auto grid max-w-6xl items-center gap-12 md:grid-cols-2">
         <div>
-          <span className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-1.5 text-xs font-bold text-primary-foreground">
+          <span className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-1.5 text-xs font-bold text-primary-foreground shadow-sm">
             Acceso anticipado gratis
           </span>
-          <h1 className="mt-6 text-5xl font-black leading-[1.05] tracking-tight md:text-7xl">
+          <h1 className="mt-6 text-5xl font-black leading-[1.05] tracking-tight text-foreground md:text-7xl">
             Tus tareas,
             <br />
-            <span className="bg-primary px-2">siempre a la vista</span>.
+            <span className="inline-block bg-primary px-3 py-1 text-primary-foreground rounded-md">siempre a la vista</span>.
           </h1>
-          <p className="mt-6 max-w-md text-lg text-muted-foreground md:text-xl">
+          <p className="mt-6 max-w-md text-lg leading-relaxed text-foreground/70 md:text-xl">
             Una ventanita pequeña vive en tu escritorio. La miras, marcas lo que hiciste y listo. Sin abrir apps.
           </p>
           <div className="mt-8 flex flex-col sm:flex-row gap-3">
             <DownloadButton platform="win" />
             <DownloadButton platform="mac" />
           </div>
-          <p className="mt-3 text-xs text-muted-foreground">
+          <p className="mt-4 text-sm text-foreground/60">
             Descárgala gratis. Sin cuenta. Sin tarjeta. Solo instala y empieza.
           </p>
         </div>
@@ -149,12 +149,12 @@ function Pain() {
     "Me da pereza buscar botones, menús y pantallas.",
   ];
   return (
-    <section className="bg-foreground px-6 py-20 md:py-28">
+    <section className="bg-foreground px-6 py-20 text-background md:py-28">
       <div className="mx-auto max-w-4xl text-center">
         <p className="mb-4 text-sm font-bold uppercase tracking-widest text-primary">
           ¿Te suena familiar?
         </p>
-        <h2 className="text-4xl font-black leading-tight md:text-5xl">
+        <h2 className="text-4xl font-black leading-tight text-background md:text-5xl">
           Las apps de tareas
           <br />
           <span className="text-primary">cansan más que ayudan</span>.
@@ -163,9 +163,9 @@ function Pain() {
           {pains.map((p) => (
             <div
               key={p}
-              className="rounded-2xl border border-background/10 bg-background/5 p-6 text-left text-lg leading-snug"
+              className="rounded-2xl border border-background/15 bg-background/10 p-6 text-left text-lg leading-relaxed text-background backdrop-blur-sm"
             >
-              <p>"{p}"</p>
+              <p className="text-background/95">"{p}"</p>
             </div>
           ))}
         </div>
