@@ -135,7 +135,7 @@ const AppRoutes = () => {
         <Route 
           path="/" 
           element={
-            isElectron
+            (isElectron || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
               ? (user ? <Navigate to="/daily" replace /> : <Navigate to="/auth" replace />)
               : <LandingPage />
           } 
