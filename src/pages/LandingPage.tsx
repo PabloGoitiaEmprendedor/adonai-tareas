@@ -86,7 +86,6 @@ function Hero() {
     <section className="relative overflow-hidden px-6 pt-10 pb-20 md:pt-16 md:pb-28">
       <nav className="mx-auto mb-16 flex max-w-6xl items-center justify-between">
         <div className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-lg bg-foreground" />
           <span className="text-lg font-bold">Adonai</span>
         </div>
         <div className="flex items-center gap-3">
