@@ -271,8 +271,10 @@ const TaskRowRaw = ({ task, onToggle, onDetail, activeTimerId, onTimerToggle, up
                   style={{
                     width: 24, height: 24, borderRadius: 8, flexShrink: 0,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    cursor: 'pointer', background: 'rgba(0,0,0,0.2)',
-                    border: '1px solid rgba(255,255,255,0.05)',
+                    cursor: 'pointer', 
+                    background: C.subBg,
+                    border: `1px solid ${C.border}`,
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
                   }}
                   title="Abrir link"
                 >
@@ -297,10 +299,11 @@ const TaskRowRaw = ({ task, onToggle, onDetail, activeTimerId, onTimerToggle, up
                   onClick={(e) => { e.stopPropagation(); onTimerToggle(task.id, task.estimated_minutes || 30); }}
                   style={{
                     width: 24, height: 24, borderRadius: 6, flexShrink: 0,
-                    background: isTimerActive ? (priorityColor === 'transparent' ? 'var(--primary)' : priorityColor) : 'rgba(0,0,0,0.2)',
-                    border: '1px solid rgba(255,255,255,0.05)',
+                    background: isTimerActive ? (priorityColor === 'transparent' ? 'var(--primary)' : priorityColor) : C.subBg,
+                    border: `1px solid ${isTimerActive ? 'transparent' : C.border}`,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     cursor: 'pointer',
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
                   }}
                 >
                   {isTimerActive

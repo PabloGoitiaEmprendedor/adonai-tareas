@@ -223,7 +223,7 @@ export const TaskCard = ({
             target="_blank"
             rel="noopener noreferrer"
             onClick={(e) => e.stopPropagation()}
-            className="w-9 h-9 rounded-[12px] flex items-center justify-center transition-all active:scale-90 bg-black/20 border border-white/5 hover:bg-black/30 group/link"
+            className="w-9 h-9 rounded-[12px] flex items-center justify-center transition-all active:scale-90 bg-surface/50 dark:bg-black/20 border border-outline/50 hover:bg-surface dark:hover:bg-black/40 group/link shadow-sm"
             aria-label="Abrir link"
           >
             <LinkIcon 
@@ -245,7 +245,7 @@ export const TaskCard = ({
           ) : (
             <button
               onClick={(e) => handleStartTimer(task, e)}
-              className="w-9 h-9 rounded-[12px] border border-white/5 flex items-center justify-center transition-all active:scale-90 bg-black/20 hover:bg-black/30"
+              className="w-9 h-9 rounded-[12px] border border-outline/50 flex items-center justify-center transition-all active:scale-90 bg-surface/50 dark:bg-black/20 hover:bg-surface dark:hover:bg-black/40 shadow-sm"
               aria-label="Iniciar temporizador"
             >
               <Clock 
