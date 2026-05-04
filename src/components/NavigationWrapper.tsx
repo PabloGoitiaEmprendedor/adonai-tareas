@@ -151,10 +151,10 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
   // For /mini popup window, Auth Page, or Landing Page on web — render children without any navigation chrome
   const isAuthPage = location.pathname === '/auth';
   const isMiniPage = location.pathname === '/mini';
-  const isLandingOnWeb = location.pathname === '/' && !window.electronAPI;
+  const isLandingPage = location.pathname === '/';
   
   // Solo mostrar navegación si NO está cargando y NO es auth/mini/landing
-  const showNavigation = !loading && !isAuthPage && !isMiniPage && !isLandingOnWeb;
+  const showNavigation = !loading && !isAuthPage && !isMiniPage && !isLandingPage;
 
   if (!showNavigation) {
     return <>{children}</>;
