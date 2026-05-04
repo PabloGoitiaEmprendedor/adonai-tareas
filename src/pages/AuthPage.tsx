@@ -28,8 +28,9 @@ const AuthPage = () => {
       setStep('code');
       toast.success('Código enviado a tu correo');
       setTimeout(() => inputRefs.current[0]?.focus(), 100);
-    } catch (err: any) {
-      toast.error(err.message || 'Error al enviar código');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Error al enviar código';
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -49,8 +50,9 @@ const AuthPage = () => {
       if (error) throw error;
       toast.success('¡Bienvenido!');
       navigate('/');
-    } catch (err: any) {
-      toast.error(err.message || 'Código incorrecto');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Código incorrecto';
+      toast.error(message);
       setCode(['', '', '', '', '', '']);
       setTimeout(() => inputRefs.current[0]?.focus(), 100);
     } finally {
@@ -82,17 +84,17 @@ const AuthPage = () => {
     }
   };
 
-  const handlePaste = (e: React.KeyboardEvent | React.ClipboardEvent) => {
+  const handlePaste = (e: React.ClipboardEvent) => {
     e.preventDefault();
-    const clipboardData = (e as React.ClipboardEvent).clipboardData || (window as any).clipboardData;
-    const pasted = clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
+    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
     if (pasted.length === 6) {
-      setCode(pasted.split(''));
+      const pastedArray = pasted.split('');
+      setCode(pastedArray);
       handleVerifyCode(pasted);
     }
   };
 
-  const handleResend = async () => {
+  const handleResend = () => {
     setStep('email');
     setEmail('');
     setCode(['', '', '', '', '', '']);
@@ -130,14 +132,14 @@ const AuthPage = () => {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') handleSendCode(); }}
+                onKeyDown={(e) => { if (e.key === 'Enter') { handleSendCode().catch(console.error); } }}
                 placeholder="tu@email.com"
                 autoFocus
                 className="w-full h-16 px-6 bg-surface-container rounded-2xl text-foreground font-semibold placeholder:text-on-surface-variant/30 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all border-none"
               />
 
               <button
-                onClick={handleSendCode}
+                onClick={() => { handleSendCode().catch(console.error); }}
                 disabled={loading}
                 className="w-full h-16 rounded-[24px] bg-primary text-black font-black text-lg flex items-center justify-center gap-3 shadow-xl shadow-primary/20 hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-50"
               >
@@ -186,7 +188,7 @@ const AuthPage = () => {
               </div>
 
               <button
-                onClick={() => handleVerifyCode()}
+                onClick={() => { handleVerifyCode().catch(console.error); }}
                 disabled={loading || code.some(d => !d)}
                 className="w-full h-16 rounded-[24px] bg-primary text-black font-black text-lg flex items-center justify-center gap-3 shadow-xl shadow-primary/20 hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-50"
               >
