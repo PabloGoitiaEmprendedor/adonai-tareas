@@ -35,9 +35,10 @@ const AuthPage = () => {
     }
   };
 
-  const handleVerifyCode = async () => {
-    const token = code.join('');
+  const handleVerifyCode = async (tokenToVerify?: string) => {
+    const token = tokenToVerify || code.join('');
     if (token.length !== 6) return;
+    
     setLoading(true);
     try {
       const { error } = await supabase.auth.verifyOtp({
@@ -62,8 +63,16 @@ const AuthPage = () => {
     const newCode = [...code];
     newCode[index] = value.slice(-1);
     setCode(newCode);
+
+    // Auto-focus next input
     if (value && index < 5) {
       inputRefs.current[index + 1]?.focus();
+    }
+
+    // Auto-verify if all 6 digits are filled
+    const fullToken = newCode.join('');
+    if (fullToken.length === 6 && !newCode.some(d => !d)) {
+      handleVerifyCode(fullToken);
     }
   };
 
@@ -79,23 +88,7 @@ const AuthPage = () => {
     const pasted = clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
     if (pasted.length === 6) {
       setCode(pasted.split(''));
-      setTimeout(() => {
-        setLoading(true);
-        supabase.auth.verifyOtp({
-          email: email.trim().toLowerCase(),
-          token: pasted,
-          type: 'email',
-        }).then(({ error }) => {
-          setLoading(false);
-          if (error) {
-            toast.error(error.message || 'Código incorrecto');
-            setCode(['', '', '', '', '', '']);
-          } else {
-            toast.success('¡Bienvenido!');
-            navigate('/');
-          }
-        });
-      }, 50);
+      handleVerifyCode(pasted);
     }
   };
 
@@ -193,7 +186,7 @@ const AuthPage = () => {
               </div>
 
               <button
-                onClick={handleVerifyCode}
+                onClick={() => handleVerifyCode()}
                 disabled={loading || code.some(d => !d)}
                 className="w-full h-16 rounded-[24px] bg-primary text-black font-black text-lg flex items-center justify-center gap-3 shadow-xl shadow-primary/20 hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-50"
               >
