@@ -95,7 +95,7 @@ function Hero() {
           <h1 className="text-5xl font-black leading-[1.05] tracking-tight text-foreground md:text-7xl">
             Tus tareas,
             <br />
-            <span className="inline-block bg-primary px-3 py-1 text-primary-foreground rounded-md">siempre a la vista</span>.
+            <span className="inline-block bg-primary px-3 py-1 text-primary-foreground rounded-md">siempre a la vista</span>
           </h1>
           <p className="mt-6 max-w-md text-lg leading-relaxed text-foreground/70 md:text-xl">
             Una ventanita pequeña vive en tu escritorio. La miras, marcas lo que hiciste y listo. Sin abrir apps.
@@ -143,7 +143,7 @@ function Pain() {
         <h2 className="text-4xl font-black leading-tight text-background md:text-5xl">
           Las apps de tareas
           <br />
-          <span className="text-primary">cansan más que ayudan</span>.
+          <span className="text-primary">cansan más que ayudan</span>
         </h2>
         <div className="mt-12 grid gap-4 md:grid-cols-3">
           {pains.map((p) => (
