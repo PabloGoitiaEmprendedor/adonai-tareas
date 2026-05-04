@@ -27,7 +27,12 @@ const AuthPage = () => {
       if (error) throw error;
       setStep('code');
       toast.success('Código enviado a tu correo');
-      setTimeout(() => inputRefs.current[0]?.focus(), 100);
+      // A bit more delay to ensure the DOM is ready for focus
+      setTimeout(() => {
+        if (inputRefs.current[0]) {
+          inputRefs.current[0].focus();
+        }
+      }, 300);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Error al enviar código';
       toast.error(message);

@@ -213,6 +213,19 @@ const OnboardingPage = () => {
         }));
         try {
           await supabase.from('tasks').insert(rows);
+          
+          // Also insert recurring tasks if any
+          if (recurringTasks.length > 0) {
+            const recurringRows = recurringTasks.map((title) => ({
+              user_id: user.id,
+              title,
+              is_recurring: true,
+              recurrence_type: 'daily',
+              status: 'pending',
+              source_type: 'onboarding'
+            }));
+            await supabase.from('tasks').insert(recurringRows);
+          }
         } catch (err) {
           console.error('Failed to insert onboarding tasks:', err);
           // Non-blocking
@@ -395,9 +408,10 @@ const OnboardingPage = () => {
                   </button>
                   <button
                     onClick={next}
-                    className="flex-1 h-16 bg-primary text-primary-foreground rounded-2xl font-bold text-lg flex items-center justify-center gap-2 transition-all shadow-lg shadow-primary/20"
+                    disabled={firstTasks.length === 0}
+                    className="flex-1 h-16 bg-primary text-primary-foreground rounded-2xl font-bold text-lg flex items-center justify-center gap-2 transition-all shadow-lg shadow-primary/20 disabled:opacity-30"
                   >
-                    {firstTasks.length === 0 ? 'Saltar' : 'Siguiente'} <ArrowRight className="w-5 h-5" />
+                    Siguiente <ArrowRight className="w-5 h-5" />
                   </button>
                 </div>
               </div>
@@ -411,7 +425,7 @@ const OnboardingPage = () => {
                     <Clock className="w-8 h-8 text-primary" />
                   </div>
                   <h2 className="text-3xl font-extrabold tracking-tight text-foreground">Tareas recurrentes</h2>
-                  <p className="text-on-surface-variant">Añade tareas que se repiten todos los días (opcional). Te ayudarán a mantener tu rutina.</p>
+                  <p className="text-on-surface-variant">Añade tareas que se repiten todos los días. Te ayudarán a mantener tu rutina.</p>
                 </div>
                 
                 <div className="space-y-3">
@@ -469,9 +483,10 @@ const OnboardingPage = () => {
                   </button>
                   <button
                     onClick={next}
-                    className="flex-1 h-16 bg-primary text-primary-foreground rounded-2xl font-bold text-lg flex items-center justify-center gap-2 transition-all shadow-lg shadow-primary/20"
+                    disabled={recurringTasks.length === 0}
+                    className="flex-1 h-16 bg-primary text-primary-foreground rounded-2xl font-bold text-lg flex items-center justify-center gap-2 transition-all shadow-lg shadow-primary/20 disabled:opacity-30"
                   >
-                    {recurringTasks.length === 0 ? 'Saltar' : 'Siguiente'} <ArrowRight className="w-5 h-5" />
+                    Siguiente <ArrowRight className="w-5 h-5" />
                   </button>
                 </div>
               </div>

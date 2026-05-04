@@ -105,7 +105,10 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   // El perfil se actualizará en la sidebar y en el contenido cuando llegue.
   
   // Si el perfil ya cargó y el onboarding no está completo, redirigir
-  if (profile && !profile.onboarding_completed) {
+  // Añadimos check de localStorage para evitar bucles si el perfil tarda en refrescarse
+  const localOnboardingDone = localStorage.getItem('adonai_onboarding_done') === 'true';
+  
+  if (profile && !profile.onboarding_completed && !localOnboardingDone) {
     return <Navigate to="/onboarding" replace />;
   }
 
