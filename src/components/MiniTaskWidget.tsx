@@ -112,9 +112,6 @@ export const MiniTaskWidget = ({ isOpen, onClose }: MiniTaskWidgetProps) => {
               const isDone = task.status === 'done';
               const isCompleting = completingId === task.id;
 
-                const isDone = task.status === 'done';
-                const isCompleting = completingId === task.id;
-
                 const taskPriorityColor = (() => {
                   if (task.urgency && task.importance) return priorityColors.p1;
                   if (task.urgency && !task.importance) return priorityColors.p2;
