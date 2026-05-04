@@ -118,7 +118,7 @@ const QuickRecurrenceFlow = ({ open, onClose }: QuickRecurrenceFlowProps) => {
 
     try {
       // Build recurrence rule data
-      let ruleData: any = {
+      const ruleData: any = {
         start_date: format(new Date(), 'yyyy-MM-dd'),
         end_date: null,
       };
