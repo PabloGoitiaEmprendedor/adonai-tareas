@@ -88,24 +88,11 @@ function Hero() {
         <div className="flex items-center gap-2">
           <span className="text-lg font-bold">Adonai</span>
         </div>
-        <div className="flex items-center gap-3">
-          <Link 
-            to="/auth" 
-            className="text-sm font-bold text-muted-foreground hover:text-foreground transition-colors"
-          >
-            Entrar
-          </Link>
-          <DownloadButton platform="win" variant="nav" />
-          <DownloadButton platform="mac" variant="nav" />
-        </div>
       </nav>
 
       <div className="mx-auto grid max-w-6xl items-center gap-12 md:grid-cols-2">
         <div>
-          <span className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-1.5 text-xs font-bold text-primary-foreground shadow-sm">
-            Acceso anticipado gratis
-          </span>
-          <h1 className="mt-6 text-5xl font-black leading-[1.05] tracking-tight text-foreground md:text-7xl">
+          <h1 className="text-5xl font-black leading-[1.05] tracking-tight text-foreground md:text-7xl">
             Tus tareas,
             <br />
             <span className="inline-block bg-primary px-3 py-1 text-primary-foreground rounded-md">siempre a la vista</span>.
