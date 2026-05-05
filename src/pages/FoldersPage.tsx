@@ -485,11 +485,17 @@ const FoldersPage = () => {
               <div className="space-y-6">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-xl font-black font-headline tracking-tight flex items-center gap-3">
-                    Roadmap
+                    Tareas del Proyecto
                     <span className="text-xs px-2 py-0.5 bg-surface-container border border-outline-variant/30 rounded-full opacity-60">
                       {folderTasks.length}
                     </span>
                   </h2>
+                  <button 
+                    onClick={openCapture}
+                    className="p-2 bg-primary/10 text-primary rounded-xl hover:bg-primary/20 transition-colors"
+                  >
+                    <Plus className="w-5 h-5" />
+                  </button>
                 </div>
 
                 {folderTasks.length > 0 ? (
@@ -526,7 +532,7 @@ const FoldersPage = () => {
                     </div>
                     <h3 className="text-lg font-black font-headline mb-2">Proyecto Limpio</h3>
                     <p className="text-sm text-on-surface-variant/60 max-w-[280px]">
-                      Aún no hay tareas asociadas. Agrega una desde el botón flotante.
+                      Aún no hay tareas asociadas a este proyecto.
                     </p>
                   </div>
                 )}

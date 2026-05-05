@@ -12,7 +12,7 @@ import { useFolders } from '@/hooks/useFolders';
 import { useSubtasks } from '@/hooks/useSubtasks';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Check, MoreHorizontal, ChevronRight, Clock, Pause, Plus, Mic, Repeat, Link as LinkIcon, Folder } from 'lucide-react';
+import { Check, MoreHorizontal, ChevronRight, Clock, Pause, Plus, Mic, Repeat, Link as LinkIcon, Folder, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import TaskCaptureModal from '@/components/TaskCaptureModal';
 import TaskDetailModal from '@/components/TaskDetailModal';
@@ -22,6 +22,8 @@ import { triggerTaskCelebration, triggerDailyCelebration, triggerOnTimeCelebrati
 import { useProfile } from '@/hooks/useProfile';
 import { usePriorityColors } from '@/hooks/usePriorityColors';
 import '../index.css';
+
+const FOLDER_COLORS = ['#C3F53C', '#4BE277', '#6B9FFF', '#FF8B7C', '#FFB86C', '#BD93F9', '#FF79C6', '#C7C6C6'];
 
 const PANEL_W = 340;
 const PANEL_H = 500;
@@ -386,8 +388,8 @@ function useDragWindow() {
 const MiniTaskList = () => {
   const { user, loading } = useAuth();
   const today = format(new Date(), 'yyyy-MM-dd');
-  const { tasks, updateTask, isLoading } = useTasks({ date: today });
-  const { folders } = useFolders();
+  const { tasks, updateTask, createTask, isLoading } = useTasks({ date: today });
+  const { folders, createFolder } = useFolders();
   const { checkAndUnlock } = useGamification();
   const { profile } = useProfile();
   const [completingId, setCompletingId] = useState<string | null>(null);
@@ -396,6 +398,11 @@ const MiniTaskList = () => {
   const [now, setNow] = useState(new Date());
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [showFolderBar, setShowFolderBar] = useState(false);
+  const [isCreatingFolder, setIsCreatingFolder] = useState(false);
+  const [newFolderName, setNewFolderName] = useState('');
+  const [newFolderColor, setNewFolderColor] = useState(FOLDER_COLORS[0]);
+  const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
+  const [isCreatingQuickTask, setIsCreatingQuickTask] = useState(false);
 
   // Timer state
   const [activeTimerId, setActiveTimerId] = useState<string | null>(null);
@@ -949,23 +956,106 @@ const MiniTaskList = () => {
                 General
               </button>
               {folders.map(folder => (
+                <div key={folder.id} style={{
+                  flexShrink: 0, display: 'flex', alignItems: 'center', borderRadius: 8,
+                  background: selectedFolderId === folder.id ? C.accent : 'transparent',
+                  border: `1px solid ${selectedFolderId === folder.id ? 'transparent' : C.border}`,
+                  overflow: 'hidden',
+                  transition: 'all 0.2s ease'
+                }}>
+                  <button
+                    onClick={() => setSelectedFolderId(folder.id)}
+                    style={{
+                      padding: '4px 8px 4px 12px',
+                      fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em',
+                      color: selectedFolderId === folder.id ? '#000' : C.muted,
+                      border: 'none', background: 'transparent', cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', gap: 4
+                    }}
+                  >
+                    <Folder style={{ width: 10, height: 10, color: selectedFolderId === folder.id ? '#000' : folder.color }} />
+                    {folder.name}
+                  </button>
+                </div>
+              ))}
+              {isCreatingFolder ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0, background: 'rgba(0,0,0,0.15)', padding: 8, borderRadius: 12, border: `1px solid ${C.border}` }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <input
+                      autoFocus
+                      value={newFolderName}
+                      onChange={(e) => setNewFolderName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && newFolderName.trim()) {
+                          createFolder.mutate({ name: newFolderName.trim(), color: newFolderColor });
+                          setNewFolderName('');
+                          setNewFolderColor(FOLDER_COLORS[0]);
+                          setIsCreatingFolder(false);
+                        }
+                        if (e.key === 'Escape') {
+                          setIsCreatingFolder(false);
+                          setNewFolderName('');
+                        }
+                      }}
+                      placeholder="Nombre del proyecto"
+                      style={{
+                        padding: '4px 8px', borderRadius: 8, fontSize: 10, fontWeight: 600,
+                        background: 'rgba(0,0,0,0.2)', border: `1px solid ${C.border}`,
+                        color: C.text, outline: 'none', width: 120
+                      }}
+                    />
+                    <button
+                      onClick={() => {
+                        if (newFolderName.trim()) {
+                          createFolder.mutate({ name: newFolderName.trim(), color: newFolderColor });
+                          setNewFolderName('');
+                          setNewFolderColor(FOLDER_COLORS[0]);
+                          setIsCreatingFolder(false);
+                        }
+                      }}
+                      style={{ padding: 4, background: C.accent, borderRadius: 6, border: 'none', cursor: 'pointer', color: '#000' }}
+                      title="Guardar"
+                    >
+                      <Check style={{ width: 12, height: 12 }} />
+                    </button>
+                    <button
+                      onClick={() => { setIsCreatingFolder(false); setNewFolderName(''); }}
+                      style={{ padding: 4, background: 'transparent', border: 'none', cursor: 'pointer', color: C.muted }}
+                      title="Cancelar"
+                    >
+                      <X style={{ width: 12, height: 12 }} />
+                    </button>
+                  </div>
+                  <div style={{ display: 'flex', gap: 4, paddingBottom: 2 }}>
+                    {FOLDER_COLORS.map(c => (
+                      <button
+                        key={c}
+                        onClick={() => setNewFolderColor(c)}
+                        style={{
+                          width: 14, height: 14, borderRadius: '50%', background: c, border: 'none', cursor: 'pointer',
+                          boxShadow: newFolderColor === c ? `0 0 0 2px ${C.bg}, 0 0 0 4px ${c}` : 'none'
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ) : (
                 <button
-                  key={folder.id}
-                  onClick={() => setSelectedFolderId(folder.id)}
+                  onClick={() => setIsCreatingFolder(true)}
                   style={{
                     flexShrink: 0, padding: '4px 12px', borderRadius: 8,
                     fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em',
-                    background: selectedFolderId === folder.id ? C.accent : 'transparent',
-                    color: selectedFolderId === folder.id ? '#000' : C.muted,
-                    border: `1px solid ${selectedFolderId === folder.id ? 'transparent' : C.border}`,
+                    background: 'transparent',
+                    color: C.muted,
+                    border: `1px dashed ${C.border}`,
                     display: 'flex', alignItems: 'center', gap: 4,
-                    transition: 'all 0.2s ease'
+                    transition: 'all 0.2s ease', cursor: 'pointer'
                   }}
+                  title="Crear nueva carpeta"
                 >
-                  <Folder style={{ width: 10, height: 10, color: selectedFolderId === folder.id ? '#000' : folder.color }} />
-                  {folder.name}
+                  <Plus style={{ width: 10, height: 10 }} />
                 </button>
-              ))}
+              )}
             </div>
           </motion.div>
         )}
@@ -973,6 +1063,46 @@ const MiniTaskList = () => {
 
       {/* Task list */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '6px 10px 10px' }}>
+        {/* Quick Task Actions - Only shown when a folder is selected */}
+        {selectedFolderId && (
+          <div style={{ padding: '0 8px', marginBottom: 12, display: 'flex', gap: 8 }}>
+            <button
+              onClick={() => {
+                setCaptureMode('text');
+                setCaptureCreationSource('mini_plus');
+                setCaptureOpen(true);
+              }}
+              style={{
+                flex: 1, height: 36, borderRadius: 12,
+                background: 'rgba(255,255,255,0.03)',
+                border: `1px solid ${C.border}`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                color: C.text, fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em',
+                cursor: 'pointer', transition: 'all 0.2s ease'
+              }}
+            >
+              <Plus style={{ width: 14, height: 14, color: C.muted }} /> Texto
+            </button>
+            <button
+              onClick={() => {
+                setCaptureMode('voice');
+                setCaptureCreationSource('mini_voice');
+                setCaptureOpen(true);
+              }}
+              style={{
+                flex: 1, height: 36, borderRadius: 12,
+                background: 'rgba(255,255,255,0.03)',
+                border: `1px solid ${C.border}`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                color: C.text, fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em',
+                cursor: 'pointer', transition: 'all 0.2s ease'
+              }}
+            >
+              <Mic style={{ width: 14, height: 14, color: C.accent }} /> Audio
+            </button>
+          </div>
+        )}
+
         {loading || isLoading ? (
           <div style={{ display: 'flex', justifyContent: 'center', padding: 20 }}>
             <div style={{
@@ -1019,6 +1149,7 @@ const MiniTaskList = () => {
         onClose={() => { setCaptureOpen(false); setCaptureMode(null); }}
         initialMode={captureMode}
         creationSource={captureCreationSource}
+        folderId={selectedFolderId || undefined}
       />
       <TaskDetailModal task={selectedTask} open={detailOpen} onClose={() => setDetailOpen(false)} />
       <QuickRecurrenceFlow open={recurrenceFlowOpen} onClose={() => setRecurrenceFlowOpen(false)} />
