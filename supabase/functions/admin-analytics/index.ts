@@ -268,7 +268,14 @@ serve(async (req) => {
       return format(mon, "yyyy-MM-dd");
     };
 
-    // 1. Find first task date and day 0 task count for each user
+    // Pre-index tasks by user_id for O(1) lookups
+    const tasksByUser = new Map<string, typeof tasks>();
+    tasks.forEach(t => {
+      if (!tasksByUser.has(t.user_id)) tasksByUser.set(t.user_id, []);
+      tasksByUser.get(t.user_id)!.push(t);
+    });
+
+    // 1. Find first task date for each user
     const userFirstTaskDate = new Map<string, Date>();
     const userTasksOnDay0 = new Map<string, number>();
 
@@ -298,7 +305,6 @@ serve(async (req) => {
 
     profiles.forEach(p => {
       const firstTaskDate = userFirstTaskDate.get(p.user_id);
-      // Exclude users who haven't created any tasks
       if (!firstTaskDate) return;
 
       const mondayStr = getMonday(firstTaskDate);
@@ -317,20 +323,20 @@ serve(async (req) => {
       if (tasksOnDay0 >= 3) cohort.sub_3_plus.users.push(p.user_id);
       else cohort.sub_1_2.users.push(p.user_id);
       
+      // Use pre-indexed tasks instead of filtering the full array
+      const userTasks = tasksByUser.get(p.user_id) || [];
       const userActiveDates = new Set<string>();
-      
-      // We only consider task interactions for "active"
-      tasks.filter(t => t.user_id === p.user_id).forEach(t => {
+      userTasks.forEach(t => {
         if (t.created_at) userActiveDates.add(t.created_at.slice(0, 10));
         if (t.completed_at) userActiveDates.add(t.completed_at.slice(0, 10));
         if (t.updated_at) userActiveDates.add(t.updated_at.slice(0, 10));
       });
 
       const dayIndices = new Set<number>();
+      const firstTime = firstTaskDate.getTime();
       userActiveDates.forEach(dateStr => {
         const d = parseISO(dateStr);
-        const diffTime = d.getTime() - firstTaskDate.getTime();
-        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+        const diffDays = Math.floor((d.getTime() - firstTime) / 86400000);
         if (diffDays >= 0 && diffDays <= 30) {
           dayIndices.add(diffDays);
         }
@@ -347,7 +353,8 @@ serve(async (req) => {
       for (let i = 0; i <= 30; i++) {
         let activeCount = 0;
         group.users.forEach(uid => {
-          if (group.activeDays[uid].has(i)) activeCount++;
+          const days = group.activeDays[uid];
+          if (days && days.has(i)) activeCount++;
         });
         retention[i] = totalUsers > 0 ? Math.round((activeCount / totalUsers) * 100) : 0;
       }
@@ -355,18 +362,16 @@ serve(async (req) => {
     };
 
     const cohortRetention = Array.from(cohortsMap.entries())
-      .filter(([monday]) => monday >= "2026-04-20") // Filter cohorts from April 20th, 2026 onwards
+      .filter(([monday]) => monday >= "2026-04-20")
       .sort((a, b) => a[0].localeCompare(b[0]))
-      .map(([monday, data]) => {
-        return {
-          cohort: `Semana del ${monday}`,
-          ...processCohortGroup(data.all),
-          subcohorts: {
-            "1-2 tareas": processCohortGroup(data.sub_1_2),
-            "3+ tareas": processCohortGroup(data.sub_3_plus)
-          }
-        };
-      });
+      .map(([monday, data]) => ({
+        cohort: `Semana del ${monday}`,
+        ...processCohortGroup(data.all),
+        subcohorts: {
+          "1-2 tareas": processCohortGroup(data.sub_1_2),
+          "3+ tareas": processCohortGroup(data.sub_3_plus)
+        }
+      }));
 
     return new Response(JSON.stringify({
       totalUsers, activeToday, totalTasksCreated, totalTasksCompleted,
