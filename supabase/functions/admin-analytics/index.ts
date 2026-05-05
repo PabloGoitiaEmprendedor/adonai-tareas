@@ -119,7 +119,14 @@ serve(async (req) => {
     // General metrics
     const totalUsers = profiles.length;
     const todayEvents = filteredEvents.filter(e => e.created_at?.startsWith(todayStr));
-    const activeToday = new Set(todayEvents.map(e => e.user_id)).size;
+    // Users who opened the app today (any event)
+    const activeTodayOpened = new Set(todayEvents.map(e => e.user_id)).size;
+    // Users who did a REAL action today (task_created, task_completed)
+    const REAL_ACTION_TYPES = new Set(["task_created_text", "task_created_voice", "task_created_image", "task_completed"]);
+    const activeTodayAction = new Set(
+      todayEvents.filter(e => REAL_ACTION_TYPES.has(e.event_type || "")).map(e => e.user_id)
+    ).size;
+    const activeToday = activeTodayOpened; // keep for backward compat
     const totalTasksCreated = filteredTasks.length;
     const totalTasksCompleted = filteredTasks.filter(t => t.status === "done").length;
 
@@ -177,7 +184,16 @@ serve(async (req) => {
     });
     const avgTasksPerUserPerDay = avgCount > 0 ? Math.round((totalAvg / avgCount) * 10) / 10 : 0;
 
-    // Per-user stats
+    // ─── NEW: WAU (Weekly Active Users) — users with valid activity in last 7 days ───
+    const sevenDaysAgoStr = format(subDays(today, 7), "yyyy-MM-dd");
+    const VALID_ACTIVITY_EVENTS = new Set(["task_created_text", "task_created_voice", "task_created_image", "task_completed"]);
+    const recentValidEvents = events.filter(e => {
+      const eventDate = e.created_at?.slice(0, 10) || "";
+      return eventDate >= sevenDaysAgoStr && VALID_ACTIVITY_EVENTS.has(e.event_type || "");
+    });
+    const wau = new Set(recentValidEvents.map(e => e.user_id)).size;
+
+    // Per-user stats — with "status" field (activo / en_riesgo / churned)
     const userIds = [...new Set([...filteredTasks.map(t => t.user_id), ...profiles.map(p => p.user_id)])];
     const userStats = userIds.map(uid => {
       const userTasks = filteredTasks.filter(t => t.user_id === uid);
@@ -186,6 +202,31 @@ serve(async (req) => {
       const m = metricsMap.get(uid);
       const userCreationEvents = userEvents.filter(e => e.event_type?.startsWith("task_created"));
       const userDaySet = new Set(userTasks.map(t => t.created_at?.slice(0, 10) || ""));
+
+      // Determine user status based on last valid activity
+      const allUserEvents = events.filter(e => e.user_id === uid && VALID_ACTIVITY_EVENTS.has(e.event_type || ""));
+      let lastValidDate: string | null = null;
+      allUserEvents.forEach(e => {
+        const d = e.created_at?.slice(0, 10) || "";
+        if (!lastValidDate || d > lastValidDate) lastValidDate = d;
+      });
+      // Also check task dates as fallback
+      const allUserTasks = tasks.filter(t => t.user_id === uid);
+      allUserTasks.forEach(t => {
+        const cd = t.created_at?.slice(0, 10) || "";
+        const compd = t.completed_at?.slice(0, 10) || "";
+        if (cd && (!lastValidDate || cd > lastValidDate)) lastValidDate = cd;
+        if (compd && (!lastValidDate || compd > lastValidDate)) lastValidDate = compd;
+      });
+
+      let status: "activo" | "en_riesgo" | "churned" = "churned";
+      if (lastValidDate) {
+        const lastDate = parseISO(lastValidDate);
+        const daysSinceLast = Math.floor((today.getTime() - lastDate.getTime()) / 86400000);
+        if (daysSinceLast <= 2) status = "activo";
+        else if (daysSinceLast <= 6) status = "en_riesgo";
+        else status = "churned";
+      }
 
       return {
         user_id: uid,
@@ -206,8 +247,9 @@ serve(async (req) => {
         tasks_urgent: userTasks.filter(t => t.urgency).length,
         streak_current: (m as any)?.streak_current || 0,
         first_session_date: profile?.created_at?.slice(0, 10) || null,
-        last_active_date: (m as any)?.last_active_date || null,
+        last_active_date: (m as any)?.last_active_date || lastValidDate || null,
         avg_tasks_per_day: userDaySet.size > 0 ? Math.round((userTasks.length / userDaySet.size) * 10) / 10 : 0,
+        status,
       };
     });
     userStats.sort((a, b) => b.total_tasks - a.total_tasks);
@@ -260,7 +302,15 @@ serve(async (req) => {
     const cleanIC = timeRange === "all" ? cleanImageCaptures : cleanImageCaptures.filter(ic => (ic.created_at || "") >= startDateStr);
     const friendshipsTotal = timeRange === "all" ? cleanFriendships.length : cleanFriendships.filter(f => (f.created_at || "") >= startDateStr).length;
 
-    // Cohort Retention (Weekly cohorts based on FIRST TASK, daily retention 0-30)
+    // ═══════════════════════════════════════════════════════════════════════
+    // COHORT RETENTION — CORRECTED
+    // Anchor: Día 0 = profiles.created_at (registration date)
+    // Activity: task_created, task_edited, task_completed events
+    //   PLUS tasks table: created_at and completed_at dates
+    // Retention Day N: calendar day registered_at + N
+    // Anti double-counting: DISTINCT(user_id, DATE(event_at))
+    // ═══════════════════════════════════════════════════════════════════════
+
     const getMonday = (d: Date) => {
       const day = d.getDay() || 7;
       const mon = new Date(d);
@@ -275,27 +325,23 @@ serve(async (req) => {
       tasksByUser.get(t.user_id)!.push(t);
     });
 
-    // 1. Find first task date for each user
-    const userFirstTaskDate = new Map<string, Date>();
+    // Valid activity events for cohort retention
+    const COHORT_VALID_EVENT_TYPES = new Set([
+      "task_created_text", "task_created_voice", "task_created_image",
+      "task_completed",
+    ]);
+
+    // Pre-index valid events by user_id
+    const validEventsByUser = new Map<string, typeof events>();
+    events.forEach(e => {
+      if (COHORT_VALID_EVENT_TYPES.has(e.event_type || "")) {
+        if (!validEventsByUser.has(e.user_id)) validEventsByUser.set(e.user_id, []);
+        validEventsByUser.get(e.user_id)!.push(e);
+      }
+    });
+
+    // Count tasks created on registration day (Day 0) for subcohort segmentation
     const userTasksOnDay0 = new Map<string, number>();
-
-    tasks.forEach(t => {
-      if (!t.created_at) return;
-      const tDate = parseISO(t.created_at.slice(0, 10));
-      if (!userFirstTaskDate.has(t.user_id) || tDate < userFirstTaskDate.get(t.user_id)!) {
-        userFirstTaskDate.set(t.user_id, tDate);
-      }
-    });
-
-    // 2. Count tasks on Day 0
-    tasks.forEach(t => {
-      if (!t.created_at) return;
-      const tDateStr = t.created_at.slice(0, 10);
-      const firstDate = userFirstTaskDate.get(t.user_id);
-      if (firstDate && tDateStr === format(firstDate, "yyyy-MM-dd")) {
-        userTasksOnDay0.set(t.user_id, (userTasksOnDay0.get(t.user_id) || 0) + 1);
-      }
-    });
 
     const cohortsMap = new Map<string, { 
       all: { users: string[], activeDays: { [uid: string]: Set<number> } },
@@ -304,10 +350,13 @@ serve(async (req) => {
     }>();
 
     profiles.forEach(p => {
-      const firstTaskDate = userFirstTaskDate.get(p.user_id);
-      if (!firstTaskDate) return;
+      // Anchor = registration date (profiles.created_at)
+      if (!p.created_at) return;
+      const registrationDate = parseISO(p.created_at.slice(0, 10));
+      const registrationStr = format(registrationDate, "yyyy-MM-dd");
+      const registrationTime = registrationDate.getTime();
 
-      const mondayStr = getMonday(firstTaskDate);
+      const mondayStr = getMonday(registrationDate);
       if (!cohortsMap.has(mondayStr)) {
         cohortsMap.set(mondayStr, { 
           all: { users: [], activeDays: {} },
@@ -317,33 +366,50 @@ serve(async (req) => {
       }
       
       const cohort = cohortsMap.get(mondayStr)!;
-      const tasksOnDay0 = userTasksOnDay0.get(p.user_id) || 0;
-      
-      cohort.all.users.push(p.user_id);
-      if (tasksOnDay0 >= 3) cohort.sub_3_plus.users.push(p.user_id);
-      else cohort.sub_1_2.users.push(p.user_id);
-      
-      // Use pre-indexed tasks instead of filtering the full array
-      const userTasks = tasksByUser.get(p.user_id) || [];
+
+      // Collect all active calendar dates for this user
+      // Sources: valid events + task created_at + task completed_at
       const userActiveDates = new Set<string>();
+
+      // From valid events (task_created_*, task_completed)
+      const userValidEvents = validEventsByUser.get(p.user_id) || [];
+      userValidEvents.forEach(e => {
+        if (e.created_at) userActiveDates.add(e.created_at.slice(0, 10));
+      });
+
+      // From tasks table as fallback (created_at = task_created, completed_at = task_completed)
+      const userTasks = tasksByUser.get(p.user_id) || [];
       userTasks.forEach(t => {
         if (t.created_at) userActiveDates.add(t.created_at.slice(0, 10));
         if (t.completed_at) userActiveDates.add(t.completed_at.slice(0, 10));
       });
 
+      // Count tasks on Day 0 (registration date) for subcohort segmentation
+      const day0Tasks = userTasks.filter(t => t.created_at?.slice(0, 10) === registrationStr).length;
+      userTasksOnDay0.set(p.user_id, day0Tasks);
+
+      // Convert calendar dates → day indices relative to registration
+      // Day N = calendar day, NOT 24h blocks
       const dayIndices = new Set<number>();
-      const firstTime = firstTaskDate.getTime();
       userActiveDates.forEach(dateStr => {
         const d = parseISO(dateStr);
-        const diffDays = Math.floor((d.getTime() - firstTime) / 86400000);
+        const diffDays = Math.floor((d.getTime() - registrationTime) / 86400000);
         if (diffDays >= 0 && diffDays <= 30) {
           dayIndices.add(diffDays);
         }
       });
-      
+
+      // Add to cohort groups
+      cohort.all.users.push(p.user_id);
       cohort.all.activeDays[p.user_id] = dayIndices;
-      if (tasksOnDay0 >= 3) cohort.sub_3_plus.activeDays[p.user_id] = dayIndices;
-      else cohort.sub_1_2.activeDays[p.user_id] = dayIndices;
+
+      if (day0Tasks >= 3) {
+        cohort.sub_3_plus.users.push(p.user_id);
+        cohort.sub_3_plus.activeDays[p.user_id] = dayIndices;
+      } else {
+        cohort.sub_1_2.users.push(p.user_id);
+        cohort.sub_1_2.activeDays[p.user_id] = dayIndices;
+      }
     });
 
     const processCohortGroup = (group: { users: string[], activeDays: { [uid: string]: Set<number> } }) => {
@@ -357,6 +423,8 @@ serve(async (req) => {
         });
         retention[i] = totalUsers > 0 ? Math.round((activeCount / totalUsers) * 100) : 0;
       }
+      // Day 0 must always be 100% (all users exist on their registration day)
+      if (totalUsers > 0) retention[0] = 100;
       return { users: totalUsers, retention };
     };
 
@@ -372,8 +440,145 @@ serve(async (req) => {
         }
       }));
 
+    // ─── NEW: Global D1, D7 retention ────────────────────────────────────
+    let totalD1 = 0, countD1 = 0, totalD7 = 0, countD7 = 0;
+    cohortRetention.forEach(c => {
+      if (c.users > 0) {
+        if (c.retention[1] !== undefined) { totalD1 += c.retention[1]; countD1++; }
+        if (c.retention[7] !== undefined) { totalD7 += c.retention[7]; countD7++; }
+      }
+    });
+    const retentionD1 = countD1 > 0 ? Math.round(totalD1 / countD1) : 0;
+    const retentionD7 = countD7 > 0 ? Math.round(totalD7 / countD7) : 0;
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // FEATURE RETENTION CORRELATION
+    // For each feature/action, compare retention of users who used it
+    // vs users who didn't. "Retained" = has valid activity in last 7 days.
+    // ═══════════════════════════════════════════════════════════════════════
+    const retainedUserIds = new Set(recentValidEvents.map(e => e.user_id));
+    const allUserIds = profiles.map(p => p.user_id);
+
+    // Pre-index data per user for fast lookups
+    const userTasksMap = new Map<string, typeof tasks>();
+    tasks.forEach(t => {
+      if (!userTasksMap.has(t.user_id)) userTasksMap.set(t.user_id, []);
+      userTasksMap.get(t.user_id)!.push(t);
+    });
+    const userEventsMap = new Map<string, typeof events>();
+    events.forEach(e => {
+      if (!userEventsMap.has(e.user_id)) userEventsMap.set(e.user_id, []);
+      userEventsMap.get(e.user_id)!.push(e);
+    });
+    const goalsPerUser = new Set(cleanGoals.map(g => g.user_id));
+    const tbPerUser = new Set(cleanTimeBlocks.map(tb => tb.user_id));
+    const achPerUser = new Set(cleanAchievements.map(a => a.user_id));
+    const imgPerUser = new Set(cleanImageCaptures.map(ic => ic.user_id));
+    const friendPerUser = new Set([
+      ...cleanFriendships.map(f => f.requester_id),
+      ...cleanFriendships.map(f => f.addressee_id),
+    ].filter(Boolean));
+
+    // Feature definitions: [label, emoji, predicate(userId) => boolean]
+    type FeaturePredicate = (uid: string) => boolean;
+    const featureDefinitions: Array<{ key: string; label: string; emoji: string; check: FeaturePredicate }> = [
+      {
+        key: "completed_task", label: "Completó ≥1 tarea", emoji: "✅",
+        check: (uid) => (userTasksMap.get(uid) || []).some(t => t.status === "done"),
+      },
+      {
+        key: "voice_task", label: "Creó tarea por voz", emoji: "🎤",
+        check: (uid) => (userTasksMap.get(uid) || []).some(t => t.source_type === "voice"),
+      },
+      {
+        key: "image_task", label: "Creó tarea por imagen", emoji: "📸",
+        check: (uid) => (userTasksMap.get(uid) || []).some(t => t.source_type === "image"),
+      },
+      {
+        key: "set_goal", label: "Creó una meta", emoji: "🎯",
+        check: (uid) => goalsPerUser.has(uid),
+      },
+      {
+        key: "used_priority", label: "Usó priorización", emoji: "⚡",
+        check: (uid) => (userTasksMap.get(uid) || []).some(t => t.importance || t.urgency),
+      },
+      {
+        key: "recurrent_task", label: "Creó tarea recurrente", emoji: "🔁",
+        check: (uid) => (userTasksMap.get(uid) || []).some(t => t.recurrence_id),
+      },
+      {
+        key: "time_block", label: "Usó bloques de tiempo", emoji: "📅",
+        check: (uid) => tbPerUser.has(uid),
+      },
+      {
+        key: "achievement", label: "Desbloqueó un logro", emoji: "🏆",
+        check: (uid) => achPerUser.has(uid),
+      },
+      {
+        key: "friendship", label: "Agregó un amigo", emoji: "👥",
+        check: (uid) => friendPerUser.has(uid),
+      },
+      {
+        key: "mini_window", label: "Usó ventana mini", emoji: "🖥️",
+        check: (uid) => (userEventsMap.get(uid) || []).some(e => {
+          const src = (e.metadata as any)?.creation_source;
+          return src === "mini_plus" || src === "mini_voice";
+        }),
+      },
+      {
+        key: "3plus_tasks_day0", label: "3+ tareas el primer día", emoji: "🚀",
+        check: (uid) => {
+          const profile = profileMap.get(uid);
+          if (!profile?.created_at) return false;
+          const regDate = profile.created_at.slice(0, 10);
+          return (userTasksMap.get(uid) || []).filter(t => t.created_at?.slice(0, 10) === regDate).length >= 3;
+        },
+      },
+      {
+        key: "completed_onboarding", label: "Completó onboarding", emoji: "📋",
+        check: (uid) => (userEventsMap.get(uid) || []).some(e => e.event_type === "onboarding_completed"),
+      },
+      {
+        key: "linked_goal_to_task", label: "Vinculó meta a tarea", emoji: "🔗",
+        check: (uid) => (userTasksMap.get(uid) || []).some(t => t.goal_id),
+      },
+      {
+        key: "5plus_tasks_total", label: "5+ tareas creadas total", emoji: "📝",
+        check: (uid) => (userTasksMap.get(uid) || []).length >= 5,
+      },
+    ];
+
+    const featureRetention = featureDefinitions.map(feat => {
+      const usersWho = allUserIds.filter(uid => feat.check(uid));
+      const usersWhoNot = allUserIds.filter(uid => !feat.check(uid));
+
+      const retainedWho = usersWho.filter(uid => retainedUserIds.has(uid)).length;
+      const retainedWhoNot = usersWhoNot.filter(uid => retainedUserIds.has(uid)).length;
+
+      const pctRetainedWho = usersWho.length > 0 ? Math.round((retainedWho / usersWho.length) * 100) : 0;
+      const pctRetainedWhoNot = usersWhoNot.length > 0 ? Math.round((retainedWhoNot / usersWhoNot.length) * 100) : 0;
+      const delta = pctRetainedWho - pctRetainedWhoNot;
+
+      return {
+        key: feat.key,
+        label: feat.label,
+        emoji: feat.emoji,
+        usersWho: usersWho.length,
+        usersWhoNot: usersWhoNot.length,
+        retainedWho,
+        retainedWhoNot,
+        pctRetainedWho,
+        pctRetainedWhoNot,
+        delta,
+      };
+    });
+
+    // Sort by delta descending (most impactful first)
+    featureRetention.sort((a, b) => b.delta - a.delta);
+
     return new Response(JSON.stringify({
-      totalUsers, activeToday, totalTasksCreated, totalTasksCompleted,
+      totalUsers, activeToday, activeTodayOpened, activeTodayAction,
+      totalTasksCreated, totalTasksCompleted,
       avgTasksPerUserPerDay, avgSessionMinutes,
       tasksByVoice, tasksByText, tasksByImage, tasksByRecurrence,
       tasksByFab, tasksBySecondary, tasksByMiniPlus, tasksByMiniVoice,
@@ -384,6 +589,11 @@ serve(async (req) => {
       imageCapturesTotal: cleanIC.length, tasksExtractedFromImages: cleanIC.reduce((acc, ic) => acc + (ic.tasks_extracted || 0), 0),
       friendshipsTotal,
       cohortRetention,
+      // New cohort KPIs
+      retentionD1,
+      retentionD7,
+      wau,
+      featureRetention,
     }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },

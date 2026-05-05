@@ -31,6 +31,7 @@ interface UserStat {
   first_session_date: string | null;
   last_active_date: string | null;
   avg_tasks_per_day: number;
+  status: 'activo' | 'en_riesgo' | 'churned';
 }
 
 interface DailyMetric {
@@ -68,6 +69,8 @@ interface CohortRetention extends CohortGroup {
 interface AdminAnalytics {
   totalUsers: number;
   activeToday: number;
+  activeTodayOpened: number;
+  activeTodayAction: number;
   totalTasksCreated: number;
   totalTasksCompleted: number;
   avgTasksPerUserPerDay: number;
@@ -95,6 +98,23 @@ interface AdminAnalytics {
   tasksExtractedFromImages: number;
   friendshipsTotal: number;
   cohortRetention: CohortRetention[];
+  retentionD1: number;
+  retentionD7: number;
+  wau: number;
+  featureRetention: FeatureRetentionItem[];
+}
+
+interface FeatureRetentionItem {
+  key: string;
+  label: string;
+  emoji: string;
+  usersWho: number;
+  usersWhoNot: number;
+  retainedWho: number;
+  retainedWhoNot: number;
+  pctRetainedWho: number;
+  pctRetainedWhoNot: number;
+  delta: number;
 }
 
 export const useAdminAnalytics = (timeRange: number | 'all' = 30, excludedUserIds: string[] = []) => {

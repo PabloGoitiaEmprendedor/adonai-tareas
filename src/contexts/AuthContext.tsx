@@ -20,43 +20,54 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     let mounted = true;
     
+    const initAuth = async () => {
+      try {
+        const { data: { session: initialSession } } = await supabase.auth.getSession();
+        if (mounted) {
+          setSession(initialSession);
+          const currentUser = initialSession?.user ?? null;
+          setUser(currentUser);
+          
+          if (currentUser && !sessionStorage.getItem('adonai_session_start')) {
+            supabase.from('usage_events').insert({
+              user_id: currentUser.id,
+              event_type: 'session_start',
+              metadata: { timestamp: new Date().toISOString() },
+            }).then(() => {});
+            sessionStorage.setItem('adonai_session_start', Date.now().toString());
+          }
+        }
+      } catch (error) {
+        console.error("Error initializing auth:", error);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!mounted) return;
+      
       setSession(session);
       const currentUser = session?.user ?? null;
       setUser(currentUser);
       
       if (currentUser && _event === 'SIGNED_IN') {
-        supabase.from('usage_events').insert({
-          user_id: currentUser.id,
-          event_type: 'session_start',
-          metadata: { timestamp: new Date().toISOString() },
-        }).then(() => {});
-        sessionStorage.setItem('adonai_session_start', Date.now().toString());
+        if (!sessionStorage.getItem('adonai_session_start')) {
+          supabase.from('usage_events').insert({
+            user_id: currentUser.id,
+            event_type: 'session_start',
+            metadata: { timestamp: new Date().toISOString() },
+          }).then(() => {});
+          sessionStorage.setItem('adonai_session_start', Date.now().toString());
+        }
       }
       
-      setLoading(false);
+      // Solo quitamos el loading si onAuthStateChange nos da una respuesta definitiva
+      // después de que initAuth haya tenido su oportunidad.
+      // Pero para simplificar, confiamos en initAuth para el primer render.
     });
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!mounted) return;
-      setSession(session);
-      const currentUser = session?.user ?? null;
-      setUser(currentUser);
-      
-      if (currentUser && !sessionStorage.getItem('adonai_session_start')) {
-        supabase.from('usage_events').insert({
-          user_id: currentUser.id,
-          event_type: 'session_start',
-          metadata: { timestamp: new Date().toISOString() },
-        }).then(() => {});
-        sessionStorage.setItem('adonai_session_start', Date.now().toString());
-      }
-      
-      setLoading(false);
-    }).catch(() => {
-      if (mounted) setLoading(false);
-    });
+    initAuth();
 
     const handleBeforeUnload = () => {
       const startStr = sessionStorage.getItem('adonai_session_start');

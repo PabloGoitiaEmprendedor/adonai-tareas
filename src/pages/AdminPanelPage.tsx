@@ -309,15 +309,35 @@ const AdminPanelPage = () => {
         </div>
 
         {/* ─── KPI Cards ────────────────────────────────────────────────── */}
-        <section className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
+        <section className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
           <StatCard icon={Users} label="Usuarios totales" value={analytics.totalUsers} color="primary" />
-          <StatCard icon={UserCheck} label="Activos hoy" value={analytics.activeToday} color="primary" />
+          <StatCard icon={UserCheck} label="Abrieron app hoy" value={analytics.activeTodayOpened ?? analytics.activeToday} sub="Sesión" color="primary" />
+          <StatCard icon={Zap} label="Hicieron acción hoy" value={analytics.activeTodayAction ?? 0} sub="Tarea creada/completada" color="primary" />
           <StatCard icon={BarChart3} label="Tareas creadas" value={analytics.totalTasksCreated} sub="Total" color="primary" />
           <StatCard icon={CheckCircle2} label="Tareas completadas" value={analytics.totalTasksCompleted} sub={pct(analytics.totalTasksCompleted, analytics.totalTasksCreated)} color="primary" />
           <StatCard icon={TrendingUp} label="Promedio tareas/usuario/día" value={analytics.avgTasksPerUserPerDay} color="primary" />
           <StatCard icon={Clock} label="Sesión promedio (min)" value={analytics.avgSessionMinutes || '—'} color="primary" />
           <StatCard icon={Target} label="Con meta vinculada" value={analytics.tasksWithGoal} sub={pct(analytics.tasksWithGoal, analytics.totalTasksCreated)} color="primary" />
           <StatCard icon={Zap} label="Priorizadas" value={analytics.tasksImportant + analytics.tasksUrgent} sub={pct(analytics.tasksImportant + analytics.tasksUrgent, analytics.totalTasksCreated)} color="primary" />
+        </section>
+
+        {/* ─── Retention KPIs ─────────────────────────────────────────────── */}
+        <section className="grid grid-cols-3 gap-3 mb-8">
+          <div className="bg-card rounded-2xl p-5 border border-purple-500/20 shadow-sm">
+            <p className="text-[10px] font-black uppercase tracking-widest text-purple-400/70 mb-1">Retención Día 1</p>
+            <p className="text-3xl font-black tabular-nums text-purple-400">{analytics.retentionD1 ?? 0}%</p>
+            <p className="text-[10px] text-on-surface-variant/50 mt-1">Benchmark clave</p>
+          </div>
+          <div className="bg-card rounded-2xl p-5 border border-indigo-500/20 shadow-sm">
+            <p className="text-[10px] font-black uppercase tracking-widest text-indigo-400/70 mb-1">Retención Día 7</p>
+            <p className="text-3xl font-black tabular-nums text-indigo-400">{analytics.retentionD7 ?? 0}%</p>
+            <p className="text-[10px] text-on-surface-variant/50 mt-1">Salud semanal</p>
+          </div>
+          <div className="bg-card rounded-2xl p-5 border border-emerald-500/20 shadow-sm">
+            <p className="text-[10px] font-black uppercase tracking-widest text-emerald-400/70 mb-1">WAU (7 días)</p>
+            <p className="text-3xl font-black tabular-nums text-emerald-400">{analytics.wau ?? 0}</p>
+            <p className="text-[10px] text-on-surface-variant/50 mt-1">Usuarios activos últimos 7d</p>
+          </div>
         </section>
 
         {/* ─── Creation Method Breakdown ─────────────────────────────────── */}
@@ -379,7 +399,7 @@ const AdminPanelPage = () => {
           <div className="flex flex-col md:flex-row md:items-center justify-between mb-5 gap-4">
             <div>
               <h2 className="text-sm font-black uppercase tracking-widest text-on-surface-variant/60">
-                Retención por Cohorte (Desde primera tarea)
+                Retención por Cohorte (Desde registro)
               </h2>
               {selectedCohort && (
                 <button 
@@ -438,14 +458,14 @@ const AdminPanelPage = () => {
                       <td className="text-right py-3 px-2 font-bold tabular-nums">{cohort.users || 0}</td>
                       {Array.from({ length: retentionDays }).map((_, day) => {
                         const val = cohort.retention?.[day];
-                        // Heatmap logic
+                        // Heatmap: ≥40% green, 20-39% yellow, <20% red, 0% gray
                         let bgClass = "bg-transparent";
                         let textClass = "text-on-surface-variant/60";
                         if (val !== undefined && cohort.users > 0) {
-                          if (val >= 70) { bgClass = "bg-green-500/20"; textClass = "text-green-600 dark:text-green-400"; }
-                          else if (val >= 40) { bgClass = "bg-green-500/10"; textClass = "text-green-600 dark:text-green-400"; }
-                          else if (val >= 20) { bgClass = "bg-orange-500/10"; textClass = "text-orange-600 dark:text-orange-400"; }
-                          else if (val > 0) { bgClass = "bg-red-500/10"; textClass = "text-red-600 dark:text-red-400"; }
+                          if (val >= 40) { bgClass = "bg-green-500/20"; textClass = "text-green-600 dark:text-green-400"; }
+                          else if (val >= 20) { bgClass = "bg-yellow-500/15"; textClass = "text-yellow-600 dark:text-yellow-400"; }
+                          else if (val > 0) { bgClass = "bg-red-500/15"; textClass = "text-red-600 dark:text-red-400"; }
+                          else { bgClass = "bg-gray-500/10"; textClass = "text-gray-500"; }
                         }
 
                         return (
@@ -480,6 +500,72 @@ const AdminPanelPage = () => {
             />
           </div>
         </section>
+
+        {/* ─── Feature Retention Correlation ──────────────────────────────── */}
+        {analytics.featureRetention && analytics.featureRetention.length > 0 && (
+          <section className="bg-card rounded-2xl p-6 border border-outline-variant/10 shadow-sm mb-8 overflow-hidden">
+            <div className="mb-5">
+              <h2 className="text-sm font-black uppercase tracking-widest text-on-surface-variant/60">
+                ¿Qué acciones retienen usuarios?
+              </h2>
+              <p className="text-xs text-on-surface-variant/50 mt-1">
+                Usuarios que hicieron X acción vs los que no — retención a 7 días. Ordenado por impacto.
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              {analytics.featureRetention.map(feat => {
+                const deltaColor = feat.delta > 20 ? 'text-green-500' : feat.delta > 0 ? 'text-yellow-500' : 'text-red-400';
+                const deltaIcon = feat.delta > 0 ? '↑' : feat.delta < 0 ? '↓' : '→';
+                return (
+                  <div key={feat.key} className="bg-surface-container-low/50 rounded-xl p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">{feat.emoji}</span>
+                        <span className="text-sm font-bold text-foreground">{feat.label}</span>
+                      </div>
+                      <span className={`text-sm font-black tabular-nums ${deltaColor}`}>
+                        {deltaIcon} {feat.delta > 0 ? '+' : ''}{feat.delta}pp
+                      </span>
+                    </div>
+
+                    {/* Bar: Users who DID the action */}
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <span className="text-[10px] font-bold text-on-surface-variant/50 w-20 shrink-0 text-right">Hicieron</span>
+                      <div className="flex-1 h-5 bg-surface-container-high rounded-full overflow-hidden relative">
+                        <motion.div
+                          initial={{ width: 0 }}
+                          animate={{ width: `${feat.pctRetainedWho}%` }}
+                          transition={{ duration: 0.8, ease: 'easeOut' }}
+                          className="h-full rounded-full bg-green-500/80"
+                        />
+                        <span className="absolute inset-0 flex items-center justify-center text-[10px] font-black tabular-nums text-foreground">
+                          {feat.pctRetainedWho}% retenidos ({feat.retainedWho}/{feat.usersWho})
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Bar: Users who DID NOT do the action */}
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-bold text-on-surface-variant/50 w-20 shrink-0 text-right">No hicieron</span>
+                      <div className="flex-1 h-5 bg-surface-container-high rounded-full overflow-hidden relative">
+                        <motion.div
+                          initial={{ width: 0 }}
+                          animate={{ width: `${feat.pctRetainedWhoNot}%` }}
+                          transition={{ duration: 0.8, ease: 'easeOut' }}
+                          className="h-full rounded-full bg-red-400/60"
+                        />
+                        <span className="absolute inset-0 flex items-center justify-center text-[10px] font-black tabular-nums text-foreground">
+                          {feat.pctRetainedWhoNot}% retenidos ({feat.retainedWhoNot}/{feat.usersWhoNot})
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
 
         {/* ─── Daily Trends ─────────────────────────────────────────────── */}
         <section className="bg-card rounded-2xl p-6 border border-outline-variant/10 shadow-sm mb-8">
@@ -519,6 +605,7 @@ const AdminPanelPage = () => {
               <thead>
                 <tr className="border-b border-outline-variant/10">
                   <th className="text-left py-3 px-2 text-[10px] font-black uppercase tracking-widest text-on-surface-variant/50">Usuario</th>
+                  <th className="text-center py-3 px-2 text-[10px] font-black uppercase tracking-widest text-on-surface-variant/50">Estado</th>
                   <th className="text-right py-3 px-2 text-[10px] font-black uppercase tracking-widest text-on-surface-variant/50">Creadas</th>
                   <th className="text-right py-3 px-2 text-[10px] font-black uppercase tracking-widest text-on-surface-variant/50">Completadas</th>
                   <th className="text-right py-3 px-2 text-[10px] font-black uppercase tracking-widest text-on-surface-variant/50">Voz</th>
@@ -540,6 +627,15 @@ const AdminPanelPage = () => {
                           <span className="font-bold text-foreground truncate max-w-[200px]">{u.name || u.email?.split('@')[0] || 'Sin nombre'}</span>
                           <span className="text-[10px] text-on-surface-variant/50">{u.email || u.user_id.slice(0, 8)}</span>
                         </div>
+                      </td>
+                      <td className="text-center py-3 px-2">
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                          u.status === 'activo' ? 'bg-green-500/15 text-green-500' :
+                          u.status === 'en_riesgo' ? 'bg-yellow-500/15 text-yellow-500' :
+                          'bg-red-500/10 text-red-400'
+                        }`}>
+                          {u.status === 'activo' ? '● Activo' : u.status === 'en_riesgo' ? '◐ Riesgo' : '○ Churned'}
+                        </span>
                       </td>
                       <td className="text-right py-3 px-2 font-bold tabular-nums">{u.total_tasks}</td>
                       <td className="text-right py-3 px-2 font-bold tabular-nums text-green-500">{u.completed_tasks}</td>
@@ -574,7 +670,7 @@ const AdminPanelPage = () => {
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
                       >
-                        <td colSpan={8} className="py-4 px-4">
+                        <td colSpan={9} className="py-4 px-4">
                           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
                             <div className="bg-surface-container-low rounded-xl p-3">
                               <p className="text-on-surface-variant/50 font-bold mb-1">Texto</p>

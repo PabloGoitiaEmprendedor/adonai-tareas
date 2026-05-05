@@ -151,10 +151,10 @@ function createMainWindow() {
       nodeIntegration: false,
       contextIsolation: true,
       preload: path.join(__dirname, 'preload.cjs'),
-      webSecurity: false,
+      webSecurity: true,
       enableBlinkFeatures: 'SpeechRecognition',
     },
-    icon: path.join(__dirname, app.isPackaged ? '../dist/icon.png' : '../public/icon.png'),
+    icon: path.join(__dirname, '..', app.isPackaged ? 'dist' : 'public', process.platform === 'win32' ? 'favicon.ico' : 'icon.png'),
   });
   const indexPath = app.isPackaged
     ? path.join(process.resourcesPath, 'app.asar', 'dist', 'index.html')
@@ -253,10 +253,10 @@ function createMiniWindow() {
       nodeIntegration: false,
       contextIsolation: true,
       preload: path.join(__dirname, 'preload.cjs'),
-      webSecurity: false,
+      webSecurity: true,
       enableBlinkFeatures: 'SpeechRecognition',
     },
-    icon: path.join(__dirname, app.isPackaged ? '../dist/icon.png' : '../public/icon.png'),
+    icon: path.join(__dirname, '..', app.isPackaged ? 'dist' : 'public', process.platform === 'win32' ? 'favicon.ico' : 'icon.png'),
   });
 
   // Mini window starts hidden — renderer signals when session is ready
