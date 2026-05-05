@@ -60,7 +60,7 @@ serve(async (req) => {
     // Fetch all tasks
     const { data: allTasks, error: tasksError } = await supabase
       .from("tasks")
-      .select("id, user_id, status, source_type, importance, urgency, goal_id, recurrence_id, created_at, completed_at, due_date, updated_at")
+      .select("id, user_id, status, source_type, importance, urgency, goal_id, recurrence_id, created_at, completed_at, due_date")
       .neq("status", "deleted");
     if (tasksError) throw new Error(`tasks: ${tasksError.message}`);
 
@@ -329,7 +329,6 @@ serve(async (req) => {
       userTasks.forEach(t => {
         if (t.created_at) userActiveDates.add(t.created_at.slice(0, 10));
         if (t.completed_at) userActiveDates.add(t.completed_at.slice(0, 10));
-        if (t.updated_at) userActiveDates.add(t.updated_at.slice(0, 10));
       });
 
       const dayIndices = new Set<number>();

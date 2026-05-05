@@ -115,12 +115,12 @@ export const useAdminAnalytics = (timeRange: number | 'all' = 30, excludedUserId
 
       if (error) {
         console.error('admin-analytics function error:', error);
-        return null;
+        throw new Error(`Edge Function error: ${error.message || JSON.stringify(error)}`);
       }
 
       if (data?.error) {
         console.error('admin-analytics returned error:', data.error);
-        return null;
+        throw new Error(`Server error: ${data.error}`);
       }
 
       return data as AdminAnalytics;
@@ -128,5 +128,6 @@ export const useAdminAnalytics = (timeRange: number | 'all' = 30, excludedUserId
     enabled: isAdmin && !!user,
     staleTime: 1000 * 60 * 5,
     refetchOnWindowFocus: false,
+    retry: 1,
   });
 };

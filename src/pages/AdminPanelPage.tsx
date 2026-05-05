@@ -171,7 +171,7 @@ const AdminPanelPage = () => {
     const saved = localStorage.getItem('adonai_admin_excluded_users');
     return saved ? JSON.parse(saved) : [];
   });
-  const { data: analytics, isLoading, refetch } = useAdminAnalytics(timeRange, excludedUsers);
+  const { data: analytics, isLoading, error, refetch } = useAdminAnalytics(timeRange, excludedUsers);
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const [expandedUser, setExpandedUser] = useState<string | null>(null);
@@ -189,8 +189,60 @@ const AdminPanelPage = () => {
     }
   };
 
+  // Cohort Graph Logic — must be before any conditional returns (Rules of Hooks)
+  const getGroup = (cohortData: any, sub: string) => {
+    if (sub === 'all') return cohortData;
+    return cohortData?.subcohorts?.[sub] || { users: 0, retention: {} };
+  };
+
+  const cohortGraphData = useMemo(() => {
+    if (!analytics?.cohortRetention || analytics.cohortRetention.length === 0) return [];
+    
+    if (selectedCohort) {
+      const cohort = analytics.cohortRetention.find(c => c.cohort === selectedCohort);
+      if (cohort) {
+        const group = getGroup(cohort, selectedSubcohort);
+        return Array.from({ length: retentionDays }).map((_, i) => ({
+          day: `Día ${i}`,
+          retention: group?.retention?.[i] || 0
+        }));
+      }
+    }
+    
+    // Average
+    const avgRetention = Array.from({ length: retentionDays }).map((_, i) => {
+      let sum = 0;
+      let count = 0;
+      analytics.cohortRetention.forEach(c => {
+        const group = getGroup(c, selectedSubcohort);
+        if (group && group.users > 0 && group.retention?.[i] !== undefined) {
+          sum += group.retention[i];
+          count++;
+        }
+      });
+      return {
+        day: `Día ${i}`,
+        retention: count > 0 ? Math.round(sum / count) : 0
+      };
+    });
+    return avgRetention;
+  }, [analytics?.cohortRetention, selectedCohort, selectedSubcohort, retentionDays]);
+
   if (!isAdmin) {
     return <Navigate to="/" replace />;
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4 p-8">
+        <div className="text-red-500 text-4xl">⚠️</div>
+        <p className="text-red-400 font-bold text-lg">Error cargando Analytics</p>
+        <p className="text-on-surface-variant/60 text-sm max-w-md text-center">{(error as Error).message}</p>
+        <button onClick={() => refetch()} className="px-6 py-2 bg-primary text-primary-foreground rounded-xl font-bold text-sm hover:opacity-80 transition-opacity">
+          Reintentar
+        </button>
+      </div>
+    );
   }
 
   if (isLoading || !analytics) {
@@ -209,40 +261,6 @@ const AdminPanelPage = () => {
   });
 
   const pct = (v: number, t: number) => t > 0 ? `${Math.round((v / t) * 100)}%` : '0%';
-
-  // Cohort Graph Logic
-  const cohortGraphData = useMemo(() => {
-    if (!analytics.cohortRetention || analytics.cohortRetention.length === 0) return [];
-    
-    if (selectedCohort) {
-      const cohort = analytics.cohortRetention.find(c => c.cohort === selectedCohort);
-      if (cohort) {
-        const group = selectedSubcohort === 'all' ? cohort : cohort.subcohorts[selectedSubcohort];
-        return Array.from({ length: retentionDays }).map((_, i) => ({
-          day: `Día ${i}`,
-          retention: group.retention[i] || 0
-        }));
-      }
-    }
-    
-    // Average
-    const avgRetention = Array.from({ length: retentionDays }).map((_, i) => {
-      let sum = 0;
-      let count = 0;
-      analytics.cohortRetention.forEach(c => {
-        const group = selectedSubcohort === 'all' ? c : c.subcohorts[selectedSubcohort];
-        if (group.users > 0 && group.retention[i] !== undefined) {
-          sum += group.retention[i];
-          count++;
-        }
-      });
-      return {
-        day: `Día ${i}`,
-        retention: count > 0 ? Math.round(sum / count) : 0
-      };
-    });
-    return avgRetention;
-  }, [analytics.cohortRetention, selectedCohort, selectedSubcohort, retentionDays]);
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -412,13 +430,14 @@ const AdminPanelPage = () => {
               </thead>
               <tbody>
                 {analytics.cohortRetention?.map(cohortData => {
-                  const cohort = selectedSubcohort === 'all' ? cohortData : (cohortData.subcohorts as any)[selectedSubcohort];
+                  const cohort = getGroup(cohortData, selectedSubcohort);
+                  if (!cohort) return null;
                   return (
                     <tr key={cohortData.cohort} className={`border-b border-outline-variant/5 hover:bg-surface-container-low/50 transition-colors ${selectedCohort === cohortData.cohort ? 'bg-primary/5' : ''}`}>
                       <td className="py-3 px-2 font-bold text-foreground sticky left-0 bg-card z-10">{cohortData.cohort}</td>
-                      <td className="text-right py-3 px-2 font-bold tabular-nums">{cohort.users}</td>
+                      <td className="text-right py-3 px-2 font-bold tabular-nums">{cohort.users || 0}</td>
                       {Array.from({ length: retentionDays }).map((_, day) => {
-                        const val = cohort.retention[day];
+                        const val = cohort.retention?.[day];
                         // Heatmap logic
                         let bgClass = "bg-transparent";
                         let textClass = "text-on-surface-variant/60";
