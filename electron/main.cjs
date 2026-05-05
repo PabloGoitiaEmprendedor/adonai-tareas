@@ -154,9 +154,8 @@ function createMainWindow() {
       webSecurity: false,
       enableBlinkFeatures: 'SpeechRecognition',
     },
-    icon: path.join(__dirname, app.isPackaged ? '../dist/favicon.ico' : '../public/favicon.ico'),
+    icon: path.join(__dirname, app.isPackaged ? '../dist/icon.png' : '../public/icon.png'),
   });
-
   const indexPath = app.isPackaged
     ? path.join(process.resourcesPath, 'app.asar', 'dist', 'index.html')
     : path.join(__dirname, '..', 'dist', 'index.html');
@@ -257,7 +256,7 @@ function createMiniWindow() {
       webSecurity: false,
       enableBlinkFeatures: 'SpeechRecognition',
     },
-    icon: path.join(__dirname, app.isPackaged ? '../dist/favicon.ico' : '../public/favicon.ico'),
+    icon: path.join(__dirname, app.isPackaged ? '../dist/icon.png' : '../public/icon.png'),
   });
 
   // Mini window starts hidden — renderer signals when session is ready

@@ -85,7 +85,7 @@ export const AISchedulerModal = ({ open, onClose, selectedDate }: AISchedulerMod
         
         toast.success("Horario inteligente generado con éxito", {
           icon: '✨',
-          description: "Tu día ha sido optimizado por Adonai AI"
+          description: "Tu día ha sido optimizado por la IA"
         });
         onClose();
         setStep('intro');
@@ -133,7 +133,7 @@ export const AISchedulerModal = ({ open, onClose, selectedDate }: AISchedulerMod
                 <div className="text-center space-y-2">
                   <h2 className="text-2xl font-black tracking-tight">Calendario Inteligente</h2>
                   <p className="text-on-surface-variant text-sm leading-relaxed px-4">
-                    Deja que Adonai AI diseñe tu estructura de trabajo óptima basándose en tus objetivos y nivel de energía.
+                    Deja que la IA diseñe tu estructura de trabajo óptima basándose en tus objetivos y nivel de energía.
                   </p>
                 </div>
                 <Button 
@@ -286,7 +286,7 @@ export const AISchedulerModal = ({ open, onClose, selectedDate }: AISchedulerMod
                     </motion.p>
                   </AnimatePresence>
                   <p className="text-[10px] uppercase font-black tracking-[0.2em] text-on-surface-variant animate-pulse">
-                    Adonai Artificial Intelligence
+                    Inteligencia Artificial
                   </p>
                 </div>
               </motion.div>

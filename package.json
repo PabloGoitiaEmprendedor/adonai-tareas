@@ -1,7 +1,7 @@
 {
-  "name": "adonai-tasks",
+  "name": "adonai",
   "private": true,
-  "version": "1.0.95",
+  "version": "1.0.97",
   "type": "module",
   "main": "electron/main.cjs",
   "repository": {

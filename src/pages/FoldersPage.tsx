@@ -4,35 +4,41 @@ import { useTasks } from '@/hooks/useTasks';
 import { useFriendships } from '@/hooks/useFriendships';
 import { useFolderShares } from '@/hooks/useFolderShares';
 import { useAuth } from '@/contexts/AuthContext';
+import { useProfile } from '@/hooks/useProfile';
 import { useGlobalVoiceCapture } from '@/hooks/useGlobalVoiceCapture';
 import { supabase } from '@/integrations/supabase/client';
-import { FolderOpen, Plus, ChevronRight, Lock, Users, MoreVertical, Trash2, Check, Timer, UserPlus, X, Edit2, ArrowLeft, Share2 } from 'lucide-react';
+import { Folder, Plus, ChevronRight, Users, Trash2, Check, Clock, Edit2, ArrowLeft, Share2, Settings, Sparkles, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import FAB from '@/components/FAB';
 import TaskCaptureModal, { type TaskCaptureModalHandle } from '@/components/TaskCaptureModal';
 import TaskDetailModal from '@/components/TaskDetailModal';
 import FullscreenTimer from '@/components/FullscreenTimer';
+import { TaskCard } from '@/components/TaskCard';
 import { toast } from 'sonner';
+import { triggerTaskCelebration } from '@/lib/celebrations';
 import { dispatchTutorialFolderCreated } from '@/lib/tutorialEvents';
 
 const FOLDER_COLORS = ['#C3F53C', '#4BE277', '#6B9FFF', '#FF8B7C', '#FFB86C', '#BD93F9', '#FF79C6', '#C7C6C6'];
 
 const FoldersPage = () => {
-  const { folders, createFolder, updateFolder, deleteFolder } = useFolders();
+  const { folders, createFolder, updateFolder, deleteFolder, isLoading } = useFolders();
   const { tasks, updateTask } = useTasks();
   const { user } = useAuth();
+  const { profile } = useProfile();
   const { friends: acceptedFriendships } = useFriendships();
+  
   const [friendProfiles, setFriendProfiles] = useState<{ user_id: string; name: string | null; email: string | null }[]>([]);
   const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState('');
   const [newColor, setNewColor] = useState(FOLDER_COLORS[0]);
   const [editingFolder, setEditingFolder] = useState<string | null>(null);
-  const [menuFolder, setMenuFolder] = useState<string | null>(null);
   const [captureOpen, setCaptureOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<any>(null);
   const [timerTask, setTimerTask] = useState<any>(null);
   const [sharingFolder, setSharingFolder] = useState<string | null>(null);
+  const [completingTaskId, setCompletingTaskId] = useState<string | null>(null);
+  const timerDurationRef = useRef(0);
   const captureModalRef = useRef<TaskCaptureModalHandle>(null);
 
   const { shares, shareWithFriend, removeShare } = useFolderShares(sharingFolder || selectedFolder || undefined);
@@ -61,39 +67,20 @@ const FoldersPage = () => {
     );
   };
 
-  const handleDelete = (id: string) => {
-    if (window.confirm('¿Estás seguro de que quieres eliminar este proyecto?')) {
-      deleteFolder.mutate(id);
-      setMenuFolder(null);
-      if (selectedFolder === id) setSelectedFolder(null);
-      toast.success('Proyecto eliminado');
-    }
-  };
-
-  const handleShareWithFriend = (friendId: string) => {
-    const fId = sharingFolder || selectedFolder;
-    if (!fId) return;
-    const alreadyShared = shares.some((s: any) => s.shared_with_id === friendId);
-    if (alreadyShared) {
-      toast.info('Ya compartido con este amigo');
-      return;
-    }
-    shareWithFriend.mutate({ folderId: fId, friendId });
-    toast.success('Acceso concedido');
-  };
-
-  const handleRemoveShare = (shareId: string) => {
-    removeShare.mutate(shareId);
-    toast.success('Acceso revocado');
-  };
-
   const handleUpdate = (id: string) => {
     if (!newName.trim()) { toast.error('Escribe un nombre'); return; }
     updateFolder.mutate({ id, name: newName.trim(), color: newColor });
     setEditingFolder(null);
-    setMenuFolder(null);
     setNewName('');
     toast.success('Proyecto actualizado');
+  };
+
+  const handleDelete = (id: string) => {
+    if (window.confirm('¿Estás seguro de que quieres eliminar este proyecto y todas sus tareas?')) {
+      deleteFolder.mutate(id);
+      if (selectedFolder === id) setSelectedFolder(null);
+      toast.success('Proyecto eliminado');
+    }
   };
 
   const friendUserIds = acceptedFriendships.map((f: any) => 
@@ -108,13 +95,120 @@ const FoldersPage = () => {
   }, [JSON.stringify(friendUserIds)]);
 
   const sharedWithIds = shares.map((s: any) => s.shared_with_id);
-
-  const folderTasks = selectedFolder ? tasks.filter((t) => t.folder_id === selectedFolder) : [];
   const currentFolder = folders.find((f) => f.id === selectedFolder);
+  const folderTasks = selectedFolder ? tasks.filter((t) => t.folder_id === selectedFolder) : [];
+  const completedCount = folderTasks.filter(t => t.status === 'done').length;
 
-  const handleComplete = (id: string, e: React.MouseEvent) => {
+  const handleComplete = async (task: any, e: React.MouseEvent) => {
     e.stopPropagation();
-    updateTask.mutate({ id, status: 'done', completed_at: new Date().toISOString() });
+    setCompletingTaskId(task.id);
+    const isCurrentlyTiming = timerTask?.id === task.id;
+    const finalDuration = isCurrentlyTiming ? timerDurationRef.current : task.actual_duration_seconds;
+
+    if (isCurrentlyTiming) setTimerTask(null);
+
+    setTimeout(() => {
+      updateTask.mutate({ 
+        id: task.id, 
+        status: 'done', 
+        completed_at: new Date().toISOString(),
+        actual_duration_seconds: Number(finalDuration) || 0
+      }, {
+        onSuccess: () => {
+          setCompletingTaskId(null);
+          triggerTaskCelebration(task.title, profile?.name);
+        },
+        onError: () => setCompletingTaskId(null)
+      });
+    }, 500);
+  };
+
+  const handleUncomplete = (task: any, e: React.MouseEvent) => {
+    e.stopPropagation();
+    updateTask.mutate({ id: task.id, status: 'pending', completed_at: null });
+  };
+
+  const handleStartTimer = (task: any, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setTimerTask(task);
+  };
+
+  const renderFolderModal = (isEditing: boolean) => {
+    return (
+      <AnimatePresence>
+        {(showCreate || editingFolder) && (
+          <>
+            <motion.div 
+              initial={{ opacity: 0 }} 
+              animate={{ opacity: 1 }} 
+              exit={{ opacity: 0 }} 
+              className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[9998]"
+              onClick={() => { setShowCreate(false); setEditingFolder(null); }}
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }} 
+              animate={{ opacity: 1, scale: 1, y: 0 }} 
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="fixed inset-x-4 top-[20%] lg:inset-x-0 lg:w-[450px] lg:mx-auto z-[9999] bg-surface p-8 rounded-[40px] border border-outline-variant/30 shadow-2xl space-y-8"
+            >
+              <div className="space-y-2 text-center">
+                <h2 className="text-2xl font-black font-headline tracking-tight">
+                  {editingFolder ? 'Editar Proyecto' : 'Nuevo Proyecto'}
+                </h2>
+                <p className="text-sm text-on-surface-variant/60">
+                  {editingFolder ? 'Ajusta los detalles de tu espacio.' : 'Crea un espacio dedicado para tus metas.'}
+                </p>
+              </div>
+
+              <div className="space-y-6">
+                <div className="space-y-2">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/40 ml-1">Nombre</p>
+                  <input 
+                    autoFocus 
+                    value={newName} 
+                    onChange={(e) => setNewName(e.target.value)}
+                    placeholder="Ej: Lanzamiento, Salud..."
+                    className="w-full bg-surface-container rounded-[24px] px-6 py-4 text-foreground font-black text-lg outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+                    onKeyDown={(e) => e.key === 'Enter' && (editingFolder ? handleUpdate(editingFolder) : handleCreate())} 
+                  />
+                </div>
+
+                <div className="space-y-3">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/40 ml-1">Color</p>
+                  <div className="grid grid-cols-4 gap-3">
+                    {FOLDER_COLORS.map((c) => (
+                      <button 
+                        key={c} 
+                        onClick={() => setNewColor(c)}
+                        className={`h-12 rounded-2xl transition-all relative flex items-center justify-center ${newColor === c ? 'ring-2 ring-primary ring-offset-4 ring-offset-surface scale-90' : 'hover:scale-105'}`}
+                        style={{ backgroundColor: c }}
+                      >
+                        {newColor === c && <Check className="w-5 h-5 text-white" strokeWidth={3} />}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex gap-3 pt-4">
+                  <button 
+                    onClick={() => { setShowCreate(false); setEditingFolder(null); }} 
+                    className="flex-1 py-4 rounded-[20px] bg-surface-container text-on-surface-variant font-black text-sm hover:bg-surface-container-high transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                  <button 
+                    onClick={() => editingFolder ? handleUpdate(editingFolder) : handleCreate()} 
+                    className="flex-[1.5] py-4 rounded-[20px] bg-primary text-primary-foreground font-black text-sm shadow-lg shadow-primary/20"
+                  >
+                    {editingFolder ? 'Guardar' : 'Crear Proyecto'}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+    );
   };
 
   const renderSharingModal = () => {
@@ -123,617 +217,345 @@ const FoldersPage = () => {
     if (!folder) return null;
 
     return (
-      <>
+      <AnimatePresence>
         <motion.div 
           initial={{ opacity: 0 }} 
           animate={{ opacity: 1 }} 
           exit={{ opacity: 0 }} 
-          className="fixed inset-0 bg-[#01260E]/40 z-[9998] backdrop-blur(12px)" 
+          className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[9998]"
           onClick={() => setSharingFolder(null)} 
         />
         <motion.div
           initial={{ y: '100%', opacity: 0 }} 
           animate={{ y: 0, opacity: 1 }} 
           exit={{ y: '100%', opacity: 0 }}
-          transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-          className="fixed inset-x-0 bottom-0 z-[9999] px-4 pb-8 lg:px-0 lg:flex lg:items-center lg:justify-center lg:inset-0 lg:pb-0"
+          className="fixed inset-x-0 bottom-0 z-[9999] lg:inset-x-0 lg:w-[450px] lg:mx-auto lg:top-[20%] lg:bottom-auto bg-surface p-8 rounded-t-[40px] lg:rounded-[40px] border border-outline-variant/30 shadow-2xl space-y-8"
         >
-          <div className="mx-auto w-full max-w-[430px] lg:max-w-[500px] bg-card rounded-[40px] overflow-hidden shadow-[0_20px_60px_-10px_hsla(140,95%,8%,0.15)] border border-outline-variant/10">
-            <div className="flex justify-center pt-6 pb-2 lg:hidden">
-              <div className="w-12 h-1.5 bg-on-surface-variant/10 rounded-full" />
+          <div className="flex justify-between items-center">
+            <div className="space-y-1">
+              <h2 className="text-2xl font-black font-headline tracking-tight">Compartir</h2>
+              <p className="text-xs text-on-surface-variant/60">Gestiona accesos al proyecto.</p>
             </div>
-            <div className="p-10 space-y-8">
-              <div className="flex justify-between items-center">
-                <div className="space-y-1">
-                  <h2 className="text-3xl font-black text-foreground font-headline tracking-tight leading-none">Colaborar</h2>
-                  <p className="text-sm font-medium text-on-surface-variant/40">Gestiona quién tiene acceso.</p>
-                </div>
-                <button 
-                  onClick={() => setSharingFolder(null)} 
-                  className="w-12 h-12 rounded-full bg-surface-container-high flex items-center justify-center text-on-surface-variant/40 hover:bg-surface-container-highest transition-colors"
-                >
-                  <X className="w-6 h-6" />
-                </button>
-              </div>
+            <button onClick={() => setSharingFolder(null)} className="p-2 rounded-full hover:bg-surface-container transition-colors">
+              <X className="w-5 h-5 opacity-40" />
+            </button>
+          </div>
 
-              <div className="p-6 rounded-[32px] bg-surface-container-low border border-outline-variant/10 flex items-center gap-5">
-                <div 
-                  className="w-16 h-16 rounded-[24px] flex items-center justify-center shadow-inner" 
-                  style={{ backgroundColor: (folder.color || '#C3F53C') + '20' }}
-                >
-                  <FolderOpen className="w-8 h-8" style={{ color: folder.color || '#C3F53C' }} />
-                </div>
-                <div>
-                  <p className="text-xl font-black text-foreground tracking-tight">{folder.name}</p>
-                  <p className="text-[10px] font-black text-on-surface-variant/40 uppercase tracking-[0.2em]">Proyecto Compartido</p>
-                </div>
-              </div>
-
-              {shares.length > 0 && (
-                <div className="space-y-4">
-                  <p className="text-[10px] font-black text-on-surface-variant/40 uppercase tracking-[0.3em] ml-1">Miembros</p>
-                  <div className="space-y-3">
-                    {shares.map((share: any) => {
-                      const profile = friendProfiles.find(p => p.user_id === share.shared_with_id);
-                      return (
-                        <div key={share.id} className="flex items-center justify-between p-5 rounded-[28px] bg-surface-container-low border border-outline-variant/10 shadow-sm">
-                          <div className="flex items-center gap-4">
-                            <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-[12px] font-black text-primary">
-                              {(profile?.name || profile?.email || 'A')[0].toUpperCase()}
-                            </div>
-                            <span className="text-sm font-black text-foreground">{profile?.name || profile?.email || 'Miembro'}</span>
+          <div className="space-y-6">
+            {shares.length > 0 && (
+              <div className="space-y-3">
+                <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/40">Miembros actuales</p>
+                <div className="space-y-2">
+                  {shares.map((share: any) => {
+                    const friendProfile = friendProfiles.find(p => p.user_id === share.shared_with_id);
+                    return (
+                      <div key={share.id} className="flex items-center justify-between p-4 rounded-3xl bg-surface-container/50 border border-outline-variant/10">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-black text-primary">
+                            {(friendProfile?.name || friendProfile?.email || 'A')[0].toUpperCase()}
                           </div>
-                          <button 
-                            onClick={() => handleRemoveShare(share.id)} 
-                            className="text-red-500 text-xs font-black hover:bg-red-50 px-4 py-2 rounded-xl transition-colors"
-                          >
-                            Quitar
-                          </button>
+                          <span className="text-sm font-black truncate max-w-[150px]">{friendProfile?.name || friendProfile?.email}</span>
                         </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              <div className="space-y-4">
-                <p className="text-[10px] font-black text-on-surface-variant/40 uppercase tracking-[0.3em] ml-1">Añadir personas</p>
-                {friendProfiles.length === 0 ? (
-                  <div className="p-10 rounded-[32px] bg-surface-container-high border-2 border-dashed border-outline-variant/20 text-center">
-                    <p className="text-sm font-bold text-on-surface-variant/30">No tienes amigos para invitar aún.</p>
-                  </div>
-                ) : (
-                  <div className="space-y-2 max-h-[250px] overflow-y-auto no-scrollbar pr-1">
-                    {friendProfiles
-                      .filter(p => !sharedWithIds.includes(p.user_id))
-                      .map((profile) => (
                         <button 
-                          key={profile.user_id} 
-                          onClick={() => handleShareWithFriend(profile.user_id)}
-                          className="w-full flex items-center justify-between p-5 rounded-[28px] bg-surface-container-low border border-outline-variant/10 hover:border-primary hover:shadow-lg transition-all group"
+                          onClick={() => removeShare.mutate(share.id)} 
+                          className="text-[10px] font-black uppercase text-red-500/60 hover:text-red-500 transition-colors"
                         >
-                          <div className="flex items-center gap-4">
-                            <div className="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center text-[12px] font-black text-foreground group-hover:bg-primary/20 transition-colors">
-                              {(profile?.name || profile?.email || 'A')[0].toUpperCase()}
-                            </div>
-                            <span className="text-sm font-black text-foreground group-hover:text-foreground transition-colors">{profile.name || profile.email}</span>
-                          </div>
-                          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-all shadow-sm">
-                            <Plus className="w-5 h-5" />
-                          </div>
+                          Quitar
                         </button>
-                      ))}
-                  </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-3">
+              <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/40">Añadir amigos</p>
+              <div className="space-y-2 max-h-[200px] overflow-y-auto no-scrollbar">
+                {friendProfiles
+                  .filter(p => !sharedWithIds.includes(p.user_id))
+                  .map((profile) => (
+                    <button 
+                      key={profile.user_id} 
+                      onClick={() => shareWithFriend.mutate({ folderId: sharingFolder, friendId: profile.user_id })}
+                      className="w-full flex items-center justify-between p-4 rounded-3xl bg-surface-container/30 border border-outline-variant/10 hover:border-primary/30 transition-all group"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-surface-container-high flex items-center justify-center text-[10px] font-black">
+                          {(profile?.name || profile?.email || 'A')[0].toUpperCase()}
+                        </div>
+                        <span className="text-sm font-black">{profile.name || profile.email}</span>
+                      </div>
+                      <Plus className="w-4 h-4 text-primary opacity-40 group-hover:opacity-100" />
+                    </button>
+                  ))}
+                {friendProfiles.length === 0 && (
+                  <p className="text-center py-8 text-xs text-on-surface-variant/40 italic">No tienes amigos para invitar.</p>
                 )}
               </div>
             </div>
           </div>
         </motion.div>
-      </>
+      </AnimatePresence>
     );
   };
 
-  const renderCreateModal = () => (
-    <AnimatePresence>
-      {showCreate && (
-        <>
-          <motion.div 
-            initial={{ opacity: 0 }} 
-            animate={{ opacity: 1 }} 
-            exit={{ opacity: 0 }} 
-            className="fixed inset-0 bg-[#01260E]/40 z-[9998] backdrop-blur(12px)"
-            onClick={() => setShowCreate(false)}
-          />
-          <motion.div 
-            initial={{ opacity: 0, scale: 0.9, y: 30 }} 
-            animate={{ opacity: 1, scale: 1, y: 0 }} 
-            exit={{ opacity: 0, scale: 0.9, y: 30 }}
-            className="fixed inset-x-4 top-[10%] lg:inset-x-0 lg:w-[500px] lg:mx-auto z-[9999] bg-card p-10 rounded-[40px] border border-outline-variant/10 shadow-[0_20px_60px_-10px_hsla(140,95%,8%,0.15)] space-y-10"
-          >
-            <div className="space-y-2">
-              <h2 className="text-4xl font-black text-foreground font-headline tracking-tight leading-none">Nuevo Proyecto</h2>
-              <p className="text-base font-medium text-on-surface-variant/40">Crea un espacio para tus objetivos.</p>
-            </div>
-
-            <div className="space-y-8">
-              <div className="space-y-3">
-                <p className="text-[10px] font-black uppercase tracking-[0.4em] text-on-surface-variant/40 ml-1">Nombre del Proyecto</p>
-                <input 
-                  autoFocus 
-                  value={newName} 
-                  onChange={(e) => setNewName(e.target.value)}
-                  placeholder="Ej: Lanzamiento Producto, Boda..."
-                  className="w-full bg-surface-container-high border-4 border-transparent rounded-[32px] p-7 text-foreground text-2xl font-black placeholder:text-on-surface-variant/20 focus:border-primary/40 focus:bg-surface-container-highest transition-all outline-none shadow-inner"
-                  onKeyDown={(e) => e.key === 'Enter' && handleCreate()} 
-                />
-              </div>
-
-              <div className="space-y-4">
-                <p className="text-[10px] font-black uppercase tracking-[0.4em] text-on-surface-variant/40 ml-1">Color Distintivo</p>
-                <div className="grid grid-cols-4 gap-4">
-                  {FOLDER_COLORS.map((c) => (
-                    <button 
-                      key={c} 
-                      onClick={() => setNewColor(c)}
-                      className={`h-16 rounded-[24px] transition-all relative overflow-hidden group shadow-md ${newColor === c ? 'ring-4 ring-primary ring-offset-4 ring-offset-card scale-95' : 'hover:scale-105 hover:shadow-xl'}`}
-                      style={{ backgroundColor: c }}
-                    >
-                      {newColor === c && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-black/10">
-                          <Check className="w-6 h-6 text-white" strokeWidth={4} />
-                        </div>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="flex gap-4 pt-4">
-                <button 
-                  onClick={() => setShowCreate(false)} 
-                  className="flex-1 py-6 rounded-[32px] bg-surface-container-high text-on-surface-variant text-sm font-black hover:bg-surface-container-highest transition-colors"
-                >
-                  Cancelar
-                </button>
-                <button 
-                  onClick={handleCreate} 
-                  className="flex-[2] py-6 rounded-[32px] bg-primary text-primary-foreground text-sm font-black hover:scale-[1.02] active:scale-[0.98] transition-all shadow-[0_20px_40px_rgba(195,245,60,0.4)]"
-                >
-                  Crear Espacio
-                </button>
-              </div>
-            </div>
-          </motion.div>
-        </>
-      )}
-    </AnimatePresence>
-  );
-
-  if (selectedFolder && currentFolder) {
-    const folderShareCount = shares.length;
-    const count = folderTasks.length;
-    const doneCount = folderTasks.filter((t) => t.status === 'done').length;
-    const progress = count > 0 ? (doneCount / count) * 100 : 0;
-
-    return (
-      <div className="min-h-screen bg-background selection:bg-primary/30">
-        <div className="max-w-[430px] lg:max-w-5xl mx-auto px-6 pt-16 pb-32 space-y-12">
-          {/* Header Section */}
-          <motion.div 
-            initial={{ opacity: 0, y: -30 }}
+  return (
+    <div className="min-h-screen bg-background text-foreground selection:bg-primary/20 pb-32">
+      <AnimatePresence mode="wait">
+        {!selectedFolder ? (
+          <motion.div
+            key="grid"
+            initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="flex items-start gap-8"
+            exit={{ opacity: 0, scale: 0.95 }}
+            className="max-w-[430px] lg:max-w-6xl mx-auto px-6 pt-12 space-y-12"
           >
-            <button 
-              onClick={() => setSelectedFolder(null)} 
-              className="w-16 h-16 rounded-[28px] bg-card flex items-center justify-center text-foreground hover:bg-primary hover:text-primary-foreground transition-all hover:scale-110 shadow-xl border border-outline-variant/10"
-            >
-              <ArrowLeft className="w-7 h-7" />
-            </button>
-            <div className="flex-1 min-w-0 space-y-4">
-              <div className="flex items-center gap-3">
-                <div 
-                  className="w-10 h-10 rounded-xl flex items-center justify-center shadow-inner" 
-                  style={{ backgroundColor: (currentFolder.color || '#C3F53C') + '20' }}
-                >
-                  <FolderOpen className="w-5 h-5" style={{ color: currentFolder.color || '#C3F53C' }} />
+            {/* Header Section */}
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+              <div className="space-y-2">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-1 bg-primary rounded-full" />
+                  <span className="text-[11px] font-black uppercase tracking-[0.2em] text-primary/60">
+                    Organización
+                  </span>
                 </div>
-                <p className="text-[10px] font-black text-on-surface-variant/40 uppercase tracking-[0.4em]">Proyecto Activo</p>
+                <h1 className="text-3xl md:text-5xl font-black tracking-tight font-headline">
+                  Proyectos
+                </h1>
               </div>
-              <h1 className="text-4xl lg:text-6xl font-black text-foreground tracking-tighter font-headline leading-none truncate">{currentFolder.name}</h1>
-              
-              <div className="flex items-center gap-6 pt-2">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-                  <span className="text-xs font-black text-on-surface-variant/60 uppercase tracking-widest">{count} Tareas</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-black text-on-surface-variant/60 uppercase tracking-widest">{Math.round(progress)}% Completado</span>
-                </div>
+
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => { setNewName(''); setNewColor(FOLDER_COLORS[0]); setShowCreate(true); }}
+                className="flex items-center gap-3 px-6 py-4 rounded-[24px] bg-foreground text-background font-black text-sm hover:opacity-90 transition-all shadow-xl shadow-foreground/10 group self-start md:self-end"
+              >
+                <Plus className="w-5 h-5 group-hover:rotate-90 transition-transform duration-300" />
+                Nuevo Proyecto
+              </motion.button>
+            </div>
+
+            {/* Folders Grid */}
+            {isLoading ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {[1, 2, 3].map(i => (
+                  <div key={i} className="h-48 rounded-[32px] bg-surface-container/50 animate-pulse" />
+                ))}
               </div>
-            </div>
-            
-            <div className="flex gap-3">
-              <button 
-                onClick={() => setSharingFolder(currentFolder.id)} 
-                className={`w-16 h-16 rounded-[28px] flex items-center justify-center transition-all shadow-xl ${folderShareCount > 0 ? 'bg-primary text-primary-foreground' : 'bg-card text-on-surface-variant/30 hover:bg-card hover:text-foreground'}`}
-              >
-                {folderShareCount > 0 ? <Users className="w-7 h-7" /> : <Share2 className="w-7 h-7" />}
-              </button>
-              <button 
-                onClick={() => {
-                  setEditingFolder(currentFolder.id);
-                  setNewName(currentFolder.name);
-                  setNewColor(currentFolder.color || FOLDER_COLORS[0]);
-                }}
-                className="w-16 h-16 rounded-[28px] bg-card flex items-center justify-center text-foreground hover:bg-surface-container-high transition-all shadow-xl border border-outline-variant/10"
-              >
-                <Edit2 className="w-7 h-7" />
-              </button>
-            </div>
-          </motion.div>
-
-          {/* Progress Bar (Large) */}
-          <motion.div 
-            initial={{ opacity: 0, scaleX: 0 }}
-            animate={{ opacity: 1, scaleX: 1 }}
-            transition={{ delay: 0.2, duration: 0.8 }}
-            className="h-4 w-full bg-surface-container-high/50 rounded-full overflow-hidden border-2 border-outline-variant/10 shadow-inner p-1"
-          >
-            <motion.div 
-              initial={{ width: 0 }}
-              animate={{ width: `${progress}%` }}
-              transition={{ duration: 1.5, ease: "easeOut" }}
-              className="h-full rounded-full shadow-lg relative overflow-hidden"
-              style={{ backgroundColor: currentFolder.color || '#C3F53C' }}
-            >
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent animate-shimmer" />
-            </motion.div>
-          </motion.div>
-
-          {/* Tasks List */}
-          <div className="space-y-8">
-            <div className="flex items-center justify-between border-b border-outline-variant/10 pb-8">
-              <h2 className="text-[12px] font-black text-on-surface-variant/40 uppercase tracking-[0.4em]">Listado de Tareas</h2>
-              <button 
-                onClick={openCapture} 
-                className="text-xs font-black text-primary-foreground bg-primary px-8 py-4 rounded-[20px] hover:scale-105 transition-all shadow-[0_15px_30px_rgba(195,245,60,0.3)] flex items-center gap-3 active:scale-95"
-              >
-                <Plus className="w-5 h-5" /> Nueva Tarea
-              </button>
-            </div>
-
-            {folderTasks.length === 0 ? (
-              <motion.div 
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="bg-surface-container-low/40 backdrop-blur-md border-4 border-dashed border-outline-variant/10 p-24 rounded-[64px] text-center space-y-8"
-              >
-                <div className="w-24 h-24 rounded-[32px] bg-card flex items-center justify-center mx-auto shadow-sm">
-                  <Plus className="w-10 h-10 text-on-surface-variant/10" />
-                </div>
-                <div className="space-y-3">
-                  <p className="text-foreground font-black text-3xl font-headline tracking-tight">Espacio Limpio</p>
-                  <p className="text-on-surface-variant/40 text-lg max-w-[320px] mx-auto font-medium">Empieza a añadir tareas a este proyecto para ver tu progreso.</p>
-                </div>
-              </motion.div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <AnimatePresence mode="popLayout">
-                  {folderTasks.map((task, idx) => {
-                    const isDone = task.status === 'done';
-                    return (
-                      <motion.div 
-                        key={task.id} 
-                        layout
-                        initial={{ opacity: 0, y: 20 }} 
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, scale: 0.9 }}
-                        transition={{ delay: idx * 0.05, type: 'spring', damping: 20 }}
-                        onClick={() => setSelectedTask(task)}
-                        className={`group p-8 rounded-[40px] flex items-center gap-6 cursor-pointer transition-all border-2 relative overflow-hidden ${
-                          isDone 
-                            ? 'bg-card/20 border-transparent opacity-40' 
-                            : 'bg-card hover:border-primary hover:shadow-[0_30px_60px_rgba(0,0,0,0.15)] border-outline-variant/10 shadow-sm'
-                        }`}
-                      >
-                        <div className="flex-shrink-0 relative z-10">
-                          {isDone ? (
-                            <div className="w-10 h-10 rounded-[14px] bg-surface-container-high flex items-center justify-center">
-                              <Check className="w-6 h-6 text-on-surface-variant/30" strokeWidth={4} />
-                            </div>
-                          ) : (
-                            <button 
-                              onClick={(e) => handleComplete(task.id, e)}
-                              className="w-10 h-10 rounded-[14px] border-2 border-outline-variant/20 flex items-center justify-center hover:border-primary hover:bg-primary transition-all group-hover:scale-110 active:scale-90 bg-card" 
-                            >
-                              <div className="w-5 h-5 rounded-[8px] bg-primary/0 group-hover:bg-primary transition-all scale-0 group-hover:scale-100 shadow-inner" />
-                            </button>
-                          )}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {folders.map((folder) => (
+                  <motion.div
+                    key={folder.id}
+                    layoutId={folder.id}
+                    onClick={() => setSelectedFolder(folder.id)}
+                    whileHover={{ y: -8 }}
+                    className="group cursor-pointer relative"
+                  >
+                    <div 
+                      className="absolute inset-0 rounded-[32px] opacity-0 group-hover:opacity-100 transition-opacity blur-2xl -z-10"
+                      style={{ backgroundColor: `${folder.color}20` }}
+                    />
+                    <div className="bg-surface border border-outline-variant/50 rounded-[32px] p-6 h-full flex flex-col justify-between hover:border-primary/30 transition-colors shadow-sm group-hover:shadow-xl group-hover:shadow-primary/5">
+                      <div className="space-y-4">
+                        <div 
+                          className="w-12 h-12 rounded-2xl flex items-center justify-center mb-2"
+                          style={{ backgroundColor: `${folder.color}15` }}
+                        >
+                          <Folder className="w-6 h-6" style={{ color: folder.color }} />
                         </div>
-                        <div className="flex-1 min-w-0 relative z-10">
-                          <h4 className={`text-xl font-black truncate tracking-tight font-headline ${isDone ? 'text-on-surface-variant/30 line-through' : 'text-foreground'}`}>{task.title}</h4>
-                          {task.due_date && (
-                            <div className="flex items-center gap-2 mt-2">
-                              <div className="w-1.5 h-1.5 rounded-full bg-primary" />
-                              <p className="text-[10px] font-black text-on-surface-variant/30 uppercase tracking-[0.2em]">{task.due_date}</p>
-                            </div>
-                          )}
+                        <div>
+                          <h3 className="text-xl font-black tracking-tight font-headline group-hover:text-primary transition-colors">
+                            {folder.name}
+                          </h3>
                         </div>
-                        {!isDone && (
-                          <button 
-                            onClick={(e) => { e.stopPropagation(); setTimerTask(task); }}
-                            className="w-12 h-12 rounded-[16px] bg-surface-container-high flex items-center justify-center opacity-0 group-hover:opacity-100 hover:bg-primary hover:text-primary-foreground transition-all hover:scale-110 relative z-10 shadow-sm active:scale-90"
-                          >
-                            <Timer className="w-5 h-5" />
-                          </button>
-                        )}
-                        
-                        {/* Hover accent */}
-                        {!isDone && (
-                          <div 
-                            className="absolute left-0 top-0 bottom-0 w-2 opacity-0 group-hover:opacity-100 transition-opacity" 
-                            style={{ backgroundColor: currentFolder.color || '#C3F53C' }}
-                          />
-                        )}
-                      </motion.div>
-                    );
-                  })}
-                </AnimatePresence>
+                      </div>
+
+                      <div className="flex items-center justify-between mt-8 pt-4 border-t border-outline-variant/30">
+                        <div className="flex items-center gap-2">
+                          <div className="w-6 h-6 rounded-full bg-surface-container border-2 border-surface flex items-center justify-center">
+                            <span className="text-[10px] font-black">
+                              {tasks.filter(t => t.folder_id === folder.id).length}
+                            </span>
+                          </div>
+                          <span className="text-[10px] font-black uppercase tracking-wider text-on-surface-variant/40">
+                            Tareas
+                          </span>
+                        </div>
+                        <ChevronRight className="w-5 h-5 text-on-surface-variant/30 group-hover:translate-x-1 transition-transform" />
+                      </div>
+                    </div>
+                  </motion.div>
+                ))}
+                {folders.length === 0 && (
+                  <div className="col-span-full py-20 bg-surface/30 border border-dashed border-outline-variant rounded-[40px] text-center">
+                    <p className="text-on-surface-variant/40 font-black uppercase tracking-[0.2em] text-xs">Sin proyectos activos</p>
+                  </div>
+                )}
               </div>
             )}
-          </div>
-        </div>
-        
-        <FAB 
-          onTextClick={openCapture} 
-          onVoiceClick={openCaptureInVoiceMode} 
-        />
-        
-        <TaskCaptureModal ref={captureModalRef} open={captureOpen} onClose={() => setCaptureOpen(false)} folderId={selectedFolder} creationSource="fab" />
-        <TaskDetailModal task={selectedTask} open={!!selectedTask} onClose={() => setSelectedTask(null)} />
-        <FullscreenTimer task={timerTask} open={!!timerTask} onClose={() => setTimerTask(null)} />
-        
-        <AnimatePresence>{editingFolder && (
-          <div className="fixed inset-0 z-[9998] flex items-center justify-center p-6">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-[#01260E]/40 backdrop-blur(12px)" onClick={() => setEditingFolder(null)} />
-            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="relative z-[9999] bg-card w-full max-w-[500px] p-12 rounded-[40px] shadow-[0_20px_60px_-10px_hsla(140,95%,8%,0.15)] border border-outline-variant/10 space-y-10">
-              <div className="space-y-2">
-                <h3 className="text-3xl font-black text-foreground font-headline tracking-tight">Editar Proyecto</h3>
-                <p className="text-sm font-medium text-on-surface-variant/40">Modifica los detalles de tu espacio.</p>
+          </motion.div>
+        ) : (
+          <motion.div
+            key="detail"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="min-h-screen bg-background"
+          >
+            {/* Project Header Area */}
+            <div 
+              className="w-full h-48 md:h-64 relative overflow-hidden flex items-end p-8 md:p-12"
+              style={{ backgroundColor: `${currentFolder?.color}05` }}
+            >
+              <div className="absolute top-8 left-8 z-20">
+                <motion.button
+                  whileHover={{ x: -4 }}
+                  onClick={() => setSelectedFolder(null)}
+                  className="p-3 rounded-2xl bg-surface/80 backdrop-blur-md border border-outline-variant/30 shadow-sm flex items-center gap-2 group"
+                >
+                  <ArrowLeft className="w-5 h-5" />
+                  <span className="text-xs font-black uppercase tracking-widest hidden md:inline">Proyectos</span>
+                </motion.button>
               </div>
-              <div className="space-y-8">
-                <div className="space-y-3">
-                  <p className="text-[10px] font-black uppercase tracking-[0.4em] text-on-surface-variant/40 ml-1">Nombre</p>
-                  <input 
-                    autoFocus 
-                    value={newName} 
-                    onChange={(e) => setNewName(e.target.value)}
-                    className="w-full bg-surface-container-high rounded-[32px] p-7 text-foreground font-black text-2xl outline-none focus:bg-surface-container-highest border-4 border-transparent focus:border-primary/40 transition-all shadow-inner"
-                    onKeyDown={(e) => e.key === 'Enter' && handleUpdate(editingFolder)} 
-                  />
+
+              <div className="absolute top-8 right-8 flex gap-2 z-20">
+                <button 
+                  onClick={(e) => { e.stopPropagation(); setSharingFolder(currentFolder?.id || null); }}
+                  className={`p-3 rounded-2xl bg-surface/80 backdrop-blur-md border border-outline-variant/30 shadow-sm transition-colors ${shares.length > 0 ? 'text-primary' : 'text-on-surface-variant/40 hover:text-foreground'}`}
+                >
+                  <Users className="w-5 h-5" />
+                </button>
+                <button 
+                  onClick={(e) => { e.stopPropagation(); setEditingFolder(currentFolder?.id || null); setNewName(currentFolder?.name || ''); setNewColor(currentFolder?.color || FOLDER_COLORS[0]); }}
+                  className="p-3 rounded-2xl bg-surface/80 backdrop-blur-md border border-outline-variant/30 shadow-sm hover:text-primary transition-colors"
+                >
+                  <Settings className="w-5 h-5" />
+                </button>
+                <button 
+                  onClick={(e) => { e.stopPropagation(); handleDelete(currentFolder?.id || ''); }}
+                  className="p-3 rounded-2xl bg-surface/80 backdrop-blur-md border border-outline-variant/30 shadow-sm hover:text-destructive transition-colors"
+                >
+                  <Trash2 className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="max-w-[430px] lg:max-w-4xl mx-auto w-full relative z-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ backgroundColor: `${currentFolder?.color}20` }}>
+                      <Folder className="w-4 h-4" style={{ color: currentFolder?.color }} />
+                    </div>
+                    <span className="text-[11px] font-black uppercase tracking-[0.2em] opacity-40">
+                      Arquitectura
+                    </span>
+                  </div>
+                  <h1 className="text-3xl md:text-5xl font-black tracking-tight font-headline">
+                    {currentFolder?.name}
+                  </h1>
                 </div>
-                <div className="space-y-4">
-                  <p className="text-[10px] font-black uppercase tracking-[0.4em] text-on-surface-variant/40 ml-1">Color</p>
-                  <div className="grid grid-cols-4 gap-4">
-                    {FOLDER_COLORS.map((c) => (
-                      <button 
-                        key={c} 
-                        onClick={() => setNewColor(c)}
-                        className={`h-16 rounded-[24px] transition-all relative overflow-hidden ${newColor === c ? 'ring-4 ring-primary ring-offset-4 ring-offset-card scale-95 shadow-lg' : 'hover:scale-105'}`}
-                        style={{ backgroundColor: c }} 
+
+                <div className="flex flex-col items-end gap-2">
+                  <div className="text-[10px] font-black uppercase tracking-widest opacity-40">Progreso</div>
+                  <div className="flex items-center gap-4">
+                    <div className="w-32 h-2 bg-surface-container rounded-full overflow-hidden">
+                      <motion.div 
+                        initial={{ width: 0 }}
+                        animate={{ width: `${(completedCount / (folderTasks.length || 1)) * 100}%` }}
+                        className="h-full bg-primary"
                       />
-                    ))}
+                    </div>
+                    <span className="text-sm font-black font-headline">
+                      {Math.round((completedCount / (folderTasks.length || 1)) * 100)}%
+                    </span>
                   </div>
                 </div>
               </div>
-              <div className="flex gap-4 pt-4">
-                <button onClick={() => setEditingFolder(null)} className="flex-1 py-6 rounded-[32px] bg-surface-container-high text-sm font-black text-on-surface-variant/40 hover:bg-surface-container-highest transition-colors">Cancelar</button>
-                <button onClick={() => handleUpdate(editingFolder)} className="flex-[2] py-6 rounded-[32px] bg-primary text-sm font-black text-primary-foreground shadow-xl shadow-primary/20">Guardar Cambios</button>
-              </div>
-            </motion.div>
-          </div>
-        )}</AnimatePresence>
-        
-        <AnimatePresence>{renderSharingModal()}</AnimatePresence>
-      </div>
-    );
-  }
 
-  return (
-    <div className="min-h-screen bg-background selection:bg-primary/30">
-      {/* Decorative grain/noise pattern like in DailyPage */}
-      <div className="fixed inset-0 pointer-events-none opacity-[0.03] contrast-150 grayscale mix-blend-multiply" 
-           style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3C%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")` }} />
-
-      <div className="max-w-[430px] lg:max-w-6xl mx-auto px-6 pt-20 pb-40 space-y-16 relative">
-        <div className="flex items-end justify-between">
-          <div className="space-y-4">
-            <motion.div 
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
-              className="inline-flex px-3 py-1 rounded-full bg-primary/10 border border-primary/20"
-            >
-              <p className="text-[9px] font-black uppercase tracking-[0.3em] text-primary">Arquitectura</p>
-            </motion.div>
-            <motion.h1 
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
-              className="text-5xl lg:text-7xl font-black tracking-tight font-headline text-foreground leading-none"
-            >
-              Proyectos
-            </motion.h1>
-          </div>
-          <motion.button 
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => {
-              setNewName('');
-              setNewColor(FOLDER_COLORS[0]);
-              setShowCreate(true);
-            }}
-            className="w-16 h-16 lg:w-20 lg:h-20 rounded-[28px] lg:rounded-[32px] bg-primary text-primary-foreground flex items-center justify-center shadow-lg shadow-primary/20 group transition-all"
-          >
-            <Plus className="w-8 h-8 lg:w-10 lg:h-10 group-hover:rotate-90 transition-transform" strokeWidth={3} />
-          </motion.button>
-        </div>
-
-        {folders.length === 0 ? (
-          <motion.div 
-            initial={{ opacity: 0, y: 40 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-surface-container-low/50 backdrop-blur-xl border-4 border-dashed border-outline-variant/10 p-20 lg:p-32 rounded-[64px] text-center space-y-10 shadow-sm"
-          >
-            <div className="w-32 h-32 rounded-[48px] bg-card flex items-center justify-center mx-auto shadow-xl shadow-black/10">
-              <FolderOpen className="w-16 h-16 text-on-surface-variant/10" />
+              {/* Decorative background accent */}
+              <div 
+                className="absolute -top-24 -right-24 w-96 h-96 rounded-full blur-[100px] opacity-10 pointer-events-none"
+                style={{ backgroundColor: currentFolder?.color }}
+              />
             </div>
-            <div className="space-y-4">
-              <h2 className="text-4xl font-black text-foreground font-headline tracking-tight">Tu arquitectura comienza aquí</h2>
-              <p className="text-on-surface-variant/40 font-medium max-w-[400px] mx-auto text-xl leading-relaxed">
-                Organiza tus objetivos complejos en espacios dedicados para mantener el máximo enfoque.
-              </p>
-            </div>
-            <button 
-              onClick={() => setShowCreate(true)} 
-              className="inline-flex items-center gap-4 px-14 py-7 rounded-[32px] bg-primary text-primary-foreground text-lg font-black hover:scale-105 transition-all shadow-[0_30px_60px_rgba(195,245,60,0.2)] active:scale-95"
-            >
-              <Plus className="w-7 h-7" /> Crear mi primer espacio
-            </button>
-          </motion.div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            <AnimatePresence mode="popLayout">
-              {folders.map((folder, index) => {
-                const folderTasksList = tasks.filter((t) => t.folder_id === folder.id);
-                const count = folderTasksList.length;
-                const doneCount = folderTasksList.filter((t) => t.status === 'done').length;
-                const progress = count > 0 ? (doneCount / count) * 100 : 0;
 
-                return (
-                  <motion.div 
-                    key={folder.id} 
-                    layout
-                    initial={{ opacity: 0, scale: 0.9, y: 30 }} 
-                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.9 }}
-                    transition={{ delay: index * 0.05, type: 'spring', damping: 20 }}
-                    className="group relative"
-                  >
-                    <div 
-                      onClick={() => setSelectedFolder(folder.id)}
-                      className="bg-card/80 backdrop-blur-xl hover:bg-card p-10 lg:p-12 rounded-[64px] border border-outline-variant/10 shadow-[0_20px_40px_rgba(0,0,0,0.1)] hover:shadow-[0_40px_80px_rgba(0,0,0,0.2)] cursor-pointer transition-all duration-700 hover:-translate-y-4 group/card flex flex-col min-h-[400px] justify-between relative overflow-hidden"
-                    >
-                      {/* Interactive background glow */}
-                      <div 
-                        className="absolute -right-20 -top-20 w-64 h-64 rounded-full blur-[100px] opacity-0 group-hover/card:opacity-30 transition-opacity duration-1000"
-                        style={{ backgroundColor: folder.color || '#C3F53C' }}
-                      />
+            {/* Project Tasks Area */}
+            <div className="max-w-[430px] lg:max-w-4xl mx-auto px-6 py-12">
+              <div className="space-y-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-xl font-black font-headline tracking-tight flex items-center gap-3">
+                    Roadmap
+                    <span className="text-xs px-2 py-0.5 bg-surface-container border border-outline-variant/30 rounded-full opacity-60">
+                      {folderTasks.length}
+                    </span>
+                  </h2>
+                </div>
 
-                      <div className="flex items-start justify-between relative z-10">
-                        <div 
-                          className="w-24 h-24 rounded-[36px] flex items-center justify-center transition-all duration-700 group-hover/card:scale-110 group-hover/card:rotate-6 shadow-inner" 
-                          style={{ backgroundColor: (folder.color || '#4BE277') + '20' }}
-                        >
-                          <FolderOpen className="w-12 h-12" style={{ color: folder.color || '#4BE277' }} />
-                        </div>
-                        <div className="flex gap-2.5 opacity-0 group-hover/card:opacity-100 transition-all duration-500 translate-y-4 group-hover/card:translate-y-0">
-                          <button 
-                            onClick={(e) => { e.stopPropagation(); setSharingFolder(folder.id); }}
-                            className="w-12 h-12 rounded-2xl bg-card shadow-lg flex items-center justify-center hover:bg-primary transition-colors"
-                          >
-                            <Users className="w-5 h-5 text-foreground" />
-                          </button>
-                          <button 
-                            onClick={(e) => { e.stopPropagation(); setMenuFolder(menuFolder === folder.id ? null : folder.id); }}
-                            className="w-12 h-12 rounded-2xl bg-card shadow-lg flex items-center justify-center hover:bg-destructive hover:text-destructive-foreground transition-colors"
-                          >
-                            <MoreVertical className="w-5 h-5" />
-                          </button>
-                        </div>
-                      </div>
-
-                      <div className="space-y-8 relative z-10">
-                        <div className="space-y-3">
-                          <h3 className="text-2xl font-black text-foreground tracking-tight leading-tight font-headline">{folder.name}</h3>
-                          <div className="flex items-center gap-3">
-                            <div className="flex -space-x-2.5">
-                              <div className="w-7 h-7 rounded-full bg-surface-container-high border-2 border-card flex items-center justify-center text-[9px] font-black text-foreground shadow-sm">ME</div>
-                              {count > 3 && <div className="w-7 h-7 rounded-full bg-primary border-2 border-card flex items-center justify-center text-[9px] font-black text-primary-foreground shadow-sm">+{count}</div>}
-                            </div>
-                            <p className="text-[11px] font-black text-on-surface-variant/40 uppercase tracking-[0.2em]">{count} Tareas activas</p>
-                          </div>
-                        </div>
-                        
-                        <div className="space-y-4">
-                          <div className="flex justify-between items-end px-1">
-                            <span className="text-[11px] font-black text-foreground uppercase tracking-[0.3em]">{Math.round(progress)}% Listo</span>
-                            {progress > 0 && <div className="w-2 h-2 rounded-full bg-primary animate-pulse shadow-[0_0_10px_rgba(195,245,60,0.8)]" />}
-                          </div>
-                          <div className="h-4 w-full bg-surface-container-high rounded-full overflow-hidden p-1 border border-outline-variant/10 shadow-inner">
-                            <motion.div 
-                              initial={{ width: 0 }}
-                              animate={{ width: `${progress}%` }}
-                              transition={{ duration: 1.5, ease: "easeOut" }}
-                              className="h-full rounded-full relative overflow-hidden shadow-lg"
-                              style={{ backgroundColor: folder.color || '#C3F53C' }}
-                            >
-                              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer" />
-                            </motion.div>
-                          </div>
-                        </div>
-                      </div>
-
-                      <AnimatePresence>
-                        {menuFolder === folder.id && (
-                          <motion.div 
-                            initial={{ opacity: 0, scale: 0.9, y: 15 }} 
-                            animate={{ opacity: 1, scale: 1, y: 0 }} 
-                            exit={{ opacity: 0, scale: 0.9, y: 15 }}
-                            className="absolute right-10 top-28 z-[30] bg-card rounded-[32px] shadow-2xl border border-outline-variant/10 p-5 min-w-[220px]"
-                          >
-                            <button 
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setEditingFolder(folder.id);
-                                setNewName(folder.name);
-                                setNewColor(folder.color || FOLDER_COLORS[0]);
-                                setMenuFolder(null);
-                              }}
-                              className="w-full flex items-center gap-4 px-6 py-5 rounded-2xl hover:bg-primary/20 text-sm font-black text-foreground transition-colors"
-                            >
-                              <Edit2 className="w-5 h-5" /> Editar Espacio
-                            </button>
-                            <button 
-                              onClick={(e) => { e.stopPropagation(); handleDelete(folder.id); }}
-                              className="w-full flex items-center gap-4 px-6 py-5 rounded-2xl hover:bg-destructive/10 text-sm font-black text-red-500 transition-colors"
-                            >
-                              <Trash2 className="w-5 h-5" /> Eliminar
-                            </button>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
+                {folderTasks.length > 0 ? (
+                  <div className="space-y-4">
+                    <AnimatePresence mode="popLayout">
+                      {folderTasks.map((task, idx) => (
+                        <TaskCard
+                          key={task.id}
+                          task={task}
+                          taskIdx={idx}
+                          isDone={task.status === 'done'}
+                          completingTaskId={completingTaskId}
+                          dragIdx={null}
+                          touchIdx={null}
+                          handleDragStart={() => {}}
+                          handleDragOver={() => {}}
+                          handleDragEnd={() => {}}
+                          handleTouchStart={() => {}}
+                          handleTouchMove={() => {}}
+                          handleTouchEnd={() => {}}
+                          setSelectedTask={setSelectedTask}
+                          handleComplete={handleComplete}
+                          handleUncomplete={handleUncomplete}
+                          handleStartTimer={handleStartTimer}
+                          view="daily"
+                        />
+                      ))}
+                    </AnimatePresence>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-20 bg-surface/30 border border-dashed border-outline-variant/50 rounded-[40px] text-center px-8">
+                    <div className="w-16 h-16 rounded-3xl bg-surface-container flex items-center justify-center mb-6">
+                      <Sparkles className="w-8 h-8 opacity-20" />
                     </div>
-                  </motion.div>
-                );
-              })}
-            </AnimatePresence>
-          </div>
+                    <h3 className="text-lg font-black font-headline mb-2">Proyecto Limpio</h3>
+                    <p className="text-sm text-on-surface-variant/60 max-w-[280px]">
+                      Aún no hay tareas asociadas. Agrega una desde el botón flotante.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </motion.div>
         )}
-      </div>
+      </AnimatePresence>
+
+      <FAB onTextClick={openCapture} onVoiceClick={openCaptureInVoiceMode} />
+
+      {/* Modals */}
+      {renderFolderModal(false)}
+      <AnimatePresence>{sharingFolder && renderSharingModal()}</AnimatePresence>
       
-      <FAB 
-        onTextClick={openCapture} 
-        onVoiceClick={openCaptureInVoiceMode} 
+      <TaskCaptureModal 
+        ref={captureModalRef} 
+        open={captureOpen} 
+        onClose={() => setCaptureOpen(false)} 
+        folderId={selectedFolder || undefined}
+        creationSource="fab" 
       />
-      
-      <TaskCaptureModal ref={captureModalRef} open={captureOpen} onClose={() => setCaptureOpen(false)} creationSource="fab" />
       <TaskDetailModal task={selectedTask} open={!!selectedTask} onClose={() => setSelectedTask(null)} />
-      <FullscreenTimer task={timerTask} open={!!timerTask} onClose={() => setTimerTask(null)} />
-      {renderCreateModal()}
-      <AnimatePresence>{renderSharingModal()}</AnimatePresence>
+      <FullscreenTimer 
+        task={timerTask} 
+        open={!!timerTask} 
+        onClose={() => setTimerTask(null)} 
+        durationRef={timerDurationRef}
+      />
     </div>
   );
 };

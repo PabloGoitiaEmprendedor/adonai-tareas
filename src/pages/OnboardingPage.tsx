@@ -275,8 +275,8 @@ const OnboardingPage = () => {
             {currentStep === 'welcome' && (
               <div className="space-y-8">
                 <div className="space-y-3">
-                  <h1 className="text-4xl font-extrabold tracking-tight text-foreground">Hola, soy Adonai.</h1>
-                  <p className="text-on-surface-variant text-lg">Tu asistente personal de productividad. Vamos a configurar tu espacio.</p>
+                  <h1 className="text-4xl font-extrabold tracking-tight text-foreground">Bienvenido a Adonai.</h1>
+                  <p className="text-on-surface-variant text-lg">Tu nuevo espacio de productividad. Vamos a configurar tu entorno.</p>
                 </div>
                 
                 <div className="space-y-6">
@@ -325,7 +325,7 @@ const OnboardingPage = () => {
               <div className="space-y-8">
                 <div className="space-y-2">
                   <h2 className="text-3xl font-extrabold tracking-tight text-foreground">Tu vida profesional</h2>
-                  <p className="text-on-surface-variant">Saber a qué te dedicas me ayuda a estructurar tus bloques de tiempo.</p>
+                  <p className="text-on-surface-variant">Saber a qué te dedicas ayuda a estructurar tus bloques de tiempo.</p>
                 </div>
 
                 <div className="space-y-6">
@@ -570,7 +570,7 @@ const OnboardingPage = () => {
 
                 <div className="space-y-4">
                   <h2 className="text-4xl font-extrabold tracking-tight text-foreground">¡Todo listo, {name}!</h2>
-                  <p className="text-on-surface-variant text-xl">Tu asistente personal está configurado para llevarte al siguiente nivel de productividad.</p>
+                  <p className="text-on-surface-variant text-xl">Tu entorno de trabajo está configurado para llevarte al siguiente nivel de productividad.</p>
                 </div>
 
                 <div className="bg-surface-container-low rounded-3xl p-6 text-left space-y-4 border border-surface-container-highest">

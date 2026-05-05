@@ -137,6 +137,32 @@ const UserGrowthChart = ({ data }: { data: any[] }) => (
   </div>
 );
 
+// ─── Cohort Retention Chart (Recharts) ───────────────────────────────────────────
+const CohortRetentionChart = ({ data, title }: { data: { day: string; retention: number }[], title: string }) => (
+  <div className="h-64 w-full mt-4">
+    <h3 className="text-sm font-bold text-on-surface-variant/80 mb-2">{title}</h3>
+    <ResponsiveContainer width="100%" height="100%">
+      <AreaChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+        <defs>
+          <linearGradient id="colorRetention" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3}/>
+            <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0}/>
+          </linearGradient>
+        </defs>
+        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--outline-variant) / 0.2)" />
+        <XAxis dataKey="day" tick={{ fontSize: 10 }} stroke="hsl(var(--on-surface-variant) / 0.5)" />
+        <YAxis tick={{ fontSize: 10 }} stroke="hsl(var(--on-surface-variant) / 0.5)" tickFormatter={(val) => `${val}%`} />
+        <Tooltip 
+          contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}
+          labelStyle={{ fontWeight: 'bold', color: 'black', marginBottom: '4px' }}
+          formatter={(value: number) => [`${value}%`, 'Retención']}
+        />
+        <Area type="monotone" dataKey="retention" name="Retención" stroke="#8b5cf6" strokeWidth={3} fillOpacity={1} fill="url(#colorRetention)" />
+      </AreaChart>
+    </ResponsiveContainer>
+  </div>
+);
+
 // ─── Main Page ───────────────────────────────────────────────────────────────
 const AdminPanelPage = () => {
   const isAdmin = useIsAdmin();
@@ -150,6 +176,9 @@ const AdminPanelPage = () => {
   const { user } = useAuth();
   const [expandedUser, setExpandedUser] = useState<string | null>(null);
   const [userSearch, setUserSearch] = useState('');
+  const [selectedCohort, setSelectedCohort] = useState<string | null>(null);
+  const [selectedSubcohort, setSelectedSubcohort] = useState<'all' | '1-2 tareas' | '3+ tareas'>('all');
+  const [retentionDays, setRetentionDays] = useState<7 | 14 | 30>(14);
 
   const handleExcludeUser = (userId: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -180,6 +209,40 @@ const AdminPanelPage = () => {
   });
 
   const pct = (v: number, t: number) => t > 0 ? `${Math.round((v / t) * 100)}%` : '0%';
+
+  // Cohort Graph Logic
+  const cohortGraphData = useMemo(() => {
+    if (!analytics.cohortRetention || analytics.cohortRetention.length === 0) return [];
+    
+    if (selectedCohort) {
+      const cohort = analytics.cohortRetention.find(c => c.cohort === selectedCohort);
+      if (cohort) {
+        const group = selectedSubcohort === 'all' ? cohort : cohort.subcohorts[selectedSubcohort];
+        return Array.from({ length: retentionDays }).map((_, i) => ({
+          day: `Día ${i}`,
+          retention: group.retention[i] || 0
+        }));
+      }
+    }
+    
+    // Average
+    const avgRetention = Array.from({ length: retentionDays }).map((_, i) => {
+      let sum = 0;
+      let count = 0;
+      analytics.cohortRetention.forEach(c => {
+        const group = selectedSubcohort === 'all' ? c : c.subcohorts[selectedSubcohort];
+        if (group.users > 0 && group.retention[i] !== undefined) {
+          sum += group.retention[i];
+          count++;
+        }
+      });
+      return {
+        day: `Día ${i}`,
+        retention: count > 0 ? Math.round(sum / count) : 0
+      };
+    });
+    return avgRetention;
+  }, [analytics.cohortRetention, selectedCohort, selectedSubcohort, retentionDays]);
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -290,6 +353,112 @@ const AdminPanelPage = () => {
             <StatCard icon={Trophy} label="Logros Desbloqueados" value={analytics.achievementsUnlocked} color="orange-500" />
             <StatCard icon={Users2} label="Amistades Creadas" value={analytics.friendshipsTotal} color="pink-500" />
             <StatCard icon={ImageIcon} label="Fotos Analizadas (IA)" value={analytics.imageCapturesTotal} sub={`${analytics.tasksExtractedFromImages} tareas extraídas`} color="indigo-500" />
+          </div>
+        </section>
+
+        {/* ─── Cohort Retention ────────────────────────────────────────────── */}
+        <section className="bg-card rounded-2xl p-6 border border-outline-variant/10 shadow-sm mb-8 overflow-hidden">
+          <div className="flex flex-col md:flex-row md:items-center justify-between mb-5 gap-4">
+            <div>
+              <h2 className="text-sm font-black uppercase tracking-widest text-on-surface-variant/60">
+                Retención por Cohorte (Desde primera tarea)
+              </h2>
+              {selectedCohort && (
+                <button 
+                  onClick={() => setSelectedCohort(null)}
+                  className="text-xs font-bold text-primary hover:underline mt-1"
+                >
+                  Ver Promedio Global
+                </button>
+              )}
+            </div>
+            
+            <div className="flex flex-wrap items-center gap-3">
+              <select 
+                value={selectedSubcohort}
+                onChange={(e) => setSelectedSubcohort(e.target.value as any)}
+                className="px-3 py-1.5 rounded-lg bg-surface-container-high text-xs font-bold text-on-surface-variant outline-none"
+              >
+                <option value="all">Todos los usuarios</option>
+                <option value="1-2 tareas">1-2 tareas el Día 0</option>
+                <option value="3+ tareas">3+ tareas el Día 0</option>
+              </select>
+
+              <select 
+                value={retentionDays}
+                onChange={(e) => setRetentionDays(Number(e.target.value) as any)}
+                className="px-3 py-1.5 rounded-lg bg-surface-container-high text-xs font-bold text-on-surface-variant outline-none"
+              >
+                <option value={7}>7 días</option>
+                <option value={14}>14 días</option>
+                <option value={30}>30 días</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto mb-6">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-outline-variant/10">
+                  <th className="text-left py-3 px-2 text-[10px] font-black uppercase tracking-widest text-on-surface-variant/50 sticky left-0 bg-card z-10 min-w-[120px]">Cohorte</th>
+                  <th className="text-right py-3 px-2 text-[10px] font-black uppercase tracking-widest text-on-surface-variant/50">Usuarios</th>
+                  {Array.from({ length: retentionDays }).map((_, day) => (
+                    <th key={day} className="text-right py-3 px-2 text-[10px] font-black uppercase tracking-widest text-on-surface-variant/50 min-w-[60px]">
+                      Día {day}
+                    </th>
+                  ))}
+                  <th className="text-center py-3 px-2 text-[10px] font-black uppercase tracking-widest text-on-surface-variant/50">Acción</th>
+                </tr>
+              </thead>
+              <tbody>
+                {analytics.cohortRetention?.map(cohortData => {
+                  const cohort = selectedSubcohort === 'all' ? cohortData : (cohortData.subcohorts as any)[selectedSubcohort];
+                  return (
+                    <tr key={cohortData.cohort} className={`border-b border-outline-variant/5 hover:bg-surface-container-low/50 transition-colors ${selectedCohort === cohortData.cohort ? 'bg-primary/5' : ''}`}>
+                      <td className="py-3 px-2 font-bold text-foreground sticky left-0 bg-card z-10">{cohortData.cohort}</td>
+                      <td className="text-right py-3 px-2 font-bold tabular-nums">{cohort.users}</td>
+                      {Array.from({ length: retentionDays }).map((_, day) => {
+                        const val = cohort.retention[day];
+                        // Heatmap logic
+                        let bgClass = "bg-transparent";
+                        let textClass = "text-on-surface-variant/60";
+                        if (val !== undefined && cohort.users > 0) {
+                          if (val >= 70) { bgClass = "bg-green-500/20"; textClass = "text-green-600 dark:text-green-400"; }
+                          else if (val >= 40) { bgClass = "bg-green-500/10"; textClass = "text-green-600 dark:text-green-400"; }
+                          else if (val >= 20) { bgClass = "bg-orange-500/10"; textClass = "text-orange-600 dark:text-orange-400"; }
+                          else if (val > 0) { bgClass = "bg-red-500/10"; textClass = "text-red-600 dark:text-red-400"; }
+                        }
+
+                        return (
+                          <td key={day} className={`text-right py-3 px-2 font-bold tabular-nums ${bgClass}`}>
+                            {val !== undefined ? (
+                              <span className={textClass}>
+                                {val}%
+                              </span>
+                            ) : '—'}
+                          </td>
+                        );
+                      })}
+                      <td className="text-center py-3 px-2">
+                        <button
+                          onClick={() => setSelectedCohort(selectedCohort === cohortData.cohort ? null : cohortData.cohort)}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors whitespace-nowrap ${selectedCohort === cohortData.cohort ? 'bg-primary text-primary-foreground' : 'bg-surface-container-high text-on-surface-variant hover:text-foreground'}`}
+                        >
+                          {selectedCohort === cohortData.cohort ? 'Ocultar' : 'Graficar'}
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="pt-4 border-t border-outline-variant/10">
+            <CohortRetentionChart 
+              data={cohortGraphData} 
+              title={selectedCohort ? `Retención: ${selectedCohort} (${selectedSubcohort})` : `Retención Promedio Global (${selectedSubcohort})`} 
+            />
           </div>
         </section>
 

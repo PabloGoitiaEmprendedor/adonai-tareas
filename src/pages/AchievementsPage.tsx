@@ -1,16 +1,16 @@
 import { useStreaks } from '@/hooks/useStreaks';
 import { useGamification, xpProgressInLevel } from '@/hooks/useGamification';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
-  Sparkles, Rocket, Zap, Crown, Flame, Star, Calendar, Target, Trophy, Award, Medal, ShieldCheck,
+  Sparkles, Rocket, Zap, Crown, Flame, Star, Target, Trophy, Award, Medal, ShieldCheck,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 
 const ICONS: Record<string, any> = {
   sparkles: Sparkles, rocket: Rocket, zap: Zap, crown: Crown,
-  flame: Flame, star: Star, calendar: Calendar, target: Target, trophy: Trophy,
+  flame: Flame, star: Star, target: Target, trophy: Trophy,
 };
 
 const AchievementsPage = () => {
@@ -52,38 +52,33 @@ const AchievementsPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background selection:bg-primary/30 pb-32">
-      <div className="max-w-5xl mx-auto px-6 pt-12 space-y-12">
+    <div className="min-h-screen bg-background selection:bg-primary/30 pb-32 overflow-x-hidden">
+      <div className="max-w-[430px] lg:max-w-6xl mx-auto px-6 pt-12 space-y-12">
         
         {/* Header Section */}
         <header className="space-y-4">
-          <motion.div 
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="flex items-center gap-2 text-primary font-bold tracking-[0.2em] text-[10px] uppercase"
-          >
-            <Medal className="w-3 h-3" />
-            <span>Sistema de Honor</span>
-          </motion.div>
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-            <motion.h1 
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="text-5xl sm:text-7xl font-black tracking-tight leading-[0.85]"
-            >
-              Logros <br />
-              <span className="text-on-surface-variant/20 italic">Adonai.</span>
-            </motion.h1>
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="bg-primary/10 border border-primary/20 px-6 py-3 rounded-2xl backdrop-blur-md"
-            >
-              <p className="text-[10px] font-black uppercase tracking-widest text-primary mb-1">Tu Progreso</p>
-              <p className="text-2xl font-black tabular-nums leading-none">
-                {unlocked.length} <span className="text-sm font-bold text-on-surface-variant/40">Insignias</span>
-              </p>
-            </motion.div>
+            <div className="space-y-2">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-1 bg-primary rounded-full" />
+                <span className="text-[11px] font-black uppercase tracking-[0.2em] text-primary/60">
+                  Sistema de Honor
+                </span>
+              </div>
+              <h1 className="text-3xl md:text-5xl font-black tracking-tight font-headline leading-tight">
+                Tus <span className="opacity-20">Logros.</span>
+              </h1>
+            </div>
+
+            <div className="bg-surface-container px-6 py-4 rounded-[24px] border border-outline-variant/30 self-start md:self-end">
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant/40 mb-1">Insignias Activas</p>
+              <div className="flex items-center gap-3">
+                <Award className="w-5 h-5 text-primary" />
+                <span className="text-2xl font-black tabular-nums leading-none">
+                  {unlocked.length}
+                </span>
+              </div>
+            </div>
           </div>
         </header>
 
@@ -91,28 +86,28 @@ const AchievementsPage = () => {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           
           {/* Level Card - Large */}
-          <Card className="md:col-span-2 bg-primary/5 border-primary/20 p-8 flex flex-col justify-between gap-8 relative overflow-hidden group">
+          <Card className="md:col-span-2 bg-surface-container border-none p-8 rounded-[32px] flex flex-col justify-between gap-8 relative overflow-hidden group">
             <div className="relative z-10 space-y-1">
               <div className="flex items-center gap-2 text-primary">
-                <Star className="w-5 h-5 fill-current" />
-                <span className="text-[10px] uppercase font-black tracking-widest">Nivel de Maestría</span>
+                <Star className="w-4 h-4 fill-current" />
+                <span className="text-[10px] uppercase font-black tracking-[0.2em]">Nivel de Maestría</span>
               </div>
-              <p className="text-7xl font-black tabular-nums tracking-tighter leading-none group-hover:scale-105 transition-transform duration-500">{level}</p>
+              <p className="text-5xl md:text-6xl font-black tabular-nums tracking-tighter leading-none group-hover:scale-105 transition-transform duration-500">{level}</p>
             </div>
             
             <div className="relative z-10 space-y-3">
               <div className="flex justify-between items-end">
-                <p className="text-xs font-bold text-on-surface-variant/60 tabular-nums">
+                <p className="text-[11px] font-black text-on-surface-variant/40 uppercase tracking-widest tabular-nums">
                   <span className="text-foreground">{current}</span> / {needed} XP
                 </p>
-                <p className="text-xs font-black text-primary">{Math.round(percent)}%</p>
+                <p className="text-[11px] font-black text-primary">{Math.round(percent)}%</p>
               </div>
-              <div className="h-4 bg-black/10 rounded-full overflow-hidden border border-white/5">
+              <div className="h-2 bg-background rounded-full overflow-hidden">
                 <motion.div 
                   initial={{ width: 0 }}
                   animate={{ width: `${percent}%` }}
                   transition={{ duration: 1.5, ease: "circOut" }}
-                  className="h-full bg-primary rounded-full shadow-[0_0_20px_rgba(33,217,4,0.3)]" 
+                  className="h-full bg-primary rounded-full" 
                 />
               </div>
             </div>
@@ -122,38 +117,38 @@ const AchievementsPage = () => {
           </Card>
 
           {/* Streak Card */}
-          <Card className="bg-orange-500/5 border-orange-500/20 p-6 flex flex-col justify-between gap-4 group">
+          <Card className="bg-orange-500/5 border border-orange-500/10 p-8 rounded-[32px] flex flex-col justify-between gap-4 group">
             <div className="flex items-center gap-2 text-orange-500">
               <Flame className="w-5 h-5 fill-current animate-pulse" />
-              <span className="text-[10px] uppercase font-black tracking-widest">Racha</span>
+              <span className="text-[10px] uppercase font-black tracking-[0.2em]">Racha Activa</span>
             </div>
             <div>
-              <p className="text-5xl font-black tabular-nums tracking-tight leading-none group-hover:translate-x-1 transition-transform">{streak}</p>
-              <p className="text-[10px] font-bold text-on-surface-variant/40 uppercase tracking-widest mt-2">Record: {streakMax} Días</p>
+              <p className="text-3xl md:text-4xl font-black tabular-nums tracking-tight leading-none">{streak}</p>
+              <p className="text-[10px] font-black text-on-surface-variant/40 uppercase tracking-[0.2em] mt-3">Récord: {streakMax}</p>
             </div>
           </Card>
 
           {/* Tasks Total Card */}
-          <Card className="bg-surface-container-low border-white/5 p-6 flex flex-col justify-between gap-4 group">
+          <Card className="bg-surface-container/50 border border-outline-variant/30 p-8 rounded-[32px] flex flex-col justify-between gap-4 group">
             <div className="flex items-center gap-2 text-primary">
               <ShieldCheck className="w-5 h-5" />
-              <span className="text-[10px] uppercase font-black tracking-widest">Tareas</span>
+              <span className="text-[10px] uppercase font-black tracking-[0.2em]">Productividad</span>
             </div>
             <div>
-              <p className="text-5xl font-black tabular-nums tracking-tight leading-none group-hover:translate-x-1 transition-transform">{tasksTotal}</p>
-              <p className="text-[10px] font-bold text-on-surface-variant/40 uppercase tracking-widest mt-2">Completadas hoy</p>
+              <p className="text-3xl md:text-4xl font-black tabular-nums tracking-tight leading-none">{tasksTotal}</p>
+              <p className="text-[10px] font-black text-on-surface-variant/40 uppercase tracking-[0.2em] mt-3">Completadas hoy</p>
             </div>
           </Card>
 
           {/* Elite Insight Card */}
-          <Card className="md:col-span-4 bg-foreground text-background p-8 flex items-center justify-between group overflow-hidden relative">
+          <Card className="md:col-span-4 bg-foreground text-background p-8 rounded-[32px] flex items-center justify-between group overflow-hidden relative">
             <div className="flex items-center gap-8 relative z-10">
               <div className="w-16 h-16 bg-primary text-primary-foreground rounded-2xl flex items-center justify-center shrink-0 shadow-2xl group-hover:rotate-6 transition-transform">
                 <Zap className="w-8 h-8 fill-current" />
               </div>
               <div className="space-y-1">
-                <h3 className="text-2xl font-black leading-none tracking-tight">Elite del Enfoque</h3>
-                <p className="text-sm text-background/60 leading-relaxed font-medium">Estás en el top 5% de usuarios más consistentes. <span className="text-primary">¡Mantén el ritmo!</span></p>
+                <h3 className="text-2xl font-black font-headline tracking-tight leading-none">Élite del Enfoque</h3>
+                <p className="text-sm text-background/60 leading-relaxed font-medium">Estás en el top 5% de usuarios más consistentes. <span className="text-primary font-black">¡Sigue así!</span></p>
               </div>
             </div>
             <div className="hidden md:block">
@@ -164,7 +159,7 @@ const AchievementsPage = () => {
         </div>
 
         {/* Achievements Section */}
-        <div className="space-y-16 pt-8">
+        <div className="space-y-20 pt-12">
           {Object.entries(byCategory).map(([cat, list]: [string, any]) => (
             <motion.section 
               key={cat}
@@ -172,13 +167,14 @@ const AchievementsPage = () => {
               initial="hidden"
               whileInView="visible"
               viewport={{ once: true }}
-              className="space-y-8"
+              className="space-y-10"
             >
               <div className="flex items-center gap-4">
+                <div className="w-2 h-2 rounded-full bg-primary" />
                 <h2 className="text-[11px] uppercase font-black tracking-[0.4em] text-on-surface-variant/40">
                   {CATEGORY_LABELS[cat] || cat}
                 </h2>
-                <div className="h-px flex-1 bg-gradient-to-r from-border/40 to-transparent" />
+                <div className="h-px flex-1 bg-outline-variant/30" />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -193,25 +189,25 @@ const AchievementsPage = () => {
                       variants={itemVariants}
                       className={`group relative p-8 rounded-[32px] border transition-all duration-500 ${
                         isUnlocked
-                          ? 'bg-surface-container-low border-primary/20 shadow-xl shadow-black/5'
-                          : 'bg-surface-container-low/30 border-border/10 grayscale opacity-40 hover:grayscale-0 hover:opacity-100'
+                          ? 'bg-surface-container border-primary/20 shadow-xl shadow-primary/5'
+                          : 'bg-surface/30 border-outline-variant/30 grayscale opacity-40 hover:grayscale-0 hover:opacity-100'
                       }`}
                     >
                       <div className="flex items-start justify-between gap-4 mb-6">
-                        <div className={`w-16 h-16 rounded-2xl flex items-center justify-center flex-shrink-0 transition-all duration-500 shadow-2xl ${
-                          isUnlocked ? 'bg-primary text-primary-foreground rotate-0 scale-110 shadow-primary/20' : 'bg-surface-container-highest text-on-surface-variant/30 -rotate-3 scale-100 shadow-none'
+                        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0 transition-all duration-500 ${
+                          isUnlocked ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20' : 'bg-surface-container-highest text-on-surface-variant/30'
                         }`}>
-                          <Icon className="w-8 h-8" />
+                          <Icon className="w-7 h-7" />
                         </div>
                         {isUnlocked && (
-                           <div className="text-[10px] font-black bg-primary text-primary-foreground px-4 py-1.5 rounded-full uppercase tracking-widest shadow-lg shadow-primary/20">
+                           <div className="text-[10px] font-black bg-primary/10 text-primary px-3 py-1.5 rounded-full uppercase tracking-widest">
                             +{ach.xp_reward} XP
                           </div>
                         )}
                       </div>
 
-                      <div className="space-y-3">
-                        <p className={`text-2xl font-black leading-tight tracking-tight ${isUnlocked ? 'text-foreground' : 'text-on-surface-variant'}`}>
+                      <div className="space-y-2">
+                        <p className={`text-lg font-black leading-tight tracking-tight font-headline ${isUnlocked ? 'text-foreground' : 'text-on-surface-variant'}`}>
                           {ach.name}
                         </p>
                         <p className="text-sm text-on-surface-variant/60 font-medium leading-relaxed">
@@ -220,9 +216,9 @@ const AchievementsPage = () => {
                       </div>
 
                       {isUnlocked && unlockedAt && (
-                        <div className="mt-6 pt-6 border-t border-border/40 flex items-center justify-between">
+                        <div className="mt-8 pt-6 border-t border-outline-variant/30 flex items-center justify-between">
                           <p className="text-[10px] font-black text-on-surface-variant/30 uppercase tracking-[0.2em]">
-                            ADQUIRIDO
+                            DESBLOQUEADO
                           </p>
                           <p className="text-[10px] font-black text-primary uppercase tracking-widest">
                             {format(new Date(unlockedAt), "d MMM yyyy", { locale: es })}
@@ -231,8 +227,8 @@ const AchievementsPage = () => {
                       )}
 
                       {!isUnlocked && (
-                         <div className="absolute inset-0 bg-surface-container-low/10 backdrop-blur-[1px] rounded-[32px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                            <span className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/40 bg-background/80 px-4 py-2 rounded-full border border-border/10 shadow-xl">Bloqueado</span>
+                         <div className="absolute inset-0 bg-surface/50 backdrop-blur-[1px] rounded-[32px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant/60 bg-surface px-4 py-2 rounded-full border border-outline-variant/30 shadow-xl">Bloqueado</span>
                          </div>
                       )}
                     </motion.div>

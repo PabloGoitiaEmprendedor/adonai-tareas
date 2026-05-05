@@ -52,6 +52,19 @@ interface FunnelMetrics {
   users_with_prioritization: number;
 }
 
+interface CohortGroup {
+  users: number;
+  retention: { [day: number]: number };
+}
+
+interface CohortRetention extends CohortGroup {
+  cohort: string;
+  subcohorts: {
+    "1-2 tareas": CohortGroup;
+    "3+ tareas": CohortGroup;
+  };
+}
+
 interface AdminAnalytics {
   totalUsers: number;
   activeToday: number;
@@ -81,6 +94,7 @@ interface AdminAnalytics {
   imageCapturesTotal: number;
   tasksExtractedFromImages: number;
   friendshipsTotal: number;
+  cohortRetention: CohortRetention[];
 }
 
 export const useAdminAnalytics = (timeRange: number | 'all' = 30, excludedUserIds: string[] = []) => {

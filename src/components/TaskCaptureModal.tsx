@@ -334,7 +334,7 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
 
     try {
       const resizedBase64 = await resizeImage(file);
-      const systemPrompt = `Eres Adonai, un asistente de productividad experto. Hoy es ${todayStr}. Tu trabajo es extraer tareas de la imagen proporcionada.`;
+      const systemPrompt = `Eres un asistente de productividad experto. Hoy es ${todayStr}. Tu trabajo es extraer tareas de la imagen proporcionada.`;
       const mimeType = file.type;
 
       const { data, error } = await supabase.functions.invoke('extract-tasks-from-image', {

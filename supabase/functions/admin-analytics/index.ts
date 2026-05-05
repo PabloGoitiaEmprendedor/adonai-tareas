@@ -60,7 +60,7 @@ serve(async (req) => {
     // Fetch all tasks
     const { data: allTasks, error: tasksError } = await supabase
       .from("tasks")
-      .select("id, user_id, status, source_type, importance, urgency, goal_id, recurrence_id, created_at, completed_at, due_date")
+      .select("id, user_id, status, source_type, importance, urgency, goal_id, recurrence_id, created_at, completed_at, due_date, updated_at")
       .neq("status", "deleted");
     if (tasksError) throw new Error(`tasks: ${tasksError.message}`);
 
@@ -260,6 +260,114 @@ serve(async (req) => {
     const cleanIC = timeRange === "all" ? cleanImageCaptures : cleanImageCaptures.filter(ic => (ic.created_at || "") >= startDateStr);
     const friendshipsTotal = timeRange === "all" ? cleanFriendships.length : cleanFriendships.filter(f => (f.created_at || "") >= startDateStr).length;
 
+    // Cohort Retention (Weekly cohorts based on FIRST TASK, daily retention 0-30)
+    const getMonday = (d: Date) => {
+      const day = d.getDay() || 7;
+      const mon = new Date(d);
+      if (day !== 1) mon.setHours(-24 * (day - 1));
+      return format(mon, "yyyy-MM-dd");
+    };
+
+    // 1. Find first task date and day 0 task count for each user
+    const userFirstTaskDate = new Map<string, Date>();
+    const userTasksOnDay0 = new Map<string, number>();
+
+    tasks.forEach(t => {
+      if (!t.created_at) return;
+      const tDate = parseISO(t.created_at.slice(0, 10));
+      if (!userFirstTaskDate.has(t.user_id) || tDate < userFirstTaskDate.get(t.user_id)!) {
+        userFirstTaskDate.set(t.user_id, tDate);
+      }
+    });
+
+    // 2. Count tasks on Day 0
+    tasks.forEach(t => {
+      if (!t.created_at) return;
+      const tDateStr = t.created_at.slice(0, 10);
+      const firstDate = userFirstTaskDate.get(t.user_id);
+      if (firstDate && tDateStr === format(firstDate, "yyyy-MM-dd")) {
+        userTasksOnDay0.set(t.user_id, (userTasksOnDay0.get(t.user_id) || 0) + 1);
+      }
+    });
+
+    const cohortsMap = new Map<string, { 
+      all: { users: string[], activeDays: { [uid: string]: Set<number> } },
+      sub_1_2: { users: string[], activeDays: { [uid: string]: Set<number> } },
+      sub_3_plus: { users: string[], activeDays: { [uid: string]: Set<number> } }
+    }>();
+
+    profiles.forEach(p => {
+      const firstTaskDate = userFirstTaskDate.get(p.user_id);
+      // Exclude users who haven't created any tasks
+      if (!firstTaskDate) return;
+
+      const mondayStr = getMonday(firstTaskDate);
+      if (!cohortsMap.has(mondayStr)) {
+        cohortsMap.set(mondayStr, { 
+          all: { users: [], activeDays: {} },
+          sub_1_2: { users: [], activeDays: {} },
+          sub_3_plus: { users: [], activeDays: {} }
+        });
+      }
+      
+      const cohort = cohortsMap.get(mondayStr)!;
+      const tasksOnDay0 = userTasksOnDay0.get(p.user_id) || 0;
+      
+      cohort.all.users.push(p.user_id);
+      if (tasksOnDay0 >= 3) cohort.sub_3_plus.users.push(p.user_id);
+      else cohort.sub_1_2.users.push(p.user_id);
+      
+      const userActiveDates = new Set<string>();
+      
+      // We only consider task interactions for "active"
+      tasks.filter(t => t.user_id === p.user_id).forEach(t => {
+        if (t.created_at) userActiveDates.add(t.created_at.slice(0, 10));
+        if (t.completed_at) userActiveDates.add(t.completed_at.slice(0, 10));
+        if (t.updated_at) userActiveDates.add(t.updated_at.slice(0, 10));
+      });
+
+      const dayIndices = new Set<number>();
+      userActiveDates.forEach(dateStr => {
+        const d = parseISO(dateStr);
+        const diffTime = d.getTime() - firstTaskDate.getTime();
+        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+        if (diffDays >= 0 && diffDays <= 30) {
+          dayIndices.add(diffDays);
+        }
+      });
+      
+      cohort.all.activeDays[p.user_id] = dayIndices;
+      if (tasksOnDay0 >= 3) cohort.sub_3_plus.activeDays[p.user_id] = dayIndices;
+      else cohort.sub_1_2.activeDays[p.user_id] = dayIndices;
+    });
+
+    const processCohortGroup = (group: { users: string[], activeDays: { [uid: string]: Set<number> } }) => {
+      const totalUsers = group.users.length;
+      const retention: { [day: number]: number } = {};
+      for (let i = 0; i <= 30; i++) {
+        let activeCount = 0;
+        group.users.forEach(uid => {
+          if (group.activeDays[uid].has(i)) activeCount++;
+        });
+        retention[i] = totalUsers > 0 ? Math.round((activeCount / totalUsers) * 100) : 0;
+      }
+      return { users: totalUsers, retention };
+    };
+
+    const cohortRetention = Array.from(cohortsMap.entries())
+      .filter(([monday]) => monday >= "2026-04-20") // Filter cohorts from April 20th, 2026 onwards
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([monday, data]) => {
+        return {
+          cohort: `Semana del ${monday}`,
+          ...processCohortGroup(data.all),
+          subcohorts: {
+            "1-2 tareas": processCohortGroup(data.sub_1_2),
+            "3+ tareas": processCohortGroup(data.sub_3_plus)
+          }
+        };
+      });
+
     return new Response(JSON.stringify({
       totalUsers, activeToday, totalTasksCreated, totalTasksCompleted,
       avgTasksPerUserPerDay, avgSessionMinutes,
@@ -271,6 +379,7 @@ serve(async (req) => {
       goalsTotal, goalsActive, timeBlocksTotal: tbTotal, achievementsUnlocked: achTotal,
       imageCapturesTotal: cleanIC.length, tasksExtractedFromImages: cleanIC.reduce((acc, ic) => acc + (ic.tasks_extracted || 0), 0),
       friendshipsTotal,
+      cohortRetention,
     }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },

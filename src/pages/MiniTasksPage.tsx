@@ -8,10 +8,11 @@
 import { useState, useEffect, useMemo, useRef, useCallback, memo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTasks } from '@/hooks/useTasks';
+import { useFolders } from '@/hooks/useFolders';
 import { useSubtasks } from '@/hooks/useSubtasks';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Check, MoreHorizontal, ChevronRight, Clock, Pause, Plus, Mic, Repeat, Link as LinkIcon } from 'lucide-react';
+import { Check, MoreHorizontal, ChevronRight, Clock, Pause, Plus, Mic, Repeat, Link as LinkIcon, Folder } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import TaskCaptureModal from '@/components/TaskCaptureModal';
 import TaskDetailModal from '@/components/TaskDetailModal';
@@ -116,10 +117,10 @@ const SubtaskRowRaw = ({ sub, onToggle, onUpdate }: { sub: any; onToggle: (sub: 
 const SubtaskRow = memo(SubtaskRowRaw);
 
 // ─── Task Row ────────────────────────────────────────────────────────────────
-const TaskRowRaw = ({ task, onToggle, onDetail, activeTimerId, onTimerToggle, updateTask }: {
+const TaskRowRaw = ({ task, onToggle, onDetail, activeTimerId, onTimerToggle, updateTask, folders }: {
   task: any; onToggle: (task: any) => void; onDetail: (task: any) => void;
   activeTimerId: string | null; onTimerToggle: (taskId: string, estimatedMinutes?: number) => void;
-  updateTask: any;
+  updateTask: any; folders: any[];
 }) => {
   const isDone = task.status === 'done';
   const [open, setOpen] = useState(false);
@@ -152,6 +153,8 @@ const TaskRowRaw = ({ task, onToggle, onDetail, activeTimerId, onTimerToggle, up
   const actualSeconds = task.actual_duration_seconds || 0;
   const estimatedSeconds = (task.estimated_minutes || 0) * 60;
   const isOverTime = actualSeconds > estimatedSeconds && estimatedSeconds > 0;
+
+  const folder = folders.find(f => f.id === task.folder_id);
 
   return (
     <motion.div layout initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
@@ -200,40 +203,50 @@ const TaskRowRaw = ({ task, onToggle, onDetail, activeTimerId, onTimerToggle, up
           </button>
         )}
 
-        {isEditing ? (
-          <input
-            autoFocus
-            value={draftTitle}
-            onChange={e => setDraftTitle(e.target.value)}
-            onBlur={submitEdit}
-            onKeyDown={e => {
-              if (e.key === 'Enter') submitEdit();
-              if (e.key === 'Escape') {
-                setDraftTitle(task.title);
-                setIsEditing(false);
-              }
-            }}
-            onClick={e => e.stopPropagation()}
-            style={{
-              flex: 1, fontSize: 13, fontWeight: 600, lineHeight: 1.3,
-              color: C.text, background: 'transparent', border: 'none',
-              borderBottom: `1px solid ${C.accent}`, outline: 'none', padding: 0
-            }}
-          />
-        ) : (
-          <span 
-            onClick={(e) => { e.stopPropagation(); setIsEditing(true); setDraftTitle(task.title); }}
-            title="Haz clic para editar"
-            style={{
-              flex: 1, fontSize: 13, fontWeight: 600, lineHeight: 1.3,
-              color: isDone ? C.muted : C.text,
-              textDecoration: isDone ? 'line-through' : 'none',
-              cursor: 'text'
-            }}
-          >
-            {task.title}
-          </span>
-        )}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          {isEditing ? (
+            <input
+              autoFocus
+              value={draftTitle}
+              onChange={e => setDraftTitle(e.target.value)}
+              onBlur={submitEdit}
+              onKeyDown={e => {
+                if (e.key === 'Enter') submitEdit();
+                if (e.key === 'Escape') {
+                  setDraftTitle(task.title);
+                  setIsEditing(false);
+                }
+              }}
+              onClick={e => e.stopPropagation()}
+              style={{
+                width: '100%', fontSize: 13, fontWeight: 600, lineHeight: 1.3,
+                color: C.text, background: 'transparent', border: 'none',
+                borderBottom: `1px solid ${C.accent}`, outline: 'none', padding: 0
+              }}
+            />
+          ) : (
+            <span 
+              onClick={(e) => { e.stopPropagation(); setIsEditing(true); setDraftTitle(task.title); }}
+              title="Haz clic para editar"
+              style={{
+                display: 'block', fontSize: 13, fontWeight: 600, lineHeight: 1.3,
+                color: isDone ? C.muted : C.text,
+                textDecoration: isDone ? 'line-through' : 'none',
+                cursor: 'text'
+              }}
+            >
+              {task.title}
+            </span>
+          )}
+          {folder && !isDone && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
+              <Folder style={{ width: 10, height: 10, color: folder.color }} />
+              <span style={{ fontSize: 9, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: C.muted, opacity: 0.6 }}>
+                {folder.name}
+              </span>
+            </div>
+          )}
+        </div>
 
         {/* Link / Timer / Duration Result */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -374,12 +387,15 @@ const MiniTaskList = () => {
   const { user, loading } = useAuth();
   const today = format(new Date(), 'yyyy-MM-dd');
   const { tasks, updateTask, isLoading } = useTasks({ date: today });
+  const { folders } = useFolders();
   const { checkAndUnlock } = useGamification();
   const { profile } = useProfile();
   const [completingId, setCompletingId] = useState<string | null>(null);
   const [isExpanded, setIsExpanded] = useState(false);
   const [isReady, setIsReady] = useState(false);
   const [now, setNow] = useState(new Date());
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
+  const [showFolderBar, setShowFolderBar] = useState(false);
 
   // Timer state
   const [activeTimerId, setActiveTimerId] = useState<string | null>(null);
@@ -587,8 +603,13 @@ const MiniTaskList = () => {
     }
   }, [tasks, activeTimerId, updateTask]);
 
+  const filteredTasks = useMemo(() => {
+    if (!selectedFolderId) return tasks;
+    return tasks.filter((t: any) => t.folder_id === selectedFolderId);
+  }, [tasks, selectedFolderId]);
+
   const sortedTasks = useMemo(() => {
-    return [...tasks].sort((a: any, b: any) => {
+    return [...filteredTasks].sort((a: any, b: any) => {
       const doneA = a.status === 'done' ? 1 : 0;
       const doneB = b.status === 'done' ? 1 : 0;
       if (doneA !== doneB) return doneA - doneB;
@@ -598,10 +619,10 @@ const MiniTaskList = () => {
 
       return (a.sort_order || 0) - (b.sort_order || 0);
     });
-  }, [tasks, quadrantRank]);
+  }, [filteredTasks, quadrantRank]);
 
-  const completedCount = tasks.filter((t: any) => t.status === 'done').length;
-  const totalCount = tasks.length;
+  const completedCount = filteredTasks.filter((t: any) => t.status === 'done').length;
+  const totalCount = filteredTasks.length;
   const progress = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
 
   const handleToggle = useCallback((task: any, e?: React.MouseEvent) => {
@@ -811,7 +832,23 @@ const MiniTaskList = () => {
             )}
           </div>
 
-          {/* VOICE button — green background */}
+          {/* 1. TEXT button — + icon */}
+          <div
+            onClick={(e) => { e.stopPropagation(); setCaptureMode('text'); setCaptureCreationSource('mini_plus'); setCaptureOpen(true); }}
+            style={{
+              width: 34, height: 28, borderRadius: 10,
+              background: C.subBg,
+              border: `1px solid ${C.border}`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: 'pointer', flexShrink: 0,
+              transition: 'all 0.2s ease',
+            }}
+            title="Añadir tarea"
+          >
+            <Plus style={{ width: 16, height: 16, color: C.text }} />
+          </div>
+
+          {/* 2. VOICE button — Audio icon */}
           <div
             onClick={(e) => { e.stopPropagation(); setCaptureMode('voice'); setCaptureCreationSource('mini_voice'); setCaptureOpen(true); }}
             style={{
@@ -823,10 +860,26 @@ const MiniTaskList = () => {
             }}
             title="Añadir por voz"
           >
-            <Mic style={{ width: 15, height: 15, color: '#F2F2F2' }} />
+            <Mic style={{ width: 15, height: 15, color: C.bg }} />
           </div>
 
-          {/* RECURRENCE button — Repeat icon */}
+          {/* 3. FOLDERS Toggle Button */}
+          <div
+            onClick={(e) => { e.stopPropagation(); setShowFolderBar(!showFolderBar); }}
+            style={{
+              width: 34, height: 28, borderRadius: 10,
+              background: showFolderBar ? C.accent : C.subBg,
+              border: `1px solid ${showFolderBar ? 'transparent' : C.border}`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: 'pointer', flexShrink: 0,
+              transition: 'all 0.2s ease',
+            }}
+            title="Ver carpetas"
+          >
+            <Folder style={{ width: 14, height: 14, color: showFolderBar ? '#000' : C.text }} />
+          </div>
+
+          {/* 4. RECURRENCE button — Repeat icon */}
           <div
             onClick={(e) => { 
               e.stopPropagation(); 
@@ -843,22 +896,6 @@ const MiniTaskList = () => {
             title="Crear tarea recurrente"
           >
             <Repeat style={{ width: 14, height: 14, color: C.text }} />
-          </div>
-
-          {/* TEXT button — + icon */}
-          <div
-            onClick={(e) => { e.stopPropagation(); setCaptureMode('text'); setCaptureCreationSource('mini_plus'); setCaptureOpen(true); }}
-            style={{
-              width: 34, height: 28, borderRadius: 10,
-              background: C.subBg,
-              border: `1px solid ${C.border}`,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              cursor: 'pointer', flexShrink: 0,
-              transition: 'all 0.2s ease',
-            }}
-            title="Añadir tarea"
-          >
-            <Plus style={{ width: 16, height: 16, color: C.text }} />
           </div>
         </div>
 
@@ -882,6 +919,58 @@ const MiniTaskList = () => {
         </div>
       )}
 
+      {/* Folder bar — Toggleable */}
+      <AnimatePresence>
+        {showFolderBar && (
+          <motion.div 
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            style={{ overflow: 'hidden' }}
+          >
+            <div style={{ 
+              display: 'flex', alignItems: 'center', gap: 6, 
+              padding: '8px 12px', overflowX: 'auto', 
+              borderBottom: `1px solid ${C.border}33`,
+              background: 'rgba(255,255,255,0.02)'
+            }} className="no-scrollbar">
+              <button
+                onClick={() => setSelectedFolderId(null)}
+                style={{
+                  flexShrink: 0, padding: '4px 12px', borderRadius: 8,
+                  fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em',
+                  background: !selectedFolderId ? C.accent : 'transparent',
+                  color: !selectedFolderId ? '#000' : C.muted,
+                  border: `1px solid ${!selectedFolderId ? 'transparent' : C.border}`,
+                  display: 'flex', alignItems: 'center', gap: 4,
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                General
+              </button>
+              {folders.map(folder => (
+                <button
+                  key={folder.id}
+                  onClick={() => setSelectedFolderId(folder.id)}
+                  style={{
+                    flexShrink: 0, padding: '4px 12px', borderRadius: 8,
+                    fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em',
+                    background: selectedFolderId === folder.id ? C.accent : 'transparent',
+                    color: selectedFolderId === folder.id ? '#000' : C.muted,
+                    border: `1px solid ${selectedFolderId === folder.id ? 'transparent' : C.border}`,
+                    display: 'flex', alignItems: 'center', gap: 4,
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  <Folder style={{ width: 10, height: 10, color: selectedFolderId === folder.id ? '#000' : folder.color }} />
+                  {folder.name}
+                </button>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Task list */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '6px 10px 10px' }}>
         {loading || isLoading ? (
@@ -896,8 +985,10 @@ const MiniTaskList = () => {
           <p style={{ textAlign: 'center', fontSize: 12, color: C.muted, padding: 16 }}>Abre la app principal primero.</p>
         ) : sortedTasks.length === 0 ? (
           <div style={{ textAlign: 'center', padding: 24 }}>
-            <span style={{ fontSize: 28 }}>🎉</span>
-            <p style={{ fontSize: 12, fontWeight: 800, marginTop: 8, color: C.text }}>¡Día despejado!</p>
+            <span style={{ fontSize: 28 }}>✨</span>
+            <p style={{ fontSize: 11, fontWeight: 800, marginTop: 8, color: C.text, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              {selectedFolderId ? 'Sin tareas en esta carpeta' : '¡Día despejado!'}
+            </p>
           </div>
         ) : (
           <AnimatePresence mode="popLayout">
@@ -908,7 +999,8 @@ const MiniTaskList = () => {
                 onDetail={(t) => { setSelectedTask(t); setDetailOpen(true); }}
                 activeTimerId={activeTimerId}
                 onTimerToggle={handleTimerToggle}
-                updateTask={updateTask} />
+                updateTask={updateTask}
+                folders={folders} />
             ))}
           </AnimatePresence>
         )}
