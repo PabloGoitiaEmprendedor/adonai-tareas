@@ -1,7 +1,7 @@
 {
   "name": "adonai",
   "private": true,
-  "version": "1.0.98",
+  "version": "1.0.99",
   "type": "module",
   "main": "electron/main.cjs",
   "repository": {
@@ -133,7 +133,7 @@
     "win": {
       "target": "nsis",
       "signAndEditExecutable": false,
-      "icon": "build/icon.png"
+      "icon": "build/icon.ico"
     },
     "nsis": {
       "oneClick": true,
