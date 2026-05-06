@@ -35,9 +35,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setUser(newSession?.user ?? null);
 
       if (event === 'TOKEN_REFRESHED') {
-        // Token was silently refreshed — reload ALL data with the fresh token
-        console.log('[Auth] Token refreshed — invalidating all queries');
-        queryClient.invalidateQueries();
+        console.log('[Auth] Token refreshed');
       }
 
       if (event === 'SIGNED_IN') {
@@ -49,7 +47,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           }).then(() => {});
           sessionStorage.setItem('adonai_session_start', Date.now().toString());
         }
-        queryClient.invalidateQueries();
+        // queryClient.invalidateQueries();
       }
 
       if (event === 'SIGNED_OUT') {

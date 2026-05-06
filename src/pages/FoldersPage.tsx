@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { useFolders } from '@/hooks/useFolders';
 import { useTasks } from '@/hooks/useTasks';
 import { useFriendships } from '@/hooks/useFriendships';

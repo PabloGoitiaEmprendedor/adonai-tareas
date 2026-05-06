@@ -16,7 +16,7 @@ const SCOPES = [
   "openid",
   "email",
   "profile",
-  "https://www.googleapis.com/auth/calendar.readonly",
+  "https://www.googleapis.com/auth/calendar",
 ].join(" ");
 
 Deno.serve(async (req) => {
@@ -25,7 +25,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { action, code, redirect_uri } = await req.json();
+    const { action, code, redirect_uri, user_id } = await req.json();
 
     if (action === "get-url") {
       const params = new URLSearchParams({
@@ -43,6 +43,8 @@ Deno.serve(async (req) => {
     }
 
     if (action === "callback") {
+      console.log("Processing callback with code and redirect_uri:", redirect_uri);
+      
       // Exchange code for tokens
       const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
         method: "POST",
@@ -65,66 +67,32 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Get user info from Google
+      // Get user info from Google to know which account is being linked
       const userInfoRes = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
         headers: { Authorization: `Bearer ${tokens.access_token}` },
       });
       const userInfo = await userInfoRes.json();
 
-      // Sign in or create user via Supabase Admin
-      // First try to find existing user by email
-      const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
-      const existingUser = existingUsers?.users?.find((u: any) => u.email === userInfo.email);
+      let targetUserId = user_id;
 
-      let userId: string;
-      let sessionData: any;
-
-      if (existingUser) {
-        // Generate a session for existing user
-        const { data, error } = await supabaseAdmin.auth.admin.generateLink({
-          type: "magiclink",
-          email: userInfo.email,
-        });
-        if (error) throw error;
-
-        // Sign in with the OTP token
-        const { data: session, error: sessionError } = await supabaseAdmin.auth.admin.generateLink({
-          type: "magiclink",
-          email: userInfo.email,
-        });
-
-        userId = existingUser.id;
-        
-        // Create a custom session token
-        const { data: signInData, error: signInError } = await supabaseAdmin.auth.admin.generateLink({
-          type: "magiclink", 
-          email: userInfo.email,
-        });
-        
-        sessionData = signInData;
-      } else {
-        // Create new user
-        const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
-          email: userInfo.email,
-          email_confirm: true,
-          user_metadata: {
-            full_name: userInfo.name,
-            avatar_url: userInfo.picture,
-          },
-        });
-        if (createError) throw createError;
-        userId = newUser.user.id;
-
-        // Update profile with Google info
-        await supabaseAdmin.from("profiles").update({
-          name: userInfo.name,
-          email: userInfo.email,
-        }).eq("user_id", userId);
-
-        sessionData = await supabaseAdmin.auth.admin.generateLink({
-          type: "magiclink",
-          email: userInfo.email,
-        });
+      // If no user_id provided, try to find user by email
+      if (!targetUserId) {
+        const { data: userByEmail } = await supabaseAdmin.auth.admin.getUserByEmail(userInfo.email);
+        if (userByEmail?.user) {
+          targetUserId = userByEmail.user.id;
+        } else {
+          // If still no user, we might need to create one (fallback)
+          const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
+            email: userInfo.email,
+            email_confirm: true,
+            user_metadata: {
+              full_name: userInfo.name,
+              avatar_url: userInfo.picture,
+            },
+          });
+          if (createError) throw createError;
+          targetUserId = newUser.user.id;
+        }
       }
 
       // Store calendar tokens
@@ -133,26 +101,36 @@ Deno.serve(async (req) => {
       const { error: tokenError } = await supabaseAdmin
         .from("google_calendar_tokens")
         .upsert({
-          user_id: userId,
+          user_id: targetUserId,
           access_token: tokens.access_token,
           refresh_token: tokens.refresh_token || "",
           expires_at: expiresAt,
+          email: userInfo.email,
         }, { onConflict: "user_id" });
 
       if (tokenError) {
         console.error("Error storing tokens:", tokenError);
+        throw tokenError;
       }
 
       // Mark calendar as connected in settings
-      await supabaseAdmin.from("settings").update({ calendar_connected: true }).eq("user_id", userId);
+      // Check if setting row exists first
+      const { data: existingSettings } = await supabaseAdmin
+        .from("settings")
+        .select("id")
+        .eq("user_id", targetUserId)
+        .single();
 
-      // Return the magic link properties so frontend can verify
+      if (existingSettings) {
+        await supabaseAdmin.from("settings").update({ calendar_connected: true }).eq("user_id", targetUserId);
+      } else {
+        await supabaseAdmin.from("settings").insert({ user_id: targetUserId, calendar_connected: true });
+      }
+
       return new Response(JSON.stringify({
         success: true,
         email: userInfo.email,
         name: userInfo.name,
-        hashed_token: sessionData?.data?.properties?.hashed_token,
-        verification_url: sessionData?.data?.properties?.action_link,
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });

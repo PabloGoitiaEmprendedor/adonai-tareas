@@ -20,8 +20,12 @@ import { AISchedulerModal } from '@/components/AISchedulerModal';
 import SubtasksSection from '@/components/SubtasksSection';
 import { TaskCard } from '@/components/TaskCard';
 import { Sparkles } from 'lucide-react';
-import { EventManager } from '@/components/ui/event-manager';
+import { EventManager } from '@/components/ui/event-manager.tsx';
 
+
+import { useCalendarEvents } from '@/hooks/useCalendarEvents';
+import GoogleCalendarView from '@/components/calendar/GoogleCalendarView';
+import { supabase } from '@/integrations/supabase/client';
 
 const WeeklyPage = () => {
   const [captureOpen, setCaptureOpen] = useState(false);
@@ -36,11 +40,23 @@ const WeeklyPage = () => {
 
   const [aiModalOpen, setAiModalOpen] = useState(false);
   const [view, setView] = useState<'list' | 'calendar'>('calendar');
+  const [source, setSource] = useState<'adonai' | 'google'>('adonai');
+
+  // const { events: googleEvents, connected, isLoading: isCalendarLoading } = useCalendarEvents();
+  const googleEvents: any[] = [];
+  const connected = false;
+  const isCalendarLoading = false;
+
+  const handleConnectGoogle = async () => {
+    // Reverted for stability
+  };
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 60000);
     return () => clearInterval(timer);
   }, []);
+
+  // ... rest of state and logic ...
 
   const weekStart = startOfWeek(selectedDay, { weekStartsOn: 1 });
   const weekEnd = addDays(weekStart, 6);
@@ -210,27 +226,60 @@ const WeeklyPage = () => {
   const { colors: priorityColors } = usePriorityColors();
 
   return (
-      <div className="max-w-7xl mx-auto px-6 pt-12 pb-32 space-y-10">
-        <header className="flex flex-col items-center justify-center space-y-4 px-2 animate-in fade-in slide-in-from-top-4 duration-700">
-          <div className="flex flex-col items-center gap-3">
-            <div className="w-12 h-12 rounded-[24px] bg-primary/10 flex items-center justify-center border border-primary/20 shadow-sm">
-              <CalendarIcon className="w-6 h-6 text-primary" />
-            </div>
-            <div className="text-center">
-              <h1 className="text-[32px] font-black font-headline tracking-tight text-foreground leading-none">
-                Calendario
-              </h1>
-              <div className="flex items-center justify-center gap-2 mt-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-primary/40" />
-                <p className="text-[11px] font-black text-on-surface-variant/40 uppercase tracking-[0.2em]">Vista Mensual</p>
-              </div>
+      <div className="max-w-7xl mx-auto px-6 pt-12 pb-10 space-y-10">
+              {/* Sticky Header Container */}
+        <div className="sticky top-0 z-50 bg-background/80 backdrop-blur-3xl pb-4 -mx-6 px-6 pt-6 border-b border-outline-variant/5">
+          {/* Source Switcher */}
+          <div className="flex justify-center mb-6">
+            <div className="flex bg-surface-container-high/50 backdrop-blur-xl rounded-[24px] p-1.5 border border-outline-variant/10 shadow-2xl">
+              <button 
+                onClick={() => setSource('adonai')}
+                className={`px-8 py-3 rounded-[20px] text-[10px] font-black uppercase tracking-[0.2em] transition-all duration-500 ${source === 'adonai' ? 'bg-primary text-primary-foreground shadow-xl shadow-primary/20 scale-105' : 'text-on-surface-variant/40 hover:text-foreground'}`}
+              >
+                Tareas Adonai
+              </button>
+              <button 
+                onClick={() => setSource('google')}
+                className={`px-8 py-3 rounded-[20px] text-[10px] font-black uppercase tracking-[0.2em] transition-all duration-500 ${source === 'google' ? 'bg-primary text-primary-foreground shadow-xl shadow-primary/20 scale-105' : 'text-on-surface-variant/40 hover:text-foreground'}`}
+              >
+                Google Calendar
+              </button>
             </div>
           </div>
-        </header>
 
-        <section className="space-y-10">
-          {view === 'calendar' ? (
+          <header className="flex items-center justify-between px-2 animate-in fade-in slide-in-from-top-4 duration-700">
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 rounded-[18px] bg-primary/10 flex items-center justify-center border border-primary/20 shadow-sm">
+                <CalendarIcon className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <h1 className="text-[24px] font-black font-headline tracking-tight text-foreground leading-none">
+                  {source === 'google' ? 'Google Calendar' : 'Calendario'}
+                </h1>
+                <p className="text-[10px] font-black text-on-surface-variant/40 uppercase tracking-[0.2em] mt-1">
+                  {source === 'google' ? 'Sincronización Realtime' : 'Vista Semanal'}
+                </p>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-4">
+              {/* Optional: Add view selector here if source is adonai */}
+            </div>
+          </header>
+        </div>
+
+        <section className="space-y-6 pt-4">
+          {source === 'google' ? (
+            <GoogleCalendarView 
+              events={googleEvents}
+              selectedDate={selectedDay}
+              onSelectDate={setSelectedDay}
+              onConnect={handleConnectGoogle}
+              isConnected={connected}
+            />
+          ) : view === 'calendar' ? (
             <EventManager 
+              defaultView="week"
               events={tasks.map(t => {
                 const colorKey = t.urgency && t.importance ? 'p1' : 
                                 t.urgency && !t.importance ? 'p2' :
@@ -251,7 +300,7 @@ const WeeklyPage = () => {
                 const task = tasks.find(t => t.id === event.id);
                 if (task) setSelectedTask(task);
               }}
-              className="animate-in fade-in zoom-in-95 duration-500"
+              className="mt-0 animate-in fade-in zoom-in-95 duration-500"
             />
           ) : orderedTasks.length === 0 ? (
             <motion.div 

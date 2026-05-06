@@ -39,16 +39,6 @@ const queryClient = new QueryClient({
       refetchOnWindowFocus: true,
       staleTime: 1000 * 60 * 5,
       retry: (failureCount, error: unknown) => {
-        // Detect auth/token errors from Supabase
-        const msg = (error as { message?: string })?.message || '';
-        const code = (error as { code?: string })?.code || '';
-        const isAuthError = msg.includes('JWT') || msg.includes('token') ||
-                            code === 'PGRST301' || code === '401';
-        if (isAuthError && failureCount === 0) {
-          // Refresh token and retry once — this fixes stale-token empty-data issues
-          supabase.auth.refreshSession();
-          return true;
-        }
         return failureCount < 2;
       },
       retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
@@ -132,6 +122,8 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
+// import CalendarCallback from "./pages/CalendarCallback";
+
 const AppRoutes = () => {
   const { user, loading } = useAuth();
   
@@ -151,6 +143,7 @@ const AppRoutes = () => {
         <Route path="/mini" element={<MiniTasksPage />} />
         <Route path="/auth" element={user ? <Navigate to="/daily" replace /> : <AuthPage />} />
         <Route path="/onboarding" element={<OnboardingPage />} />
+        {/* <Route path="/calendar-callback" element={appRouteElement(<CalendarCallback />)} /> */}
         
         <Route 
           path="/" 

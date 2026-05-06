@@ -18,6 +18,10 @@ export default defineConfig(({ mode }) => ({
     },
   },
   plugins: [react()].filter(Boolean),
+  optimizeDeps: {
+    noDiscovery: true,
+    include: [],
+  },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

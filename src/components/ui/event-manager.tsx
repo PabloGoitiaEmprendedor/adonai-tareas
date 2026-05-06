@@ -269,7 +269,7 @@ export function EventManager({
   return (
     <div className={cn("flex flex-col gap-4", className)}>
       {/* Header */}
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between px-2">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between px-2 sticky top-[150px] z-40 bg-background/95 backdrop-blur-3xl py-4 -mx-2 border-b border-outline-variant/5">
         <div className="flex items-center justify-between w-full lg:w-auto gap-4">
           <h2 className="text-[16px] font-black font-headline tracking-tight text-foreground uppercase">
             {view === "month" &&
@@ -303,8 +303,31 @@ export function EventManager({
           </div>
         </div>
 
-        <div className="hidden">
-          {/* View selector hidden since week and day views are not implemented */}
+        <div className="flex bg-surface-container-low/80 rounded-[18px] p-1 border border-outline-variant/10">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => setView("month")} 
+            className={cn("text-[9px] font-black uppercase tracking-widest h-8 px-4 rounded-xl transition-all", view === "month" ? "bg-white dark:bg-surface-container-high shadow-lg text-primary" : "opacity-40 hover:opacity-100")}
+          >
+            Mes
+          </Button>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => setView("week")} 
+            className={cn("text-[9px] font-black uppercase tracking-widest h-8 px-4 rounded-xl transition-all", view === "week" ? "bg-white dark:bg-surface-container-high shadow-lg text-primary" : "opacity-40 hover:opacity-100")}
+          >
+            Semana
+          </Button>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => setView("day")} 
+            className={cn("text-[9px] font-black uppercase tracking-widest h-8 px-4 rounded-xl transition-all", view === "day" ? "bg-white dark:bg-surface-container-high shadow-lg text-primary" : "opacity-40 hover:opacity-100")}
+          >
+            Día
+          </Button>
         </div>
       </div>
 
@@ -324,8 +347,171 @@ export function EventManager({
             getColorClasses={getColorClasses}
           />
         )}
-        {/* ... (other views will be added if needed) */}
+        {(view === "week" || view === "day") && (
+          <TimeGridView
+            view={view}
+            currentDate={currentDate}
+            events={filteredEvents}
+            onEventClick={(event) => {
+              setSelectedEvent(event)
+              setIsDialogOpen(true)
+            }}
+            onDrop={handleDrop}
+            getColorClasses={getColorClasses}
+          />
+        )}
       </div>
+    </div>
+  )
+}
+
+function TimeGridView({
+  view,
+  currentDate,
+  events,
+  onEventClick,
+  onDrop,
+  getColorClasses,
+}: {
+  view: "week" | "day"
+  currentDate: Date
+  events: Event[]
+  onEventClick: (event: Event) => void
+  onDrop: (date: Date, hour: number) => void
+  getColorClasses: (color: string) => { bg: string; text: string }
+}) {
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
+  
+  const days = useMemo(() => {
+    if (view === "day") return [currentDate]
+    const start = new Date(currentDate)
+    start.setDate(start.getDate() - start.getDay() + (start.getDay() === 0 ? -6 : 1)) // Monday start
+    return Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(start)
+      d.setDate(d.getDate() + i)
+      return d
+    })
+  }, [currentDate, view])
+
+  const hours = Array.from({ length: 24 }, (_, i) => i)
+
+  useEffect(() => {
+    if (scrollContainerRef.current) {
+      const now = new Date()
+      const scrollPosition = (now.getHours() * 60) - 100
+      scrollContainerRef.current.scrollTop = Math.max(0, scrollPosition)
+    }
+  }, [])
+
+  return (
+    <Card className="flex flex-col overflow-hidden border-outline-variant/10 bg-surface-container/30 backdrop-blur-sm shadow-sm">
+      {/* Grid Header - Sticky below main calendar nav */}
+      <div className="flex border-b border-outline-variant/5 bg-surface-container/80 sticky top-[230px] z-30 backdrop-blur-xl">
+        <div className="w-16 flex-shrink-0 border-r border-outline-variant/5" />
+        <div className={cn("flex-1 grid", view === "week" ? "grid-cols-7" : "grid-cols-1")}>
+          {days.map((day) => (
+            <div key={day.toISOString()} className="py-3 text-center border-r border-outline-variant/5 last:border-r-0">
+              <p className={cn(
+                "text-[9px] font-black uppercase tracking-widest mb-1",
+                day.toDateString() === new Date().toDateString() ? "text-primary" : "text-muted-foreground/60"
+              )}>
+                {day.toLocaleDateString("es-ES", { weekday: "short" })}
+              </p>
+              <p className={cn(
+                "text-sm font-black",
+                day.toDateString() === new Date().toDateString() && "text-primary"
+              )}>
+                {day.getDate()}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Grid Body */}
+      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto no-scrollbar scroll-smooth">
+        <div className="relative flex h-[1440px]">
+          {/* Time Labels */}
+          <div className="w-16 flex-shrink-0 border-r border-outline-variant/5 bg-surface-container/20">
+            {hours.map((hour) => (
+              <div key={hour} className="h-[60px] relative">
+                <span className="absolute -top-2 right-2 text-[9px] font-black text-muted-foreground/40 uppercase">
+                  {hour === 0 ? "" : `${hour}:00`}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          {/* Grid Columns */}
+          <div className={cn("flex-1 grid relative", view === "week" ? "grid-cols-7" : "grid-cols-1")}>
+            {/* Horizontal Grid Lines */}
+            {hours.map((hour) => (
+              <div key={hour} className="absolute w-full border-b border-outline-variant/5" style={{ top: `${hour * 60}px`, height: "60px" }} />
+            ))}
+
+            {/* Event Slots */}
+            {days.map((day, dayIdx) => (
+              <div key={dayIdx} className="relative h-full border-r border-outline-variant/5 last:border-r-0">
+                {hours.map((hour) => (
+                  <div
+                    key={hour}
+                    className="h-[60px] cursor-pointer hover:bg-primary/5 transition-colors"
+                    onClick={() => {
+                      const d = new Date(day)
+                      d.setHours(hour, 0, 0, 0)
+                      // Handle click to create if needed
+                    }}
+                  />
+                ))}
+
+                {/* Events for this day */}
+                {events
+                  .filter((event) => event.startTime.toDateString() === day.toDateString())
+                  .map((event) => {
+                    const startHour = event.startTime.getHours() + event.startTime.getMinutes() / 60
+                    const duration = Math.max(0.5, (event.endTime.getTime() - event.startTime.getTime()) / (1000 * 60 * 60))
+                    
+                    return (
+                      <div
+                        key={event.id}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onEventClick(event)
+                        }}
+                        className={cn(
+                          "absolute inset-x-1 rounded-lg p-2 text-[10px] font-bold text-white shadow-lg cursor-pointer hover:brightness-110 transition-all z-10 overflow-hidden",
+                          !event.color.startsWith('#') && !event.color.startsWith('var') && getColorClasses(event.color).bg
+                        )}
+                        style={{
+                          top: `${startHour * 60}px`,
+                          height: `${duration * 60}px`,
+                          backgroundColor: (event.color.startsWith('#') || event.color.startsWith('var')) ? event.color : undefined
+                        }}
+                      >
+                        <p className="truncate">{event.title}</p>
+                        {duration > 0.7 && <p className="opacity-70 text-[8px]">{format(event.startTime, "HH:mm")} - {format(event.endTime, "HH:mm")}</p>}
+                      </div>
+                    )
+                  })}
+              </div>
+            ))}
+
+            {/* Current Time Indicator */}
+            {days.some(d => d.toDateString() === new Date().toDateString()) && (
+              <div 
+                className="absolute w-full flex items-center z-20 pointer-events-none"
+                style={{ top: `${(new Date().getHours() + new Date().getMinutes() / 60) * 60}px` }}
+              >
+                <div className="w-2 h-2 rounded-full bg-red-500 -ml-1 border border-white" />
+                <div className="flex-1 h-px bg-red-500 opacity-50" />
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </Card>
+  )
+}
 
       {/* Dialogs */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -412,10 +598,9 @@ function MonthView({
           const isToday = day.toDateString() === new Date().toDateString()
 
           return (
-            <HoverCard openDelay={100} closeDelay={100}>
+            <HoverCard key={index} openDelay={100} closeDelay={100}>
               <HoverCardTrigger asChild>
                 <div
-                  key={index}
                   className={cn(
                     "min-h-24 border-b border-r border-outline-variant/5 p-2 transition-colors last:border-r-0",
                     !isCurrentMonth && "opacity-20",
@@ -497,3 +682,4 @@ function MonthView({
     </Card>
   )
 }
+
