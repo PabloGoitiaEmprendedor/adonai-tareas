@@ -4,6 +4,32 @@ const path = require('path');
 const fs = require('fs');
 const { autoUpdater } = require('electron-updater');
 
+// ── Logging System ──────────────────────────────────────────────────────────
+const logPath = path.join(app.getPath('userData'), 'adonai-app.log');
+function logToFile(message) {
+  const timestamp = new Date().toISOString();
+  const logMessage = `[${timestamp}] ${message}\n`;
+  try {
+    fs.appendFileSync(logPath, logMessage);
+  } catch (err) {
+    console.error('Failed to write to log file:', err);
+  }
+}
+
+logToFile('--- App starting ---');
+logToFile(`App Version: ${app.getVersion()}`);
+logToFile(`Platform: ${process.platform}`);
+logToFile(`Arch: ${process.arch}`);
+
+process.on('uncaughtException', (error) => {
+  logToFile(`CRITICAL: Uncaught Exception: ${error.stack || error}`);
+  dialog.showErrorBox('Error en el proceso principal', error.message || 'Error desconocido');
+});
+
+process.on('unhandledRejection', (reason) => {
+  logToFile(`CRITICAL: Unhandled Rejection: ${reason}`);
+});
+
 let mainWindow;
 let miniWindow;
 let bubbleWindow;
@@ -18,15 +44,20 @@ app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 const gotTheLock = app.requestSingleInstanceLock();
 
 if (!gotTheLock) {
+  logToFile('Second instance detected. Quitting.');
   app.quit();
 } else {
+  logToFile('Lock acquired.');
   Menu.setApplicationMenu(null);
   app.on('second-instance', (event, commandLine) => {
+    logToFile('Second instance event received.');
     // Someone tried to run a second instance, we should focus our window.
     if (mainWindow) {
+      logToFile('Focusing existing main window.');
       if (mainWindow.isMinimized()) mainWindow.restore();
       mainWindow.focus();
     } else {
+      logToFile('No main window found. Creating one.');
       createMainWindow();
     }
     
@@ -34,12 +65,14 @@ if (!gotTheLock) {
     // find the custom protocol URL in the command line arguments.
     const url = commandLine.find(arg => arg.startsWith('adonai-tasks://'));
     if (url) {
+      logToFile(`Handling deep link from second instance: ${url}`);
       handleDeepLink(url);
     }
   });
 
   // Handle deep link on macOS
   app.on('open-url', (event, url) => {
+    logToFile(`Handling open-url (macOS): ${url}`);
     event.preventDefault();
     handleDeepLink(url);
   });
@@ -138,7 +171,7 @@ autoUpdater.on('update-not-available', () => {
 });
 
 autoUpdater.on('error', (err) => {
-  // silent
+  logToFile(`Auto-updater error: ${err}`);
 });
 
 function createMainWindow() {
@@ -160,14 +193,16 @@ function createMainWindow() {
     },
     icon: path.join(__dirname, '..', app.isPackaged ? 'dist' : 'public', 'icon.png'),
   });
-  const indexPath = app.isPackaged
-    ? path.join(process.resourcesPath, 'app.asar', 'dist', 'index.html')
-    : path.join(__dirname, '..', 'dist', 'index.html');
+  const indexPath = path.join(__dirname, '..', 'dist', 'index.html');
+  logToFile(`Loading main window: ${indexPath}`);
 
   if (!app.isPackaged) {
-    mainWindow.loadURL('http://localhost:8080');
+    mainWindow.loadURL('http://localhost:8080').catch(err => {
+      logToFile(`Failed to load dev URL: ${err}`);
+    });
   } else {
     mainWindow.loadFile(indexPath).catch(err => {
+      logToFile(`Failed to load index.html: ${err}`);
       console.error('Failed to load index.html:', err);
     });
     autoUpdater.checkForUpdatesAndNotify();
@@ -266,13 +301,16 @@ function createMiniWindow() {
   // Mini window starts hidden — renderer signals when session is ready
   let miniShown = false;
 
-  const indexPath = app.isPackaged
-    ? path.join(process.resourcesPath, 'app.asar', 'dist', 'index.html')
-    : path.join(__dirname, '..', 'dist', 'index.html');
+  const indexPath = path.join(__dirname, '..', 'dist', 'index.html');
+  logToFile(`Loading mini window: ${indexPath}`);
+
   if (!app.isPackaged) {
-    miniWindow.loadURL('http://localhost:8080/#/mini');
+    miniWindow.loadURL('http://localhost:8080/#/mini').catch(err => {
+      logToFile(`Failed to load mini dev URL: ${err}`);
+    });
   } else {
     miniWindow.loadFile(indexPath, { hash: 'mini' }).catch(err => {
+      logToFile(`Mini window failed to load: ${err}`);
       console.error('Mini window failed to load:', err);
     });
   }
@@ -532,11 +570,18 @@ function createSelectionBubbleWindow() {
     },
   });
 
-  const url = !app.isPackaged
-    ? 'http://localhost:8080/#/selection-bubble'
-    : `file://${path.join(__dirname, '../dist/index.html')}#/selection-bubble`;
+  const indexPath = path.join(__dirname, '..', 'dist', 'index.html');
+  logToFile(`Loading bubble window: ${indexPath}`);
 
-  bubbleWindow.loadURL(url);
+  if (!app.isPackaged) {
+    bubbleWindow.loadURL('http://localhost:8080/#/selection-bubble').catch(err => {
+      logToFile(`Failed to load bubble dev URL: ${err}`);
+    });
+  } else {
+    bubbleWindow.loadFile(indexPath, { hash: 'selection-bubble' }).catch(err => {
+      logToFile(`Failed to load bubble window: ${err}`);
+    });
+  }
 }
 
 function createQuickTaskWindow(initialText = '') {
@@ -564,11 +609,21 @@ function createQuickTaskWindow(initialText = '') {
     },
   });
 
-  const url = !app.isPackaged
-    ? `http://localhost:8080/#/quick-task?text=${encodeURIComponent(initialText)}`
-    : `file://${path.join(__dirname, '../dist/index.html')}#/quick-task?text=${encodeURIComponent(initialText)}`;
+  const indexPath = path.join(__dirname, '..', 'dist', 'index.html');
+  logToFile(`Loading quick task window: ${indexPath}`);
 
-  quickTaskWindow.loadURL(url);
+  if (!app.isPackaged) {
+    quickTaskWindow.loadURL(`http://localhost:8080/#/quick-task?text=${encodeURIComponent(initialText)}`).catch(err => {
+      logToFile(`Failed to load quick-task dev URL: ${err}`);
+    });
+  } else {
+    quickTaskWindow.loadFile(indexPath, { 
+      hash: 'quick-task',
+      query: { text: initialText }
+    }).catch(err => {
+      logToFile(`Failed to load quick-task window: ${err}`);
+    });
+  }
 
   quickTaskWindow.on('closed', () => {
     quickTaskWindow = null;

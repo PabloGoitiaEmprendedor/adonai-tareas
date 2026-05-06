@@ -20,6 +20,8 @@ import { useGamification } from '@/hooks/useGamification';
 import { TaskCard } from '@/components/TaskCard';
 import { openDownloadDialog } from '@/lib/desktopApp';
 import MiniTaskWidget from '@/components/MiniTaskWidget';
+import { ChaosBuddiesTrigger } from '@/components/ChaosBuddiesTrigger';
+import { WeeklySummaryModal } from '@/components/WeeklySummaryModal';
 
 const getDynamicGreeting = (
   name: string,
@@ -390,6 +392,8 @@ const DailyPage = () => {
       {!window.electronAPI && (
         <MiniTaskWidget isOpen={miniWidgetOpen} onClose={() => setMiniWidgetOpen(false)} />
       )}
+      <ChaosBuddiesTrigger />
+      <WeeklySummaryModal />
     </div>
   );
 };

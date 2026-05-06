@@ -102,7 +102,12 @@ function Hero() {
           </p>
           <div className="mt-8 flex flex-col sm:flex-row gap-3">
             <DownloadButton platform="win" />
-            <DownloadButton platform="mac" />
+            <Link 
+              to="/onboarding" 
+              className="inline-flex items-center justify-center rounded-full border-2 border-primary px-8 py-4 text-lg font-bold text-primary transition hover:bg-primary/5"
+            >
+              Probar en la web
+            </Link>
           </div>
           <p className="mt-4 text-sm text-foreground/60">
             Descárgala gratis. Sin cuenta. Sin tarjeta. Solo instala y empieza.
@@ -319,9 +324,14 @@ function FinalCTA() {
         <p className="mt-6 text-xl text-background/70">
           Disponible para Windows y Mac. Gratis, sin cuenta, sin tarjeta.
         </p>
-        <div className="mt-10 flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
+        <div className="mt-10 flex flex-col sm:flex-row gap-3 max-w-lg mx-auto">
           <DownloadButton platform="win" variant="cta" />
-          <DownloadButton platform="mac" variant="cta" />
+          <Link 
+            to="/onboarding" 
+            className="w-full inline-flex items-center justify-center gap-2 rounded-full border-2 border-primary px-6 py-4 text-base font-bold text-primary transition hover:bg-primary/5"
+          >
+            Probar en la web
+          </Link>
         </div>
       </div>
     </section>

@@ -10,13 +10,41 @@ export const useFolders = () => {
     queryKey: ['folders', user?.id],
     queryFn: async () => {
       if (!user) return [];
-      const { data, error } = await supabase
+      
+      // Fetch owned folders
+      const { data: ownedData, error: ownedError } = await supabase
         .from('folders')
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: true });
-      if (error) throw error;
-      return data;
+      
+      if (ownedError) throw ownedError;
+
+      // Fetch shared folders
+      const { data: sharedRelations, error: sharedError } = await supabase
+        .from('folder_shares')
+        .select('folder_id')
+        .eq('shared_with_id', user.id);
+      
+      if (sharedError) throw sharedError;
+
+      if (sharedRelations && sharedRelations.length > 0) {
+        const sharedFolderIds = sharedRelations.map(r => r.folder_id);
+        const { data: sharedData, error: sharedFolderError } = await supabase
+          .from('folders')
+          .select('*')
+          .in('id', sharedFolderIds);
+        
+        if (sharedFolderError) throw sharedFolderError;
+        
+        // Combine and mark shared folders
+        return [
+          ...ownedData.map(f => ({ ...f, isShared: false })),
+          ...sharedData.map(f => ({ ...f, isShared: true }))
+        ];
+      }
+
+      return ownedData.map(f => ({ ...f, isShared: false }));
     },
     enabled: !!user,
   });

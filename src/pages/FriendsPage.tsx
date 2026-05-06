@@ -1,37 +1,52 @@
 import { useState } from 'react';
 import { useFriendships } from '@/hooks/useFriendships';
 import { useAuth } from '@/contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { Users, Search, UserPlus, Check, X, FolderOpen, ChevronRight, ChevronDown, Clock, Calendar, ArrowLeft } from 'lucide-react';
+import { Users, Search, UserPlus, Check, X, ChevronRight, Mail, Send, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 
-const horizonLabels: Record<string, string> = {
-  daily: 'Día',
-  weekly: 'Semana',
-  monthly: 'Mes',
-  quarterly: 'Trimestre',
-  annual: 'Año',
+const containerVariants = {
+  hidden: {},
+  visible: {
+    transition: { staggerChildren: 0.07 },
+  },
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 24 },
+  visible: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 260, damping: 22 } },
 };
 
 const FriendsPage = () => {
   const { user } = useAuth();
-  const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const { friends, pendingReceived, pendingSent, sendRequest, respondRequest } = useFriendships();
+
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [searching, setSearching] = useState(false);
-  const [selectedFriend, setSelectedFriend] = useState<string | null>(null);
   const [tab, setTab] = useState<'friends' | 'requests'>('friends');
-  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
 
-  const friendUserIds = friends.map((f) => f.requester_id === user?.id ? f.addressee_id : f.requester_id);
+  // Invite flow
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteSending, setInviteSending] = useState(false);
+  const [showInviteBox, setShowInviteBox] = useState(false);
+
+  const friendUserIds = friends.map((f) =>
+    f.requester_id === user?.id ? f.addressee_id : f.requester_id
+  );
+
   const { data: friendProfiles = [] } = useQuery({
     queryKey: ['friend-profiles', friendUserIds],
     queryFn: async () => {
       if (friendUserIds.length === 0) return [];
-      const { data } = await supabase.from('profiles').select('user_id, name, email').in('user_id', friendUserIds);
+      const { data } = await supabase
+        .from('profiles')
+        .select('user_id, name, email')
+        .in('user_id', friendUserIds);
       return data || [];
     },
     enabled: friendUserIds.length > 0,
@@ -42,213 +57,102 @@ const FriendsPage = () => {
     queryKey: ['pending-profiles', pendingUserIds],
     queryFn: async () => {
       if (pendingUserIds.length === 0) return [];
-      const { data } = await supabase.from('profiles').select('user_id, name, email').in('user_id', pendingUserIds);
+      const { data } = await supabase
+        .from('profiles')
+        .select('user_id, name, email')
+        .in('user_id', pendingUserIds);
       return data || [];
     },
     enabled: pendingUserIds.length > 0,
   });
 
-  const { data: friendFolders = [] } = useQuery({
-    queryKey: ['friend-folders', selectedFriend],
-    queryFn: async () => {
-      if (!selectedFriend) return [];
-      const { data } = await supabase.from('folders').select('*').eq('user_id', selectedFriend).eq('is_public', true);
-      return data || [];
-    },
-    enabled: !!selectedFriend,
-  });
-
-  const folderIds = friendFolders.map((f: any) => f.id);
-  const { data: friendTasks = [] } = useQuery({
-    queryKey: ['friend-tasks', folderIds],
-    queryFn: async () => {
-      if (folderIds.length === 0) return [];
-      const { data } = await supabase.from('tasks').select('*').in('folder_id', folderIds).order('sort_order', { ascending: true });
-      return data || [];
-    },
-    enabled: folderIds.length > 0,
-  });
-
-  const updateFriendTask = useMutation({
-    mutationFn: async (updates: { id: string; status?: string; completed_at?: string | null }) => {
-      const { id, ...rest } = updates;
-      const { error } = await supabase.from('tasks').update(rest).eq('id', id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['friend-tasks'] });
-      toast.success('Tarea actualizada');
-    },
-    onError: () => toast.error('Error al actualizar tarea'),
-  });
-
-  const toggleFolder = (folderId: string) => {
-    setExpandedFolders(prev => {
-      const next = new Set(prev);
-      if (next.has(folderId)) next.delete(folderId);
-      else next.add(folderId);
-      return next;
-    });
-  };
-
-  const handleToggleTask = (task: any, e: React.MouseEvent) => {
-    e.stopPropagation();
-    const newStatus = task.status === 'done' ? 'pending' : 'done';
-    updateFriendTask.mutate({
-      id: task.id,
-      status: newStatus,
-      completed_at: newStatus === 'done' ? new Date().toISOString() : null,
-    });
-  };
-
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
     setSearching(true);
+    setShowInviteBox(false);
     const { data } = await supabase
       .from('profiles')
       .select('user_id, name, email')
       .or(`name.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%`)
       .neq('user_id', user?.id || '')
-      .limit(10);
+      .limit(8);
     setSearchResults(data || []);
     setSearching(false);
+
+    // If no results found, suggest invite
+    if (!data || data.length === 0) {
+      setInviteEmail(searchQuery.includes('@') ? searchQuery : '');
+      setShowInviteBox(true);
+    }
   };
 
   const handleSendRequest = (userId: string) => {
     sendRequest.mutate(userId, {
-      onSuccess: () => { toast.success('Solicitud enviada'); setSearchResults([]); setSearchQuery(''); },
+      onSuccess: () => {
+        toast.success('Solicitud de conexión enviada');
+        setSearchResults([]);
+        setSearchQuery('');
+      },
       onError: () => toast.error('Error al enviar solicitud'),
     });
   };
 
-  const selectedFriendProfile = friendProfiles.find((p: any) => p.user_id === selectedFriend);
+  const handleSendInviteEmail = async () => {
+    if (!inviteEmail.trim() || !inviteEmail.includes('@')) {
+      toast.error('Ingresa un email válido');
+      return;
+    }
+    setInviteSending(true);
+    try {
+      const { data: myProfile } = await supabase
+        .from('profiles')
+        .select('name')
+        .eq('user_id', user?.id || '')
+        .maybeSingle();
 
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: { 
-      opacity: 1,
-      transition: { staggerChildren: 0.1 }
+      const senderName = myProfile?.name || 'Tu amigo';
+      const inviteUrl = `${window.location.origin}/onboarding`;
+
+      const { error } = await supabase.functions.invoke('send-invite-email', {
+        body: {
+          to: inviteEmail.trim().toLowerCase(),
+          senderName,
+          inviteUrl,
+        },
+      });
+
+      if (error) throw error;
+      toast.success(`Invitación enviada a ${inviteEmail}`);
+      setInviteEmail('');
+      setShowInviteBox(false);
+      setSearchQuery('');
+      setSearchResults([]);
+    } catch {
+      // Fallback: copy invite link
+      const inviteUrl = `${window.location.origin}/onboarding?ref=${user?.id}`;
+      await navigator.clipboard.writeText(inviteUrl).catch(() => {});
+      toast.success('Enlace de invitación copiado al portapapeles');
+    } finally {
+      setInviteSending(false);
     }
   };
 
-  const itemVariants = {
-    hidden: { opacity: 0, y: 10 },
-    visible: { opacity: 1, y: 0 }
+  const handleCopyInviteLink = async () => {
+    const inviteUrl = `${window.location.origin}/onboarding?ref=${user?.id}`;
+    try {
+      await navigator.clipboard.writeText(inviteUrl);
+      toast.success('Enlace copiado. Compártelo con tu amigo de enfoque.');
+    } catch {
+      toast.error('No se pudo copiar el enlace');
+    }
   };
-
-  if (selectedFriend && selectedFriendProfile) {
-    return (
-      <div className="min-h-screen bg-background pb-32">
-        <div className="max-w-[430px] lg:max-w-4xl mx-auto px-6 pt-12 space-y-12">
-          {/* Back Header */}
-          <div className="flex items-center gap-4">
-            <button 
-              onClick={() => setSelectedFriend(null)}
-              className="p-3 rounded-2xl bg-surface-container hover:bg-surface-container-high transition-colors"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </button>
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-xl font-black text-primary">
-                {(selectedFriendProfile.name || 'U')[0].toUpperCase()}
-              </div>
-              <div>
-                <h1 className="text-xl font-black font-headline tracking-tight leading-none">{selectedFriendProfile.name || 'Usuario'}</h1>
-                <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/40 mt-1">{selectedFriendProfile.email}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="space-y-6">
-            <div className="flex items-center gap-4">
-              <div className="w-2 h-2 rounded-full bg-primary" />
-              <h2 className="text-[11px] font-black uppercase tracking-[0.4em] text-on-surface-variant/40">Proyectos Públicos</h2>
-              <div className="h-px flex-1 bg-outline-variant/30" />
-            </div>
-
-            {friendFolders.length === 0 ? (
-              <div className="bg-surface/30 border border-dashed border-outline-variant/30 p-12 rounded-[32px] text-center">
-                <FolderOpen className="w-8 h-8 opacity-20 mx-auto mb-4" />
-                <p className="text-sm text-on-surface-variant/60 font-medium">Este amigo no tiene proyectos públicos aún.</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {friendFolders.map((folder: any) => {
-                  const fTasks = friendTasks.filter((t: any) => t.folder_id === folder.id);
-                  const doneTasks = fTasks.filter((t: any) => t.status === 'done').length;
-                  const isExpanded = expandedFolders.has(folder.id);
-                  return (
-                    <div key={folder.id} className="bg-surface-container/50 border border-outline-variant/30 rounded-[32px] overflow-hidden">
-                      <button 
-                        onClick={() => toggleFolder(folder.id)}
-                        className="w-full p-6 flex items-center gap-4 hover:bg-surface-container transition-colors"
-                      >
-                        <div className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: (folder.color || '#4BE277') + '15' }}>
-                          <FolderOpen className="w-5 h-5" style={{ color: folder.color || '#4BE277' }} />
-                        </div>
-                        <div className="flex-1 text-left">
-                          <h3 className="text-lg font-black font-headline tracking-tight">{folder.name}</h3>
-                          <div className="flex items-center gap-2 mt-1">
-                            <span className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/40">{doneTasks} / {fTasks.length} Completadas</span>
-                          </div>
-                        </div>
-                        <ChevronDown className={`w-5 h-5 text-on-surface-variant/30 transition-transform duration-500 ${isExpanded ? 'rotate-180' : ''}`} />
-                      </button>
-
-                      <AnimatePresence>
-                        {isExpanded && (
-                          <motion.div 
-                            initial={{ height: 0, opacity: 0 }} 
-                            animate={{ height: 'auto', opacity: 1 }} 
-                            exit={{ height: 0, opacity: 0 }}
-                            className="overflow-hidden border-t border-outline-variant/20 bg-surface/20"
-                          >
-                            <div className="p-4 space-y-1">
-                              {fTasks.length === 0 ? (
-                                <p className="p-4 text-xs text-on-surface-variant/40 font-medium italic text-center">No hay tareas visibles.</p>
-                              ) : (
-                                fTasks.map((task: any) => {
-                                  const isDone = task.status === 'done';
-                                  return (
-                                    <div key={task.id} className="flex items-center gap-4 p-4 rounded-2xl hover:bg-surface-container/50 transition-colors group">
-                                      <button 
-                                        onClick={(e) => handleToggleTask(task, e)}
-                                        className={`w-6 h-6 rounded-lg flex-shrink-0 flex items-center justify-center transition-all ${isDone ? 'bg-primary shadow-lg shadow-primary/20' : 'border-2 border-outline-variant group-hover:border-primary'}`}
-                                      >
-                                        {isDone && <Check className="w-3.5 h-3.5 text-primary-foreground" strokeWidth={4} />}
-                                      </button>
-                                      <div className="flex-1 min-w-0">
-                                        <p className={`text-sm font-bold tracking-tight ${isDone ? 'text-on-surface-variant/40 line-through' : 'text-foreground'}`}>{task.title}</p>
-                                        <div className="flex items-center gap-3 mt-1 opacity-60">
-                                          {task.due_date && <span className="text-[10px] font-black uppercase flex items-center gap-1"><Calendar className="w-3 h-3" /> {task.due_date}</span>}
-                                          {task.estimated_minutes && <span className="text-[10px] font-black uppercase flex items-center gap-1"><Clock className="w-3 h-3" /> {task.estimated_minutes}M</span>}
-                                        </div>
-                                      </div>
-                                    </div>
-                                  );
-                                })
-                              )}
-                            </div>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-background pb-32">
-      <div className="max-w-[430px] lg:max-w-6xl mx-auto px-6 pt-12 space-y-12">
-        
-        {/* Header Section */}
-        <header className="space-y-4">
+      <div className="max-w-[430px] lg:max-w-6xl mx-auto px-6 pt-12 space-y-10">
+
+        {/* Header */}
+        <header className="space-y-6">
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
             <div className="space-y-2">
               <div className="flex items-center gap-3">
@@ -257,19 +161,23 @@ const FriendsPage = () => {
                   Tu Comunidad
                 </span>
               </div>
-              <h1 className="text-3xl md:text-5xl font-black tracking-tight font-headline leading-tight">
-                Tus <span className="opacity-20">Amigos.</span>
+              <h1 className="text-3xl md:text-5xl font-black tracking-tight leading-tight">
+                Amigos de <span className="text-primary">Enfoque</span>
               </h1>
+              <p className="text-sm text-on-surface-variant/60 max-w-sm">
+                Comparte tu progreso, mira el de tus amigos y crezcan juntos.
+              </p>
             </div>
 
+            {/* Search */}
             <div className="flex-1 max-w-md w-full relative">
-              <Search className="w-5 h-5 absolute left-5 top-1/2 -translate-y-1/2 text-on-surface-variant/40" />
-              <input 
-                value={searchQuery} 
+              <Search className="w-5 h-5 absolute left-5 top-1/2 -translate-y-1/2 text-on-surface-variant/40 pointer-events-none" />
+              <input
+                value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Buscar por nombre o email..."
                 className="w-full bg-surface-container rounded-full pl-14 pr-6 py-4 text-foreground font-medium text-sm outline-none focus:ring-2 focus:ring-primary/20 transition-all border border-outline-variant/30"
-                onKeyDown={(e) => e.key === 'Enter' && handleSearch()} 
+                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
               />
               {searching && (
                 <div className="absolute right-5 top-1/2 -translate-y-1/2">
@@ -283,94 +191,186 @@ const FriendsPage = () => {
         {/* Search Results */}
         <AnimatePresence>
           {searchResults.length > 0 && (
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
               className="bg-surface-container/50 border border-outline-variant/30 rounded-[32px] p-2 space-y-1 shadow-2xl"
             >
-              <div className="p-4 border-b border-outline-variant/10">
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant/40">Resultados de búsqueda</p>
+              <div className="p-4 border-b border-outline-variant/10 flex items-center justify-between">
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant/40">Resultados</p>
+                <button onClick={() => { setSearchResults([]); setSearchQuery(''); }} className="text-on-surface-variant/40 hover:text-foreground transition-colors">
+                  <X className="w-4 h-4" />
+                </button>
               </div>
               {searchResults.map((p) => {
                 const alreadyFriend = friendUserIds.includes(p.user_id);
                 const alreadySent = pendingSent.some((f) => f.addressee_id === p.user_id);
                 return (
                   <div key={p.user_id} className="flex items-center gap-4 p-4 rounded-2xl hover:bg-surface-container transition-colors">
-                    <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-lg font-black text-primary">
+                    <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-lg font-black text-primary flex-shrink-0">
                       {(p.name || 'U')[0].toUpperCase()}
                     </div>
                     <div className="flex-1 min-w-0">
                       <h4 className="text-sm font-black tracking-tight">{p.name || 'Usuario'}</h4>
-                      <p className="text-[10px] font-bold text-on-surface-variant/40 uppercase tracking-widest">{p.email}</p>
+                      <p className="text-[10px] font-bold text-on-surface-variant/40 uppercase tracking-widest truncate">{p.email}</p>
                     </div>
                     {alreadyFriend ? (
-                      <span className="text-[10px] font-black uppercase tracking-widest text-primary px-4 py-2 bg-primary/10 rounded-full">Amigos</span>
+                      <span className="text-[10px] font-black uppercase tracking-widest text-primary px-4 py-2 bg-primary/10 rounded-full flex-shrink-0">Amigos</span>
                     ) : alreadySent ? (
-                      <span className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/40 px-4 py-2 bg-surface-container rounded-full">Enviada</span>
+                      <span className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/40 px-4 py-2 bg-surface-container rounded-full flex-shrink-0">Enviada</span>
                     ) : (
-                      <button 
+                      <button
                         onClick={() => handleSendRequest(p.user_id)}
-                        className="px-6 py-3 rounded-full bg-primary text-primary-foreground text-[10px] font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:scale-105 transition-all"
+                        className="px-6 py-3 rounded-full bg-primary text-primary-foreground text-[10px] font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:scale-105 transition-all flex-shrink-0"
                       >
-                        Agregar
+                        Conectar
                       </button>
                     )}
                   </div>
                 );
               })}
+
+              {/* Invite option at bottom of results */}
+              <div className="p-4 border-t border-outline-variant/10">
+                <button
+                  onClick={() => { setShowInviteBox(true); setSearchResults([]); }}
+                  className="w-full flex items-center gap-3 text-on-surface-variant/40 hover:text-primary transition-colors text-xs font-bold"
+                >
+                  <Mail className="w-4 h-4" /> ¿No está en Adonai? Invítalo por email
+                </button>
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
 
-        {/* Main Content Tabs */}
+        {/* Invite Box — no results found or explicit invite */}
+        <AnimatePresence>
+          {showInviteBox && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="bg-surface-container/50 border border-outline-variant/30 rounded-[32px] p-6 space-y-4 shadow-2xl"
+            >
+              <div className="flex items-start justify-between">
+                <div>
+                  <h3 className="text-sm font-black">Invitar por email</h3>
+                  <p className="text-[11px] text-on-surface-variant/50 mt-1">
+                    Invita a alguien que no está en Adonai todavía.
+                  </p>
+                </div>
+                <button onClick={() => setShowInviteBox(false)} className="text-on-surface-variant/40 hover:text-foreground transition-colors mt-1">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="flex gap-3">
+                <div className="relative flex-1">
+                  <Mail className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant/30 pointer-events-none" />
+                  <input
+                    autoFocus
+                    type="email"
+                    value={inviteEmail}
+                    onChange={(e) => setInviteEmail(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSendInviteEmail()}
+                    placeholder="email@ejemplo.com"
+                    className="w-full bg-surface-container-lowest border border-outline-variant/30 focus:border-primary/50 rounded-2xl pl-10 pr-4 py-3 outline-none transition-all text-sm font-bold"
+                  />
+                </div>
+                <button
+                  onClick={handleSendInviteEmail}
+                  disabled={inviteSending || !inviteEmail.includes('@')}
+                  className="px-6 py-3 rounded-2xl bg-primary text-primary-foreground font-black text-[10px] uppercase tracking-widest shadow-lg shadow-primary/20 hover:scale-105 transition-all disabled:opacity-30 flex-shrink-0 flex items-center gap-2"
+                >
+                  {inviteSending ? (
+                    <div className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+                  ) : (
+                    <Send className="w-4 h-4" />
+                  )}
+                  Enviar
+                </button>
+              </div>
+
+              <div className="border-t border-outline-variant/10 pt-3">
+                <button
+                  onClick={handleCopyInviteLink}
+                  className="w-full text-[10px] font-black uppercase tracking-[0.15em] text-on-surface-variant/40 hover:text-primary transition-colors"
+                >
+                  O copiar enlace de invitación
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Tabs */}
         <div className="space-y-8">
-          <div className="flex bg-surface-container rounded-[24px] p-1.5 w-fit border border-outline-variant/30">
-            <button 
-              onClick={() => setTab('friends')}
-              className={`px-8 py-3 rounded-[20px] text-[10px] font-black uppercase tracking-widest transition-all ${tab === 'friends' ? 'bg-background text-foreground shadow-sm' : 'text-on-surface-variant/40 hover:text-foreground'}`}
+          <div className="flex items-center justify-between">
+            <div className="flex bg-surface-container rounded-[24px] p-1.5 w-fit border border-outline-variant/30">
+              <button
+                onClick={() => setTab('friends')}
+                className={`px-8 py-3 rounded-[20px] text-[10px] font-black uppercase tracking-widest transition-all ${tab === 'friends' ? 'bg-background text-foreground shadow-sm' : 'text-on-surface-variant/40 hover:text-foreground'}`}
+              >
+                Amigos ({friends.length})
+              </button>
+              <button
+                onClick={() => setTab('requests')}
+                className={`px-8 py-3 rounded-[20px] text-[10px] font-black uppercase tracking-widest transition-all relative ${tab === 'requests' ? 'bg-background text-foreground shadow-sm' : 'text-on-surface-variant/40 hover:text-foreground'}`}
+              >
+                Solicitudes
+                {pendingReceived.length > 0 && (
+                  <span className="ml-2 bg-error text-error-foreground px-1.5 py-0.5 rounded-md text-[9px]">
+                    {pendingReceived.length}
+                  </span>
+                )}
+              </button>
+            </div>
+
+            {/* Quick invite button */}
+            <button
+              onClick={() => { setShowInviteBox(true); setSearchResults([]); }}
+              className="flex items-center gap-2 px-5 py-3 rounded-full bg-primary/10 text-primary font-black text-[10px] uppercase tracking-widest hover:bg-primary/20 transition-all border border-primary/20"
             >
-              Amigos ({friends.length})
-            </button>
-            <button 
-              onClick={() => setTab('requests')}
-              className={`px-8 py-3 rounded-[20px] text-[10px] font-black uppercase tracking-widest transition-all relative ${tab === 'requests' ? 'bg-background text-foreground shadow-sm' : 'text-on-surface-variant/40 hover:text-foreground'}`}
-            >
-              Solicitudes
-              {pendingReceived.length > 0 && (
-                <span className="ml-2 bg-error text-error-foreground px-1.5 py-0.5 rounded-md text-[9px]">
-                  {pendingReceived.length}
-                </span>
-              )}
+              <UserPlus className="w-4 h-4" /> Invitar
             </button>
           </div>
 
-          <motion.div 
+          <motion.div
             variants={containerVariants}
             initial="hidden"
             animate="visible"
             className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
           >
+            {/* Friends List */}
             {tab === 'friends' && (
               friends.length === 0 ? (
-                <div className="col-span-full py-20 bg-surface/30 border border-dashed border-outline-variant/30 rounded-[40px] text-center flex flex-col items-center">
-                  <div className="w-20 h-20 rounded-[32px] bg-surface-container flex items-center justify-center mb-6">
-                    <Users className="w-10 h-10 opacity-20" />
+                <motion.div variants={itemVariants} className="col-span-full py-20 bg-surface/30 border border-dashed border-outline-variant/30 rounded-[40px] text-center flex flex-col items-center gap-4">
+                  <div className="w-20 h-20 rounded-[32px] bg-surface-container flex items-center justify-center">
+                    <Sparkles className="w-10 h-10 text-primary/30" />
                   </div>
-                  <h3 className="text-xl font-black font-headline mb-3">Tu Comunidad</h3>
-                  <p className="text-sm text-on-surface-variant/60 max-w-[280px] leading-relaxed">
-                    Conecta con otros usuarios para compartir proyectos y motivarse mutuamente.
-                  </p>
-                </div>
+                  <div>
+                    <h3 className="text-xl font-black mb-2">Tu Comunidad de Enfoque</h3>
+                    <p className="text-sm text-on-surface-variant/60 max-w-[280px] leading-relaxed mx-auto">
+                      Conecta con amigos para compartir rachas, reportes y motivarse mutuamente.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setShowInviteBox(true)}
+                    className="mt-2 px-8 py-4 rounded-full bg-primary text-primary-foreground font-black text-sm shadow-lg shadow-primary/30 hover:scale-105 transition-all flex items-center gap-2"
+                  >
+                    <UserPlus className="w-4 h-4" /> Invitar a tu primer amigo
+                  </button>
+                </motion.div>
               ) : (
                 friends.map((friendship) => {
                   const friendId = friendship.requester_id === user?.id ? friendship.addressee_id : friendship.requester_id;
                   const profile = friendProfiles.find((p: any) => p.user_id === friendId);
                   return (
-                    <motion.div 
-                      key={friendship.id} 
+                    <motion.div
+                      key={friendship.id}
                       variants={itemVariants}
-                      onClick={() => setSelectedFriend(friendId)}
+                      onClick={() => navigate(`/profile/${friendId}`)}
                       className="group p-8 rounded-[32px] bg-surface-container/50 border border-outline-variant/30 hover:border-primary/30 transition-all duration-500 cursor-pointer relative overflow-hidden"
                     >
                       <div className="relative z-10 space-y-6">
@@ -378,8 +378,8 @@ const FriendsPage = () => {
                           {(profile?.name || 'U')[0].toUpperCase()}
                         </div>
                         <div>
-                          <h4 className="text-lg font-black font-headline tracking-tight group-hover:text-primary transition-colors">{profile?.name || 'Usuario'}</h4>
-                          <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/40 mt-1">{profile?.email}</p>
+                          <h4 className="text-lg font-black tracking-tight group-hover:text-primary transition-colors">{profile?.name || 'Usuario'}</h4>
+                          <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/40 mt-1 truncate max-w-[180px]">{profile?.email}</p>
                         </div>
                         <div className="pt-4 border-t border-outline-variant/10 flex items-center justify-between">
                           <span className="text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant/30 group-hover:text-primary transition-colors">Ver Perfil</span>
@@ -393,17 +393,18 @@ const FriendsPage = () => {
               )
             )}
 
+            {/* Requests List */}
             {tab === 'requests' && (
               pendingReceived.length === 0 ? (
-                <div className="col-span-full py-20 bg-surface/30 border border-dashed border-outline-variant/30 rounded-[40px] text-center flex flex-col items-center">
+                <motion.div variants={itemVariants} className="col-span-full py-20 bg-surface/30 border border-dashed border-outline-variant/30 rounded-[40px] text-center flex flex-col items-center">
                   <p className="text-sm text-on-surface-variant/40 font-black uppercase tracking-[0.2em]">Sin solicitudes pendientes</p>
-                </div>
+                </motion.div>
               ) : (
                 pendingReceived.map((req) => {
                   const profile = pendingProfiles.find((p: any) => p.user_id === req.requester_id);
                   return (
-                    <motion.div 
-                      key={req.id} 
+                    <motion.div
+                      key={req.id}
                       variants={itemVariants}
                       className="p-8 rounded-[32px] bg-surface-container border border-outline-variant/30 space-y-8"
                     >
@@ -412,22 +413,22 @@ const FriendsPage = () => {
                           {(profile?.name || 'U')[0].toUpperCase()}
                         </div>
                         <div>
-                          <h4 className="text-lg font-black font-headline tracking-tight">{profile?.name || 'Usuario'}</h4>
+                          <h4 className="text-lg font-black tracking-tight">{profile?.name || 'Usuario'}</h4>
                           <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/40 mt-1">{profile?.email}</p>
                         </div>
                       </div>
                       <div className="flex gap-3">
-                        <button 
+                        <button
                           onClick={() => respondRequest.mutate({ id: req.id, status: 'accepted' })}
-                          className="flex-1 py-4 rounded-[20px] bg-primary text-primary-foreground font-black text-[10px] uppercase tracking-widest shadow-lg shadow-primary/20 hover:opacity-90 transition-all"
+                          className="flex-1 py-4 rounded-[20px] bg-primary text-primary-foreground font-black text-[10px] uppercase tracking-widest shadow-lg shadow-primary/20 hover:opacity-90 transition-all flex items-center justify-center gap-2"
                         >
-                          Aceptar
+                          <Check className="w-4 h-4" /> Aceptar
                         </button>
-                        <button 
+                        <button
                           onClick={() => respondRequest.mutate({ id: req.id, status: 'rejected' })}
                           className="px-6 py-4 rounded-[20px] bg-surface-container-high text-on-surface-variant font-black text-[10px] uppercase tracking-widest hover:text-error transition-all"
                         >
-                          Rechazar
+                          <X className="w-4 h-4" />
                         </button>
                       </div>
                     </motion.div>

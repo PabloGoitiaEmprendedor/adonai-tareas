@@ -2,123 +2,59 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useProfile } from '@/hooks/useProfile';
-import { useGoals } from '@/hooks/useGoals';
-import { useUserContext } from '@/hooks/useUserContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { useVoiceCapture } from '@/hooks/useVoiceCapture';
 import { supabase } from '@/integrations/supabase/client';
 import { 
   ArrowRight, 
   Check, 
   Brain, 
   User, 
-  Briefcase, 
-  Layout, 
-  Mic, 
-  Keyboard, 
-  Zap, 
-  Heart,
-  Target,
   Clock,
-  MapPin,
-  Smile,
-  AlertCircle,
-  Plus,
-  Trash2,
-  ExternalLink,
+  Sparkles,
   Monitor,
-  Sparkles
+  Zap,
+  Lock,
+  Moon,
+  ShieldCheck,
+  Mail
 } from 'lucide-react';
+import { useRef } from 'react';
 import { toast } from 'sonner';
 
-type StepType = 'welcome' | 'context_work' | 'first_tasks' | 'recurring_tasks' | 'activate_mini' | 'ready';
-
-// Desktop = Electron app OR a browser window wider than the lg breakpoint.
-// We capture this once on mount; the flow shape shouldn't change mid-onboarding.
-const isDesktopEnv = (): boolean =>
-  typeof window !== 'undefined' &&
-  (!!window.electronAPI || window.innerWidth >= 1024);
+type StepType = 'name' | 'brain_dump' | 'recurring_tasks' | 'commitment' | 'security_register' | 'ready';
 
 const OnboardingPage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { updateProfile } = useProfile();
-  const { createGoal } = useGoals();
-  const { updateContext } = useUserContext();
-  const { isSupported, startRecording, stopRecording, isRecording, transcript } = useVoiceCapture();
-
-  // Lock the step list to the user's environment for the entire flow.
-  const [isDesktop] = useState(isDesktopEnv);
-  const steps: StepType[] = isDesktop
-    ? ['welcome', 'context_work', 'first_tasks', 'recurring_tasks', 'activate_mini', 'ready']
-    : ['welcome', 'context_work', 'ready'];
 
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [isFinishing, setIsFinishing] = useState(false);
 
-  // Welcome Step State
-  const [name, setName] = useState('');
-  const [goalText, setGoalText] = useState('');
-  const [showWelcomeError, setShowWelcomeError] = useState(false);
-
-  // Context Basic State
-  const [gender, setGender] = useState('');
-  const [ageRange, setAgeRange] = useState('');
-  const [familyStatus, setFamilyStatus] = useState('');
-  const [location, setLocation] = useState('');
-  const [energyPatterns, setEnergyPatterns] = useState('');
-  const [stressLevel, setStressLevel] = useState('');
-
-  // Context Work State
-  const [occupation, setOccupation] = useState('');
-  const [industry, setIndustry] = useState('');
-  const [workHours, setWorkHours] = useState('9:00-17:00');
-  const [hobbies, setHobbies] = useState('');
-  const [personalGoals, setPersonalGoals] = useState('');
-  const [biggestChallenge, setBiggestChallenge] = useState('');
-  const [importedContext, setImportedContext] = useState('');
-
-  // Style & Input State
-  const [workStyle, setWorkStyle] = useState('simple');
-  const [preferredInput, setPreferredInput] = useState('both');
-
-  // First-tasks step (desktop only) — collected in memory, persisted on finish.
-  const [firstTaskInput, setFirstTaskInput] = useState('');
-  const [firstTasks, setFirstTasks] = useState<string[]>([]);
-  
-  // Recurring tasks step
-  const [recurringInput, setRecurringInput] = useState('');
-  const [recurringTasks, setRecurringTasks] = useState<string[]>([]);
-  
-  // Mini window activation step
-  const [floatingActivated, setFloatingActivated] = useState(false);
-
+  // Steps definition
+  const steps: StepType[] = ['name', 'brain_dump', 'recurring_tasks', 'commitment', 'security_register', 'ready'];
   const currentStep = steps[currentStepIndex];
 
-  const addFirstTask = () => {
-    const t = firstTaskInput.trim();
-    if (!t) return;
-    setFirstTasks(prev => [...prev, t]);
-    setFirstTaskInput('');
-  };
-
-  const removeFirstTask = (idx: number) => {
-    setFirstTasks(prev => prev.filter((_, i) => i !== idx));
-  };
-
-  const activateFloatingWindow = () => {
-    if (window.electronAPI?.toggleMiniWindow) {
-      window.electronAPI.toggleMiniWindow();
-      setFloatingActivated(true);
-      toast.success('Pestaña flotante activada. Ya puedes verla en tu escritorio.');
-    } else {
-      // Desktop browser: explain how to get the floating window.
-      setFloatingActivated(true);
-      toast.info('La pestaña flotante requiere la app de escritorio. Puedes descargarla luego desde el botón "Descargar App".');
-    }
-  };
+  // State
+  const [name, setName] = useState('');
+  const [urgentTasks, setUrgentTasks] = useState(['', '', '']);
+  const [recurringTasks, setRecurringTasks] = useState(['', '', '']);
+  const [floatingActivated, setFloatingActivated] = useState(false);
+  
+  // Auth state
+  const [email, setEmail] = useState('');
+  const [otpCode, setOtpCode] = useState(['', '', '', '', '', '']);
+  const [authSubStep, setAuthSubStep] = useState<'email' | 'code'>('email');
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
+  const otpInputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   const next = () => {
+    // If we are at commitment and user is already logged in, skip register
+    if (currentStep === 'commitment' && user) {
+        setCurrentStepIndex(steps.indexOf('ready'));
+        return;
+    }
+
     if (currentStepIndex < steps.length - 1) {
       setCurrentStepIndex(prev => prev + 1);
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -126,138 +62,188 @@ const OnboardingPage = () => {
   };
 
   const back = () => {
+    if (currentStep === 'ready' && !user) {
+        setCurrentStepIndex(steps.indexOf('security_register'));
+        return;
+    }
+
     if (currentStepIndex > 0) {
       setCurrentStepIndex(prev => prev - 1);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
-  const handleWelcomeNext = () => {
-    if (!name.trim() || !goalText.trim()) {
-      setShowWelcomeError(true);
-      return;
-    }
-    setShowWelcomeError(false);
-    next();
-  };
-
   const handleFinish = async () => {
-    if (!user) return;
+    if (!user) {
+        // If not logged in, we should have been caught by security_register, 
+        // but just in case, go back to it
+        setCurrentStepIndex(steps.indexOf('security_register'));
+        return;
+    }
     setIsFinishing(true);
 
     try {
-      // 1. Create Goal with fallback (Bug 2 Fix)
-      const finalGoalText = goalText.trim() || "Mi gran meta";
-      try {
-        await createGoal.mutateAsync({ title: finalGoalText, horizon: 'annual' });
-      } catch (err) {
-        toast.error("No se pudo crear tu meta. Verifica tu conexión.");
-        throw err;
-      }
-
-      // 2. Update Profile (Bug 4 Fix - part 1)
-      try {
-        await updateProfile.mutateAsync({
-          name,
-          onboarding_completed: true,
-          preferred_input: preferredInput,
-          organization_style: workStyle,
-        });
-      } catch (err) {
-        toast.error("No se pudo guardar tu perfil. Verifica tu conexión.");
-        throw err;
-      }
-
-      // 3. Upsert Context (Bug 3 Fix)
-      try {
-        await supabase.from('user_context').upsert({
-          user_id: user.id,
-          occupation,
-          industry,
-          work_hours: workHours,
-          personal_goals: personalGoals,
-          work_style: workStyle,
-          energy_patterns: energyPatterns,
-          imported_context: importedContext,
-          gender,
-          age_range: ageRange,
-          family_status: familyStatus,
-          location,
-          hobbies,
-          stress_level: stressLevel,
-          biggest_challenge: biggestChallenge,
-          life_areas: ['Trabajo', 'Personal', 'Salud', 'Aprendizaje'],
-          updated_at: new Date().toISOString(),
-        }, { onConflict: 'user_id' });
-      } catch (err) {
-        console.error("Context upsert error:", err);
-        // Non-blocking as requested (UX Improvement 3)
-      }
-
-      // 4. Usage Event
-      await supabase.from('usage_events').insert({
-        user_id: user.id,
-        event_type: 'onboarding_completed',
+      // 1. Update Profile
+      await updateProfile.mutateAsync({
+        name,
+        onboarding_completed: true,
       });
 
-      // 4b. Persist first tasks (desktop onboarding extra)
-      if (firstTasks.length > 0) {
-        const today = new Date().toISOString().slice(0, 10);
-        const rows = firstTasks.map((title, i) => ({
+      // 2. Insert Urgent Tasks
+      const today = new Date().toISOString().slice(0, 10);
+      const urgentRows = urgentTasks
+        .filter(t => t.trim())
+        .map((title, i) => ({
           user_id: user.id,
           title,
           due_date: today,
-          source_type: 'onboarding',
+          source_type: 'onboarding_braindump',
           status: 'pending',
           sort_order: i,
         }));
-        try {
-          await supabase.from('tasks').insert(rows);
-          
-          // Also insert recurring tasks if any
-          if (recurringTasks.length > 0) {
-            const recurringRows = recurringTasks.map((title) => ({
-              user_id: user.id,
-              title,
-              is_recurring: true,
-              recurrence_type: 'daily',
-              status: 'pending',
-              source_type: 'onboarding'
-            }));
-            await supabase.from('tasks').insert(recurringRows);
-          }
-        } catch (err) {
-          console.error('Failed to insert onboarding tasks:', err);
-          // Non-blocking
-        }
+
+      if (urgentRows.length > 0) {
+        await supabase.from('tasks').insert(urgentRows);
       }
 
-      // 5. Success (Bug 4 Fix - part 2)
+      // 3. Insert Recurring Tasks correctly (Rules + Templates)
+      const recurringTasksValid = recurringTasks.filter(t => t.trim());
+      for (const title of recurringTasksValid) {
+        // Create the rule
+        const { data: rule, error: ruleErr } = await supabase
+          .from('recurrence_rules')
+          .insert({
+            user_id: user.id,
+            frequency: 'daily',
+            interval: 1,
+            start_date: today,
+          })
+          .select()
+          .single();
+        
+        if (ruleErr) throw ruleErr;
+
+        // Create the template task
+        await supabase.from('tasks').insert({
+          user_id: user.id,
+          title,
+          recurrence_id: rule.id,
+          status: 'pending',
+          source_type: 'onboarding_recurring'
+        });
+
+        // Also materialize the first instance for today so it appears immediately
+        await supabase.from('tasks').insert({
+          user_id: user.id,
+          title,
+          due_date: today,
+          recurrence_id: rule.id,
+          status: 'pending',
+          source_type: 'onboarding_recurring'
+        });
+      }
+
+      // 4. Log Usage
+      await supabase.from('usage_events').insert({
+        user_id: user.id,
+        event_type: 'onboarding_completed_relief',
+      });
+
+      // 5. Success
       localStorage.setItem('adonai_onboarding_done', 'true');
       navigate('/');
     } catch (e) {
       console.error(e);
-      // Main catch for blocking errors
+      toast.error("Hubo un problema al guardar tu configuración.");
     } finally {
       setIsFinishing(false);
     }
   };
 
-  const OptionalLabel = () => <span className="text-[10px] text-on-surface-variant/40 ml-1">(opcional)</span>;
+  const handleSendOtp = async () => {
+    if (!email.trim() || !email.includes('@')) {
+        toast.error('Ingresa un email válido');
+        return;
+    }
+    setIsAuthenticating(true);
+    try {
+        const { error } = await supabase.auth.signInWithOtp({
+            email: email.trim().toLowerCase(),
+            options: { shouldCreateUser: true },
+        });
+        if (error) throw error;
+        setAuthSubStep('code');
+        toast.success('Código de seguridad enviado');
+    } catch (err: any) {
+        toast.error(err.message || 'Error al enviar código');
+    } finally {
+        setIsAuthenticating(false);
+    }
+  };
+
+  const handleVerifyOtp = async (tokenOverride?: string) => {
+    const token = tokenOverride || otpCode.join('');
+    if (token.length !== 6) return;
+    
+    setIsAuthenticating(true);
+    try {
+        const { error } = await supabase.auth.verifyOtp({
+            email: email.trim().toLowerCase(),
+            token,
+            type: 'email',
+        });
+        if (error) throw error;
+        toast.success('¡Acceso verificado!');
+        next();
+    } catch (err: any) {
+        toast.error(err.message || 'Código incorrecto');
+        setOtpCode(['', '', '', '', '', '']);
+    } finally {
+        setIsAuthenticating(false);
+    }
+  };
+
+  const handleOtpChange = (index: number, value: string) => {
+    if (!/^\d*$/.test(value)) return;
+    const newCode = [...otpCode];
+    newCode[index] = value.slice(-1);
+    setOtpCode(newCode);
+
+    if (value && index < 5) {
+        otpInputRefs.current[index + 1]?.focus();
+    }
+
+    const fullToken = newCode.join('');
+    if (fullToken.length === 6 && !newCode.some(d => !d)) {
+        handleVerifyOtp(fullToken);
+    }
+  };
+
+  const activateFloatingWindow = () => {
+    if (window.electronAPI?.toggleMiniWindow) {
+      window.electronAPI.toggleMiniWindow();
+      setFloatingActivated(true);
+      toast.success('Pestaña flotante activada.');
+    } else {
+      setFloatingActivated(true);
+      toast.info('Modo escritorio simulado.');
+    }
+  };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col items-center px-6 pb-32 pt-12 selection:bg-primary/30 relative">
+    <div className="min-h-screen bg-background flex flex-col items-center px-6 pb-32 pt-12 selection:bg-primary/30 relative overflow-hidden">
+      {/* Dynamic Background */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-[10%] -left-[10%] w-[40%] h-[40%] bg-primary/5 rounded-full blur-[120px]" />
-        <div className="absolute -bottom-[10%] -right-[10%] w-[40%] h-[40%] bg-primary/5 rounded-full blur-[120px]" />
+        <div className="absolute -top-[10%] -left-[10%] w-[60%] h-[60%] bg-primary/5 rounded-full blur-[120px] animate-pulse" />
+        <div className="absolute -bottom-[10%] -right-[10%] w-[60%] h-[60%] bg-secondary/5 rounded-full blur-[120px] animate-pulse" style={{ animationDelay: '2s' }} />
       </div>
 
-      <div className="relative z-10 w-full max-w-[500px]">
-        {/* Progress Bar */}
-        <div className="flex justify-center gap-1.5 mb-12">
+      <div className="relative z-10 w-full max-w-[500px] flex-1 flex flex-col">
+        {/* Progress */}
+        <div className="flex justify-center gap-1.5 mb-16">
           {steps.map((_, i) => (
-            <div key={i} className={`h-1 rounded-full transition-all duration-500 ease-out ${
-              i === currentStepIndex ? 'w-10 bg-primary' : i < currentStepIndex ? 'w-4 bg-primary/40' : 'w-4 bg-surface-container-high'
+            <div key={i} className={`h-1.5 rounded-full transition-all duration-700 ease-out ${
+              i === currentStepIndex ? 'w-12 bg-primary shadow-[0_0_15px_rgba(var(--primary-rgb),0.5)]' : i < currentStepIndex ? 'w-4 bg-primary/40' : 'w-4 bg-surface-container-high'
             }`} />
           ))}
         </div>
@@ -265,342 +251,275 @@ const OnboardingPage = () => {
         <AnimatePresence mode="wait">
           <motion.div
             key={currentStep}
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            transition={{ duration: 0.3 }}
-            className="w-full"
+            initial={{ opacity: 0, y: 20, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -20, scale: 0.98 }}
+            transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+            className="w-full flex-1"
           >
-            {/* STEP: WELCOME */}
-            {currentStep === 'welcome' && (
-              <div className="space-y-8">
-                <div className="space-y-3">
-                  <h1 className="text-4xl font-extrabold tracking-tight text-foreground">Bienvenido a Adonai.</h1>
-                  <p className="text-on-surface-variant text-lg">Tu nuevo espacio de productividad. Vamos a configurar tu entorno.</p>
+            {/* STEP: NAME */}
+            {currentStep === 'name' && (
+              <div className="space-y-12">
+                <div className="space-y-4">
+                  <div className="w-16 h-16 rounded-[24px] bg-primary/10 flex items-center justify-center mb-6">
+                    <User className="w-8 h-8 text-primary" />
+                  </div>
+                  <h1 className="text-4xl font-black tracking-tight leading-tight text-foreground">
+                    Hola. <br />
+                    <span className="text-on-surface-variant/40">¿Cómo te llamas?</span>
+                  </h1>
                 </div>
                 
                 <div className="space-y-6">
-                  <div className="space-y-2">
-                    <label className="text-sm font-bold uppercase tracking-wider text-primary flex items-center gap-2">
-                      <User className="w-4 h-4" /> ¿Cómo te llamas?
-                    </label>
-                    <input 
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      placeholder="Tu nombre"
-                      className="w-full bg-surface-container-low rounded-2xl px-6 h-16 outline-none focus:ring-2 focus:ring-primary/20 transition-all text-lg font-medium"
-                    />
-                  </div>
+                  <input 
+                    autoFocus
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Tu nombre aquí..."
+                    className="w-full bg-surface-container-lowest border-2 border-outline-variant/30 focus:border-primary/50 rounded-[28px] px-8 h-20 outline-none transition-all text-2xl font-black placeholder:text-on-surface-variant/20"
+                  />
+                  
+                  <button 
+                    onClick={next}
+                    disabled={!name.trim()}
+                    className="w-full h-20 primary-gradient text-primary-foreground rounded-[28px] font-black text-xl flex items-center justify-center gap-3 shadow-2xl shadow-primary/30 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-30 disabled:scale-100 transition-all"
+                  >
+                    Continuar <ArrowRight className="w-6 h-6" />
+                  </button>
+                </div>
+              </div>
+            )}
 
-                  <div className="space-y-2">
-                    <label className="text-sm font-bold uppercase tracking-wider text-primary flex items-center gap-2">
-                      <Target className="w-4 h-4" /> ¿Tu meta principal?
-                    </label>
-                    <textarea 
-                      value={goalText}
-                      onChange={(e) => setGoalText(e.target.value)}
-                      placeholder="Ej: Lanzar mi negocio, Estar en forma..."
-                      className="w-full bg-surface-container-low rounded-2xl px-6 py-4 outline-none focus:ring-2 focus:ring-primary/20 transition-all text-lg font-medium min-h-[100px] resize-none"
-                    />
+            {/* STEP: BRAIN DUMP */}
+            {currentStep === 'brain_dump' && (
+              <div className="space-y-10">
+                <div className="space-y-4">
+                  <div className="w-16 h-16 rounded-[24px] bg-primary/10 flex items-center justify-center">
+                    <Brain className="w-8 h-8 text-primary" />
                   </div>
+                  <h2 className="text-3xl font-black tracking-tight leading-tight">
+                    Bienvenido, {name}. <br />
+                    <span className="text-primary">Este es el fin de la culpa.</span>
+                  </h2>
+                  <p className="text-on-surface-variant text-lg leading-relaxed">
+                    No necesitas ser disciplinado ni tener mil apps. Solo dinos: 
+                    <span className="font-bold text-foreground"> ¿Qué 3 cosas te están quitando el sueño hoy?</span>
+                  </p>
+                </div>
 
-                  {showWelcomeError && (
-                    <p className="text-xs text-center text-error animate-fade-in flex items-center justify-center gap-1">
-                      <AlertCircle className="w-3 h-3" /> Por favor completa tu nombre y tu meta principal para continuar
-                    </p>
-                  )}
+                <div className="space-y-4">
+                  {urgentTasks.map((task, i) => (
+                    <div key={i} className="relative group">
+                      <div className="absolute left-6 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-surface-container-highest flex items-center justify-center text-xs font-black text-on-surface-variant/40 group-focus-within:bg-primary/20 group-focus-within:text-primary transition-colors">
+                        {i + 1}
+                      </div>
+                      <input 
+                        value={task}
+                        onChange={(e) => {
+                          const newTasks = [...urgentTasks];
+                          newTasks[i] = e.target.value;
+                          setUrgentTasks(newTasks);
+                        }}
+                        placeholder={`Tarea urgente ${i + 1}...`}
+                        className="w-full bg-surface-container-lowest border-2 border-outline-variant/30 focus:border-primary/50 rounded-[24px] pl-16 pr-6 h-16 outline-none transition-all font-bold text-lg"
+                      />
+                    </div>
+                  ))}
                 </div>
 
                 <button 
-                  onClick={handleWelcomeNext}
-                  className="w-full h-16 primary-gradient text-primary-foreground rounded-2xl font-bold text-lg flex items-center justify-center gap-2 shadow-xl hover:opacity-95 active:scale-[0.98] transition-all"
+                  onClick={next}
+                  disabled={urgentTasks.some(t => !t.trim())}
+                  className="w-full h-20 primary-gradient text-primary-foreground rounded-[28px] font-black text-xl flex items-center justify-center gap-3 shadow-2xl shadow-primary/30 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-30"
                 >
-                  Empezar ahora <ArrowRight className="w-5 h-5" />
+                  Soltar carga <Zap className="w-6 h-6" />
                 </button>
               </div>
             )}
 
-            {/* STEP: CONTEXT WORK */}
-            {currentStep === 'context_work' && (
-              <div className="space-y-8">
-                <div className="space-y-2">
-                  <h2 className="text-3xl font-extrabold tracking-tight text-foreground">Tu vida profesional</h2>
-                  <p className="text-on-surface-variant">Saber a qué te dedicas ayuda a estructurar tus bloques de tiempo.</p>
-                </div>
-
-                <div className="space-y-6">
-                  {/* Occupation - REQUIRED */}
-                  <div className="space-y-2">
-                    <label className="text-sm font-bold flex items-center gap-2">
-                      <Briefcase className="w-4 h-4 text-primary" /> ¿A qué te dedicas? <span className="text-[10px] text-primary ml-1">(requerido)</span>
-                    </label>
-                    <input 
-                      value={occupation}
-                      onChange={(e) => setOccupation(e.target.value)}
-                      placeholder="Ej: Ingeniero, Estudiante, Freelancer"
-                      className="w-full bg-surface-container-low rounded-xl px-4 h-12 outline-none focus:ring-2 focus:ring-primary/20 text-base border border-transparent focus:border-primary/30"
-                    />
+            {/* STEP: RECURRING TASKS */}
+            {currentStep === 'recurring_tasks' && (
+              <div className="space-y-10">
+                <div className="space-y-4">
+                  <div className="w-16 h-16 rounded-[24px] bg-primary/10 flex items-center justify-center">
+                    <Clock className="w-8 h-8 text-primary" />
                   </div>
+                  <h2 className="text-3xl font-black tracking-tight leading-tight">
+                    Tus Anclas Diarias.
+                  </h2>
+                  <p className="text-on-surface-variant text-lg leading-relaxed">
+                    Dinos 3 cosas que haces todos los días para mantener el control. 
+                    <span className="text-on-surface-variant/40 block mt-1">(Ej: Leer, Meditar, Revisar ventas)</span>
+                  </p>
                 </div>
 
-                <div className="flex gap-4 pt-4">
-                  <button onClick={back} className="px-6 h-16 bg-surface-container-low text-on-surface-variant rounded-2xl font-bold flex items-center justify-center">
+                <div className="space-y-4">
+                  {recurringTasks.map((task, i) => (
+                    <div key={i} className="relative group">
+                      <div className="absolute left-6 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-surface-container-highest flex items-center justify-center text-xs font-black text-on-surface-variant/40 group-focus-within:bg-primary/20 group-focus-within:text-primary transition-colors">
+                        <Clock className="w-4 h-4" />
+                      </div>
+                      <input 
+                        value={task}
+                        onChange={(e) => {
+                          const newTasks = [...recurringTasks];
+                          newTasks[i] = e.target.value;
+                          setRecurringTasks(newTasks);
+                        }}
+                        placeholder={`Hábito diario ${i + 1}...`}
+                        className="w-full bg-surface-container-lowest border-2 border-outline-variant/30 focus:border-primary/50 rounded-[24px] pl-16 pr-6 h-16 outline-none transition-all font-bold text-lg"
+                      />
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex gap-4">
+                  <button onClick={back} className="px-8 h-20 bg-surface-container-lowest border-2 border-outline-variant/30 text-on-surface-variant font-black rounded-[28px] hover:bg-surface-container-low transition-colors">
                     Atrás
                   </button>
                   <button 
-                    onClick={next} 
-                    disabled={!occupation.trim()} 
-                    className="flex-1 h-16 bg-primary text-primary-foreground rounded-2xl font-bold text-lg flex items-center justify-center gap-2 disabled:opacity-30 transition-all shadow-lg shadow-primary/20"
-                  >
-                    Siguiente <ArrowRight className="w-5 h-5" />
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* STEP: FIRST TASKS — desktop only */}
-            {currentStep === 'first_tasks' && (
-              <div className="space-y-8">
-                <div className="space-y-2 text-center">
-                  <div className="w-16 h-16 mx-auto rounded-2xl bg-primary/15 flex items-center justify-center mb-2">
-                    <Sparkles className="w-8 h-8 text-primary" />
-                  </div>
-                  <h2 className="text-3xl font-extrabold tracking-tight text-foreground">Tus primeras tareas</h2>
-                  <p className="text-on-surface-variant">Añade una o varias tareas que quieras hacer hoy. Aparecerán en tu agenda.</p>
-                </div>
-                
-                <div className="space-y-3">
-                  <div className="flex gap-2">
-                    <input
-                      value={firstTaskInput}
-                      onChange={(e) => setFirstTaskInput(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addFirstTask(); } }}
-                      placeholder="Ej: Llamar al cliente"
-                      className="flex-1 bg-surface-container-low rounded-xl px-4 h-12 outline-none focus:ring-2 focus:ring-primary/20 text-base border border-transparent focus:border-primary/30"
-                    />
-                    <button
-                      onClick={addFirstTask}
-                      disabled={!firstTaskInput.trim()}
-                      className="h-12 px-4 rounded-xl bg-primary text-primary-foreground font-bold flex items-center gap-1 disabled:opacity-30"
-                    >
-                      <Plus className="w-4 h-4" /> Añadir
-                    </button>
-                  </div>
-                  
-                  {firstTasks.length > 0 && (
-                    <ul className="space-y-2">
-                      {firstTasks.map((t, i) => (
-                        <li key={i} className="flex items-center gap-3 p-3 rounded-xl bg-surface-container-low">
-                          <Check className="w-4 h-4 text-primary flex-shrink-0" />
-                          <span className="flex-1 text-sm font-semibold text-foreground truncate">{t}</span>
-                          <button onClick={() => removeFirstTask(i)} className="text-on-surface-variant hover:text-error">
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              
-                <div className="flex gap-4 pt-2">
-                  <button onClick={back} className="px-6 h-16 bg-surface-container-low text-on-surface-variant rounded-2xl font-bold flex items-center justify-center">
-                    Atrás
-                  </button>
-                  <button
                     onClick={next}
-                    disabled={firstTasks.length === 0}
-                    className="flex-1 h-16 bg-primary text-primary-foreground rounded-2xl font-bold text-lg flex items-center justify-center gap-2 transition-all shadow-lg shadow-primary/20 disabled:opacity-30"
+                    disabled={recurringTasks.some(t => !t.trim())}
+                    className="flex-1 h-20 primary-gradient text-primary-foreground rounded-[28px] font-black text-xl flex items-center justify-center gap-3 shadow-2xl shadow-primary/30 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-30"
                   >
-                    Siguiente <ArrowRight className="w-5 h-5" />
+                    Fijar rutinas <Check className="w-6 h-6" />
                   </button>
                 </div>
               </div>
             )}
 
-            {/* STEP: RECURRING TASKS — desktop only */}
-            {currentStep === 'recurring_tasks' && (
-              <div className="space-y-8">
-                <div className="space-y-2 text-center">
-                  <div className="w-16 h-16 mx-auto rounded-2xl bg-primary/15 flex items-center justify-center mb-2">
-                    <Clock className="w-8 h-8 text-primary" />
+            {/* STEP: COMMITMENT */}
+            {currentStep === 'commitment' && (
+              <div className="space-y-12">
+                <div className="space-y-6">
+                  <div className="w-16 h-16 rounded-[24px] bg-primary/10 flex items-center justify-center">
+                    <Lock className="w-8 h-8 text-primary" />
                   </div>
-                  <h2 className="text-3xl font-extrabold tracking-tight text-foreground">Tareas recurrentes</h2>
-                  <p className="text-on-surface-variant">Añade tareas que se repiten todos los días. Te ayudarán a mantener tu rutina.</p>
+                  <h2 className="text-4xl font-black tracking-tight leading-tight">
+                    Listo, {name.split(' ')[0]}.
+                  </h2>
+                  <p className="text-2xl font-medium text-on-surface-variant leading-relaxed">
+                    Estas tareas se quedan aquí <span className="text-primary font-black">flotando contigo.</span> No tienes que abrir nada más.
+                  </p>
+                  <p className="text-lg text-on-surface-variant/60 bg-surface-container-low p-6 rounded-[24px] border border-outline-variant/20 italic">
+                    "Ahora, cierra Notion, tu agenda, notas y todas esas pestañas. Enfócate. Siempre estaré aquí en tu ordenador."
+                  </p>
                 </div>
-                
-                <div className="space-y-3">
-                  <div className="flex gap-2">
-                    <input
-                      value={recurringInput}
-                      onChange={(e) => setRecurringInput(e.target.value)}
-                      onKeyDown={(e) => { 
-                        if (e.key === 'Enter') { 
-                          e.preventDefault(); 
-                          const t = recurringInput.trim();
-                          if (!t) return;
-                          setRecurringTasks(prev => [...prev, t]);
-                          setRecurringInput('');
-                        } 
-                      }}
-                      placeholder="Ej: Revisar correo, Ejercicio"
-                      className="flex-1 bg-surface-container-low rounded-xl px-4 h-12 outline-none focus:ring-2 focus:ring-primary/20 text-base border border-transparent focus:border-primary/30"
-                    />
-                    <button
-                      onClick={() => {
-                        const t = recurringInput.trim();
-                        if (!t) return;
-                        setRecurringTasks(prev => [...prev, t]);
-                        setRecurringInput('');
-                      }}
-                      disabled={!recurringInput.trim()}
-                      className="h-12 px-4 rounded-xl bg-primary text-primary-foreground font-bold flex items-center gap-1 disabled:opacity-30"
-                    >
-                      <Plus className="w-4 h-4" /> Añadir
-                    </button>
-                  </div>
-                  
-                  {recurringTasks.length > 0 && (
-                    <ul className="space-y-2">
-                      {recurringTasks.map((t, i) => (
-                        <li key={i} className="flex items-center gap-3 p-3 rounded-xl bg-surface-container-low">
-                          <Clock className="w-4 h-4 text-primary/60 flex-shrink-0" />
-                          <span className="flex-1 text-sm font-semibold text-foreground truncate">{t}</span>
-                          <button 
-                            onClick={() => setRecurringTasks(prev => prev.filter((_, idx) => idx !== i))} 
-                            className="text-on-surface-variant hover:text-error"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              
-                <div className="flex gap-4 pt-2">
-                  <button onClick={back} className="px-6 h-16 bg-surface-container-low text-on-surface-variant rounded-2xl font-bold flex items-center justify-center">
-                    Atrás
-                  </button>
-                  <button
-                    onClick={next}
-                    disabled={recurringTasks.length === 0}
-                    className="flex-1 h-16 bg-primary text-primary-foreground rounded-2xl font-bold text-lg flex items-center justify-center gap-2 transition-all shadow-lg shadow-primary/20 disabled:opacity-30"
-                  >
-                    Siguiente <ArrowRight className="w-5 h-5" />
-                  </button>
-                </div>
-              </div>
-            )}
 
-            {/* STEP: ACTIVATE MINI WINDOW — desktop only */}
-            {currentStep === 'activate_mini' && (
-              <div className="space-y-8">
-                <div className="space-y-2 text-center">
-                  <div className="w-16 h-16 mx-auto rounded-2xl bg-primary/15 flex items-center justify-center mb-2">
-                    <Monitor className="w-8 h-8 text-primary" />
-                  </div>
-                  <h2 className="text-3xl font-extrabold tracking-tight text-foreground">Pestaña flotante</h2>
-                  <p className="text-on-surface-variant">Tu lista de tareas siempre visible en el escritorio. ¡Actívala cuando quieras!</p>
-                </div>
-                
-                <div className="rounded-2xl border-2 border-dashed border-outline-variant p-5 space-y-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-primary/15 flex items-center justify-center">
-                      <Monitor className="w-5 h-5 text-primary" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="font-bold text-foreground">Pestaña flotante</p>
-                      <p className="text-xs text-on-surface-variant">Tus tareas siempre visibles en tu escritorio.</p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => {
-                      if (window.electronAPI?.toggleMiniWindow) {
-                        window.electronAPI.toggleMiniWindow();
-                        setFloatingActivated(true);
-                        toast.success('Pestaña flotante activada. Ya puedes verla en tu escritorio.');
-                      } else {
-                        setFloatingActivated(true);
-                        toast.info('La pestaña flotante requiere la app de escritorio. Puedes descargarla luego desde el botón "Descargar App".');
-                      }
-                    }}
-                    className={`w-full h-12 rounded-xl font-bold flex items-center justify-center gap-2 transition-all ${
-                      floatingActivated
-                        ? 'bg-primary/15 text-primary border-2 border-primary/30'
-                        : 'bg-foreground text-background hover:opacity-90'
+                <div className="space-y-4">
+                  <button 
+                    onClick={activateFloatingWindow}
+                    className={`w-full h-20 rounded-[28px] font-black text-xl flex items-center justify-center gap-3 transition-all ${
+                      floatingActivated 
+                        ? 'bg-primary/10 text-primary border-2 border-primary/40' 
+                        : 'bg-foreground text-background hover:scale-[1.02]'
                     }`}
                   >
-                    <ExternalLink className="w-4 h-4" />
-                    {floatingActivated ? '¡Activada!' : 'Activar pestaña flotante'}
+                    <Monitor className="w-6 h-6" />
+                    {floatingActivated ? 'Ventana Activada' : 'Activar Ventana Flotante'}
+                  </button>
+
+                  <button 
+                    onClick={next}
+                    className="w-full h-16 text-on-surface-variant/40 font-black uppercase tracking-widest text-[10px] hover:text-primary transition-colors"
+                  >
+                    Continuar al resumen
                   </button>
                 </div>
-              
-                <div className="flex gap-4 pt-2">
-                  <button onClick={back} className="px-6 h-16 bg-surface-container-low text-on-surface-variant rounded-2xl font-bold flex items-center justify-center">
-                    Atrás
-                  </button>
-                  <button
-                    onClick={next}
-                    className="flex-1 h-16 bg-primary text-primary-foreground rounded-2xl font-bold text-lg flex items-center justify-center gap-2 transition-all shadow-lg shadow-primary/20"
-                  >
-                    Siguiente <ArrowRight className="w-5 h-5" />
-                  </button>
+              </div>
+            )}
+            {/* STEP: SECURITY REGISTER */}
+            {currentStep === 'security_register' && (
+              <div className="space-y-10">
+                <div className="space-y-4">
+                  <div className="w-16 h-16 rounded-[24px] bg-primary/10 flex items-center justify-center">
+                    <ShieldCheck className="w-8 h-8 text-primary" />
+                  </div>
+                  <h2 className="text-3xl font-black tracking-tight leading-tight">
+                    El Registro "Por Seguridad".
+                  </h2>
+                  <p className="text-on-surface-variant text-lg leading-relaxed">
+                    Para que no pierdas tus tareas si cierras el ordenador o cambias de equipo, ¿dónde te enviamos tu acceso único?
+                  </p>
+                </div>
+
+                <div className="space-y-6">
+                  {authSubStep === 'email' ? (
+                    <div className="space-y-6">
+                      <input 
+                        autoFocus
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleSendOtp()}
+                        placeholder="tu@email.com"
+                        className="w-full bg-surface-container-lowest border-2 border-outline-variant/30 focus:border-primary/50 rounded-[24px] px-8 h-20 outline-none transition-all text-xl font-bold placeholder:text-on-surface-variant/20"
+                      />
+                      <button 
+                        onClick={handleSendOtp}
+                        disabled={isAuthenticating || !email.includes('@')}
+                        className="w-full h-20 primary-gradient text-primary-foreground rounded-[28px] font-black text-xl flex items-center justify-center gap-3 shadow-2xl shadow-primary/30 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-30"
+                      >
+                        {isAuthenticating ? 'Enviando...' : 'Proteger mis tareas'} <Mail className="w-6 h-6" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-8">
+                        <p className="text-center text-sm font-bold text-on-surface-variant/60">Ingresa el código enviado a <br/><span className="text-primary">{email}</span></p>
+                        <div className="flex gap-2 justify-center">
+                            {otpCode.map((digit, i) => (
+                                <input
+                                    key={i}
+                                    ref={(el) => { otpInputRefs.current[i] = el; }}
+                                    type="text"
+                                    inputMode="numeric"
+                                    maxLength={1}
+                                    value={digit}
+                                    onChange={(e) => handleOtpChange(i, e.target.value)}
+                                    className="w-12 h-16 text-center text-2xl font-black bg-surface-container-lowest border-2 border-outline-variant/30 rounded-2xl text-foreground focus:outline-none focus:border-primary transition-all"
+                                />
+                            ))}
+                        </div>
+                        <button 
+                            onClick={() => setAuthSubStep('email')}
+                            className="w-full text-[10px] font-black uppercase tracking-widest text-on-surface-variant/40 hover:text-primary transition-colors"
+                        >
+                            Cambiar email
+                        </button>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
 
             {/* STEP: READY */}
             {currentStep === 'ready' && (
-              <div className="text-center space-y-10">
+              <div className="text-center space-y-12 py-8">
                 <div className="relative mx-auto w-32 h-32">
                   <motion.div 
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
                     transition={{ type: "spring", damping: 12, stiffness: 200 }}
-                    className="w-full h-full rounded-full primary-gradient flex items-center justify-center shadow-2xl"
+                    className="w-full h-full rounded-full primary-gradient flex items-center justify-center shadow-[0_20px_50px_rgba(var(--primary-rgb),0.3)]"
                   >
-                    <Check className="w-16 h-16 text-primary-foreground" />
+                    <Sparkles className="w-14 h-14 text-primary-foreground" />
                   </motion.div>
-                  <motion.div 
-                    animate={{ scale: [1, 1.2, 1], opacity: [0.5, 0.2, 0.5] }}
-                    transition={{ repeat: Infinity, duration: 2 }}
-                    className="absolute inset-0 rounded-full bg-primary/30 -z-10"
-                  />
                 </div>
 
                 <div className="space-y-4">
-                  <h2 className="text-4xl font-extrabold tracking-tight text-foreground">¡Todo listo, {name}!</h2>
-                  <p className="text-on-surface-variant text-xl">Tu entorno de trabajo está configurado para llevarte al siguiente nivel de productividad.</p>
-                </div>
-
-                <div className="bg-surface-container-low rounded-3xl p-6 text-left space-y-4 border border-surface-container-highest">
-                  <p className="text-sm font-bold uppercase tracking-widest text-primary">Resumen de tu espacio</p>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1">
-                      <p className="text-xs text-on-surface-variant font-medium">Meta</p>
-                      <p className="font-bold truncate">{goalText}</p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-xs text-on-surface-variant font-medium">Ocupación</p>
-                      <p className="font-bold truncate">{occupation}</p>
-                    </div>
-                  </div>
+                  <h2 className="text-4xl font-black tracking-tight text-foreground">Estás en control.</h2>
+                  <p className="text-on-surface-variant text-xl px-4">Tu carga mental ahora vive en Adonai. Relájate y empieza con la primera tarea.</p>
                 </div>
 
                 <button 
                   onClick={handleFinish}
                   disabled={isFinishing}
-                  className="w-full h-20 primary-gradient text-primary-foreground rounded-3xl font-extrabold text-xl flex items-center justify-center gap-3 shadow-xl shadow-primary/30 hover:opacity-95 active:scale-[0.98] transition-all disabled:opacity-50"
+                  className="w-full h-24 primary-gradient text-primary-foreground rounded-[32px] font-black text-2xl flex items-center justify-center gap-4 shadow-2xl shadow-primary/40 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50"
                 >
                   {isFinishing ? (
-                    <>
-                      <div className="w-5 h-5 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
-                      Guardando...
-                    </>
+                    <div className="w-8 h-8 border-4 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
                   ) : (
-                    <>
-                      Empezar <ArrowRight className="w-6 h-6" />
-                    </>
+                    <>Entrar al flujo <Zap className="w-8 h-8" /></>
                   )}
                 </button>
               </div>

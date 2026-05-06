@@ -150,7 +150,7 @@ const AppRoutes = () => {
       <Routes>
         <Route path="/mini" element={<MiniTasksPage />} />
         <Route path="/auth" element={user ? <Navigate to="/daily" replace /> : <AuthPage />} />
-        <Route path="/onboarding" element={user ? <OnboardingPage /> : <Navigate to="/auth" replace />} />
+        <Route path="/onboarding" element={<OnboardingPage />} />
         
         <Route 
           path="/" 
@@ -170,6 +170,7 @@ const AppRoutes = () => {
         <Route path="/folders" element={appRouteElement(<FoldersPage />)} />
         <Route path="/friends" element={appRouteElement(<FriendsPage />)} />
         <Route path="/profile" element={appRouteElement(<ProfilePage />)} />
+        <Route path="/profile/:userId" element={appRouteElement(<ProfilePage />)} />
         <Route path="/priority-settings" element={appRouteElement(<PrioritySettingsPage />)} />
         <Route path="/trash" element={appRouteElement(<TrashPage />)} />
         <Route path="/achievements" element={appRouteElement(<AchievementsPage />)} />

@@ -12,7 +12,7 @@ import { useFolders } from '@/hooks/useFolders';
 import { useSubtasks } from '@/hooks/useSubtasks';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Check, MoreHorizontal, ChevronRight, Clock, Pause, Plus, Mic, Repeat, Link as LinkIcon, Folder, X } from 'lucide-react';
+import { Check, MoreHorizontal, ChevronRight, Clock, Pause, Plus, Mic, Repeat, Link as LinkIcon, Folder, X, Users as UsersIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import TaskCaptureModal from '@/components/TaskCaptureModal';
 import TaskDetailModal from '@/components/TaskDetailModal';
@@ -975,7 +975,11 @@ const MiniTaskList = () => {
                       display: 'flex', alignItems: 'center', gap: 4
                     }}
                   >
-                    <Folder style={{ width: 10, height: 10, color: selectedFolderId === folder.id ? '#000' : folder.color }} />
+                    {folder.isShared ? (
+                      <UsersIcon style={{ width: 10, height: 10, color: selectedFolderId === folder.id ? '#000' : folder.color }} />
+                    ) : (
+                      <Folder style={{ width: 10, height: 10, color: selectedFolderId === folder.id ? '#000' : folder.color }} />
+                    )}
                     {folder.name}
                   </button>
                 </div>

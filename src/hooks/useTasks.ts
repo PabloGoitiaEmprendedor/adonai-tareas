@@ -30,8 +30,21 @@ export const useTasks = (filters?: { date?: string; startDate?: string; endDate?
     queryFn: async () => {
       if (!user) return { tasks: [], rules: [], templates: [] };
       
-      // 1. Fetch real tasks
-      let query = supabase.from('tasks').select('*, contexts(*)').eq('user_id', user.id);
+      // 1. Fetch shared folder IDs first
+      const { data: sharedRelations } = await supabase
+        .from('folder_shares')
+        .select('folder_id')
+        .eq('shared_with_id', user.id);
+      const sharedFolderIds = (sharedRelations || []).map(r => r.folder_id);
+
+      // 2. Fetch real tasks
+      let query = supabase.from('tasks').select('*, contexts(*)');
+      
+      if (sharedFolderIds.length > 0) {
+        query = query.or(`user_id.eq.${user.id},folder_id.in.(${sharedFolderIds.map(id => `"${id}"`).join(',')})`);
+      } else {
+        query = query.eq('user_id', user.id);
+      }
       
       const todayStr = format(new Date(), 'yyyy-MM-dd');
       const todayStart = `${todayStr}T00:00:00`;
@@ -256,7 +269,7 @@ export const useTasks = (filters?: { date?: string; startDate?: string; endDate?
         );
 
         if (existingRealTask) {
-          const { error } = await supabase.from('tasks').update(updates).eq('id', existingRealTask.id).eq('user_id', user.id);
+          const { error } = await supabase.from('tasks').update(updates).eq('id', existingRealTask.id);
           if (error) throw error;
           targetId = existingRealTask.id;
         } else {
@@ -298,7 +311,7 @@ export const useTasks = (filters?: { date?: string; startDate?: string; endDate?
           targetId = data.id;
         }
       } else {
-        const { error } = await supabase.from('tasks').update(updates).eq('id', id).eq('user_id', user.id);
+        const { error } = await supabase.from('tasks').update(updates).eq('id', id);
         if (error) throw error;
       }
 
@@ -369,7 +382,6 @@ export const useTasks = (filters?: { date?: string; startDate?: string; endDate?
           .from('tasks')
           .select('recurrence_id')
           .eq('id', id)
-          .eq('user_id', user.id)
           .maybeSingle();
         if (fetchError) throw fetchError;
         recurrenceId = row?.recurrence_id ?? null;
@@ -381,15 +393,13 @@ export const useTasks = (filters?: { date?: string; startDate?: string; endDate?
         const { error: tasksErr } = await supabase
           .from('tasks')
           .update({ status: 'deleted' })
-          .eq('user_id', user.id)
           .eq('recurrence_id', recurrenceId);
         if (tasksErr) throw tasksErr;
 
         const { error: ruleErr } = await supabase
           .from('recurrence_rules')
           .delete()
-          .eq('id', recurrenceId)
-          .eq('user_id', user.id);
+          .eq('id', recurrenceId);
         if (ruleErr) throw ruleErr;
         return;
       }
@@ -398,8 +408,7 @@ export const useTasks = (filters?: { date?: string; startDate?: string; endDate?
       const { error } = await supabase
         .from('tasks')
         .update({ status: 'deleted' })
-        .eq('id', id)
-        .eq('user_id', user.id);
+        .eq('id', id);
       if (error) throw error;
     },
     onMutate: async (id: string) => {
@@ -440,7 +449,7 @@ export const useTasks = (filters?: { date?: string; startDate?: string; endDate?
   const hardDeleteTask = useMutation({
     mutationFn: async (id: string) => {
       if (!user) throw new Error('No user');
-      const { error } = await supabase.from('tasks').delete().eq('id', id).eq('user_id', user.id);
+      const { error } = await supabase.from('tasks').delete().eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {
