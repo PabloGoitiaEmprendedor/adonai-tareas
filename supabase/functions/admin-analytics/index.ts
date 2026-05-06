@@ -77,7 +77,7 @@ serve(async (req) => {
     // Fetch experiment_metrics for streaks
     const { data: allMetrics, error: metricsError } = await supabase
       .from("experiment_metrics")
-      .select("user_id, streak_current, last_active_date");
+      .select("user_id, streak_current, streak_max, last_active_date");
     if (metricsError) throw new Error(`metrics: ${metricsError.message}`);
 
     const metrics = (allMetrics || []).filter(m => m.user_id !== adminUserId && !excludedUserIds.includes(m.user_id));
@@ -121,8 +121,15 @@ serve(async (req) => {
     const todayEvents = filteredEvents.filter(e => e.created_at?.startsWith(todayStr));
     // Users who opened the app today (any event)
     const activeTodayOpened = new Set(todayEvents.map(e => e.user_id)).size;
-    // Users who did a REAL action today (task_created, task_completed)
-    const REAL_ACTION_TYPES = new Set(["task_created_text", "task_created_voice", "task_created_image", "task_completed"]);
+    // Users who did a REAL action today (task_created, task_completed, session_start)
+    const REAL_ACTION_TYPES = new Set([
+      "task_created_text", 
+      "task_created_voice", 
+      "task_created_image", 
+      "task_completed",
+      "day_active",
+      "session_start"
+    ]);
     const activeTodayAction = new Set(
       todayEvents.filter(e => REAL_ACTION_TYPES.has(e.event_type || "")).map(e => e.user_id)
     ).size;
@@ -186,7 +193,14 @@ serve(async (req) => {
 
     // ─── NEW: WAU (Weekly Active Users) — users with valid activity in last 7 days ───
     const sevenDaysAgoStr = format(subDays(today, 7), "yyyy-MM-dd");
-    const VALID_ACTIVITY_EVENTS = new Set(["task_created_text", "task_created_voice", "task_created_image", "task_completed"]);
+    const VALID_ACTIVITY_EVENTS = new Set([
+      "task_created_text", 
+      "task_created_voice", 
+      "task_created_image", 
+      "task_completed",
+      "day_active",
+      "session_start"
+    ]);
     const recentValidEvents = events.filter(e => {
       const eventDate = e.created_at?.slice(0, 10) || "";
       return eventDate >= sevenDaysAgoStr && VALID_ACTIVITY_EVENTS.has(e.event_type || "");
@@ -194,10 +208,10 @@ serve(async (req) => {
     const wau = new Set(recentValidEvents.map(e => e.user_id)).size;
 
     // Per-user stats — with "status" field (activo / en_riesgo / churned)
-    const userIds = [...new Set([...filteredTasks.map(t => t.user_id), ...profiles.map(p => p.user_id)])];
+    const userIds = [...new Set([...tasks.map(t => t.user_id), ...profiles.map(p => p.user_id)])];
     const userStats = userIds.map(uid => {
-      const userTasks = filteredTasks.filter(t => t.user_id === uid);
-      const userEvents = filteredEvents.filter(e => e.user_id === uid);
+      const userTasks = tasks.filter(t => t.user_id === uid);
+      const userEvents = events.filter(e => e.user_id === uid);
       const profile = profileMap.get(uid);
       const m = metricsMap.get(uid);
       const userCreationEvents = userEvents.filter(e => e.event_type?.startsWith("task_created"));
@@ -211,7 +225,7 @@ serve(async (req) => {
         if (!lastValidDate || d > lastValidDate) lastValidDate = d;
       });
       // Also check task dates as fallback
-      const allUserTasks = tasks.filter(t => t.user_id === uid);
+      const allUserTasks = userTasks;
       allUserTasks.forEach(t => {
         const cd = t.created_at?.slice(0, 10) || "";
         const compd = t.completed_at?.slice(0, 10) || "";
@@ -423,9 +437,15 @@ serve(async (req) => {
         });
         retention[i] = totalUsers > 0 ? Math.round((activeCount / totalUsers) * 100) : 0;
       }
-      // Day 0 must always be 100% (all users exist on their registration day)
       if (totalUsers > 0) retention[0] = 100;
-      return { users: totalUsers, retention };
+      
+      const userDetails = group.users.map(uid => ({
+        uid,
+        activeDaysCount: group.activeDays[uid]?.size || 0,
+        days: Array.from(group.activeDays[uid] || [])
+      }));
+
+      return { users: totalUsers, retention, userDetails };
     };
 
     const cohortRetention = Array.from(cohortsMap.entries())
@@ -554,9 +574,11 @@ serve(async (req) => {
 
       const retainedWho = usersWho.filter(uid => retainedUserIds.has(uid)).length;
       const retainedWhoNot = usersWhoNot.filter(uid => retainedUserIds.has(uid)).length;
+      const churnedWhoNot = usersWhoNot.length - retainedWhoNot;
 
       const pctRetainedWho = usersWho.length > 0 ? Math.round((retainedWho / usersWho.length) * 100) : 0;
       const pctRetainedWhoNot = usersWhoNot.length > 0 ? Math.round((retainedWhoNot / usersWhoNot.length) * 100) : 0;
+      const pctChurnedWhoNot = usersWhoNot.length > 0 ? Math.round((churnedWhoNot / usersWhoNot.length) * 100) : 0;
       const delta = pctRetainedWho - pctRetainedWhoNot;
 
       return {
@@ -567,8 +589,10 @@ serve(async (req) => {
         usersWhoNot: usersWhoNot.length,
         retainedWho,
         retainedWhoNot,
+        churnedWhoNot,
         pctRetainedWho,
         pctRetainedWhoNot,
+        pctChurnedWhoNot,
         delta,
       };
     });

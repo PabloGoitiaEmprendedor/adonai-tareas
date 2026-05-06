@@ -96,7 +96,19 @@ const FoldersPage = () => {
 
   const sharedWithIds = shares.map((s: any) => s.shared_with_id);
   const currentFolder = folders.find((f) => f.id === selectedFolder);
-  const folderTasks = selectedFolder ? tasks.filter((t) => t.folder_id === selectedFolder) : [];
+  const folderTasks = useMemo(() => {
+    const raw = selectedFolder ? tasks.filter((t) => t.folder_id === selectedFolder) : [];
+    const quadrantRank = (t: any) =>
+      t.urgency && t.importance ? 0
+      : t.urgency ? 1
+      : t.importance ? 2
+      : 3;
+    return [...raw].sort((a, b) => {
+      const rankDiff = quadrantRank(a) - quadrantRank(b);
+      if (rankDiff !== 0) return rankDiff;
+      return (a.sort_order || 0) - (b.sort_order || 0);
+    });
+  }, [tasks, selectedFolder]);
   const completedCount = folderTasks.filter(t => t.status === 'done').length;
 
   const handleComplete = async (task: any, e: React.MouseEvent) => {

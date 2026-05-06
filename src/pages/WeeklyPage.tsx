@@ -111,9 +111,6 @@ const WeeklyPage = () => {
       : t.importance ? 2
       : 3;
     const sorted = [...selectedDayTasks].sort((a, b) => {
-      const doneA = a.status === 'done' ? 1 : 0;
-      const doneB = b.status === 'done' ? 1 : 0;
-      if (doneA !== doneB) return doneA - doneB;
       const rankDiff = quadrantRank(a) - quadrantRank(b);
       if (rankDiff !== 0) return rankDiff;
       return (a.sort_order || 0) - (b.sort_order || 0);

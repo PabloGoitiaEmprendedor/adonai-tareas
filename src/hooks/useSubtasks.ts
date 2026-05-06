@@ -2,16 +2,16 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
-export const useSubtasks = (parentId: string | null | undefined) => {
+export const useSubtasks = (parentId: string | null | undefined, config: { enabled?: boolean } = {}) => {
   const { user } = useAuth();
   const qc = useQueryClient();
 
-  const enabled = !!user && !!parentId && !parentId.startsWith('virtual-');
+  const isEnabled = !!user && !!parentId && typeof parentId === 'string' && !parentId.startsWith('virtual-') && (config.enabled !== false);
 
   const { data: subtasks = [], isLoading } = useQuery({
     queryKey: ['subtasks', parentId],
     queryFn: async () => {
-      if (!enabled) return [];
+      if (!isEnabled) return [];
       const { data, error } = await supabase
         .from('tasks')
         .select('*')
@@ -22,7 +22,7 @@ export const useSubtasks = (parentId: string | null | undefined) => {
       if (error) throw error;
       return data || [];
     },
-    enabled,
+    enabled: isEnabled,
   });
 
   const createSubtask = useMutation({
@@ -40,6 +40,13 @@ export const useSubtasks = (parentId: string | null | undefined) => {
         .select()
         .maybeSingle();
       if (error) throw error;
+
+      await supabase.from('usage_events').insert({
+        user_id: user.id,
+        event_type: 'task_created_text',
+        metadata: { parent_id: parentId, is_subtask: true },
+      });
+
       return data;
     },
     onSuccess: () => {
@@ -59,6 +66,14 @@ export const useSubtasks = (parentId: string | null | undefined) => {
         })
         .eq('id', id);
       if (error) throw error;
+
+      if (done) {
+        await supabase.from('usage_events').insert({
+          user_id: user.id,
+          event_type: 'task_completed',
+          metadata: { subtask_id: id },
+        });
+      }
     },
     onMutate: async ({ id, done }) => {
       await qc.cancelQueries({ queryKey: ['subtasks', parentId] });

@@ -45,9 +45,9 @@ export const TaskCard = ({
   handleStartTimer,
   view
 }: TaskCardProps) => {
-  const { subtasks } = useSubtasks(task.id);
-  const { updateTask } = useTasks();
   const [subtasksOpen, setSubtasksOpen] = useState(false);
+  const { subtasks } = useSubtasks(task.id, { enabled: subtasksOpen });
+  const { updateTask } = useTasks();
   const [isEditing, setIsEditing] = useState(false);
   const [editedTitle, setEditedTitle] = useState(task.title);
 

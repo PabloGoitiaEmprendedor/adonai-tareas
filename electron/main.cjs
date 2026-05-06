@@ -1,10 +1,13 @@
-const { app, BrowserWindow, ipcMain, shell, dialog, session, Menu, MenuItem } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, dialog, session, Menu, MenuItem, globalShortcut, screen, clipboard } = require('electron');
+const { exec } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const { autoUpdater } = require('electron-updater');
 
 let mainWindow;
 let miniWindow;
+let bubbleWindow;
+let quickTaskWindow;
 
 // ── Speech Recognition & Mic Flags ──────────────────────────────────────────
 app.commandLine.appendSwitch('enable-speech-dispatcher');
@@ -17,6 +20,7 @@ const gotTheLock = app.requestSingleInstanceLock();
 if (!gotTheLock) {
   app.quit();
 } else {
+  Menu.setApplicationMenu(null);
   app.on('second-instance', (event, commandLine) => {
     // Someone tried to run a second instance, we should focus our window.
     if (mainWindow) {
@@ -154,7 +158,7 @@ function createMainWindow() {
       webSecurity: true,
       enableBlinkFeatures: 'SpeechRecognition',
     },
-    icon: path.join(__dirname, '..', app.isPackaged ? 'dist' : 'public', process.platform === 'win32' ? 'favicon.ico' : 'icon.png'),
+    icon: path.join(__dirname, '..', app.isPackaged ? 'dist' : 'public', 'icon.png'),
   });
   const indexPath = app.isPackaged
     ? path.join(process.resourcesPath, 'app.asar', 'dist', 'index.html')
@@ -256,7 +260,7 @@ function createMiniWindow() {
       webSecurity: true,
       enableBlinkFeatures: 'SpeechRecognition',
     },
-    icon: path.join(__dirname, '..', app.isPackaged ? 'dist' : 'public', process.platform === 'win32' ? 'favicon.ico' : 'icon.png'),
+    icon: path.join(__dirname, '..', app.isPackaged ? 'dist' : 'public', 'icon.png'),
   });
 
   // Mini window starts hidden — renderer signals when session is ready
@@ -467,9 +471,13 @@ ipcMain.on('set-mini-bounds', (event, b) => {
   });
 });
 
+let syncTimeout;
 ipcMain.on('sync-data', () => {
-  if (mainWindow) mainWindow.webContents.send('invalidate-queries');
-  if (miniWindow) miniWindow.webContents.send('invalidate-queries');
+  if (syncTimeout) clearTimeout(syncTimeout);
+  syncTimeout = setTimeout(() => {
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('invalidate-queries');
+    if (miniWindow && !miniWindow.isDestroyed()) miniWindow.webContents.send('invalidate-queries');
+  }, 200);
 });
 
 ipcMain.on('open-external', (event, url) => {
@@ -500,4 +508,117 @@ ipcMain.on('window-maximize', (event) => {
 ipcMain.on('window-close', (event) => {
   const win = BrowserWindow.fromWebContents(event.sender);
   if (win) win.close();
+});
+
+// ── Universal Task Capture ──────────────────────────────────────────────────
+
+function createSelectionBubbleWindow() {
+  if (bubbleWindow) return;
+
+  bubbleWindow = new BrowserWindow({
+    width: 220,
+    height: 80,
+    show: false,
+    frame: false,
+    transparent: true,
+    alwaysOnTop: true,
+    resizable: false,
+    movable: false,
+    skipTaskbar: true,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(__dirname, 'preload.cjs'),
+    },
+  });
+
+  const url = !app.isPackaged
+    ? 'http://localhost:8080/#/selection-bubble'
+    : `file://${path.join(__dirname, '../dist/index.html')}#/selection-bubble`;
+
+  bubbleWindow.loadURL(url);
+}
+
+function createQuickTaskWindow(initialText = '') {
+  if (quickTaskWindow) {
+    quickTaskWindow.focus();
+    quickTaskWindow.webContents.send('set-quick-task-text', { text: initialText });
+    return;
+  }
+
+  const { x, y } = screen.getCursorScreenPoint();
+
+  quickTaskWindow = new BrowserWindow({
+    width: 400,
+    height: 300,
+    x: Math.max(0, x - 200),
+    y: Math.max(0, y - 150),
+    frame: false,
+    transparent: true,
+    alwaysOnTop: true,
+    resizable: false,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(__dirname, 'preload.cjs'),
+    },
+  });
+
+  const url = !app.isPackaged
+    ? `http://localhost:8080/#/quick-task?text=${encodeURIComponent(initialText)}`
+    : `file://${path.join(__dirname, '../dist/index.html')}#/quick-task?text=${encodeURIComponent(initialText)}`;
+
+  quickTaskWindow.loadURL(url);
+
+  quickTaskWindow.on('closed', () => {
+    quickTaskWindow = null;
+  });
+}
+
+function captureSelection() {
+  const oldClipboard = clipboard.readText();
+  
+  const command = process.platform === 'win32'
+    ? 'powershell -command "$wshell = New-Object -ComObject WScript.Shell; $wshell.SendKeys(\'^c\')"'
+    : 'osascript -e \'tell application "System Events" to keystroke "c" using command down\'';
+
+  exec(command, (error) => {
+    if (error) {
+      console.error('Failed to send copy command', error);
+      return;
+    }
+
+    setTimeout(() => {
+      const newText = clipboard.readText();
+      if (newText && newText !== oldClipboard) {
+        const { x, y } = screen.getCursorScreenPoint();
+        
+        if (!bubbleWindow) createSelectionBubbleWindow();
+        
+        bubbleWindow.setPosition(x + 10, y + 10);
+        bubbleWindow.show();
+        bubbleWindow.webContents.send('capture-selection', { text: newText });
+      }
+    }, 200);
+  });
+}
+
+app.whenReady().then(() => {
+  createSelectionBubbleWindow();
+  globalShortcut.register('Alt+Space', () => {
+    captureSelection();
+  });
+});
+
+app.on('will-quit', () => {
+  globalShortcut.unregisterAll();
+});
+
+ipcMain.on('open-quick-task', (event, data) => {
+  if (bubbleWindow) bubbleWindow.hide();
+  createQuickTaskWindow(data.text);
+});
+
+ipcMain.on('close-quick-task', () => {
+  if (quickTaskWindow) quickTaskWindow.close();
 });

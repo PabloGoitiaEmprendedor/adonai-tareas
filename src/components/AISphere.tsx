@@ -12,7 +12,7 @@ export const AISphere = () => {
 
     let animationFrameId: number;
     let particles: Particle[] = [];
-    const particleCount = 200;
+    const particleCount = 100;
 
     class Particle {
       x: number;
@@ -144,22 +144,22 @@ export const AISphere = () => {
     <div className="relative w-64 h-64 mx-auto flex items-center justify-center pointer-events-none">
       {/* Volumetric Glow Background */}
       <motion.div
-        className="absolute inset-0 bg-primary/20 blur-[60px] rounded-full"
+        className="absolute inset-0 bg-primary/20 blur-[40px] rounded-full"
         animate={{
-          scale: [1, 1.3, 1],
-          opacity: [0.2, 0.5, 0.2],
+          scale: [1, 1.2, 1],
+          opacity: [0.2, 0.4, 0.2],
         }}
         transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
       />
       
       {/* Neural Core Glow */}
       <motion.div
-        className="absolute w-32 h-32 bg-primary/10 blur-[30px] rounded-full border border-primary/20"
+        className="absolute w-32 h-32 bg-primary/10 blur-[20px] rounded-full border border-primary/20"
         animate={{
-          scale: [0.8, 1.1, 0.8],
+          scale: [0.8, 1.05, 0.8],
           rotate: [0, 90, 180, 270, 360],
         }}
-        transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
+        transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
       />
 
       <canvas

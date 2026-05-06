@@ -179,6 +179,7 @@ const AdminPanelPage = () => {
   const [selectedCohort, setSelectedCohort] = useState<string | null>(null);
   const [selectedSubcohort, setSelectedSubcohort] = useState<'all' | '1-2 tareas' | '3+ tareas'>('all');
   const [retentionDays, setRetentionDays] = useState<7 | 14 | 30>(14);
+  const [viewingCohortUsers, setViewingCohortUsers] = useState<{ name: string, group: any } | null>(null);
 
   const handleExcludeUser = (userId: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -478,12 +479,18 @@ const AdminPanelPage = () => {
                           </td>
                         );
                       })}
-                      <td className="text-center py-3 px-2">
+                      <td className="text-center py-3 px-2 flex items-center justify-center gap-2">
                         <button
                           onClick={() => setSelectedCohort(selectedCohort === cohortData.cohort ? null : cohortData.cohort)}
                           className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors whitespace-nowrap ${selectedCohort === cohortData.cohort ? 'bg-primary text-primary-foreground' : 'bg-surface-container-high text-on-surface-variant hover:text-foreground'}`}
                         >
                           {selectedCohort === cohortData.cohort ? 'Ocultar' : 'Graficar'}
+                        </button>
+                        <button
+                          onClick={() => setViewingCohortUsers({ name: cohortData.cohort, group: cohort })}
+                          className="px-3 py-1.5 rounded-lg text-xs font-bold bg-surface-container-high text-on-surface-variant hover:text-foreground hover:bg-surface-container-highest transition-colors whitespace-nowrap"
+                        >
+                          Ver Usuarios
                         </button>
                       </td>
                     </tr>
@@ -551,12 +558,12 @@ const AdminPanelPage = () => {
                       <div className="flex-1 h-5 bg-surface-container-high rounded-full overflow-hidden relative">
                         <motion.div
                           initial={{ width: 0 }}
-                          animate={{ width: `${feat.pctRetainedWhoNot}%` }}
+                          animate={{ width: `${feat.pctChurnedWhoNot}%` }}
                           transition={{ duration: 0.8, ease: 'easeOut' }}
                           className="h-full rounded-full bg-red-400/60"
                         />
                         <span className="absolute inset-0 flex items-center justify-center text-[10px] font-black tabular-nums text-foreground">
-                          {feat.pctRetainedWhoNot}% retenidos ({feat.retainedWhoNot}/{feat.usersWhoNot})
+                          {feat.pctChurnedWhoNot}% se fueron ({feat.churnedWhoNot}/{feat.usersWhoNot})
                         </span>
                       </div>
                     </div>
@@ -731,48 +738,160 @@ const AdminPanelPage = () => {
           </div>
         </section>
 
-        {/* ─── Clarity Integration Note ──────────────────────────────────── */}
-        <section className="mt-8 bg-card rounded-2xl p-6 border border-outline-variant/10 shadow-sm">
-          <h2 className="text-sm font-black uppercase tracking-widest text-on-surface-variant/60 mb-3">
-            Integración con Clarity
-          </h2>
-          <p className="text-sm text-on-surface-variant/70 leading-relaxed mb-4">
-            Clarity ya está integrada con tu proyecto (ID: <code className="bg-surface-container-high px-1.5 py-0.5 rounded text-xs font-mono">wa230iw439</code>).
-            Los usuarios son identificados automáticamente por su user_id de Supabase. Para ver heatmaps,
-            recordings, y métricas de engagement detalladas, accede al dashboard de Clarity:
-          </p>
-          <a
-            href="https://clarity.microsoft.com/projects/view/wa230iw439/dashboard"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-primary text-primary-foreground font-bold text-sm hover:opacity-90 transition-opacity"
-          >
-            <ExternalLink className="w-4 h-4" />
-            Abrir Microsoft Clarity
-          </a>
-        </section>
+        {/* ─── Cohort User Details Modal ────────────────────────────────────── */}
+        <AnimatePresence>
+          {viewingCohortUsers && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm"
+              onClick={() => setViewingCohortUsers(null)}
+            >
+              <motion.div
+                initial={{ scale: 0.95, opacity: 0, y: 20 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                exit={{ scale: 0.95, opacity: 0, y: 20 }}
+                className="bg-card w-full max-w-4xl max-h-[85vh] rounded-3xl border border-outline-variant/10 shadow-2xl overflow-hidden flex flex-col"
+                onClick={e => e.stopPropagation()}
+              >
+                <div className="p-6 border-b border-outline-variant/10 flex items-center justify-between bg-surface-container-low">
+                  <div>
+                    <h2 className="text-xl font-black tracking-tight text-foreground">
+                      Usuarios: {viewingCohortUsers.name}
+                    </h2>
+                    <p className="text-xs font-bold text-on-surface-variant/50 uppercase tracking-widest mt-1">
+                      {viewingCohortUsers.group.users} usuarios en total • Ordenados por días activos
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setViewingCohortUsers(null)}
+                    className="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center hover:bg-surface-container-highest transition-colors"
+                  >
+                    <Plus className="w-6 h-6 rotate-45 text-on-surface-variant" />
+                  </button>
+                </div>
 
-        {/* ─── Custom Tracking Builder ────────────────────────────────────── */}
-        <section className="mt-8 bg-card rounded-2xl p-6 border border-outline-variant/10 shadow-sm">
-          <h2 className="text-sm font-black uppercase tracking-widest text-on-surface-variant/60 mb-3">
-            Eventos rastreados
-          </h2>
-          <p className="text-xs text-on-surface-variant/60 leading-relaxed mb-4">
-            Estos son los event_types que se registran automáticamente en <code className="bg-surface-container-high px-1.5 py-0.5 rounded font-mono">usage_events</code>.
-            Puedes agregar nuevos en el código y aparecerán aquí automáticamente.
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {[
-              'task_created_text', 'task_created_voice', 'task_created_image',
-              'task_completed', 'day_active', 'return_next_day',
-              'session_start', 'session_end', 'onboarding_completed',
-            ].map(evt => (
-              <span key={evt} className="px-3 py-1.5 rounded-full bg-surface-container-high text-[10px] font-bold text-on-surface-variant/70">
-                {evt}
-              </span>
-            ))}
-          </div>
-        </section>
+                <div className="flex-1 overflow-y-auto p-4">
+                  <div className="grid gap-3">
+                    {(() => {
+                      // Fallback logic if Edge Function hasn't been deployed
+                      let usersToShow = [];
+                      if (viewingCohortUsers.group.userDetails) {
+                        usersToShow = viewingCohortUsers.group.userDetails
+                          .sort((a: any, b: any) => b.activeDaysCount - a.activeDaysCount)
+                          .map((detail: any) => ({
+                            uid: detail.uid,
+                            activeDaysCount: detail.activeDaysCount,
+                            days: detail.days
+                          }));
+                      } else {
+                        // RECONSTRUCT cohort from userStats by date
+                        const cohortDateStr = viewingCohortUsers.name.split('Semana del ')[1];
+                        if (cohortDateStr) {
+                          const startDate = new Date(cohortDateStr);
+                          const endDate = new Date(startDate);
+                          endDate.setDate(startDate.getDate() + 7);
+
+                          usersToShow = analytics.userStats
+                            .filter(stat => {
+                              const regDate = new Date(stat.created_at);
+                              return regDate >= startDate && regDate < endDate;
+                            })
+                            .sort((a, b) => b.completed_tasks - a.completed_tasks)
+                            .map(stat => ({
+                              uid: stat.user_id,
+                              activeDaysCount: stat.streak_max || 0, // Fallback to max streak
+                              days: [] // No day-by-day data in fallback
+                            }));
+                        }
+                      }
+
+                      if (usersToShow.length === 0) {
+                        return (
+                          <div className="text-center py-12 px-6">
+                            <p className="text-on-surface-variant/60 font-bold">No se encontraron usuarios en esta cohorte.</p>
+                          </div>
+                        );
+                      }
+
+                      return usersToShow.map((detail: any) => {
+                        const stat = analytics.userStats.find(s => s.user_id === detail.uid);
+                        if (!stat) return null;
+                        return (
+                          <div key={detail.uid} className="bg-surface-container-low rounded-2xl p-4 border border-outline-variant/5 hover:border-primary/20 transition-colors">
+                            <div className="flex items-start justify-between mb-3">
+                              <div className="flex items-center gap-3">
+                                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary font-black text-lg">
+                                  {stat.name?.[0] || stat.email?.[0] || '?'}
+                                </div>
+                                <div>
+                                  <p className="font-black text-foreground">{stat.name || stat.email?.split('@')[0] || 'Usuario'}</p>
+                                  <p className="text-xs font-bold text-on-surface-variant/60">{stat.email}</p>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-lg font-black tabular-nums text-primary">
+                                  {viewingCohortUsers.group.userDetails ? detail.activeDaysCount : stat.completed_tasks}
+                                </p>
+                                <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/40">
+                                  {viewingCohortUsers.group.userDetails ? 'Días Activos' : 'Tareas Hechas'}
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
+                              <div className="bg-surface-container-high/40 rounded-xl p-2 text-center">
+                                <p className="text-[10px] font-bold text-on-surface-variant/50 mb-0.5">Creadas</p>
+                                <p className="text-sm font-black">{stat.total_tasks}</p>
+                              </div>
+                              <div className="bg-surface-container-high/40 rounded-xl p-2 text-center">
+                                <p className="text-[10px] font-bold text-on-surface-variant/50 mb-0.5">Hechas</p>
+                                <p className="text-sm font-black text-green-500">{stat.completed_tasks}</p>
+                              </div>
+                              <div className="bg-surface-container-high/40 rounded-xl p-2 text-center">
+                                <p className="text-[10px] font-bold text-on-surface-variant/50 mb-0.5">Racha Actual</p>
+                                <p className="text-sm font-black text-orange-500">{stat.streak_current}</p>
+                              </div>
+                              <div className="bg-surface-container-high/40 rounded-xl p-2 text-center">
+                                <p className="text-[10px] font-bold text-on-surface-variant/50 mb-0.5">Estado</p>
+                                <p className={`text-[10px] font-black uppercase ${stat.status === 'activo' ? 'text-green-500' : stat.status === 'en_riesgo' ? 'text-yellow-500' : 'text-red-400'}`}>
+                                  {stat.status}
+                                </p>
+                              </div>
+                            </div>
+
+                            {viewingCohortUsers.group.userDetails && (
+                              <div className="flex flex-wrap gap-1.5">
+                                <p className="text-[10px] font-bold text-on-surface-variant/40 w-full mb-1">Mapa de actividad (Días desde registro):</p>
+                                {Array.from({ length: 31 }).map((_, i) => {
+                                  const isActive = detail.days.includes(i);
+                                  return (
+                                    <div
+                                      key={i}
+                                      title={`Día ${i}: ${isActive ? 'Activo' : 'Inactivo'}`}
+                                      className={`w-4 h-4 rounded-sm ${isActive ? 'bg-primary' : 'bg-surface-container-high/30'}`}
+                                    />
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      });
+                    })()}
+                  </div>
+                </div>
+
+                <div className="p-4 bg-surface-container-low border-t border-outline-variant/10 text-center">
+                  <p className="text-[10px] font-bold text-on-surface-variant/40 uppercase tracking-widest">
+                    Fin de la lista de usuarios
+                  </p>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );

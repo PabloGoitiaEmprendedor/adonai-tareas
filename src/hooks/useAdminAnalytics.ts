@@ -56,6 +56,11 @@ interface FunnelMetrics {
 interface CohortGroup {
   users: number;
   retention: { [day: number]: number };
+  userDetails: Array<{
+    uid: string;
+    activeDaysCount: number;
+    days: number[];
+  }>;
 }
 
 interface CohortRetention extends CohortGroup {
@@ -112,8 +117,10 @@ interface FeatureRetentionItem {
   usersWhoNot: number;
   retainedWho: number;
   retainedWhoNot: number;
+  churnedWhoNot: number;
   pctRetainedWho: number;
   pctRetainedWhoNot: number;
+  pctChurnedWhoNot: number;
   delta: number;
 }
 
@@ -146,7 +153,7 @@ export const useAdminAnalytics = (timeRange: number | 'all' = 30, excludedUserId
       return data as AdminAnalytics;
     },
     enabled: isAdmin && !!user,
-    staleTime: 1000 * 60 * 5,
+    staleTime: 1000 * 30,
     refetchOnWindowFocus: false,
     retry: 1,
   });

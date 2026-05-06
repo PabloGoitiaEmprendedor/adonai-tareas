@@ -126,7 +126,7 @@ const TaskRowRaw = ({ task, onToggle, onDetail, activeTimerId, onTimerToggle, up
 }) => {
   const isDone = task.status === 'done';
   const [open, setOpen] = useState(false);
-  const { subtasks, toggleSubtask, updateSubtask } = useSubtasks(task.id);
+  const { subtasks, toggleSubtask, updateSubtask } = useSubtasks(task.id, { enabled: open });
   const hasSubtasks = subtasks.length > 0;
   const doneSubCount = subtasks.filter((s: any) => s.status === 'done').length;
   const isTimerActive = activeTimerId === task.id;
@@ -355,15 +355,21 @@ function useDragWindow() {
   const hasMovedRef = useRef(false);
 
   useEffect(() => {
+    let frameId: number;
     const onMove = (e: MouseEvent) => {
       if (!isDraggingRef.current) return;
-      const dx = e.screenX - startRef.current.x;
-      const dy = e.screenY - startRef.current.y;
-      if (Math.abs(dx) > 2 || Math.abs(dy) > 2) {
-        hasMovedRef.current = true;
-        (window as any).electronAPI?.moveWindow?.(dx, dy);
-        startRef.current = { x: e.screenX, y: e.screenY };
-      }
+      
+      if (frameId) return;
+      frameId = requestAnimationFrame(() => {
+        frameId = 0;
+        const dx = e.screenX - startRef.current.x;
+        const dy = e.screenY - startRef.current.y;
+        if (Math.abs(dx) > 2 || Math.abs(dy) > 2) {
+          hasMovedRef.current = true;
+          (window as any).electronAPI?.moveWindow?.(dx, dy);
+          startRef.current = { x: e.screenX, y: e.screenY };
+        }
+      });
     };
     const onUp = () => { isDraggingRef.current = false; };
     window.addEventListener('mousemove', onMove);
@@ -611,16 +617,12 @@ const MiniTaskList = () => {
   }, [tasks, activeTimerId, updateTask]);
 
   const filteredTasks = useMemo(() => {
-    if (!selectedFolderId) return tasks;
+    if (!selectedFolderId) return tasks.filter((t: any) => !t.folder_id);
     return tasks.filter((t: any) => t.folder_id === selectedFolderId);
   }, [tasks, selectedFolderId]);
 
   const sortedTasks = useMemo(() => {
     return [...filteredTasks].sort((a: any, b: any) => {
-      const doneA = a.status === 'done' ? 1 : 0;
-      const doneB = b.status === 'done' ? 1 : 0;
-      if (doneA !== doneB) return doneA - doneB;
-
       const rankDiff = quadrantRank(a) - quadrantRank(b);
       if (rankDiff !== 0) return rankDiff;
 

@@ -32,49 +32,86 @@ export const useStreaks = () => {
       const today = format(new Date(), 'yyyy-MM-dd');
       const yesterday = format(subDays(new Date(), 1), 'yyyy-MM-dd');
 
+      // Fetch fresh metrics to avoid race conditions with hook state
+      const { data: freshMetrics, error: fetchError } = await supabase
+        .from('experiment_metrics')
+        .select('*')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (fetchError) {
+        console.error('Error fetching metrics', fetchError);
+        return;
+      }
+
+      if (!freshMetrics) {
+        console.log('[useStreaks] First time user, initializing metrics');
+        await supabase.from('usage_events').insert({
+          user_id: user.id,
+          event_type: 'day_active',
+          metadata: { date: today, initial: true },
+        });
+
+        const { data: initialized, error: initError } = await supabase
+          .from('experiment_metrics')
+          .insert({
+            user_id: user.id,
+            last_active_date: today,
+            streak_current: 1,
+            streak_max: 1,
+            day_1_used: true
+          })
+          .select()
+          .single();
+
+        if (initError) throw initError;
+        return 1;
+      }
+
       await supabase.from('usage_events').insert({
         user_id: user.id,
         event_type: 'day_active',
         metadata: { date: today },
       });
 
-      if (!metrics) return;
-
       const updates: MetricsUpdate = {
         last_active_date: today,
         updated_at: new Date().toISOString(),
       };
 
-      if (!metrics.day_1_used) {
+      if (!freshMetrics.day_1_used) {
         updates.day_1_used = true;
-      } else if (!metrics.day_2_used && metrics.last_active_date === yesterday) {
+      } else if (!freshMetrics.day_2_used && freshMetrics.last_active_date === yesterday) {
         updates.day_2_used = true;
         await supabase.from('usage_events').insert({
           user_id: user.id,
           event_type: 'return_next_day',
         });
-      } else if (!metrics.day_3_used && metrics.day_2_used) {
+      } else if (!freshMetrics.day_3_used && freshMetrics.day_2_used) {
         updates.day_3_used = true;
         updates.user_retained = true;
       }
 
-      if (metrics.last_active_date === yesterday) {
-        const newStreak = (metrics.streak_current || 0) + 1;
+      if (freshMetrics.last_active_date === yesterday) {
+        const newStreak = (freshMetrics.streak_current || 0) + 1;
         updates.streak_current = newStreak;
-        if (newStreak > (metrics.streak_max || 0)) {
+        if (newStreak > (freshMetrics.streak_max || 0)) {
           updates.streak_max = newStreak;
         }
-      } else if (metrics.last_active_date !== today) {
+      } else if (freshMetrics.last_active_date !== today) {
         updates.streak_current = 1;
       }
 
-      await supabase
+      const { error: updateError } = await supabase
         .from('experiment_metrics')
         .update(updates)
         .eq('user_id', user.id);
 
+      if (updateError) throw updateError;
+      
+      const finalStreak = updates.streak_current ?? freshMetrics.streak_current ?? 0;
+
       // Unlock streak achievements
-      const finalStreak = updates.streak_current ?? metrics.streak_current ?? 0;
       const streakCodes: string[] = [];
       if (finalStreak >= 3) streakCodes.push('streak_3');
       if (finalStreak >= 7) streakCodes.push('streak_7');
@@ -101,6 +138,8 @@ export const useStreaks = () => {
           }
         }
       }
+
+      return finalStreak;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['experiment_metrics'] });

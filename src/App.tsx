@@ -30,6 +30,9 @@ import NotFound from "./pages/NotFound";
 import { supabase } from "@/integrations/supabase/client";
 import UpdateDialog from "@/components/UpdateDialog";
 
+import SelectionBubblePage from './pages/SelectionBubblePage';
+import QuickTaskPage from './pages/QuickTaskPage';
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -171,6 +174,8 @@ const AppRoutes = () => {
         <Route path="/trash" element={appRouteElement(<TrashPage />)} />
         <Route path="/achievements" element={appRouteElement(<AchievementsPage />)} />
         <Route path="/admin" element={appRouteElement(<AdminPanelPage />)} />
+        <Route path="/selection-bubble" element={<SelectionBubblePage />} />
+        <Route path="/quick-task" element={<QuickTaskPage />} />
         <Route path="/privacy" element={<PrivacyPolicyPage />} />
         <Route path="/terms" element={<TermsOfServicePage />} />
         <Route path="*" element={<NotFound />} />

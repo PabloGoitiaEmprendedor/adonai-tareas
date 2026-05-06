@@ -169,10 +169,6 @@ const DailyPage = () => {
 
   const sortedTasks = useMemo(() => {
     return [...tasks].sort((a: any, b: any) => {
-      const doneA = a.status === 'done' ? 1 : 0;
-      const doneB = b.status === 'done' ? 1 : 0;
-      if (doneA !== doneB) return doneA - doneB;
-
       const rankDiff = quadrantRank(a) - quadrantRank(b);
       if (rankDiff !== 0) return rankDiff;
 
