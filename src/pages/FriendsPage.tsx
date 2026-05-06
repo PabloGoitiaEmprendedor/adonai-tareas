@@ -104,6 +104,29 @@ const FriendsPage = () => {
     }
     setInviteSending(true);
     try {
+      const emailLower = inviteEmail.trim().toLowerCase();
+
+      // 1. Check if user already exists
+      const { data: existingUser } = await supabase
+        .from('profiles')
+        .select('user_id')
+        .eq('email', emailLower)
+        .maybeSingle();
+
+      if (existingUser) {
+        // User exists! Send direct friend request instead of invite
+        sendRequest.mutate(existingUser.user_id, {
+          onSuccess: () => {
+            toast.success(`${emailLower} ya está en Adonai. ¡Solicitud enviada!`);
+            setInviteEmail('');
+            setShowInviteBox(false);
+          },
+          onError: () => toast.error('Ya tienes una solicitud pendiente con este usuario'),
+        });
+        return;
+      }
+
+      // 2. User doesn't exist, send invite email
       const { data: myProfile } = await supabase
         .from('profiles')
         .select('name')
@@ -115,7 +138,7 @@ const FriendsPage = () => {
 
       const { error } = await supabase.functions.invoke('send-invite-email', {
         body: {
-          to: inviteEmail.trim().toLowerCase(),
+          to: emailLower,
           senderName,
           inviteUrl,
         },
@@ -127,7 +150,8 @@ const FriendsPage = () => {
       setShowInviteBox(false);
       setSearchQuery('');
       setSearchResults([]);
-    } catch {
+    } catch (err) {
+      console.error('Error in invite flow:', err);
       // Fallback: copy invite link
       const inviteUrl = `${window.location.origin}/onboarding?ref=${user?.id}`;
       await navigator.clipboard.writeText(inviteUrl).catch(() => {});
@@ -188,21 +212,27 @@ const FriendsPage = () => {
           </div>
         </header>
 
-        {/* Search Results */}
+        {/* Search Results & Action Center */}
         <AnimatePresence>
-          {searchResults.length > 0 && (
+          {(searchResults.length > 0 || showInviteBox) && (
             <motion.div
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              className="bg-surface-container/50 border border-outline-variant/30 rounded-[32px] p-2 space-y-1 shadow-2xl"
+              className="bg-surface-container/80 backdrop-blur-xl border border-outline-variant/30 rounded-[32px] p-2 space-y-1 shadow-2xl overflow-hidden"
             >
-              <div className="p-4 border-b border-outline-variant/10 flex items-center justify-between">
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant/40">Resultados</p>
-                <button onClick={() => { setSearchResults([]); setSearchQuery(''); }} className="text-on-surface-variant/40 hover:text-foreground transition-colors">
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
+              {searchResults.length > 0 && (
+                <div className="p-4 border-b border-outline-variant/10 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Users className="w-3 h-3 text-primary" />
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant/60">Usuarios encontrados en Adonai</p>
+                  </div>
+                  <button onClick={() => { setSearchResults([]); setSearchQuery(''); }} className="text-on-surface-variant/40 hover:text-foreground transition-colors">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+
               {searchResults.map((p) => {
                 const alreadyFriend = friendUserIds.includes(p.user_id);
                 const alreadySent = pendingSent.some((f) => f.addressee_id === p.user_id);
@@ -231,75 +261,55 @@ const FriendsPage = () => {
                 );
               })}
 
-              {/* Invite option at bottom of results */}
-              <div className="p-4 border-t border-outline-variant/10">
-                <button
-                  onClick={() => { setShowInviteBox(true); setSearchResults([]); }}
-                  className="w-full flex items-center gap-3 text-on-surface-variant/40 hover:text-primary transition-colors text-xs font-bold"
-                >
-                  <Mail className="w-4 h-4" /> ¿No está en Adonai? Invítalo por email
-                </button>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+              {/* Explicit Invite Section when searching or explicitly triggered */}
+              {(showInviteBox || (searchResults.length === 0 && searchQuery.includes('@'))) && (
+                <div className="p-6 bg-primary/5 rounded-[24px] m-2 border border-primary/10 space-y-4">
+                  <div className="flex items-start justify-between">
+                    <div className="flex gap-3">
+                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                        <Mail className="w-5 h-5 text-primary" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-black">Invitar a un amigo nuevo</h3>
+                        <p className="text-[11px] text-on-surface-variant/60 mt-0.5 leading-relaxed">
+                          Este correo no está registrado. Envíale una invitación para unirse a tu comunidad.
+                        </p>
+                      </div>
+                    </div>
+                    {showInviteBox && (
+                      <button onClick={() => setShowInviteBox(false)} className="text-on-surface-variant/40 hover:text-foreground transition-colors">
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
 
-        {/* Invite Box — no results found or explicit invite */}
-        <AnimatePresence>
-          {showInviteBox && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="bg-surface-container/50 border border-outline-variant/30 rounded-[32px] p-6 space-y-4 shadow-2xl"
-            >
-              <div className="flex items-start justify-between">
-                <div>
-                  <h3 className="text-sm font-black">Invitar por email</h3>
-                  <p className="text-[11px] text-on-surface-variant/50 mt-1">
-                    Invita a alguien que no está en Adonai todavía.
-                  </p>
+                  <div className="flex gap-3">
+                    <div className="relative flex-1">
+                      <input
+                        autoFocus
+                        type="email"
+                        value={inviteEmail}
+                        onChange={(e) => setInviteEmail(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleSendInviteEmail()}
+                        placeholder="email@ejemplo.com"
+                        className="w-full bg-surface-container-lowest border border-outline-variant/30 focus:border-primary/50 rounded-2xl pl-5 pr-4 py-3 outline-none transition-all text-sm font-bold"
+                      />
+                    </div>
+                    <button
+                      onClick={handleSendInviteEmail}
+                      disabled={inviteSending || !inviteEmail.includes('@')}
+                      className="px-6 py-3 rounded-2xl bg-primary text-primary-foreground font-black text-[10px] uppercase tracking-widest shadow-lg shadow-primary/20 hover:scale-105 transition-all disabled:opacity-30 flex-shrink-0 flex items-center gap-2"
+                    >
+                      {inviteSending ? (
+                        <div className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+                      ) : (
+                        <Send className="w-4 h-4" />
+                      )}
+                      Enviar Invitación
+                    </button>
+                  </div>
                 </div>
-                <button onClick={() => setShowInviteBox(false)} className="text-on-surface-variant/40 hover:text-foreground transition-colors mt-1">
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-
-              <div className="flex gap-3">
-                <div className="relative flex-1">
-                  <Mail className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant/30 pointer-events-none" />
-                  <input
-                    autoFocus
-                    type="email"
-                    value={inviteEmail}
-                    onChange={(e) => setInviteEmail(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleSendInviteEmail()}
-                    placeholder="email@ejemplo.com"
-                    className="w-full bg-surface-container-lowest border border-outline-variant/30 focus:border-primary/50 rounded-2xl pl-10 pr-4 py-3 outline-none transition-all text-sm font-bold"
-                  />
-                </div>
-                <button
-                  onClick={handleSendInviteEmail}
-                  disabled={inviteSending || !inviteEmail.includes('@')}
-                  className="px-6 py-3 rounded-2xl bg-primary text-primary-foreground font-black text-[10px] uppercase tracking-widest shadow-lg shadow-primary/20 hover:scale-105 transition-all disabled:opacity-30 flex-shrink-0 flex items-center gap-2"
-                >
-                  {inviteSending ? (
-                    <div className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
-                  ) : (
-                    <Send className="w-4 h-4" />
-                  )}
-                  Enviar
-                </button>
-              </div>
-
-              <div className="border-t border-outline-variant/10 pt-3">
-                <button
-                  onClick={handleCopyInviteLink}
-                  className="w-full text-[10px] font-black uppercase tracking-[0.15em] text-on-surface-variant/40 hover:text-primary transition-colors"
-                >
-                  O copiar enlace de invitación
-                </button>
-              </div>
+              )}
             </motion.div>
           )}
         </AnimatePresence>

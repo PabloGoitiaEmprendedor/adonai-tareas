@@ -86,18 +86,19 @@ function buildEmailHtml(
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Tu Reporte de Poder Semanal — Adonai</title>
 </head>
-<body style="margin:0;padding:0;background:#0a0a0f;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#0a0a0f;padding:40px 20px;">
+<body style="margin:0;padding:0;background-color:#2F3437;font-family:'Inter', -apple-system, system-ui, sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#2F3437;padding:60px 20px;">
     <tr>
       <td align="center">
-        <table width="100%" style="max-width:560px;background:#111118;border-radius:32px;overflow:hidden;border:1px solid rgba(255,255,255,0.08);">
+        <table width="100%" style="max-width:560px;background-color:#2F3437;border-radius:12px;overflow:hidden;border:1px solid #454B4E;box-shadow: 0 10px 30px rgba(0,0,0,0.2);">
           
-          <!-- Header gradient -->
+          <!-- Header section -->
           <tr>
-            <td style="background:linear-gradient(135deg,#7c3aed 0%,#4f46e5 100%);padding:48px 40px 40px;">
-              <p style="margin:0 0 8px;color:rgba(255,255,255,0.6);font-size:11px;font-weight:800;letter-spacing:0.2em;text-transform:uppercase;">Reporte de Poder</p>
-              <h1 style="margin:0 0 8px;color:#fff;font-size:32px;font-weight:900;line-height:1.1;">Hola, ${firstName}.</h1>
-              <p style="margin:0;color:rgba(255,255,255,0.7);font-size:16px;">Esta es tu semana en números.</p>
+            <td style="padding:48px 40px 40px;text-align:left;">
+              <img src="https://adonai-tareas.lovable.app/logo.png" width="48" height="48" style="border-radius:10px;margin-bottom:24px;" />
+              <p style="margin:0 0 12px;color:#21D904;font-size:11px;font-weight:800;letter-spacing:0.2em;text-transform:uppercase;">Reporte de Poder</p>
+              <h1 style="margin:0 0 8px;color:#ffffff;font-size:32px;font-weight:900;line-height:1.1;">Hola, ${firstName}.</h1>
+              <p style="margin:0;color:#9B9A97;font-size:16px;">Esta es tu semana en números.</p>
             </td>
           </tr>
 
@@ -293,7 +294,7 @@ serve(async (req) => {
               Authorization: `Bearer ${RESEND_API_KEY}`,
             },
             body: JSON.stringify({
-              from: "Adonai <reportes@adonai.so>",
+              from: "Adonai <reportes@webadonai.com>",
               to: [user.email],
               subject: `⚡ Tu Reporte de Poder — ${captured} tareas capturadas, ${timeSavedMinutes}min ahorrados`,
               html: buildEmailHtml(user.name || "Usuario", metrics, APP_URL),

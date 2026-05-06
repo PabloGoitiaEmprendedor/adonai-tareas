@@ -3,7 +3,5 @@ project_id = "bpckgibqjrqdxzbvtiyn"
 [functions.weekly-power-report]
 verify_jwt = false
 
-[[cron]]
-name = "weekly-power-report"
-schedule = "0 9 * * 0"
-function = "weekly-power-report"
+[functions.send-invite-email]
+verify_jwt = true
