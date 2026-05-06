@@ -9,6 +9,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
+import { useAuth } from '@/contexts/AuthContext';
+
 interface GoogleCalendarViewProps {
   events: CalendarEvent[];
   selectedDate: Date;
@@ -24,7 +26,9 @@ const GoogleCalendarView: React.FC<GoogleCalendarViewProps> = ({
   onConnect,
   isConnected 
 }) => {
-  const [showDemo, setShowDemo] = useState(false);
+  const { user } = useAuth();
+  const isAdmin = user?.email === 'pablogoitiaemprendedor@gmail.com';
+  
   const [viewMode, setViewMode] = useState<'day' | 'week'>('week');
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const { createEvent, updateEvent, deleteEvent } = useCalendarEvents();
@@ -45,16 +49,18 @@ const GoogleCalendarView: React.FC<GoogleCalendarViewProps> = ({
       const scrollPosition = (currentHour * 60) - 100;
       scrollContainerRef.current.scrollTop = Math.max(0, scrollPosition);
     }
-  }, [showDemo, isConnected]);
+  }, [isConnected]);
 
   const demoEvents: CalendarEvent[] = [
     { id: '1', title: 'Reunión de Diseño Adonai', start: new Date().toISOString().split('T')[0] + 'T10:00:00', end: new Date().toISOString().split('T')[0] + 'T11:30:00', description: '', location: '', allDay: false, color: null, htmlLink: '' },
     { id: '2', title: 'Revisión con Cliente', start: addDays(new Date(), 1).toISOString().split('T')[0] + 'T14:00:00', end: addDays(new Date(), 1).toISOString().split('T')[0] + 'T15:00:00', description: '', location: '', allDay: false, color: null, htmlLink: '' },
+    { id: 'demo-3', title: 'Planificación Semanal', start: addDays(new Date(), 2).toISOString().split('T')[0] + 'T09:00:00', end: addDays(new Date(), 2).toISOString().split('T')[0] + 'T10:30:00', description: '', location: '', allDay: false, color: null, htmlLink: '' },
   ];
 
-  const activeEvents = isConnected || showDemo ? (isConnected ? events : demoEvents) : [];
+  const activeEvents = isConnected ? events : demoEvents;
 
   const handleEventClick = (event: CalendarEvent) => {
+    if (!isConnected) return; // Prevent editing demo events
     setEditingEvent(event);
     setIsCreating(false);
     setEditForm({
@@ -65,7 +71,7 @@ const GoogleCalendarView: React.FC<GoogleCalendarViewProps> = ({
   };
 
   const handleSlotClick = (date: Date) => {
-    if (!isConnected && !showDemo) return;
+    if (!isConnected) return;
     const defaultEnd = new Date(date.getTime() + 60 * 60 * 1000);
     setEditingEvent({
       id: 'new',
@@ -87,7 +93,7 @@ const GoogleCalendarView: React.FC<GoogleCalendarViewProps> = ({
   };
 
   const saveEvent = () => {
-    if (!editingEvent) return;
+    if (!editingEvent || !isConnected) return;
     
     const [startH, startM] = editForm.startTime.split(':');
     const [endH, endM] = editForm.endTime.split(':');
@@ -105,9 +111,9 @@ const GoogleCalendarView: React.FC<GoogleCalendarViewProps> = ({
     };
 
     if (isCreating) {
-      if (isConnected) createEvent.mutate(eventData);
+      createEvent.mutate(eventData);
     } else {
-      if (isConnected) updateEvent.mutate({ eventId: editingEvent.id, eventData });
+      updateEvent.mutate({ eventId: editingEvent.id, eventData });
     }
     setEditingEvent(null);
   };
@@ -150,39 +156,47 @@ const GoogleCalendarView: React.FC<GoogleCalendarViewProps> = ({
     });
   };
 
-  if (!isConnected && !showDemo) {
-    return (
-      <div className="flex flex-col items-center justify-center py-24 px-6 bg-surface-container-low/80 backdrop-blur-xl rounded-[40px] border border-outline-variant/10 text-center space-y-10 shadow-2xl">
-        <div className="w-28 h-28 bg-white rounded-[32px] flex items-center justify-center shadow-[0_20px_50px_rgba(0,0,0,0.1)] relative group">
-          <div className="absolute inset-0 bg-primary/10 animate-ping rounded-[32px] group-hover:bg-primary/20 transition-all" />
-          <svg width="64" height="64" viewBox="0 0 48 48" className="relative z-10 transition-transform group-hover:scale-110 duration-500">
-            <path fill="#4285F4" d="M45.12 24.5c0-1.56-.14-3.06-.4-4.5H24v8.51h11.84c-.51 2.75-2.06 5.08-4.39 6.64v5.52h7.11c4.16-3.83 6.56-9.47 6.56-16.17z"/>
-            <path fill="#34A853" d="M24 46c5.94 0 10.92-1.97 14.56-5.33l-7.11-5.52c-1.97 1.32-4.49 2.1-7.45 2.1-5.73 0-10.58-3.87-12.31-9.07H4.34v5.7C7.96 41.07 15.49 46 24 46z"/>
-            <path fill="#FBBC05" d="M11.69 28.21c-.44-1.32-.69-2.73-.69-4.21s.25-2.89.69-4.21V14.1H4.34A23.98 23.98 0 0 0 0 24c0 3.65.81 7.11 2.27 10.22l7.42-5.7c-1.47-1.12-2.58-2.61-3.23-4.31z"/>
-            <path fill="#EA4335" d="M24 9.75c3.23 0 6.13 1.11 8.41 3.29l6.31-6.31C34.91 3.18 29.93 1 24 1 15.49 1 7.96 5.93 4.34 13.04l7.35 5.7c1.73-5.2 6.58-9.07 12.31-9.07z"/>
-          </svg>
-        </div>
-        <div className="space-y-4">
-          <h2 className="text-3xl font-black font-headline tracking-tight text-foreground">Conecta tu Calendario de Google</h2>
-          <p className="text-base text-on-surface-variant/60 max-w-[380px] mx-auto leading-relaxed">
-            Toda tu productividad en un solo lugar. Sincroniza tus eventos en tiempo real con el diseño premium de Adonai.
-          </p>
-        </div>
-        <div className="flex flex-col sm:flex-row gap-5">
-          <button disabled className="px-12 py-6 bg-surface-container-high text-on-surface/30 rounded-[28px] font-black text-sm uppercase tracking-[0.2em] shadow-none flex items-center gap-4 cursor-not-allowed border border-outline-variant/10">
-            Próximamente
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="flex flex-col lg:flex-row gap-8 h-[calc(100vh-180px)] animate-in fade-in duration-1000">
       
       {/* Sidebar Fijo */}
-      <div className="hidden lg:flex flex-col w-72 flex-shrink-0 space-y-8 h-full">
-        <button onClick={() => handleSlotClick(new Date())} className="flex items-center gap-4 px-8 py-5 bg-white dark:bg-surface-container-highest text-black dark:text-white rounded-[32px] shadow-2xl hover:scale-[1.02] active:scale-[0.98] transition-all w-full group overflow-hidden relative">
+      <div className="hidden lg:flex flex-col w-72 flex-shrink-0 space-y-6 h-full">
+        {!isConnected && (
+          <div className="p-6 bg-primary/5 rounded-[32px] border border-primary/10 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm">
+                <svg width="24" height="24" viewBox="0 0 48 48">
+                  <path fill="#4285F4" d="M45.12 24.5c0-1.56-.14-3.06-.4-4.5H24v8.51h11.84c-.51 2.75-2.06 5.08-4.39 6.64v5.52h7.11c4.16-3.83 6.56-9.47 6.56-16.17z"/>
+                  <path fill="#34A853" d="M24 46c5.94 0 10.92-1.97 14.56-5.33l-7.11-5.52c-1.97 1.32-4.49 2.1-7.45 2.1-5.73 0-10.58-3.87-12.31-9.07H4.34v5.7C7.96 41.07 15.49 46 24 46z"/>
+                  <path fill="#FBBC05" d="M11.69 28.21c-.44-1.32-.69-2.73-.69-4.21s.25-2.89.69-4.21V14.1H4.34A23.98 23.98 0 0 0 0 24c0 3.65.81 7.11 2.27 10.22l7.42-5.7c-1.47-1.12-2.58-2.61-3.23-4.31z"/>
+                  <path fill="#EA4335" d="M24 9.75c3.23 0 6.13 1.11 8.41 3.29l6.31-6.31C34.91 3.18 29.93 1 24 1 15.49 1 7.96 5.93 4.34 13.04l7.35 5.7c1.73-5.2 6.58-9.07 12.31-9.07z"/>
+                </svg>
+              </div>
+              <span className="text-xs font-black uppercase tracking-widest text-primary">Google Calendar</span>
+            </div>
+            {isAdmin ? (
+              <button 
+                onClick={onConnect}
+                className="w-full py-4 bg-primary text-primary-foreground rounded-[20px] font-black text-xs uppercase tracking-widest hover:scale-[1.02] active:scale-[0.98] transition-all shadow-lg shadow-primary/20"
+              >
+                Conectar ahora
+              </button>
+            ) : (
+              <button 
+                disabled 
+                className="w-full py-4 bg-surface-container-high text-on-surface/30 rounded-[20px] font-black text-xs uppercase tracking-widest cursor-not-allowed border border-outline-variant/10"
+              >
+                Próximamente
+              </button>
+            )}
+          </div>
+        )}
+
+        <button 
+          onClick={() => handleSlotClick(new Date())} 
+          disabled={!isConnected}
+          className={`flex items-center gap-4 px-8 py-5 bg-white dark:bg-surface-container-highest text-black dark:text-white rounded-[32px] shadow-2xl transition-all w-full group overflow-hidden relative ${!isConnected ? 'opacity-50 grayscale cursor-not-allowed' : 'hover:scale-[1.02] active:scale-[0.98]'}`}
+        >
           <div className="absolute inset-0 bg-primary/5 translate-x-full group-hover:translate-x-0 transition-transform duration-500" />
           <Plus className="w-6 h-6 text-primary group-hover:rotate-180 transition-transform duration-700 relative z-10" />
           <span className="text-sm font-black pr-2 relative z-10">Crear Evento</span>
