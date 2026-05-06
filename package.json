@@ -1,7 +1,7 @@
 {
   "name": "adonai",
   "private": true,
-  "version": "1.0.113",
+  "version": "1.0.114",
   "type": "module",
   "main": "electron/main.cjs",
   "repository": {

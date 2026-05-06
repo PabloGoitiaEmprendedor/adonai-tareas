@@ -42,13 +42,20 @@ const WeeklyPage = () => {
   const [view, setView] = useState<'list' | 'calendar'>('calendar');
   const [source, setSource] = useState<'adonai' | 'google'>('adonai');
 
-  // const { events: googleEvents, connected, isLoading: isCalendarLoading } = useCalendarEvents();
-  const googleEvents: any[] = [];
-  const connected = false;
-  const isCalendarLoading = false;
-
+  const { events: googleEvents, connected, isLoading: isCalendarLoading } = useCalendarEvents();
+  
   const handleConnectGoogle = async () => {
-    // Reverted for stability
+    await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        scopes: 'https://www.googleapis.com/auth/calendar',
+        redirectTo: window.location.origin,
+        queryParams: {
+          access_type: 'offline',
+          prompt: 'consent',
+        }
+      }
+    });
   };
 
   useEffect(() => {

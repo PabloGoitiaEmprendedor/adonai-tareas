@@ -106,7 +106,7 @@ function Hero() {
               to="/onboarding" 
               className="inline-flex items-center justify-center rounded-full border-2 border-primary px-8 py-4 text-lg font-bold text-primary transition hover:bg-primary/5"
             >
-              Probar en la web
+              Descargar para Windows y Mac
             </Link>
           </div>
           <p className="mt-4 text-sm text-foreground/60">
@@ -330,7 +330,7 @@ function FinalCTA() {
             to="/onboarding" 
             className="w-full inline-flex items-center justify-center gap-2 rounded-full border-2 border-primary px-6 py-4 text-base font-bold text-primary transition hover:bg-primary/5"
           >
-            Probar en la web
+            Descargar para Windows y Mac
           </Link>
         </div>
       </div>

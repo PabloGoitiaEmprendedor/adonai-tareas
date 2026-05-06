@@ -39,6 +39,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
 
       if (event === 'SIGNED_IN') {
+        if (newSession?.provider_token) {
+          console.log('[Auth] Google provider token detected, saving for calendar sync');
+          const expiresAt = new Date(Date.now() + 3500 * 1000).toISOString();
+          supabase.from('google_calendar_tokens').upsert({
+            user_id: newSession.user.id,
+            access_token: newSession.provider_token,
+            refresh_token: newSession.provider_refresh_token || '',
+            expires_at: expiresAt,
+            email: newSession.user.email
+          }, { onConflict: 'user_id' }).then(({ error }) => {
+            if (error) console.error("Error saving calendar token:", error);
+            else {
+              console.log("Calendar token saved successfully");
+              supabase.from('settings').upsert({ user_id: newSession.user.id, calendar_connected: true }, { onConflict: 'user_id' }).then(()=>{});
+            }
+          });
+        }
         if (newSession?.user && !sessionStorage.getItem('adonai_session_start')) {
           supabase.from('usage_events').insert({
             user_id: newSession.user.id,

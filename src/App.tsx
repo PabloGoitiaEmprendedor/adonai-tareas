@@ -183,8 +183,11 @@ const App = () => {
   useEffect(() => {
     const hash = window.location.hash;
     if (hash && hash.includes('access_token=') && !window.electronAPI) {
-      console.log("Bridging session to desktop app...");
-      window.location.assign(`adonai-tasks://${hash}`);
+      // Don't bridge if we are developing locally
+      if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+        console.log("Bridging session to desktop app...");
+        window.location.assign(`adonai-tasks://${hash}`);
+      }
     }
 
     if (window.electronAPI?.onDeepLink) {

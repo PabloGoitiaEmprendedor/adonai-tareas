@@ -1,6 +1,7 @@
 "use client"
+import { format } from "date-fns"
 
-import { useState, useCallback, useMemo, useEffect } from "react"
+import { useState, useCallback, useMemo, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -361,6 +362,31 @@ export function EventManager({
           />
         )}
       </div>
+
+      {/* Dialogs */}
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{isCreating ? "Crear Evento" : "Detalles del Evento"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Título</Label>
+              <Input 
+                value={isCreating ? newEvent.title : selectedEvent?.title}
+                onChange={(e) => isCreating 
+                  ? setNewEvent(prev => ({...prev, title: e.target.value}))
+                  : setSelectedEvent(prev => prev ? ({...prev, title: e.target.value}) : null)
+                }
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancelar</Button>
+            <Button onClick={isCreating ? handleCreateEvent : handleUpdateEvent}>Guardar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
@@ -510,34 +536,6 @@ function TimeGridView({
         </div>
       </div>
     </Card>
-  )
-}
-
-      {/* Dialogs */}
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>{isCreating ? "Crear Evento" : "Detalles del Evento"}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>Título</Label>
-              <Input 
-                value={isCreating ? newEvent.title : selectedEvent?.title}
-                onChange={(e) => isCreating 
-                  ? setNewEvent(prev => ({...prev, title: e.target.value}))
-                  : setSelectedEvent(prev => prev ? ({...prev, title: e.target.value}) : null)
-                }
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancelar</Button>
-            <Button onClick={isCreating ? handleCreateEvent : handleUpdateEvent}>Guardar</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
   )
 }
 

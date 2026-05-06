@@ -108,7 +108,7 @@ Deno.serve(async (req) => {
     let accessToken = tokenData.access_token;
     const now = new Date();
 
-    if (new Date(tokenData.expires_at) <= now) {
+    if (new Date(tokenData.expires_at) <= now && tokenData.refresh_token) {
       const newToken = await refreshAccessToken(tokenData.refresh_token);
       if (!newToken) {
         return new Response(JSON.stringify({ events: [], connected: false, error: "Token refresh failed" }), {
@@ -122,34 +122,84 @@ Deno.serve(async (req) => {
       }).eq("user_id", user.id);
     }
 
-    const { timeMin, timeMax } = await req.json();
-    const fallbackCalendarId = tokenData.calendar_id || "primary";
-    const calendarIds = await fetchVisibleCalendarIds(accessToken, fallbackCalendarId);
-    const calendarResults = await Promise.all(
-      calendarIds.map((calendarId: string) => fetchCalendarEvents(accessToken, calendarId, timeMin, timeMax).catch(() => []))
-    );
+    const payload = await req.json();
+    const action = payload.action || "fetch";
+    const calendarId = payload.calendarId || tokenData.calendar_id || "primary";
 
-    const calendarItems = Array.from(
-      new Map(calendarResults.flat().map((event: any) => [event.id, event])).values()
-    ).sort((a: any, b: any) => {
-      const aStart = new Date(a.start?.dateTime || a.start?.date || 0).getTime();
-      const bStart = new Date(b.start?.dateTime || b.start?.date || 0).getTime();
-      return aStart - bStart;
-    });
+    if (action === "fetch") {
+      const { timeMin, timeMax } = payload;
+      const calendarIds = await fetchVisibleCalendarIds(accessToken, calendarId);
+      const calendarResults = await Promise.all(
+        calendarIds.map((cid: string) => fetchCalendarEvents(accessToken, cid, timeMin, timeMax).catch(() => []))
+      );
 
-    const events = calendarItems.map((e: any) => ({
-      id: e.id,
-      title: e.summary || "(Sin título)",
-      description: e.description || "",
-      start: e.start?.dateTime || e.start?.date,
-      end: e.end?.dateTime || e.end?.date,
-      location: e.location || "",
-      allDay: !!e.start?.date,
-      color: e.colorId || null,
-      htmlLink: e.htmlLink,
-    }));
+      const calendarItems = Array.from(
+        new Map(calendarResults.flat().map((event: any) => [event.id, event])).values()
+      ).sort((a: any, b: any) => {
+        const aStart = new Date(a.start?.dateTime || a.start?.date || 0).getTime();
+        const bStart = new Date(b.start?.dateTime || b.start?.date || 0).getTime();
+        return aStart - bStart;
+      });
 
-    return new Response(JSON.stringify({ events, connected: true }), {
+      const events = calendarItems.map((e: any) => ({
+        id: e.id,
+        title: e.summary || "(Sin título)",
+        description: e.description || "",
+        start: e.start?.dateTime || e.start?.date,
+        end: e.end?.dateTime || e.end?.date,
+        location: e.location || "",
+        allDay: !!e.start?.date,
+        color: e.colorId || null,
+        htmlLink: e.htmlLink,
+      }));
+
+      return new Response(JSON.stringify({ events, connected: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "create" || action === "update") {
+      const { eventId, eventData } = payload;
+      const url = action === "create"
+        ? `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events`
+        : `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${eventId}`;
+
+      const res = await fetch(url, {
+        method: action === "create" ? "POST" : "PUT",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(eventData),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error?.message || "Failed to modify event");
+
+      return new Response(JSON.stringify({ success: true, event: data }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "delete") {
+      const { eventId } = payload;
+      const res = await fetch(
+        `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${eventId}`,
+        {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${accessToken}` },
+        }
+      );
+
+      if (!res.ok) throw new Error("Failed to delete event");
+
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    return new Response(JSON.stringify({ error: "Unknown action" }), {
+      status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
