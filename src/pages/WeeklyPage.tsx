@@ -233,49 +233,29 @@ const WeeklyPage = () => {
   const { colors: priorityColors } = usePriorityColors();
 
   return (
-      <div className="max-w-7xl mx-auto px-6 pt-12 pb-10 space-y-10">
+      <div className="max-w-full mx-auto px-4 pt-2 pb-10 space-y-4">
               {/* Sticky Header Container */}
-        <div className="sticky top-0 z-50 bg-background/80 backdrop-blur-3xl pb-4 -mx-6 px-6 pt-6 border-b border-outline-variant/5">
-          {/* Source Switcher */}
-          <div className="flex justify-center mb-6">
-            <div className="flex bg-surface-container-high/50 backdrop-blur-xl rounded-[24px] p-1.5 border border-outline-variant/10 shadow-2xl">
+        <div className="bg-background/60 backdrop-blur-3xl pb-4 -mx-6 px-6 pt-4 border-b border-outline-variant/5">
+          {/* Source Switcher - Centered and Slim */}
+          <div className="flex justify-center">
+            <div className="flex bg-surface-container-high/30 backdrop-blur-2xl rounded-[20px] p-1 border border-outline-variant/5 shadow-xl">
               <button 
                 onClick={() => setSource('adonai')}
-                className={`px-8 py-3 rounded-[20px] text-[10px] font-black uppercase tracking-[0.2em] transition-all duration-500 ${source === 'adonai' ? 'bg-primary text-primary-foreground shadow-xl shadow-primary/20 scale-105' : 'text-on-surface-variant/40 hover:text-foreground'}`}
+                className={`px-6 py-2.5 rounded-[16px] text-[9px] font-black uppercase tracking-[0.15em] transition-all duration-300 ${source === 'adonai' ? 'bg-primary text-primary-foreground shadow-lg' : 'text-on-surface-variant/30 hover:text-foreground'}`}
               >
-                Tareas Adonai
+                Adonai
               </button>
               <button 
                 onClick={() => setSource('google')}
-                className={`px-8 py-3 rounded-[20px] text-[10px] font-black uppercase tracking-[0.2em] transition-all duration-500 ${source === 'google' ? 'bg-primary text-primary-foreground shadow-xl shadow-primary/20 scale-105' : 'text-on-surface-variant/40 hover:text-foreground'}`}
+                className={`px-6 py-2.5 rounded-[16px] text-[9px] font-black uppercase tracking-[0.15em] transition-all duration-300 ${source === 'google' ? 'bg-primary text-primary-foreground shadow-lg' : 'text-on-surface-variant/30 hover:text-foreground'}`}
               >
-                Google Calendar
+                Google
               </button>
             </div>
           </div>
-
-          <header className="flex items-center justify-between px-2 animate-in fade-in slide-in-from-top-4 duration-700">
-            <div className="flex items-center gap-4">
-              <div className="w-10 h-10 rounded-[18px] bg-primary/10 flex items-center justify-center border border-primary/20 shadow-sm">
-                <CalendarIcon className="w-5 h-5 text-primary" />
-              </div>
-              <div>
-                <h1 className="text-[24px] font-black font-headline tracking-tight text-foreground leading-none">
-                  {source === 'google' ? 'Google Calendar' : 'Calendario'}
-                </h1>
-                <p className="text-[10px] font-black text-on-surface-variant/40 uppercase tracking-[0.2em] mt-1">
-                  {source === 'google' ? 'Sincronización Realtime' : 'Vista Semanal'}
-                </p>
-              </div>
-            </div>
-            
-            <div className="flex items-center gap-4">
-              {/* Optional: Add view selector here if source is adonai */}
-            </div>
-          </header>
         </div>
 
-        <section className="space-y-6 pt-4">
+        <section className="space-y-4 pt-2">
           {source === 'google' ? (
             <GoogleCalendarView 
               events={googleEvents}
@@ -286,12 +266,18 @@ const WeeklyPage = () => {
             />
           ) : view === 'calendar' ? (
             <EventManager 
-              defaultView="week"
+              defaultView="month"
               events={tasks.map(t => {
                 const colorKey = t.urgency && t.importance ? 'p1' : 
                                 t.urgency && !t.importance ? 'p2' :
                                 !t.urgency && t.importance ? 'p3' : 'p4';
                 const color = priorityColors[colorKey] === 'transparent' ? 'var(--primary)' : priorityColors[colorKey];
+
+                const quadrantRank = (t: any) =>
+                  t.urgency && t.importance ? 0
+                  : t.urgency ? 1
+                  : t.importance ? 2
+                  : 3;
 
                 return {
                   id: t.id,
@@ -300,12 +286,16 @@ const WeeklyPage = () => {
                   startTime: new Date(t.due_date + 'T09:00:00'),
                   endTime: new Date(t.due_date + 'T10:00:00'),
                   color: color,
-                  category: 'Tarea'
+                  category: 'Tarea',
+                  priority: quadrantRank(t)
                 };
               })}
               onEventClick={(event) => {
                 const task = tasks.find(t => t.id === event.id);
                 if (task) setSelectedTask(task);
+              }}
+              onCellClick={(date) => {
+                setSelectedDay(date);
               }}
               className="mt-0 animate-in fade-in zoom-in-95 duration-500"
             />

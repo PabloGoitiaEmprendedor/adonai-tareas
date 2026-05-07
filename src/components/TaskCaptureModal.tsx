@@ -28,6 +28,7 @@ interface TaskCaptureModalProps {
 
 export interface TaskCaptureModalHandle {
   openInVoiceMode: () => Promise<boolean>;
+  openInTextMode: (date?: string) => void;
 }
 
 const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProps>(({ open, onClose, goalId, folderId, timeBlockId, initialMode, creationSource }, ref) => {
@@ -130,10 +131,10 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
       setFallbackEstimatedMinutes(null);
       return beginVoiceCapture();
     },
-    openInTextMode: () => {
+    openInTextMode: (date?: string) => {
       setPhase('input');
       setTitle('');
-      setDueDate(format(new Date(), 'yyyy-MM-dd'));
+      setDueDate(date || format(new Date(), 'yyyy-MM-dd'));
       setClassificationSource('');
       setFallbackEstimatedMinutes(null);
       setSourceType('text');

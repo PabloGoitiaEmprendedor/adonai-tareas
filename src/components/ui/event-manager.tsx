@@ -17,6 +17,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
+import { motion, AnimatePresence } from "framer-motion"
 import { ChevronLeft, ChevronRight, Plus, Calendar, Clock, Grid3x3, List, Search, Filter, X, ChevronDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
@@ -28,10 +29,18 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import {
-  HoverCard,
-  HoverCardContent,
-  HoverCardTrigger,
-} from "@/components/ui/hover-card"
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet"
+import { ScrollArea } from "@/components/ui/scroll-area"
 
 export interface Event {
   id: string
@@ -43,6 +52,7 @@ export interface Event {
   category?: string
   attendees?: string[]
   tags?: string[]
+  priority?: number
 }
 
 export interface EventManagerProps {
@@ -50,6 +60,7 @@ export interface EventManagerProps {
   onEventCreate?: (event: Omit<Event, "id">) => void
   onEventUpdate?: (id: string, event: Partial<Event>) => void
   onEventDelete?: (id: string) => void
+  onCellClick?: (date: Date) => void
   categories?: string[]
   colors?: { name: string; value: string; bg: string; text: string }[]
   defaultView?: "month" | "week" | "day" | "list"
@@ -71,6 +82,8 @@ export function EventManager({
   onEventCreate,
   onEventUpdate,
   onEventDelete,
+  onEventClick,
+  onCellClick,
   categories = ["Meeting", "Task", "Reminder", "Personal"],
   colors = defaultColors,
   defaultView = "month",
@@ -101,6 +114,9 @@ export function EventManager({
   const [selectedColors, setSelectedColors] = useState<string[]>([])
   const [selectedTags, setSelectedTags] = useState<string[]>([])
   const [selectedCategories, setSelectedCategories] = useState<string[]>([])
+  const [hoveredDay, setHoveredDay] = useState<Date | null>(null)
+  const [selectedDayForSheet, setSelectedDayForSheet] = useState<Date | null>(null)
+  const [isSheetOpen, setIsSheetOpen] = useState(false)
 
   const filteredEvents = useMemo(() => {
     return events.filter((event) => {
@@ -270,7 +286,7 @@ export function EventManager({
   return (
     <div className={cn("flex flex-col gap-4", className)}>
       {/* Header */}
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between px-2 sticky top-[150px] z-40 bg-background/95 backdrop-blur-3xl py-4 -mx-2 border-b border-outline-variant/5">
+      <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between px-2 sticky top-[110px] z-40 bg-background/95 backdrop-blur-3xl py-2 -mx-2 border-b border-outline-variant/5">
         <div className="flex items-center justify-between w-full lg:w-auto gap-4">
           <h2 className="text-[16px] font-black font-headline tracking-tight text-foreground uppercase">
             {view === "month" &&
@@ -313,22 +329,6 @@ export function EventManager({
           >
             Mes
           </Button>
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            onClick={() => setView("week")} 
-            className={cn("text-[9px] font-black uppercase tracking-widest h-8 px-4 rounded-xl transition-all", view === "week" ? "bg-white dark:bg-surface-container-high shadow-lg text-primary" : "opacity-40 hover:opacity-100")}
-          >
-            Semana
-          </Button>
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            onClick={() => setView("day")} 
-            className={cn("text-[9px] font-black uppercase tracking-widest h-8 px-4 rounded-xl transition-all", view === "day" ? "bg-white dark:bg-surface-container-high shadow-lg text-primary" : "opacity-40 hover:opacity-100")}
-          >
-            Día
-          </Button>
         </div>
       </div>
 
@@ -339,13 +339,24 @@ export function EventManager({
             currentDate={currentDate}
             events={filteredEvents}
             onEventClick={(event) => {
-              setSelectedEvent(event)
-              setIsDialogOpen(true)
+              if (onEventClick) {
+                onEventClick(event)
+              } else {
+                setSelectedEvent(event)
+                setIsDialogOpen(true)
+              }
+            }}
+            onCellClick={(day) => {
+              setSelectedDayForSheet(day)
+              setIsSheetOpen(true)
+              if (onCellClick) onCellClick(day)
             }}
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
             onDrop={handleDrop}
             getColorClasses={getColorClasses}
+            hoveredDay={hoveredDay}
+            onHoverDay={setHoveredDay}
           />
         )}
         {(view === "week" || view === "day") && (
@@ -354,9 +365,14 @@ export function EventManager({
             currentDate={currentDate}
             events={filteredEvents}
             onEventClick={(event) => {
-              setSelectedEvent(event)
-              setIsDialogOpen(true)
+              if (onEventClick) {
+                onEventClick(event)
+              } else {
+                setSelectedEvent(event)
+                setIsDialogOpen(true)
+              }
             }}
+            onCellClick={onCellClick}
             onDrop={handleDrop}
             getColorClasses={getColorClasses}
           />
@@ -369,22 +385,200 @@ export function EventManager({
           <DialogHeader>
             <DialogTitle>{isCreating ? "Crear Evento" : "Detalles del Evento"}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-4">
+          <div className="space-y-6 py-4">
             <div className="space-y-2">
-              <Label>Título</Label>
+              <Label className="text-xs font-black uppercase tracking-widest opacity-60">Título</Label>
               <Input 
                 value={isCreating ? newEvent.title : selectedEvent?.title}
                 onChange={(e) => isCreating 
                   ? setNewEvent(prev => ({...prev, title: e.target.value}))
                   : setSelectedEvent(prev => prev ? ({...prev, title: e.target.value}) : null)
                 }
+                className="h-12 bg-surface-container-low border-outline-variant/20 rounded-xl font-bold"
+                placeholder="Nombre de la tarea"
               />
             </div>
+
+            <div className="space-y-2">
+              <Label className="text-xs font-black uppercase tracking-widest opacity-60">Descripción</Label>
+              <Textarea 
+                value={isCreating ? newEvent.description : selectedEvent?.description}
+                onChange={(e) => isCreating 
+                  ? setNewEvent(prev => ({...prev, description: e.target.value}))
+                  : setSelectedEvent(prev => prev ? ({...prev, description: e.target.value}) : null)
+                }
+                className="min-h-[100px] bg-surface-container-low border-outline-variant/20 rounded-xl font-medium"
+                placeholder="Añade más detalles..."
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-xs font-black uppercase tracking-widest opacity-60">Categoría</Label>
+                <Select
+                  value={isCreating ? newEvent.category : selectedEvent?.category}
+                  onValueChange={(val) => isCreating
+                    ? setNewEvent(prev => ({...prev, category: val}))
+                    : setSelectedEvent(prev => prev ? ({...prev, category: val}) : null)
+                  }
+                >
+                  <SelectTrigger className="h-12 bg-surface-container-low border-outline-variant/20 rounded-xl font-bold">
+                    <SelectValue placeholder="Seleccionar..." />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl border-outline-variant/20">
+                    {categories.map(cat => (
+                      <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-xs font-black uppercase tracking-widest opacity-60">Color</Label>
+                <div className="flex gap-2 flex-wrap">
+                  {colors.map(c => (
+                    <button
+                      key={c.value}
+                      onClick={() => isCreating
+                        ? setNewEvent(prev => ({...prev, color: c.value}))
+                        : setSelectedEvent(prev => prev ? ({...prev, color: c.value}) : null)
+                      }
+                      className={cn(
+                        "w-6 h-6 rounded-full transition-all hover:scale-125 border-2",
+                        (isCreating ? newEvent.color : selectedEvent?.color) === c.value ? "border-white scale-110 shadow-lg" : "border-transparent opacity-60",
+                        c.bg
+                      )}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-xs font-black uppercase tracking-widest opacity-60">Etiquetas</Label>
+              <div className="flex flex-wrap gap-2">
+                {availableTags.map(tag => {
+                  const isSelected = isCreating 
+                    ? newEvent.tags?.includes(tag) 
+                    : selectedEvent?.tags?.includes(tag);
+                  return (
+                    <Badge
+                      key={tag}
+                      variant={isSelected ? "default" : "outline"}
+                      className={cn(
+                        "cursor-pointer px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest transition-all",
+                        isSelected ? "bg-primary text-black" : "opacity-40 hover:opacity-100"
+                      )}
+                      onClick={() => toggleTag(tag, isCreating)}
+                    >
+                      {tag}
+                    </Badge>
+                  )
+                })}
+              </div>
+            </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancelar</Button>
-            <Button onClick={isCreating ? handleCreateEvent : handleUpdateEvent}>Guardar</Button>
+          <DialogFooter className="gap-2 sm:justify-between">
+            {!isCreating && selectedEvent && (
+              <Button 
+                variant="ghost" 
+                className="text-red-500 hover:text-red-600 hover:bg-red-50 font-black uppercase text-[10px] tracking-widest"
+                onClick={() => handleDeleteEvent(selectedEvent.id)}
+              >
+                Eliminar
+              </Button>
+            )}
+            <div className="flex gap-2 ml-auto">
+              <Button variant="outline" onClick={() => setIsDialogOpen(false)} className="rounded-xl font-bold">Cancelar</Button>
+              <Button onClick={isCreating ? handleCreateEvent : handleUpdateEvent} className="rounded-xl font-black bg-primary text-black hover:scale-105 transition-all shadow-lg shadow-primary/20">
+                {isCreating ? "Crear Tarea" : "Guardar Cambios"}
+              </Button>
+            </div>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Task List Modal (Centered) */}
+      <Dialog open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+        <DialogContent className="max-w-lg bg-surface-container-high/95 backdrop-blur-3xl border border-outline-variant/10 rounded-[32px] shadow-2xl p-0 overflow-hidden outline-none">
+          <div className="h-[70vh] flex flex-col relative">
+            <button 
+              onClick={() => setIsSheetOpen(false)}
+              className="absolute top-5 right-6 z-50 p-2 rounded-full hover:bg-white/10 transition-colors text-on-surface-variant/40 hover:text-foreground"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            <div className="p-8 pb-4 border-b border-outline-variant/5">
+              <h2 className="text-xl font-black font-headline tracking-tight text-foreground uppercase mb-1">
+                {selectedDayForSheet?.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
+              </h2>
+              <p className="text-[9px] font-black uppercase tracking-[0.2em] text-primary/60">
+                Lista de tareas
+              </p>
+            </div>
+            
+            <ScrollArea className="flex-1">
+              <div className="space-y-2 p-6">
+                {selectedDayForSheet && filteredEvents
+                  .filter(e => e.startTime.toDateString() === selectedDayForSheet.toDateString())
+                  .length > 0 ? (
+                    filteredEvents
+                      .filter(e => e.startTime.toDateString() === selectedDayForSheet.toDateString())
+                      .map(event => (
+                        <div 
+                          key={event.id}
+                          onClick={() => {
+                            if (onEventClick) {
+                              onEventClick(event)
+                            } else {
+                              setSelectedEvent(event)
+                              setIsDialogOpen(true)
+                            }
+                            setIsSheetOpen(false)
+                          }}
+                          className="group relative flex items-start gap-4 p-4 rounded-[20px] cursor-pointer transition-all duration-300 bg-surface-container-low/50 hover:bg-primary/10 border border-outline-variant/5 hover:border-primary/20 active:scale-[0.98]"
+                        >
+                          <div 
+                            className={cn("w-3 h-3 rounded-full shrink-0 mt-1 shadow-sm", !event.color.startsWith('#') && !event.color.startsWith('var') && getColorClasses(event.color).bg)} 
+                            style={{ backgroundColor: (event.color.startsWith('#') || event.color.startsWith('var')) ? event.color : undefined }}
+                          />
+                          <div className="flex-1">
+                            <p className="text-[15px] font-black text-foreground leading-tight group-hover:text-primary transition-colors">
+                              {event.title}
+                            </p>
+                            {event.description && (
+                              <p className="text-[12px] font-medium text-on-surface-variant/40 line-clamp-2 mt-1">
+                                {event.description}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      ))
+                  ) : (
+                    <div className="flex flex-col items-center justify-center py-16 text-center space-y-4 opacity-10">
+                      <Calendar className="w-8 h-8" />
+                      <p className="text-[10px] font-black uppercase tracking-widest">Sin tareas</p>
+                    </div>
+                  )}
+              </div>
+            </ScrollArea>
+            
+            <div className="p-6 border-t border-outline-variant/5 bg-surface-container/30">
+              <Button 
+                onClick={() => {
+                  if (onCellClick && selectedDayForSheet) {
+                    onCellClick(selectedDayForSheet)
+                  }
+                  setIsSheetOpen(false)
+                }}
+                className="w-full h-12 rounded-[16px] font-black uppercase tracking-[0.2em] text-[10px] bg-primary text-black shadow-lg shadow-primary/10 hover:scale-[1.01] active:scale-95 transition-all"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Nueva Tarea
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
@@ -394,8 +588,8 @@ export function EventManager({
 function TimeGridView({
   view,
   currentDate,
-  events,
   onEventClick,
+  onCellClick,
   onDrop,
   getColorClasses,
 }: {
@@ -403,6 +597,7 @@ function TimeGridView({
   currentDate: Date
   events: Event[]
   onEventClick: (event: Event) => void
+  onCellClick?: (date: Date) => void
   onDrop: (date: Date, hour: number) => void
   getColorClasses: (color: string) => { bg: string; text: string }
 }) {
@@ -483,9 +678,11 @@ function TimeGridView({
                     key={hour}
                     className="h-[60px] cursor-pointer hover:bg-primary/5 transition-colors"
                     onClick={() => {
-                      const d = new Date(day)
-                      d.setHours(hour, 0, 0, 0)
-                      // Handle click to create if needed
+                      if (onCellClick) {
+                        const d = new Date(day)
+                        d.setHours(hour, 0, 0, 0)
+                        onCellClick(d)
+                      }
                     }}
                   />
                 ))}
@@ -543,18 +740,24 @@ function MonthView({
   currentDate,
   events,
   onEventClick,
+  onCellClick,
   onDragStart,
   onDragEnd,
   onDrop,
   getColorClasses,
+  hoveredDay,
+  onHoverDay,
 }: {
   currentDate: Date
   events: Event[]
   onEventClick: (event: Event) => void
+  onCellClick?: (date: Date) => void
   onDragStart: (event: Event) => void
   onDragEnd: () => void
   onDrop: (date: Date) => void
   getColorClasses: (color: string) => { bg: string; text: string }
+  hoveredDay: Date | null
+  onHoverDay: (date: Date | null) => void
 }) {
   const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1)
   const lastDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0)
@@ -570,14 +773,16 @@ function MonthView({
   }
 
   const getEventsForDay = (date: Date) => {
-    return events.filter((event) => {
-      const eventDate = new Date(event.startTime)
-      return (
-        eventDate.getDate() === date.getDate() &&
-        eventDate.getMonth() === date.getMonth() &&
-        eventDate.getFullYear() === date.getFullYear()
-      )
-    })
+    return events
+      .filter((event) => {
+        const eventDate = new Date(event.startTime)
+        return (
+          eventDate.getDate() === date.getDate() &&
+          eventDate.getMonth() === date.getMonth() &&
+          eventDate.getFullYear() === date.getFullYear()
+        )
+      })
+      .sort((a, b) => (a.priority || 0) - (b.priority || 0))
   }
 
   return (
@@ -595,85 +800,66 @@ function MonthView({
           const isCurrentMonth = day.getMonth() === currentDate.getMonth()
           const isToday = day.toDateString() === new Date().toDateString()
 
+          const isHovered = hoveredDay && day.toDateString() === hoveredDay.toDateString()
+
           return (
-            <HoverCard key={index} openDelay={100} closeDelay={100}>
-              <HoverCardTrigger asChild>
-                <div
-                  className={cn(
-                    "min-h-24 border-b border-r border-outline-variant/5 p-2 transition-colors last:border-r-0",
-                    !isCurrentMonth && "opacity-20",
-                    "hover:bg-primary/5 cursor-default",
-                  )}
-                >
-                  <div className={cn(
-                    "mb-2 flex h-6 w-6 items-center justify-center rounded-lg text-xs font-bold transition-all",
-                    isToday && "bg-primary text-black font-black shadow-lg shadow-primary/20 scale-110"
-                  )}>
-                    {day.getDate()}
-                  </div>
-                  <div className="space-y-1">
-                    {dayEvents.slice(0, 3).map(event => (
-                      <div 
-                        key={event.id}
-                        onClick={() => onEventClick(event)}
-                        className={cn(
-                          "cursor-pointer rounded-md px-2 py-0.5 text-[9px] font-bold truncate transition-all hover:brightness-110 active:scale-95",
-                          !event.color.startsWith('#') && !event.color.startsWith('var') && getColorClasses(event.color).bg,
-                          "text-white shadow-sm"
-                        )}
-                        style={{ backgroundColor: (event.color.startsWith('#') || event.color.startsWith('var')) ? event.color : undefined }}
-                      >
-                        {event.title}
-                      </div>
-                    ))}
-                    {dayEvents.length > 3 && (
-                      <div className="text-[9px] font-black text-on-surface-variant/40 pl-2 flex items-center gap-1">
-                        <Plus className="w-2 h-2" />
-                        {dayEvents.length - 3} más
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </HoverCardTrigger>
-              {dayEvents.length > 0 && (
-                <HoverCardContent 
-                  className="w-64 p-3 bg-surface-container-high/95 backdrop-blur-xl border-outline-variant/20 shadow-2xl rounded-[20px]"
-                  side="right"
-                  align="start"
-                  sideOffset={5}
-                >
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between border-b border-outline-variant/10 pb-2">
-                      <p className="text-[11px] font-black uppercase tracking-widest text-on-surface-variant/60">
-                        {day.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'short' })}
-                      </p>
-                      <Badge variant="secondary" className="text-[9px] font-black bg-primary/10 text-primary border-none">
-                        {dayEvents.length} {dayEvents.length === 1 ? 'Tarea' : 'Tareas'}
-                      </Badge>
-                    </div>
-                    <div className="space-y-1.5 max-h-[200px] overflow-y-auto pr-1 custom-scrollbar">
-                      {dayEvents.map(event => (
-                        <div 
-                          key={event.id}
-                          onClick={() => onEventClick(event)}
-                          className={cn(
-                            "group flex items-center gap-2 p-2 rounded-xl cursor-pointer transition-all hover:bg-white/5 border border-transparent hover:border-white/5",
-                          )}
-                        >
-                          <div 
-                            className={cn("w-1.5 h-1.5 rounded-full shrink-0", !event.color.startsWith('#') && !event.color.startsWith('var') && getColorClasses(event.color).bg)} 
-                            style={{ backgroundColor: (event.color.startsWith('#') || event.color.startsWith('var')) ? event.color : undefined }}
-                          />
-                          <p className="text-[11px] font-black text-foreground truncate group-hover:text-primary">
-                            {event.title}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </HoverCardContent>
+            <div
+              key={index}
+              className={cn(
+                "min-h-[90px] border-b border-r border-outline-variant/5 p-1 transition-all duration-300 last:border-r-0 relative group",
+                !isCurrentMonth && "opacity-20",
+                "hover:bg-primary/5 cursor-pointer",
+                isHovered && "bg-primary/10 shadow-[inset_0_0_0_1px_rgba(var(--primary-rgb),0.2)] z-10"
               )}
-            </HoverCard>
+              onMouseEnter={() => onHoverDay(day)}
+              onMouseLeave={() => onHoverDay(null)}
+              onClick={() => onCellClick?.(day)}
+            >
+              <div className={cn(
+                "mb-2 flex h-6 w-6 items-center justify-center rounded-lg text-xs font-bold transition-all",
+                isToday && "bg-primary text-black font-black shadow-lg shadow-primary/20 scale-110",
+                isHovered && !isToday && "bg-primary/20 text-primary scale-110"
+              )}>
+                {day.getDate()}
+              </div>
+              <div className="space-y-1">
+                {dayEvents.slice(0, 3).map(event => (
+                  <div 
+                    key={event.id}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onEventClick(event)
+                    }}
+                    className={cn(
+                      "relative cursor-pointer rounded-md px-2 py-1 text-[9px] font-bold truncate transition-all duration-300",
+                      "hover:scale-110 hover:z-50 hover:shadow-xl hover:text-[10px] hover:py-1.5",
+                      !event.color.startsWith('#') && !event.color.startsWith('var') && getColorClasses(event.color).bg,
+                      "text-white shadow-sm"
+                    )}
+                    style={{ backgroundColor: (event.color.startsWith('#') || event.color.startsWith('var')) ? event.color : undefined }}
+                  >
+                    {event.title}
+                  </div>
+                ))}
+                {dayEvents.length > 3 && (
+                  <div className="text-[9px] font-black text-on-surface-variant/40 pl-2 flex items-center gap-1">
+                    <Plus className="w-2 h-2" />
+                    {dayEvents.length - 3} más
+                  </div>
+                )}
+              </div>
+              
+              {/* Visual selection indicator */}
+              {isHovered && (
+                <motion.div 
+                  layoutId="hover-indicator"
+                  className="absolute inset-0 border-2 border-primary/30 rounded-lg pointer-events-none"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.2 }}
+                />
+              )}
+            </div>
           )
         })}
       </div>

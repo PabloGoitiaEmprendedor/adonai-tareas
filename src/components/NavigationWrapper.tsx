@@ -185,7 +185,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
           - Mobile: ALWAYS visible (top-left) when the mobile Sheet is closed
           - Desktop: only when the desktop sidebar is collapsed */}
       {!open && (
-        <div className={`fixed left-4 z-40 flex flex-col items-center gap-2 ${
+        <div className={`fixed left-4 z-[70] flex flex-col items-center gap-2 ${
             desktopSidebarOpen ? 'lg:hidden' : ''
           } ${window.electronAPI ? 'top-12' : 'top-4'}`}>
           <button
