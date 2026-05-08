@@ -32,6 +32,8 @@ import UpdateDialog from "@/components/UpdateDialog";
 
 import SelectionBubblePage from './pages/SelectionBubblePage';
 import QuickTaskPage from './pages/QuickTaskPage';
+import ToastPage from './pages/ToastPage';
+import NotificationManager from './components/NotificationManager';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -141,6 +143,7 @@ const AppRoutes = () => {
       <ThemeSync />
       <Routes>
         <Route path="/mini" element={<MiniTasksPage />} />
+        <Route path="/toast" element={<ToastPage />} />
         <Route path="/auth" element={user ? <Navigate to="/daily" replace /> : <AuthPage />} />
         <Route path="/onboarding" element={<OnboardingPage />} />
         {/* <Route path="/calendar-callback" element={appRouteElement(<CalendarCallback />)} /> */}
@@ -241,6 +244,7 @@ const App = () => {
           <Sonner position="top-center" duration={2000} />
           <HashRouter>
             <AuthProvider>
+              <NotificationManager />
               <NavigationWrapper>
                 <AppRoutes />
               </NavigationWrapper>

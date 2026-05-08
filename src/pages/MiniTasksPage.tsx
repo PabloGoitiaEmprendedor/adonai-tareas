@@ -355,28 +355,17 @@ function useDragWindow() {
   const hasMovedRef = useRef(false);
 
   useEffect(() => {
-    let frameId: number;
-    const onMove = (e: MouseEvent) => {
-      if (!isDraggingRef.current) return;
-      
-      if (frameId) return;
-      frameId = requestAnimationFrame(() => {
-        frameId = 0;
-        const dx = e.screenX - startRef.current.x;
-        const dy = e.screenY - startRef.current.y;
-        if (Math.abs(dx) > 2 || Math.abs(dy) > 2) {
-          hasMovedRef.current = true;
-          (window as any).electronAPI?.moveWindow?.(dx, dy);
-          startRef.current = { x: e.screenX, y: e.screenY };
-        }
-      });
+    const onUp = () => { 
+      if (isDraggingRef.current) {
+        isDraggingRef.current = false;
+        (window as any).electronAPI?.stopDrag?.();
+      }
     };
-    const onUp = () => { isDraggingRef.current = false; };
-    window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
+    window.addEventListener('blur', onUp); // Stop drag if window loses focus
     return () => {
-      window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup', onUp);
+      window.removeEventListener('blur', onUp);
     };
   }, []);
 
@@ -384,10 +373,10 @@ function useDragWindow() {
     if (e.button !== 0) return;
     isDraggingRef.current = true;
     hasMovedRef.current = false;
-    startRef.current = { x: e.screenX, y: e.screenY };
+    (window as any).electronAPI?.startDrag?.();
   }, []);
 
-  return { onMouseDown, hasMovedRef };
+  return { onMouseDown, hasMovedRef, isDraggingRef };
 }
 
 // ─── Main component ──────────────────────────────────────────────────────────
@@ -422,7 +411,7 @@ const MiniTaskList = () => {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const sessionStartRef = useRef<number>(0);
 
-  const { onMouseDown: onDragMouseDown, hasMovedRef } = useDragWindow();
+  const { onMouseDown: onDragMouseDown, hasMovedRef, isDraggingRef: isDraggingWindowRef } = useDragWindow();
 
   // Store original pill position before expanding (to restore on collapse)
   const originalPosRef = useRef<{ x: number; y: number } | null>(null);
@@ -573,23 +562,30 @@ const MiniTaskList = () => {
     if (!loading) {
       const ready = !!user;
       setIsReady(ready);
-      (window as any).electronAPI?.setIgnoreMouseEvents?.(ready, { forward: true });
+      
+      // Initial state: ignore mouse events if collapsed so background is clickable
+      if (ready && !isExpanded) {
+        (window as any).electronAPI?.setIgnoreMouseEvents?.(true, { forward: true });
+      } else if (ready && isExpanded) {
+        (window as any).electronAPI?.setIgnoreMouseEvents?.(false);
+      }
+      
       (window as any).electronAPI?.miniReady?.({ hasSession: ready });
 
-      // Trigger LED glow on first session start
       if (ready && !hasInteractedRef.current) {
         setShowLedGlow(true);
       }
     }
-  }, [loading, user]);
+  }, [loading, user, isExpanded]);
 
   const handleMouseEnterUI = useCallback(() => {
     if (user) (window as any).electronAPI?.setIgnoreMouseEvents?.(false);
   }, [user]);
   const handleMouseLeaveUI = useCallback(() => {
-    // Only ignore mouse events when collapsed (pill mode)
-    // When expanded, always keep mouse events active
-    if (user && !isExpanded) (window as any).electronAPI?.setIgnoreMouseEvents?.(true, { forward: true });
+    // Only ignore mouse events when collapsed (pill mode) and NOT dragging
+    if (user && !isExpanded && !isDraggingWindowRef.current) {
+      (window as any).electronAPI?.setIgnoreMouseEvents?.(true, { forward: true });
+    }
   }, [user, isExpanded]);
 
   const quadrantRank = useCallback((t: any) =>
@@ -749,6 +745,7 @@ const MiniTaskList = () => {
             userSelect: 'none', cursor: 'grab',
             position: 'relative',
             animation: showLedGlow ? 'ledPulse 1.5s ease-in-out infinite' : 'none',
+            willChange: 'transform, opacity',
           }}
         >
           {showLedGlow && (

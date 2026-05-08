@@ -39,6 +39,11 @@ let quickTaskWindow;
 app.commandLine.appendSwitch('enable-speech-dispatcher');
 app.commandLine.appendSwitch('use-fake-ui-for-media-stream');
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
+// GPU and Performance Optimizations
+app.commandLine.appendSwitch('ignore-gpu-blacklist');
+app.commandLine.appendSwitch('enable-gpu-rasterization');
+app.commandLine.appendSwitch('enable-zero-copy');
+app.commandLine.appendSwitch('disable-software-rasterizer');
 
 // ── Single Instance Lock & Protocol Registration ────────────────────────────
 const gotTheLock = app.requestSingleInstanceLock();
@@ -286,14 +291,21 @@ function createMiniWindow() {
     skipTaskbar: true,
     resizable: false,
     hasShadow: false,
-    show: false, // Hidden until renderer signals ready
+    show: false,
     autoHideMenuBar: true,
+    // Performance and fluidity
+    paintWhenInitiallyHidden: true,
+    acceptFirstMouse: true,
+    enableLargerThanScreen: true,
+    backgroundColor: '#00000000',
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
       preload: path.join(__dirname, 'preload.cjs'),
       webSecurity: true,
       enableBlinkFeatures: 'SpeechRecognition',
+      backgroundThrottling: false, // Keep it fluid even when not focused
+      offscreen: false,
     },
     icon: path.join(__dirname, '..', app.isPackaged ? 'dist' : 'public', 'icon.png'),
   });
@@ -445,7 +457,57 @@ ipcMain.on('set-ignore-mouse-events', (event, ignore, options) => {
   if (win) win.setIgnoreMouseEvents(ignore, options);
 });
 
-// Free movement — no clamping, user puts the pill wherever they want
+// High-performance dragging: follow the mouse from Main process
+let isDraggingMini = false;
+let dragOffset = { x: 0, y: 0 };
+let dragInterval = null;
+
+ipcMain.on('mini-start-drag', (event) => {
+  if (!miniWindow || isDraggingMini) return;
+  
+  const { x, y } = screen.getCursorScreenPoint();
+  const bounds = miniWindow.getBounds();
+  
+  dragOffset = {
+    x: x - bounds.x,
+    y: y - bounds.y
+  };
+  
+  isDraggingMini = true;
+  
+  if (dragInterval) clearInterval(dragInterval);
+  dragInterval = setInterval(() => {
+    if (!isDraggingMini || !miniWindow) {
+      clearInterval(dragInterval);
+      return;
+    }
+    
+    const cursor = screen.getCursorScreenPoint();
+    const newX = cursor.x - dragOffset.x;
+    const newY = cursor.y - dragOffset.y;
+    
+    miniWindow.setPosition(Math.round(newX), Math.round(newY));
+  }, 16); // ~60fps
+});
+
+ipcMain.on('mini-stop-drag', () => {
+  isDraggingMini = false;
+  if (dragInterval) clearInterval(dragInterval);
+  
+  if (miniWindow) {
+    const b = miniWindow.getBounds();
+    saveWindowState({
+      mini: {
+        x: b.x,
+        y: b.y,
+        width: b.width,
+        height: b.height
+      }
+    });
+  }
+});
+
+// Original move-mini-window kept for compatibility if needed
 ipcMain.on('move-mini-window', (event, dx, dy) => {
   if (!miniWindow) return;
   const bounds = miniWindow.getBounds();
@@ -676,4 +738,58 @@ ipcMain.on('open-quick-task', (event, data) => {
 
 ipcMain.on('close-quick-task', () => {
   if (quickTaskWindow) quickTaskWindow.close();
+});
+
+let toastWindow = null;
+function createToastWindow(data) {
+  if (toastWindow) {
+    toastWindow.webContents.send('custom-toast-data', data);
+    return;
+  }
+
+  const { width: screenWidth, height: screenHeight } = screen.getPrimaryDisplay().workAreaSize;
+  const toastWidth = 380;
+  const toastHeight = 140;
+
+  toastWindow = new BrowserWindow({
+    width: toastWidth,
+    height: toastHeight,
+    x: screenWidth - toastWidth - 20,
+    y: screenHeight - toastHeight - 20,
+    frame: false,
+    transparent: true,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    resizable: false,
+    movable: false,
+    show: false,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(__dirname, 'preload.cjs'),
+    },
+  });
+
+  const startUrl = app.isPackaged
+    ? `file://${path.join(__dirname, '../dist/index.html')}#/toast`
+    : 'http://localhost:8080/#/toast';
+
+  toastWindow.loadURL(startUrl);
+
+  toastWindow.once('ready-to-show', () => {
+    toastWindow.show();
+    toastWindow.webContents.send('custom-toast-data', data);
+  });
+
+  // Auto-close after 5 seconds
+  setTimeout(() => {
+    if (toastWindow) {
+      toastWindow.close();
+      toastWindow = null;
+    }
+  }, 5000);
+}
+
+ipcMain.on('show-notification', (event, data) => {
+  createToastWindow(data);
 });

@@ -85,8 +85,26 @@ function Hero() {
   return (
     <section className="relative overflow-hidden px-6 pt-10 pb-20 md:pt-16 md:pb-28">
       <nav className="mx-auto mb-16 flex max-w-6xl items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="text-lg font-bold">Adonai</span>
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8">
+            <svg viewBox="0 0 100 100" className="w-full h-full drop-shadow-[0_0_8px_rgba(34,197,94,0.3)]">
+              <defs>
+                <linearGradient id="logo-grad-landing" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#22C55E" />
+                  <stop offset="100%" stopColor="#16a34a" />
+                </linearGradient>
+              </defs>
+              <path 
+                d="M20 50 L40 75 L85 25" 
+                fill="none" 
+                stroke="url(#logo-grad-landing)" 
+                strokeWidth="18" 
+                strokeLinecap="round" 
+                strokeLinejoin="round"
+              />
+            </svg>
+          </div>
+          <span className="text-xl font-black tracking-tight">Adonai</span>
         </div>
       </nav>
 

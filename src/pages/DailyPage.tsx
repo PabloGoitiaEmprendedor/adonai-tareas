@@ -8,7 +8,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useGlobalVoiceCapture } from '@/hooks/useGlobalVoiceCapture';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Flame, Monitor, Sparkles } from 'lucide-react';
+import { Bell, Flame, Monitor, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { triggerTaskCelebration, triggerDailyCelebration, triggerOnTimeCelebration } from '@/lib/celebrations';
 import FAB from '@/components/FAB';
@@ -163,6 +163,24 @@ const DailyPage = () => {
     openDownloadDialog();
   }, []);
 
+  const handleTestNotification = useCallback(() => {
+    if (window.electronAPI) {
+      window.electronAPI.showNotification(
+        "¡Prueba de Adonai! 🚀", 
+        "Así es como se verán tus recordatorios de tareas."
+      );
+    } else {
+      // Fallback for browser
+      if (Notification.permission === "granted") {
+        new Notification("¡Prueba de Adonai! 🚀", {
+          body: "Así es como se verán tus recordatorios de tareas."
+        });
+      } else {
+        Notification.requestPermission();
+      }
+    }
+  }, []);
+
   const quadrantRank = (t: any) =>
     t.urgency && t.importance ? 0
     : t.urgency ? 1
@@ -220,12 +238,29 @@ const DailyPage = () => {
         onSuccess: () => {
           setCompletingTaskId(null);
           checkAndUnlock.mutate({ type: 'task_completed' });
+          
           if (isLastTask) {
             triggerDailyCelebration(profile?.name);
+            // Smart Notification: Victory
+            if (window.electronAPI) {
+              window.electronAPI.showNotification(
+                "¡Misión Cumplida! 🎉",
+                `Has terminado todas tus tareas de hoy, ${profile?.name || 'Emprendedor'}. ¡Disfruta tu descanso!`,
+                'success'
+              );
+            }
           } else if (isCurrentlyTiming) {
             triggerOnTimeCelebration(task.title, profile?.name);
           } else {
             triggerTaskCelebration(task.title, profile?.name);
+            // Smart Notification: Milestone (Optional: only if it's a big number)
+            if (completedCount + 1 === 5 && window.electronAPI) {
+              window.electronAPI.showNotification(
+                "¡Estás en racha! 🔥",
+                "Llevas 5 tareas completadas hoy. Sigue así.",
+                'info'
+              );
+            }
           }
         },
         onError: () => setCompletingTaskId(null)
@@ -251,7 +286,7 @@ const DailyPage = () => {
         <div className="flex items-center justify-between pt-2 pb-4">
           <div className="w-10 h-10" />
 
-          <div className="flex flex-col items-center">
+          <div id="app-logo" className="flex flex-col items-center">
             <div className="relative">
               <motion.div
                 key={format(currentTime, 'h:mm')}
@@ -287,6 +322,7 @@ const DailyPage = () => {
         <div className="flex flex-col items-center justify-center space-y-4">
 
           <motion.button
+            id="mini-window-btn"
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             whileHover={{ scale: 1.02 }}
@@ -299,9 +335,24 @@ const DailyPage = () => {
               {miniWidgetOpen ? 'Desactivar ventana flotante' : 'Activar ventana flotante'}
             </span>
           </motion.button>
+
+          <motion.button
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={handleTestNotification}
+            className="flex items-center gap-2.5 px-6 py-3 rounded-2xl bg-surface-container/50 border border-outline-variant/20 hover:border-primary/30 transition-all shadow-sm group"
+          >
+            <Bell className="w-4 h-4 text-orange-400" />
+            <span className="text-[11px] font-black uppercase tracking-[0.1em] text-on-surface-variant group-hover:text-foreground">
+              Probar Notificación
+            </span>
+          </motion.button>
         </div>
 
         <motion.div 
+          id="task-input-area"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.2 }}

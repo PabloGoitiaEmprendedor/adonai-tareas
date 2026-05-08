@@ -8,7 +8,9 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
+  signInAnonymously: () => Promise<void>;
   signOut: () => Promise<void>;
+  isAnonymous: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -74,30 +76,48 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setLoading(false);
     });
 
-    // ── 2. Initialize: get cached session then refresh token ─────────
+    // ── 2. Initialize: get cached session or sign in anonymously ───
     const initAuth = async () => {
       try {
         const { data: { session: cached } } = await supabase.auth.getSession();
 
         if (!cached) {
-          if (mounted) { setSession(null); setUser(null); setLoading(false); }
+          console.log('[Auth] No session found, signing in anonymously...');
+          const { data, error: anonError } = await supabase.auth.signInAnonymously();
+          
+          if (anonError) {
+            console.error('[Auth] Anonymous sign in error:', anonError.message);
+            if (mounted) { 
+              setSession(null); 
+              setUser(null); 
+              setLoading(false); 
+            }
+          } else if (data.session && mounted) {
+            setSession(data.session);
+            setUser(data.session.user);
+            setLoading(false);
+          }
           return;
         }
 
         // Show UI immediately with cached session
         if (mounted) { setSession(cached); setUser(cached.user); }
 
-        // KEY FIX: Proactively refresh the token so all API calls use a valid token.
-        // Without this, queries fire with the expired cached token and return empty data.
+        // Proactively refresh the token so all API calls use a valid token.
         const { data: { session: fresh }, error } = await supabase.auth.refreshSession();
 
         if (mounted) {
           if (error || !fresh) {
-            // Refresh token is also dead — user must re-login
-            console.warn('[Auth] Session expired completely:', error?.message);
-            setSession(null);
-            setUser(null);
-            queryClient.clear();
+            console.warn('[Auth] Session expired completely, re-signing anonymously:', error?.message);
+            const { data: anonData } = await supabase.auth.signInAnonymously();
+            if (anonData.session) {
+              setSession(anonData.session);
+              setUser(anonData.session.user);
+            } else {
+              setSession(null);
+              setUser(null);
+              queryClient.clear();
+            }
           } else {
             setSession(fresh);
             setUser(fresh.user);
@@ -183,10 +203,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (error) throw error;
   };
 
+  const signInAnonymously = async () => {
+    setLoading(true);
+    const { data, error } = await supabase.auth.signInAnonymously();
+    if (error) {
+      setLoading(false);
+      throw error;
+    }
+    setSession(data.session);
+    setUser(data.session?.user ?? null);
+    setLoading(false);
+  };
+
   const signOut = async () => {
     try {
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
+      // After signing out, we should automatically sign in anonymously again 
+      // to keep the "no-login" experience.
+      await signInAnonymously();
     } catch (err) {
       console.error("Error signing out, forcing local clear", err);
       localStorage.clear();
@@ -194,8 +229,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const isAnonymous = user?.is_anonymous ?? false;
+
   return (
-    <AuthContext.Provider value={{ session, user, loading, signIn, signOut }}>
+    <AuthContext.Provider value={{ session, user, loading, signIn, signInAnonymously, signOut, isAnonymous }}>
       {children}
     </AuthContext.Provider>
   );

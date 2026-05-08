@@ -41,8 +41,17 @@ const FloatingActionMenu = ({ options, className }: FloatingActionMenuProps) => 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={() => setIsOpen(false)}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9998]"
+            onClick={() => {
+              if (!document.body.classList.contains('tutorial-active')) {
+                setIsOpen(false);
+              }
+            }}
+            className={cn(
+              "fixed inset-0 z-[9998]",
+              document.body.classList.contains('tutorial-active')
+                ? "bg-black/40"
+                : "bg-black/60 backdrop-blur-sm"
+            )}
           />
         )}
       </AnimatePresence>
@@ -75,11 +84,16 @@ const FloatingActionMenu = ({ options, className }: FloatingActionMenuProps) => 
                   }}
                 >
                   <Button
+                    id={index === 0 ? "fab-text-option" : undefined}
+                    disabled={index === 1 && document.body.classList.contains('tutorial-active')}
                     onClick={() => {
                       option.onClick();
                       setIsOpen(false);
                     }}
-                    className="group relative flex items-center gap-3 bg-card/80 hover:bg-primary backdrop-blur-xl shadow-[0_8px_30px_rgba(0,0,0,0.3)] border border-white/10 rounded-2xl px-6 py-6 h-14 transition-all duration-300 overflow-hidden"
+                    className={cn(
+                      "group relative flex items-center gap-3 bg-card/80 hover:bg-primary backdrop-blur-xl shadow-[0_8px_30px_rgba(0,0,0,0.3)] border border-white/10 rounded-2xl px-6 py-6 h-14 transition-all duration-300 overflow-hidden",
+                      index === 1 && document.body.classList.contains('tutorial-active') && "opacity-30 cursor-not-allowed grayscale"
+                    )}
                   >
                     <span className="text-foreground group-hover:text-primary-foreground font-bold text-sm">
                       {option.label}
@@ -97,6 +111,7 @@ const FloatingActionMenu = ({ options, className }: FloatingActionMenuProps) => 
         </AnimatePresence>
 
         <motion.button
+          id="global-add-task-button"
           onClick={toggleMenu}
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}

@@ -177,3 +177,16 @@
     -webkit-app-region: no-drag;
   }
 }
+
+/* Fix definitivo para nitidez del tutorial */
+.react-joyride__portal {
+  z-index: 100000 !important;
+}
+
+.react-joyride__tooltip {
+  z-index: 100001 !important;
+  filter: none !important;
+  backdrop-filter: none !important;
+  isolation: isolate !important;
+  transform: translateZ(0) !important;
+}

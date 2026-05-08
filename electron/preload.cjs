@@ -7,6 +7,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onDeepLink: (callback) => ipcRenderer.on('on-deep-link', (_event, url) => callback(url)),
   openExternal: (url) => ipcRenderer.send('open-external', url),
   moveWindow: (dx, dy) => ipcRenderer.send('move-mini-window', dx, dy),
+  startDrag: () => ipcRenderer.send('mini-start-drag'),
+  stopDrag: () => ipcRenderer.send('mini-stop-drag'),
   syncData: () => ipcRenderer.send('sync-data'),
   onInvalidateQueries: (callback) => ipcRenderer.on('invalidate-queries', () => callback()),
   setIgnoreMouseEvents: (ignore, options) => ipcRenderer.send('set-ignore-mouse-events', ignore, options),
@@ -20,4 +22,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   maximize: () => ipcRenderer.send('window-maximize'),
   closeWindow: () => ipcRenderer.send('window-close'),
   log: (msg) => ipcRenderer.send('log-message', msg),
+  showNotification: (title, body, type) => ipcRenderer.send('show-notification', { title, body, type }),
+  onCustomToast: (callback) => ipcRenderer.on('custom-toast-data', callback),
 });

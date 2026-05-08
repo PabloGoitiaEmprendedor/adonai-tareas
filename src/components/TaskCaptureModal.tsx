@@ -434,15 +434,15 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
             initial={{ opacity: 0 }} 
             animate={{ opacity: 1 }} 
             exit={{ opacity: 0 }} 
-            className="fixed inset-0 bg-[#01260E]/40 z-[9998] backdrop-blur-xl" 
-            onClick={handleClose} 
+            className={`fixed inset-0 z-[40] ${document.body.classList.contains('tutorial-active') ? 'bg-[#01260E]/30' : 'bg-[#01260E]/40 backdrop-blur-xl'}`} 
+            onClick={() => { if (!document.body.classList.contains('tutorial-active')) handleClose(); }} 
           />
           <motion.div
             initial={{ opacity: 0, scale: 0.95, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 10 }}
             transition={{ type: 'spring', damping: 22, stiffness: 260 }}
-            className="fixed inset-0 z-[9999] flex items-center justify-center p-4 pointer-events-none"
+            className="fixed inset-0 z-[50] flex items-center justify-center p-4 pointer-events-none"
           >
             <div className={cn(
               "relative mx-auto w-full max-h-[90vh] overflow-y-auto pointer-events-auto shadow-[0_20px_60px_-10px_hsla(140,95%,8%,0.15)] bg-background border border-border",
@@ -452,7 +452,7 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
                 {phase !== 'saving' && (
                   <div className="w-full flex justify-end -mt-1 -mr-1">
                     <button
-                      onClick={handleClose}
+                      onClick={() => { if (!document.body.classList.contains('tutorial-active')) handleClose(); }}
                       className="p-1.5 rounded-xl hover:bg-black/5 transition-all active:scale-90 text-muted-foreground"
                     >
                       <X className={isMini ? "w-3.5 h-3.5" : "w-4 h-4"} />
@@ -474,13 +474,14 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
                       </div>
 
                       <div className="grid grid-cols-2 gap-4 w-full">
-                        <button
-                          onClick={() => { setPhase('input'); setShowTextInput(true); setSourceType('text'); }}
-                          className={cn(
-                            "group flex flex-col items-center gap-3 rounded-[24px] transition-all hover:bg-on-surface/5 active:scale-[0.96] border border-outline-variant bg-surface",
-                            isMini ? "p-4" : "p-5"
-                          )}
-                        >
+                          <button
+                            id="task-text-mode-btn"
+                            onClick={() => { setPhase('input'); setShowTextInput(true); setSourceType('text'); }}
+                            className={cn(
+                              "group flex flex-col items-center gap-3 rounded-[24px] transition-all hover:bg-on-surface/5 active:scale-[0.96] border border-outline-variant bg-surface",
+                              isMini ? "p-4" : "p-5"
+                            )}
+                          >
                           <div className={cn("rounded-[18px] flex items-center justify-center bg-on-surface/5", isMini ? "w-12 h-12" : "w-16 h-16")}>
                             <Type className={isMini ? "w-5 h-5" : "w-7 h-7"} />
                           </div>
@@ -488,6 +489,7 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
                         </button>
 
                         <button
+                          id="task-voice-mode-btn"
                           onClick={() => { setPhase('input'); beginVoiceCapture(); }}
                           className={cn(
                             "group flex flex-col items-center gap-3 rounded-[24px] transition-all active:scale-[0.96] border border-primary/20 bg-primary/10",
@@ -584,6 +586,7 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
                           <div className="space-y-1">
                              <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Tarea</label>
                              <input 
+                               id="task-title-input"
                                autoFocus 
                                value={title} 
                                onChange={(e) => setTitle(e.target.value)}
@@ -600,6 +603,7 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
                           <div className="space-y-1">
                             <label className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/40 ml-2">Descripción</label>
                             <AutoTextarea
+                              id="task-description-input"
                               value={description} 
                               onChange={(e) => setDescription(e.target.value)}
                               placeholder="Detalles adicionales..."
@@ -610,7 +614,7 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
                             />
                           </div>
 
-                          <div className="space-y-1">
+                          <div id="task-link-input" className="space-y-1">
                             <label className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/40 ml-2">Link o Referencia</label>
                             <div className="relative">
                               <LinkIcon className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-on-surface-variant/30" />
@@ -628,8 +632,14 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
                           </div>
 
                           <button
-                            onClick={() => handleTitleDone()}
-                            disabled={!title.trim()}
+                            id="task-continue-btn"
+                            onClick={() => {
+                              handleTitleDone();
+                              if (document.body.classList.contains('tutorial-active')) {
+                                document.dispatchEvent(new CustomEvent('force-tutorial-next', { detail: 5 }));
+                              }
+                            }}
+                            disabled={!title.trim() || (document.body.classList.contains('tutorial-active') && !document.body.classList.contains('tutorial-can-continue'))}
                             className={cn(
                               "w-full bg-primary text-primary-foreground rounded-[24px] font-black text-sm shadow-xl hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50",
                               isMini ? "h-14" : "h-16"
@@ -668,6 +678,7 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
                           <div className="w-5 h-5 rounded-md border-2 border-outline-variant/40 flex-shrink-0" />
                           <p className="text-sm font-black truncate flex-1 text-foreground">{title}</p>
                           <button
+                            id="task-edit-pencil"
                             onClick={() => setPhase('input')}
                             className="p-1.5 hover:bg-on-surface/5 rounded-lg transition-colors flex-shrink-0"
                             title="Editar"
@@ -676,14 +687,16 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
                           </button>
                         </div>
 
-                        <CalendarDatePicker 
-                          date={dueDate} 
-                          onSelect={(d) => setDueDate(d)} 
-                          label="FECHA"
-                        />
+                        <div id="task-date-selector">
+                          <CalendarDatePicker 
+                            date={dueDate} 
+                            onSelect={(d) => setDueDate(d)} 
+                            label="FECHA"
+                          />
+                        </div>
 
                         {goals.filter(g => g.active).length > 0 && (
-                          <div className="space-y-2">
+                          <div className="space-y-2" id="task-goal-selector">
                             <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 ml-2">Meta Asociada</label>
                             <div className="flex flex-wrap gap-2">
                               {goals.filter(g => g.active).map(goal => (
@@ -705,10 +718,11 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
                           </div>
                         )}
 
-                        <div className="space-y-2">
-                          <label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60 ml-2">Prioridad</label>
+                        <div className="space-y-2" id="task-matrix-selector">
+                          <label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60 ml-2">Prioridad (Matriz Eisenhower)</label>
                           <div className="grid grid-cols-2 gap-3">
                             <button
+                              id="task-importance-btn"
                               onClick={() => setReviewImportance(!reviewImportance)}
                               className={cn(
                                 "flex flex-col items-center justify-center gap-1 rounded-[22px] font-black uppercase tracking-widest text-[9px] transition-all border",
@@ -721,6 +735,7 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
                               IMPORTANTE
                             </button>
                             <button
+                              id="task-urgency-btn"
                               onClick={() => setReviewUrgency(!reviewUrgency)}
                               className={cn(
                                 "flex flex-col items-center justify-center gap-1 rounded-[22px] font-black uppercase tracking-widest text-[9px] transition-all border",
@@ -737,6 +752,7 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
                       </div>
 
                       <button
+                        id="task-save-btn"
                         onClick={handlePlanningDone}
                         disabled={!title.trim()}
                         className={cn(

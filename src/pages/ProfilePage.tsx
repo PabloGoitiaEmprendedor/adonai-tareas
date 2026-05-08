@@ -17,7 +17,9 @@ import {
     Sparkles,
     Zap,
     Brain,
-    Clock
+    Clock,
+    BellRing,
+    Play
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
@@ -162,7 +164,16 @@ const ProfilePage = () => {
         {/* Settings - Only for own profile */}
         {isOwnProfile && (
             <section className="space-y-4">
-                <h3 className="text-xs font-black text-on-surface-variant uppercase tracking-[0.2em] px-2">Ajustes</h3>
+                <div className="flex items-center justify-between px-2">
+                    <h3 className="text-xs font-black text-on-surface-variant uppercase tracking-[0.2em]">Ajustes</h3>
+                    <button 
+                        onClick={() => window.dispatchEvent(new CustomEvent('restart-adonai-tour'))}
+                        className="flex items-center gap-2 text-[10px] font-black text-primary uppercase tracking-widest bg-primary/10 px-3 py-1.5 rounded-full hover:bg-primary/20 transition-all"
+                    >
+                        <Play className="w-3 h-3" />
+                        Probar Tutorial
+                    </button>
+                </div>
                 <div className="bg-surface-container-low border border-outline-variant/10 rounded-[32px] overflow-hidden">
                     {/* Theme */}
                     <div>
@@ -185,6 +196,83 @@ const ProfilePage = () => {
                         <div className="w-12 h-12 rounded-[20px] bg-tertiary-container/20 flex items-center justify-center"><LogOut className="w-6 h-6" /></div>
                         Cerrar sesión
                     </button>
+                </div>
+            </section>
+        )}
+
+        {/* Notification Settings */}
+        {isOwnProfile && (
+            <section className="space-y-4">
+                <h3 className="text-xs font-black text-on-surface-variant uppercase tracking-[0.2em] px-2">Notificaciones Inteligentes</h3>
+                <div className="bg-surface-container-low border border-outline-variant/10 rounded-[32px] overflow-hidden divide-y divide-outline-variant/5">
+                    
+                    {/* Bedtime / Tomorrow Plan */}
+                    <div className="p-6 flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-[20px] bg-surface-container-highest flex items-center justify-center">
+                                <Clock className="w-6 h-6 text-foreground" />
+                            </div>
+                            <div>
+                                <span className="block font-bold text-foreground">Plan de Mañana</span>
+                                <span className="text-[11px] text-on-surface-variant/60 font-medium">Recordatorio para organizar el día</span>
+                            </div>
+                        </div>
+                        <input 
+                            type="time" 
+                            defaultValue={localStorage.getItem('adonai_notif_bedtime') || '20:00'}
+                            onChange={(e) => localStorage.setItem('adonai_notif_bedtime', e.target.value)}
+                            className="bg-surface-container-highest px-4 py-2 rounded-xl text-sm font-black text-primary border-none focus:ring-1 focus:ring-primary outline-none"
+                        />
+                    </div>
+
+                    {/* Streak Protection */}
+                    <div className="p-6 flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-[20px] bg-surface-container-highest flex items-center justify-center">
+                                <Flame className="w-6 h-6 text-orange-500" />
+                            </div>
+                            <div>
+                                <span className="block font-bold text-foreground">Protección de Racha</span>
+                                <span className="text-[11px] text-on-surface-variant/60 font-medium">Avisar si tu racha peligra a las 6pm</span>
+                            </div>
+                        </div>
+                        <button 
+                            onClick={() => {
+                                const current = localStorage.getItem('adonai_notif_streak') !== 'false';
+                                localStorage.setItem('adonai_notif_streak', String(!current));
+                                toast.success(!current ? 'Protección activada' : 'Protección desactivada');
+                                navigate(0); // Refresh to update UI
+                            }}
+                            className={`w-12 h-6 rounded-full relative transition-colors ${localStorage.getItem('adonai_notif_streak') !== 'false' ? 'bg-primary' : 'bg-surface-container-highest'}`}
+                        >
+                            <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${localStorage.getItem('adonai_notif_streak') !== 'false' ? 'translate-x-6' : ''}`} />
+                        </button>
+                    </div>
+
+                    {/* Health Reminders */}
+                    <div className="p-6 flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-[20px] bg-surface-container-highest flex items-center justify-center">
+                                <BellRing className="w-6 h-6 text-secondary" />
+                            </div>
+                            <div>
+                                <span className="block font-bold text-foreground">Recordatorios de Salud</span>
+                                <span className="text-[11px] text-on-surface-variant/60 font-medium">Sugerencias para beber agua o descansar</span>
+                            </div>
+                        </div>
+                        <button 
+                            onClick={() => {
+                                const current = localStorage.getItem('adonai_notif_health') !== 'false';
+                                localStorage.setItem('adonai_notif_health', String(!current));
+                                toast.success(!current ? 'Recordatorios activados' : 'Recordatorios desactivados');
+                                navigate(0);
+                            }}
+                            className={`w-12 h-6 rounded-full relative transition-colors ${localStorage.getItem('adonai_notif_health') !== 'false' ? 'bg-secondary' : 'bg-surface-container-highest'}`}
+                        >
+                            <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${localStorage.getItem('adonai_notif_health') !== 'false' ? 'translate-x-6' : ''}`} />
+                        </button>
+                    </div>
+
                 </div>
             </section>
         )}

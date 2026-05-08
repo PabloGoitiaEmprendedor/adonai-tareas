@@ -10,8 +10,24 @@ const AuthPage = () => {
   const [email, setEmail] = useState('');
   const [code, setCode] = useState(['', '', '', '', '', '']);
   const [loading, setLoading] = useState(false);
+  const [countdown, setCountdown] = useState(0);
   const navigate = useNavigate();
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const startCountdown = () => {
+    setCountdown(60);
+    if (timerRef.current) clearInterval(timerRef.current);
+    timerRef.current = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          if (timerRef.current) clearInterval(timerRef.current);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
 
   const handleSendCode = async () => {
     if (!email.trim() || !email.includes('@')) {
@@ -26,6 +42,7 @@ const AuthPage = () => {
       });
       if (error) throw error;
       setStep('code');
+      startCountdown();
       toast.success('Código enviado a tu correo');
       // A bit more delay to ensure the DOM is ready for focus
       setTimeout(() => {
@@ -89,20 +106,54 @@ const AuthPage = () => {
     }
   };
 
-  const handlePaste = (e: React.ClipboardEvent) => {
-    e.preventDefault();
-    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
-    if (pasted.length === 6) {
-      const pastedArray = pasted.split('');
-      setCode(pastedArray);
-      handleVerifyCode(pasted);
+  const handlePaste = async (e?: React.ClipboardEvent) => {
+    if (e) e.preventDefault();
+    try {
+      const text = e ? e.clipboardData.getData('text') : await navigator.clipboard.readText();
+      const pasted = text.replace(/\D/g, '').slice(0, 6);
+      if (pasted.length === 6) {
+        const pastedArray = pasted.split('');
+        setCode(pastedArray);
+        handleVerifyCode(pasted).catch(console.error);
+      } else if (pasted.length > 0 && pasted.length < 6) {
+        // If it's less than 6 digits, just fill what we have
+        const newCode = [...code];
+        for (let i = 0; i < pasted.length; i++) {
+          newCode[i] = pasted[i];
+        }
+        setCode(newCode);
+        inputRefs.current[Math.min(pasted.length, 5)]?.focus();
+      }
+    } catch (err) {
+      console.error('Failed to read clipboard:', err);
+      toast.error('No se pudo leer el portapapeles');
     }
   };
 
-  const handleResend = () => {
+  const handleResend = async () => {
+    if (countdown > 0) return;
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.signInWithOtp({
+        email: email.trim().toLowerCase(),
+        options: { shouldCreateUser: true },
+      });
+      if (error) throw error;
+      startCountdown();
+      toast.success('Código reenviado');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Error al reenviar código';
+      toast.error(message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleBackToEmail = () => {
     setStep('email');
-    setEmail('');
     setCode(['', '', '', '', '', '']);
+    if (timerRef.current) clearInterval(timerRef.current);
+    setCountdown(0);
   };
 
   return (
@@ -123,8 +174,32 @@ const AuthPage = () => {
             className="relative z-10 w-full max-w-[400px] space-y-10"
           >
             <div className="text-center space-y-4">
-              <div className="w-20 h-20 bg-primary/15 rounded-[32px] flex items-center justify-center mx-auto mb-6 rotate-3">
-                <h1 className="text-4xl font-black text-primary">A</h1>
+              <div className="flex items-center justify-center mx-auto mb-6">
+                <div className="w-20 h-20 relative">
+                  <svg viewBox="0 0 100 100" className="w-full h-full drop-shadow-[0_0_15px_rgba(34,197,94,0.3)]">
+                    <defs>
+                      <linearGradient id="logo-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stopColor="#22C55E" />
+                        <stop offset="100%" stopColor="#16a34a" />
+                      </linearGradient>
+                    </defs>
+                    <path 
+                      d="M20 50 L40 75 L85 25" 
+                      fill="none" 
+                      stroke="url(#logo-grad)" 
+                      strokeWidth="16" 
+                      strokeLinecap="round" 
+                      strokeLinejoin="round"
+                    />
+                    <path 
+                      d="M40 75 L30 65" 
+                      fill="none" 
+                      stroke="rgba(0,0,0,0.15)" 
+                      strokeWidth="16" 
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                </div>
               </div>
               <h1 className="text-5xl font-black tracking-tighter text-foreground font-headline">Adonai</h1>
               <p className="text-on-surface-variant font-medium text-lg opacity-80">
@@ -165,8 +240,32 @@ const AuthPage = () => {
             className="relative z-10 w-full max-w-[400px] space-y-10"
           >
             <div className="text-center space-y-4">
-              <div className="w-20 h-20 bg-primary/15 rounded-[32px] flex items-center justify-center mx-auto mb-6 rotate-3">
-                <h1 className="text-4xl font-black text-primary">A</h1>
+              <div className="flex items-center justify-center mx-auto mb-6">
+                <div className="w-20 h-20 relative">
+                  <svg viewBox="0 0 100 100" className="w-full h-full drop-shadow-[0_0_15px_rgba(34,197,94,0.3)]">
+                    <defs>
+                      <linearGradient id="logo-grad-2" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stopColor="#22C55E" />
+                        <stop offset="100%" stopColor="#16a34a" />
+                      </linearGradient>
+                    </defs>
+                    <path 
+                      d="M20 50 L40 75 L85 25" 
+                      fill="none" 
+                      stroke="url(#logo-grad-2)" 
+                      strokeWidth="16" 
+                      strokeLinecap="round" 
+                      strokeLinejoin="round"
+                    />
+                    <path 
+                      d="M40 75 L30 65" 
+                      fill="none" 
+                      stroke="rgba(0,0,0,0.15)" 
+                      strokeWidth="16" 
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                </div>
               </div>
               <h1 className="text-5xl font-black tracking-tighter text-foreground font-headline">Verifica</h1>
               <p className="text-on-surface-variant font-medium text-lg opacity-80">
@@ -175,39 +274,62 @@ const AuthPage = () => {
               <p className="text-primary font-bold text-lg">{email}</p>
             </div>
 
-            <div className="space-y-6">
-              <div className="flex gap-2 justify-center" onPaste={handlePaste}>
-                {code.map((digit, i) => (
-                  <input
-                    key={i}
-                    ref={(el) => { inputRefs.current[i] = el; }}
-                    type="text"
-                    inputMode="numeric"
-                    maxLength={1}
-                    value={digit}
-                    onChange={(e) => handleCodeChange(i, e.target.value)}
-                    onKeyDown={(e) => handleKeyDown(i, e)}
-                    className="w-11 h-14 text-center text-xl font-bold bg-surface-container rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all border-none"
-                  />
-                ))}
+              <div className="flex flex-col gap-8">
+                <div className="flex items-center justify-center gap-3" onPaste={handlePaste}>
+                  <button
+                    onClick={() => handlePaste()}
+                    className="flex flex-col items-center justify-center w-16 h-14 bg-primary/10 text-primary rounded-xl hover:bg-primary/20 transition-all border border-primary/20 shadow-lg shadow-primary/5 group"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="group-active:scale-90 transition-transform">
+                      <rect width="8" height="4" x="8" y="2" rx="1" ry="1"/>
+                      <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
+                    </svg>
+                    <span className="text-[10px] font-black uppercase tracking-tighter mt-0.5">Pegar</span>
+                  </button>
+
+                  <div className="flex gap-2">
+                    {code.map((digit, i) => (
+                      <input
+                        key={i}
+                        ref={(el) => { inputRefs.current[i] = el; }}
+                        type="text"
+                        inputMode="numeric"
+                        maxLength={1}
+                        value={digit}
+                        onChange={(e) => handleCodeChange(i, e.target.value)}
+                        onKeyDown={(e) => handleKeyDown(i, e)}
+                        className="w-11 h-14 text-center text-xl font-bold bg-surface-container rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all border-none"
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => { handleVerifyCode().catch(console.error); }}
+                  disabled={loading || code.some(d => !d)}
+                  className="w-full h-16 rounded-[24px] bg-primary text-black font-black text-lg flex items-center justify-center gap-3 shadow-xl shadow-primary/20 hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-50"
+                >
+                  <ShieldCheck className="w-5 h-5" />
+                  {loading ? 'Verificando...' : 'Verificar y entrar'}
+                </button>
+
+              <div className="space-y-4 pt-4">
+                <button
+                  onClick={handleResend}
+                  disabled={loading || countdown > 0}
+                  className="w-full flex items-center justify-center gap-2 text-primary font-bold text-sm hover:opacity-80 transition-opacity disabled:opacity-50 disabled:text-on-surface-variant/40"
+                >
+                  {countdown > 0 ? `Reenviar código en ${countdown}s` : '¿No recibiste el código? Reenviar'}
+                </button>
+
+                <button
+                  onClick={handleBackToEmail}
+                  className="w-full flex items-center justify-center gap-2 text-on-surface-variant/60 font-medium text-xs hover:text-foreground transition-colors py-2"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  Usar otro email
+                </button>
               </div>
-
-              <button
-                onClick={() => { handleVerifyCode().catch(console.error); }}
-                disabled={loading || code.some(d => !d)}
-                className="w-full h-16 rounded-[24px] bg-primary text-black font-black text-lg flex items-center justify-center gap-3 shadow-xl shadow-primary/20 hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-50"
-              >
-                <ShieldCheck className="w-5 h-5" />
-                {loading ? 'Verificando...' : 'Verificar y entrar'}
-              </button>
-
-              <button
-                onClick={handleResend}
-                className="w-full flex items-center justify-center gap-2 text-on-surface-variant/60 font-medium text-sm hover:text-foreground transition-colors py-2"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                Usar otro email
-              </button>
             </div>
           </motion.div>
         )}
