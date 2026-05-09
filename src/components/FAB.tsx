@@ -1,12 +1,13 @@
 import FloatingActionMenu from './ui/floating-action-menu';
-import { Plus, Mic } from 'lucide-react';
+import { Plus, Mic, Repeat } from 'lucide-react';
 
 interface FABProps {
   onTextClick: () => void;
   onVoiceClick: () => void;
+  onRecurrenceClick: () => void;
 }
 
-const FAB = ({ onTextClick, onVoiceClick }: FABProps) => {
+const FAB = ({ onTextClick, onVoiceClick, onRecurrenceClick }: FABProps) => {
   return (
     <FloatingActionMenu
       options={[
@@ -19,6 +20,11 @@ const FAB = ({ onTextClick, onVoiceClick }: FABProps) => {
           label: "Voz",
           icon: <Mic />,
           onClick: onVoiceClick,
+        },
+        {
+          label: "Recurrencia",
+          icon: <Repeat />,
+          onClick: onRecurrenceClick,
         },
       ]}
     />

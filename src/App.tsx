@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Target, Sparkles } from "lucide-react";
+import { Target, Sparkles, Menu } from "lucide-react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { HashRouter, Route, Routes, Navigate, useNavigate } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -22,6 +22,7 @@ import PrivacyPolicyPage from "./pages/PrivacyPolicyPage";
 import TermsOfServicePage from "./pages/TermsOfServicePage";
 import TrashPage from "./pages/TrashPage";
 import AchievementsPage from "./pages/AchievementsPage";
+import SettingsPage from "./pages/SettingsPage";
 import MiniTasksPage from "./pages/MiniTasksPage";
 import AdminPanelPage from "./pages/AdminPanelPage";
 import LandingPage from "./pages/LandingPage";
@@ -72,12 +73,7 @@ const LoadingScreen = ({ message }: { message: string }) => (
       className="flex flex-col items-center gap-8"
     >
       <div className="relative">
-        <Target className="w-8 h-8 text-primary/30" />
-        <motion.div
-          animate={{ scale: [1, 1.2, 1], opacity: [0.2, 0.5, 0.2] }}
-          transition={{ repeat: Infinity, duration: 4, ease: "easeInOut" }}
-          className="absolute inset-0 bg-primary/10 rounded-full -m-4"
-        />
+        <Menu className="w-8 h-8 text-on-surface-variant" />
       </div>
 
       <div className="flex flex-col items-center gap-3">
@@ -151,9 +147,11 @@ const AppRoutes = () => {
         <Route 
           path="/" 
           element={
-            (isElectron || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-              ? (user ? <Navigate to="/daily" replace /> : <Navigate to="/auth" replace />)
-              : <LandingPage />
+            user 
+              ? <Navigate to="/daily" replace /> 
+              : (isElectron || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+                ? <Navigate to="/auth" replace />
+                : <LandingPage />
           } 
         />
 
@@ -167,6 +165,7 @@ const AppRoutes = () => {
         <Route path="/friends" element={appRouteElement(<FriendsPage />)} />
         <Route path="/profile" element={appRouteElement(<ProfilePage />)} />
         <Route path="/profile/:userId" element={appRouteElement(<ProfilePage />)} />
+        <Route path="/settings" element={appRouteElement(<SettingsPage />)} />
         <Route path="/priority-settings" element={appRouteElement(<PrioritySettingsPage />)} />
         <Route path="/trash" element={appRouteElement(<TrashPage />)} />
         <Route path="/achievements" element={appRouteElement(<AchievementsPage />)} />

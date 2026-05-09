@@ -12,7 +12,7 @@ import { useFolders } from '@/hooks/useFolders';
 import { useSubtasks } from '@/hooks/useSubtasks';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Check, MoreHorizontal, ChevronRight, Clock, Pause, Plus, Mic, Repeat, Link as LinkIcon, Folder, X, Users as UsersIcon } from 'lucide-react';
+import { Check, MoreHorizontal, ChevronRight, Clock, Pause, Plus, Mic, Repeat, Paperclip, Folder, X, Users as UsersIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import TaskCaptureModal from '@/components/TaskCaptureModal';
 import TaskDetailModal from '@/components/TaskDetailModal';
@@ -273,14 +273,17 @@ const TaskRowRaw = ({ task, onToggle, onDetail, activeTimerId, onTimerToggle, up
             )
           ) : (
             <>
-              {task.link && (
+              {task.link && task.link.split(/\s+/).filter(Boolean).map((url: string, i: number) => {
+                const href = url.startsWith('http') ? url : `https://${url}`;
+                return (
                 <div
+                  key={i}
                   onClick={(e) => { 
                     e.stopPropagation(); 
                     if ((window as any).electronAPI?.openExternal) {
-                      (window as any).electronAPI.openExternal(task.link);
+                      (window as any).electronAPI.openExternal(href);
                     } else {
-                      window.open(task.link, '_blank');
+                      window.open(href, '_blank');
                     }
                   }}
                   style={{
@@ -293,9 +296,10 @@ const TaskRowRaw = ({ task, onToggle, onDetail, activeTimerId, onTimerToggle, up
                   }}
                   title="Abrir link"
                 >
-                  <LinkIcon style={{ width: 12, height: 12, color: priorityColor === 'transparent' ? 'var(--primary)' : priorityColor }} />
+                  <Paperclip style={{ width: 12, height: 12, color: priorityColor === 'transparent' ? 'var(--primary)' : priorityColor }} />
                 </div>
-              )}
+                );
+              })}
               
               {isEditing ? (
                 <div

@@ -33,11 +33,24 @@ export function CalendarDatePicker({
     today.setHours(0,0,0,0);
     const tomorrow = new Date(today);
     tomorrow.setDate(today.getDate() + 1);
+    const yesterday = new Date(today);
+    yesterday.setDate(today.getDate() - 1);
 
     if (format(d, 'yyyy-MM-dd') === format(today, 'yyyy-MM-dd')) return "Hoy";
     if (format(d, 'yyyy-MM-dd') === format(tomorrow, 'yyyy-MM-dd')) return "Mañana";
+    if (format(d, 'yyyy-MM-dd') === format(yesterday, 'yyyy-MM-dd')) return "Ayer";
     
-    return format(d, "PPP", { locale: es });
+    const diffTime = d.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+    if (diffDays > 1 && diffDays < 7) {
+      const dayName = format(d, "EEEE", { locale: es });
+      return dayName.charAt(0).toUpperCase() + dayName.slice(1);
+    }
+    
+    if (d.getFullYear() === today.getFullYear()) {
+      return format(d, "d 'de' MMM", { locale: es });
+    }
+    return format(d, "d MMM yyyy", { locale: es });
   }, [date]);
 
   const selectedDate = React.useMemo(() => {
@@ -56,13 +69,13 @@ export function CalendarDatePicker({
         <PopoverTrigger asChild>
           <Button
             variant="outline"
-            className="w-full justify-between font-bold rounded-xl h-12 border-white/10 bg-white/5 hover:bg-white/10 transition-all"
+            className="w-full justify-between font-bold rounded-xl h-12 border-white/10 bg-white/5 hover:bg-white/10 transition-all px-3"
           >
-            <div className="flex items-center gap-2">
-              <CalendarIcon className="w-4 h-4 text-primary" />
-              {displayDate}
+            <div className="flex items-center gap-2 overflow-hidden">
+              <CalendarIcon className="w-4 h-4 text-primary shrink-0" />
+              <span className="truncate text-[13px]">{displayDate}</span>
             </div>
-            <ChevronDown className="w-4 h-4 opacity-50" />
+            <ChevronDown className="w-4 h-4 opacity-50 shrink-0" />
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-auto p-0 border-none shadow-2xl" align="center">

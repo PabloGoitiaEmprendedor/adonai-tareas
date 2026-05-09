@@ -8,6 +8,7 @@ import { format } from 'date-fns';
 import { Check, Target, Plus, GripVertical, Timer } from 'lucide-react';
 import { motion } from 'framer-motion';
 import FAB from '@/components/FAB';
+import QuickRecurrenceFlow from '@/components/QuickRecurrenceFlow';
 import TaskCaptureModal, { type TaskCaptureModalHandle } from '@/components/TaskCaptureModal';
 import TaskDetailModal from '@/components/TaskDetailModal';
 import FullscreenTimer from '@/components/FullscreenTimer';
@@ -27,6 +28,7 @@ const DashboardPage = () => {
   const today = format(new Date(), 'yyyy-MM-dd');
   const { tasks, updateTask } = useTasks({ date: today });
   const [captureOpen, setCaptureOpen] = useState(false);
+  const [recurrenceOpen, setRecurrenceOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<any>(null);
   const [timerTask, setTimerTask] = useState<any>(null);
   const [orderedTasks, setOrderedTasks] = useState<any[]>([]);
@@ -225,6 +227,11 @@ const DashboardPage = () => {
       <FAB 
         onTextClick={openCapture} 
         onVoiceClick={openCaptureInVoiceMode} 
+        onRecurrenceClick={() => setRecurrenceOpen(true)}
+      />
+      <QuickRecurrenceFlow 
+        open={recurrenceOpen}
+        onClose={() => setRecurrenceOpen(false)}
       />
       <TaskCaptureModal ref={captureModalRef} open={captureOpen} onClose={() => setCaptureOpen(false)} creationSource="fab" />
       <TaskDetailModal task={selectedTask} open={!!selectedTask} onClose={() => setSelectedTask(null)} />

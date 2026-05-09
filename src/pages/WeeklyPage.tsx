@@ -6,7 +6,7 @@ import { useGlobalVoiceCapture } from '@/hooks/useGlobalVoiceCapture';
 import { usePriorityColors } from '@/hooks/usePriorityColors';
 import { format, startOfWeek, addDays, subDays, isSameDay } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { CalendarSearch as CalendarIcon, Check, GripVertical, Timer, Plus, Link as LinkIcon, LayoutList } from 'lucide-react';
+import { CalendarSearch as CalendarIcon, Check, GripVertical, Timer, Plus, Link as LinkIcon, LayoutList, Lock } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { triggerTaskCelebration, triggerDailyCelebration, triggerOnTimeCelebration } from '@/lib/celebrations';
 import FAB from '@/components/FAB';
@@ -20,12 +20,8 @@ import { AISchedulerModal } from '@/components/AISchedulerModal';
 import SubtasksSection from '@/components/SubtasksSection';
 import { TaskCard } from '@/components/TaskCard';
 import { Sparkles } from 'lucide-react';
-import { EventManager } from '@/components/ui/event-manager.tsx';
-
-
-import { useCalendarEvents } from '@/hooks/useCalendarEvents';
-import GoogleCalendarView from '@/components/calendar/GoogleCalendarView';
-import { supabase } from '@/integrations/supabase/client';
+import AdonaiCalendarView from '@/components/calendar/AdonaiCalendarView';
+import QuickRecurrenceFlow from '@/components/QuickRecurrenceFlow';
 
 const WeeklyPage = () => {
   const [captureOpen, setCaptureOpen] = useState(false);
@@ -33,6 +29,7 @@ const WeeklyPage = () => {
   const [viewDate, setViewDate] = useState<Date>(new Date());
   const [selectedDay, setSelectedDay] = useState<Date>(new Date());
   const [selectedTask, setSelectedTask] = useState<any>(null);
+  const [recurrenceOpen, setRecurrenceOpen] = useState(false);
   const [timerTask, setTimerTask] = useState<any>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
   const captureModalRef = useRef<TaskCaptureModalHandle>(null);
@@ -40,23 +37,6 @@ const WeeklyPage = () => {
 
   const [aiModalOpen, setAiModalOpen] = useState(false);
   const [view, setView] = useState<'list' | 'calendar'>('calendar');
-  const [source, setSource] = useState<'adonai' | 'google'>('adonai');
-
-  const { events: googleEvents, connected, isLoading: isCalendarLoading } = useCalendarEvents();
-  
-  const handleConnectGoogle = async () => {
-    await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        scopes: 'https://www.googleapis.com/auth/calendar',
-        redirectTo: window.location.origin,
-        queryParams: {
-          access_type: 'offline',
-          prompt: 'consent',
-        }
-      }
-    });
-  };
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 60000);
@@ -236,118 +216,46 @@ const WeeklyPage = () => {
       <div className="max-w-full mx-auto px-4 pt-2 pb-10 space-y-4">
               {/* Sticky Header Container */}
         <div className="bg-background/60 backdrop-blur-3xl pb-4 -mx-6 px-6 pt-4 border-b border-outline-variant/5">
-          {/* Source Switcher - Centered and Slim */}
+          {/* Source Switcher - Adonai 360 active, Google Coming Soon */}
           <div className="flex justify-center">
             <div className="flex bg-surface-container-high/30 backdrop-blur-2xl rounded-[20px] p-1 border border-outline-variant/5 shadow-xl">
               <button 
-                onClick={() => setSource('adonai')}
-                className={`px-6 py-2.5 rounded-[16px] text-[9px] font-black uppercase tracking-[0.15em] transition-all duration-300 ${source === 'adonai' ? 'bg-primary text-primary-foreground shadow-lg' : 'text-on-surface-variant/30 hover:text-foreground'}`}
+                className="px-6 py-2.5 rounded-[16px] text-[9px] font-black uppercase tracking-[0.15em] transition-all duration-300 bg-primary text-primary-foreground shadow-lg"
               >
-                Adonai
+                Calendario
               </button>
-              <button 
-                onClick={() => setSource('google')}
-                className={`px-6 py-2.5 rounded-[16px] text-[9px] font-black uppercase tracking-[0.15em] transition-all duration-300 ${source === 'google' ? 'bg-primary text-primary-foreground shadow-lg' : 'text-on-surface-variant/30 hover:text-foreground'}`}
-              >
-                Google
-              </button>
+              <div className="relative">
+                <button 
+                  disabled
+                  className="px-6 py-2.5 rounded-[16px] text-[9px] font-black uppercase tracking-[0.15em] transition-all duration-300 text-on-surface-variant/20 cursor-not-allowed flex items-center gap-1.5"
+                >
+                  <Lock className="w-2.5 h-2.5" />
+                  Google
+                </button>
+                <span className="absolute -top-1.5 -right-1 bg-primary/20 text-primary text-[6px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full border border-primary/20">
+                  Pronto
+                </span>
+              </div>
             </div>
           </div>
         </div>
 
-        <section className="space-y-4 pt-2">
-          {source === 'google' ? (
-            <GoogleCalendarView 
-              events={googleEvents}
-              selectedDate={selectedDay}
-              onSelectDate={setSelectedDay}
-              onConnect={handleConnectGoogle}
-              isConnected={connected}
-            />
-          ) : view === 'calendar' ? (
-            <EventManager 
-              defaultView="month"
-              events={tasks.map(t => {
-                const colorKey = t.urgency && t.importance ? 'p1' : 
-                                t.urgency && !t.importance ? 'p2' :
-                                !t.urgency && t.importance ? 'p3' : 'p4';
-                const color = priorityColors[colorKey] === 'transparent' ? 'var(--primary)' : priorityColors[colorKey];
-
-                const quadrantRank = (t: any) =>
-                  t.urgency && t.importance ? 0
-                  : t.urgency ? 1
-                  : t.importance ? 2
-                  : 3;
-
-                return {
-                  id: t.id,
-                  title: t.title,
-                  description: t.description || '',
-                  startTime: new Date(t.due_date + 'T09:00:00'),
-                  endTime: new Date(t.due_date + 'T10:00:00'),
-                  color: color,
-                  category: 'Tarea',
-                  priority: quadrantRank(t)
-                };
-              })}
-              onEventClick={(event) => {
-                const task = tasks.find(t => t.id === event.id);
-                if (task) setSelectedTask(task);
-              }}
-              onCellClick={(date) => {
-                setSelectedDay(date);
-              }}
-              className="mt-0 animate-in fade-in zoom-in-95 duration-500"
-            />
-          ) : orderedTasks.length === 0 ? (
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.9, y: 20 }} 
-              animate={{ opacity: 1, scale: 1, y: 0 }} 
-              className="bg-surface-container-low/50 p-16 rounded-[60px] text-center border-2 border-dashed border-outline-variant/20 space-y-8 shadow-sm backdrop-blur-sm"
-            >
-              <div className="w-24 h-24 bg-card rounded-[36px] mx-auto flex items-center justify-center shadow-xl border border-outline-variant/10 relative overflow-hidden group">
-                <div className="absolute inset-0 bg-primary/5 scale-0 group-hover:scale-150 transition-transform duration-1000 rounded-full" />
-                <CalendarIcon className="w-12 h-12 text-outline-variant/40 relative z-10" />
-              </div>
-              <div className="space-y-3">
-                <p className="text-3xl font-black font-headline text-foreground">Hoja en Blanco</p>
-                <p className="text-on-surface-variant/60 text-base font-medium max-w-[280px] mx-auto">Toda una jornada para diseñar a tu manera. ¿Por dónde empezamos?</p>
-              </div>
-              <Button onClick={() => { setCaptureMode('text'); setCaptureOpen(true); }} variant="outline" className="h-14 rounded-[28px] border-2 border-primary text-primary font-black hover:bg-primary hover:text-primary-foreground px-10 transition-all hover:scale-105 active:scale-95 shadow-lg shadow-primary/10">
-                + Crear primera tarea
-              </Button>
-            </motion.div>
-          ) : (
-            <div className="grid gap-5">
-              {orderedTasks.map((task, idx) => (
-                <TaskCard
-                  key={task.id}
-                  task={task}
-                  taskIdx={idx}
-                  isDone={task.status === 'done'}
-                  completingTaskId={completingTaskId}
-                  dragIdx={dragIdx}
-                  touchIdx={touchIdx}
-                  handleDragStart={handleDragStart}
-                  handleDragOver={handleDragOver}
-                  handleDragEnd={handleDragEnd}
-                  handleTouchStart={handleTouchStart}
-                  handleTouchMove={handleTouchMove}
-                  handleTouchEnd={handleTouchEnd}
-                  setSelectedTask={setSelectedTask}
-                  handleComplete={handleComplete}
-                  handleUncomplete={handleUncomplete}
-                  handleStartTimer={handleStartTimer}
-                  view="weekly"
-                />
-              ))}
-            </div>
-          )}
+        <section id="weekly-calendar-main" className="space-y-4 pt-2">
+          {/* Adonai 360 Calendar — fully interactive, persists to Supabase */}
+          <AdonaiCalendarView
+            selectedDate={selectedDay}
+            onSelectDate={setSelectedDay}
+          />
         </section>
 
         <FAB 
           onTextClick={openCapture} 
           onVoiceClick={openCaptureInVoiceMode} 
+          onRecurrenceClick={() => setRecurrenceOpen(true)}
+        />
+        <QuickRecurrenceFlow 
+          open={recurrenceOpen}
+          onClose={() => setRecurrenceOpen(false)}
         />
         <TaskCaptureModal 
           ref={captureModalRef} 

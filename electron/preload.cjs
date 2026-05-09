@@ -24,4 +24,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   log: (msg) => ipcRenderer.send('log-message', msg),
   showNotification: (title, body, type) => ipcRenderer.send('show-notification', { title, body, type }),
   onCustomToast: (callback) => ipcRenderer.on('custom-toast-data', callback),
+  getAutoStart: () => ipcRenderer.invoke('get-auto-start'),
+  setAutoStart: (openAtLogin) => ipcRenderer.send('set-auto-start', openAtLogin),
 });

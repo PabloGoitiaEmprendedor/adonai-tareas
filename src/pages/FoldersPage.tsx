@@ -10,6 +10,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Folder, Plus, ChevronRight, Users, Trash2, Check, Clock, Edit2, ArrowLeft, Share2, Settings, Sparkles, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import FAB from '@/components/FAB';
+import QuickRecurrenceFlow from '@/components/QuickRecurrenceFlow';
 import TaskCaptureModal, { type TaskCaptureModalHandle } from '@/components/TaskCaptureModal';
 import TaskDetailModal from '@/components/TaskDetailModal';
 import FullscreenTimer from '@/components/FullscreenTimer';
@@ -34,6 +35,7 @@ const FoldersPage = () => {
   const [newColor, setNewColor] = useState(FOLDER_COLORS[0]);
   const [editingFolder, setEditingFolder] = useState<string | null>(null);
   const [captureOpen, setCaptureOpen] = useState(false);
+  const [recurrenceOpen, setRecurrenceOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<any>(null);
   const [timerTask, setTimerTask] = useState<any>(null);
   const [sharingFolder, setSharingFolder] = useState<string | null>(null);
@@ -324,7 +326,7 @@ const FoldersPage = () => {
             className="max-w-[430px] lg:max-w-6xl mx-auto px-6 pt-12 space-y-12"
           >
             {/* Header Section */}
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+            <div id="folders-header" className="flex flex-col md:flex-row md:items-end justify-between gap-6">
               <div className="space-y-2">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-1 bg-primary rounded-full" />
@@ -338,6 +340,7 @@ const FoldersPage = () => {
               </div>
 
               <motion.button
+                id="btn-new-folder"
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 onClick={() => { setNewName(''); setNewColor(FOLDER_COLORS[0]); setShowCreate(true); }}
@@ -554,7 +557,16 @@ const FoldersPage = () => {
         )}
       </AnimatePresence>
 
-      <FAB onTextClick={openCapture} onVoiceClick={openCaptureInVoiceMode} />
+      <FAB 
+        onTextClick={openCapture} 
+        onVoiceClick={openCaptureInVoiceMode} 
+        onRecurrenceClick={() => setRecurrenceOpen(true)}
+      />
+
+      <QuickRecurrenceFlow 
+        open={recurrenceOpen}
+        onClose={() => setRecurrenceOpen(false)}
+      />
 
       {/* Modals */}
       {renderFolderModal(false)}

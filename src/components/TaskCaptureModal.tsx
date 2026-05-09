@@ -1,6 +1,6 @@
 import { useState, useEffect, forwardRef, useImperativeHandle, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mic, X, Square, Type, Check, Edit2, ChevronRight, Calendar as CalendarIcon, Link as LinkIcon, Target } from 'lucide-react';
+import { Mic, X, Square, Type, Check, Edit2, ChevronRight, Calendar as CalendarIcon, Link as LinkIcon, Target, Pencil } from 'lucide-react';
 import { AutoTextarea } from '@/components/ui/auto-textarea';
 import { useVoiceCapture } from '@/hooks/useVoiceCapture';
 import { parseVoiceTranscript } from '@/hooks/useVoiceParser';
@@ -43,7 +43,7 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
   const [reviewUrgency, setReviewUrgency] = useState(false);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [link, setLink] = useState('');
+  const [links, setLinks] = useState<string[]>(['']);
   const [dueDate, setDueDate] = useState('');
   const [sourceType, setSourceType] = useState<'voice' | 'text' | 'image'>('text');
   const [showTextInput, setShowTextInput] = useState(true);
@@ -88,7 +88,7 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
       setEditingTitle(false);
       setTitle('');
       setDescription('');
-      setLink('');
+      setLinks(['']);
       
       if (!requestedVoiceOpenRef.current) {
         if (initialMode === 'voice') {
@@ -408,7 +408,7 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
     await saveTaskQuick({
       title: title.trim(),
       description: description.trim(),
-      link: link.trim(),
+      link: links.filter(l => l.trim()).join(' '),
       dueDate,
       goalId: selectedGoalId || null,
       importance: reviewImportance,
@@ -615,19 +615,57 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
                           </div>
 
                           <div id="task-link-input" className="space-y-1">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/40 ml-2">Link o Referencia</label>
-                            <div className="relative">
-                              <LinkIcon className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-on-surface-variant/30" />
-                              <input
-                                type="url"
-                                value={link} 
-                                onChange={(e) => setLink(e.target.value)}
-                                placeholder="https://..."
-                                className={cn(
-                                  "w-full text-sm bg-surface-container/30 border border-outline-variant/10 rounded-[24px] pl-12 pr-5 focus:outline-none focus:ring-2 focus:ring-primary/30 placeholder:text-on-surface-variant/20",
-                                  isMini ? "py-3" : "py-4"
-                                )}
-                              />
+                            <label className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/40 ml-2">Links o Referencias</label>
+                            <div className="flex flex-col gap-2">
+                              {links.map((l, i) => (
+                                <div key={i} className="relative group flex items-center gap-2">
+                                  <div className="relative flex-1">
+                                    <LinkIcon className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-on-surface-variant/30 group-focus-within:text-primary/50 transition-colors" />
+                                    <input
+                                      type="text"
+                                      value={l} 
+                                      onChange={(e) => {
+                                        const newLinks = [...links];
+                                        newLinks[i] = e.target.value;
+                                        setLinks(newLinks);
+                                      }}
+                                      placeholder="https://..."
+                                      className={cn(
+                                        "w-full text-sm bg-surface-container/30 border border-outline-variant/10 rounded-[24px] pl-12 pr-5 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all placeholder:text-on-surface-variant/20",
+                                        isMini ? "py-3" : "py-4"
+                                      )}
+                                    />
+                                  </div>
+                                  {i === links.length - 1 && (
+                                    <button
+                                      type="button"
+                                      onClick={() => setLinks([...links, ''])}
+                                      className={cn(
+                                        "flex-shrink-0 flex items-center justify-center rounded-[24px] bg-surface-container/30 border border-outline-variant/10 text-on-surface-variant/50 hover:bg-surface-container hover:text-primary transition-all hover:border-primary/30",
+                                        isMini ? "w-[46px] h-[46px]" : "w-[52px] h-[52px]"
+                                      )}
+                                    >
+                                      <span className="text-xl leading-none">+</span>
+                                    </button>
+                                  )}
+                                  {links.length > 1 && i !== links.length - 1 && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const newLinks = [...links];
+                                        newLinks.splice(i, 1);
+                                        setLinks(newLinks);
+                                      }}
+                                      className={cn(
+                                        "flex-shrink-0 flex items-center justify-center rounded-[24px] bg-surface-container/30 border border-outline-variant/10 text-on-surface-variant/50 hover:bg-red-500/10 hover:text-red-400 transition-all hover:border-red-500/30",
+                                        isMini ? "w-[46px] h-[46px]" : "w-[52px] h-[52px]"
+                                      )}
+                                    >
+                                      <X className="w-4 h-4" />
+                                    </button>
+                                  )}
+                                </div>
+                              ))}
                             </div>
                           </div>
 
@@ -641,7 +679,7 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
                             }}
                             disabled={!title.trim() || (document.body.classList.contains('tutorial-active') && !document.body.classList.contains('tutorial-can-continue'))}
                             className={cn(
-                              "w-full bg-primary text-primary-foreground rounded-[24px] font-black text-sm shadow-xl hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50",
+                              "w-full bg-primary text-primary-foreground rounded-[24px] font-black text-sm shadow-xl hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50 relative z-[100000] pointer-events-auto",
                               isMini ? "h-14" : "h-16"
                             )}
                           >
@@ -677,13 +715,12 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
                         <div className={cn("flex items-center gap-3 bg-surface-container/30 border border-outline-variant/30 rounded-2xl pr-10", isMini ? "p-3" : "p-4")}>
                           <div className="w-5 h-5 rounded-md border-2 border-outline-variant/40 flex-shrink-0" />
                           <p className="text-sm font-black truncate flex-1 text-foreground">{title}</p>
-                          <button
-                            id="task-edit-pencil"
+                          <button 
                             onClick={() => setPhase('input')}
-                            className="p-1.5 hover:bg-on-surface/5 rounded-lg transition-colors flex-shrink-0"
-                            title="Editar"
+                            className="p-3 rounded-2xl bg-primary text-black shadow-[0_8px_25px_-5px_rgba(163,230,53,0.4)] hover:shadow-[0_12px_30px_-5px_rgba(163,230,53,0.6)] hover:scale-110 transition-all active:scale-95 group flex items-center justify-center border border-primary/20"
+                            title="Editar nombre"
                           >
-                            <Edit2 className="w-3.5 h-3.5 text-on-surface-variant/40" />
+                            <Pencil className="w-4 h-4 group-hover:rotate-12 transition-transform" />
                           </button>
                         </div>
 
@@ -719,7 +756,7 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
                         )}
 
                         <div className="space-y-2" id="task-matrix-selector">
-                          <label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60 ml-2">Prioridad (Matriz Eisenhower)</label>
+                          <label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60 ml-2">Prioridad</label>
                           <div className="grid grid-cols-2 gap-3">
                             <button
                               id="task-importance-btn"

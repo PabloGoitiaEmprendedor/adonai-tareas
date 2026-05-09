@@ -8,11 +8,12 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useGlobalVoiceCapture } from '@/hooks/useGlobalVoiceCapture';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Bell, Flame, Monitor, Sparkles } from 'lucide-react';
+import { Bell, Flame, Monitor, Sparkles, Zap } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { triggerTaskCelebration, triggerDailyCelebration, triggerOnTimeCelebration } from '@/lib/celebrations';
 import FAB from '@/components/FAB';
 import TaskCaptureModal, { type TaskCaptureModalHandle } from '@/components/TaskCaptureModal';
+import QuickRecurrenceFlow from '@/components/QuickRecurrenceFlow';
 import TaskDetailModal from '@/components/TaskDetailModal';
 import FullscreenTimer from '@/components/FullscreenTimer';
 import GamificationBar from '@/components/GamificationBar';
@@ -111,6 +112,7 @@ const DailyPage = () => {
   const { checkAndUnlock } = useGamification();
   const streakCount = metrics?.streak_current || 0;
   const [captureOpen, setCaptureOpen] = useState(false);
+  const [recurrenceOpen, setRecurrenceOpen] = useState(false);
   const [captureMode, setCaptureMode] = useState<'text' | 'voice' | null>(null);
   const [selectedTask, setSelectedTask] = useState<any>(null);
   const [timerTask, setTimerTask] = useState<any>(null);
@@ -161,24 +163,6 @@ const DailyPage = () => {
       return;
     }
     openDownloadDialog();
-  }, []);
-
-  const handleTestNotification = useCallback(() => {
-    if (window.electronAPI) {
-      window.electronAPI.showNotification(
-        "¡Prueba de Adonai! 🚀", 
-        "Así es como se verán tus recordatorios de tareas."
-      );
-    } else {
-      // Fallback for browser
-      if (Notification.permission === "granted") {
-        new Notification("¡Prueba de Adonai! 🚀", {
-          body: "Así es como se verán tus recordatorios de tareas."
-        });
-      } else {
-        Notification.requestPermission();
-      }
-    }
   }, []);
 
   const quadrantRank = (t: any) =>
@@ -283,85 +267,49 @@ const DailyPage = () => {
       <div className="max-w-[430px] lg:max-w-4xl mx-auto px-6 pt-4 pb-32 space-y-6 relative">
         
         {/* Header */}
-        <div className="flex items-center justify-between pt-2 pb-4">
-          <div className="w-10 h-10" />
+        <div className="flex items-start justify-between pt-4 pb-2">
+          <div className="w-12 h-12 flex-shrink-0" />
 
           <div id="app-logo" className="flex flex-col items-center">
-            <div className="relative">
-              <motion.div
-                key={format(currentTime, 'h:mm')}
-                initial={{ opacity: 0, y: 5 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="text-[48px] font-black tracking-[-0.05em] tabular-nums text-foreground font-headline leading-none flex items-end gap-1"
-              >
-                {format(currentTime, 'h:mm')}
-                <span className="text-[11px] mb-1 font-black text-primary uppercase tracking-tight opacity-40">
+            <motion.div
+              key={format(currentTime, 'h:mm')}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex flex-col items-center"
+            >
+              <div className="flex items-baseline gap-2">
+                <span className="text-5xl font-black tracking-[-0.05em] tabular-nums text-foreground">
+                  {format(currentTime, 'h:mm')}
+                </span>
+                <span className="text-sm font-black text-on-surface-variant uppercase tracking-widest">
                   {format(currentTime, 'a')}
                 </span>
-              </motion.div>
-            </div>
-            
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="flex items-center gap-4 mt-4"
-            >
-              <div className="h-px w-8 bg-primary/20" />
-              <div className="flex items-center gap-4">
-                <span className="text-[11px] uppercase tracking-[0.2em] font-black text-on-surface-variant/40">
+              </div>
+              <div className="mt-2 flex flex-col items-center gap-1">
+                <span className="text-xs uppercase tracking-[0.2em] font-bold text-on-surface-variant/60">
                   {format(currentTime, "EEEE, d 'de' MMMM", { locale: es })}
                 </span>
+                <p className="text-sm font-black text-foreground/80">
+                  {greeting}
+                </p>
               </div>
-              <div className="h-px w-6 bg-primary/10" />
             </motion.div>
           </div>
 
-          <div className="w-10 h-10" />
+          <div className="flex items-center justify-end w-12 flex-shrink-0">
+            <motion.button
+              id="mini-window-btn"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={toggleMiniWidget}
+              className="p-2.5 rounded-xl text-on-surface-variant/50 hover:text-primary transition-all group"
+            >
+              <Zap className={`w-5 h-5 transition-colors ${miniWidgetOpen ? 'text-primary fill-primary/20' : 'text-on-surface-variant hover:text-primary'}`} />
+            </motion.button>
+          </div>
         </div>
-
-        <div className="flex flex-col items-center justify-center space-y-4">
-
-          <motion.button
-            id="mini-window-btn"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={toggleMiniWidget}
-            className="flex items-center gap-2.5 px-6 py-3 rounded-2xl bg-surface-container/50 border border-outline-variant/20 hover:border-primary/30 transition-all shadow-sm group"
-          >
-            <Monitor className={`w-4 h-4 transition-colors ${miniWidgetOpen ? 'text-red-400' : 'text-primary'}`} />
-            <span className="text-[11px] font-black uppercase tracking-[0.1em] text-on-surface-variant group-hover:text-foreground">
-              {miniWidgetOpen ? 'Desactivar ventana flotante' : 'Activar ventana flotante'}
-            </span>
-          </motion.button>
-
-          <motion.button
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={handleTestNotification}
-            className="flex items-center gap-2.5 px-6 py-3 rounded-2xl bg-surface-container/50 border border-outline-variant/20 hover:border-primary/30 transition-all shadow-sm group"
-          >
-            <Bell className="w-4 h-4 text-orange-400" />
-            <span className="text-[11px] font-black uppercase tracking-[0.1em] text-on-surface-variant group-hover:text-foreground">
-              Probar Notificación
-            </span>
-          </motion.button>
-        </div>
-
-        <motion.div 
-          id="task-input-area"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.2 }}
-          className="text-center px-4"
-        >
-          <p className="text-[16px] font-black text-foreground font-headline tracking-tight leading-tight">
-            {greeting}
-          </p>
-        </motion.div>
 
         <div className="pt-2 space-y-3">
           <GamificationBar completedCount={completedCount} totalCount={orderedTasks.length} /> 
@@ -369,6 +317,12 @@ const DailyPage = () => {
           <FAB 
             onTextClick={openCapture} 
             onVoiceClick={openCaptureInVoiceMode} 
+            onRecurrenceClick={() => setRecurrenceOpen(true)}
+          />
+
+          <QuickRecurrenceFlow 
+            open={recurrenceOpen}
+            onClose={() => setRecurrenceOpen(false)}
           />
         </div>
 

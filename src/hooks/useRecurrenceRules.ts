@@ -5,13 +5,19 @@ import { useAuth } from '@/contexts/AuthContext';
 export interface RecurrenceRule {
   id: string;
   user_id: string;
+  title: string;
+  description: string | null;
+  link: string | null;
   frequency: 'daily' | 'weekly' | 'monthly' | 'yearly';
   interval: number;
-  days_of_week: number[];
+  days_of_week: number[] | null;
   day_of_month: number | null;
   month_of_year: number | null;
   start_date: string;
   end_date: string | null;
+  start_time: string | null;
+  end_time: string | null;
+  estimated_minutes: number | null;
   created_at: string;
 }
 

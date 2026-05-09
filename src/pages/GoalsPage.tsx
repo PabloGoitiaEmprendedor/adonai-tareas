@@ -6,6 +6,7 @@ import { useGlobalVoiceCapture } from '@/hooks/useGlobalVoiceCapture';
 import { Flag, Plus, ChevronRight, Check, Trophy, Sparkles, Target, Zap, Layout, ArrowLeft, Trash2, Settings, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import FAB from '@/components/FAB';
+import QuickRecurrenceFlow from '@/components/QuickRecurrenceFlow';
 import TaskCaptureModal, { type TaskCaptureModalHandle } from '@/components/TaskCaptureModal';
 import { toast } from 'sonner';
 import { dispatchTutorialGoalCreated } from '@/lib/tutorialEvents';
@@ -30,6 +31,7 @@ const GoalsPage = () => {
   const [completedGoalId, setCompletedGoalId] = useState<string | null>(null);
   const [nextGoalTitle, setNextGoalTitle] = useState('');
   const [targetGoalId, setTargetGoalId] = useState<string | null>(null);
+  const [recurrenceOpen, setRecurrenceOpen] = useState(false);
   const captureModalRef = useRef<TaskCaptureModalHandle>(null);
 
   const openCapture = useCallback(() => setCaptureOpen(true), []);
@@ -339,8 +341,17 @@ const GoalsPage = () => {
         )}
       </div>
 
-      <FAB onTextClick={openCapture} onVoiceClick={openCaptureInVoiceMode} />
+      <FAB 
+        onTextClick={openCapture} 
+        onVoiceClick={openCaptureInVoiceMode} 
+        onRecurrenceClick={() => setRecurrenceOpen(true)}
+      />
       
+      <QuickRecurrenceFlow 
+        open={recurrenceOpen}
+        onClose={() => setRecurrenceOpen(false)}
+      />
+
       {renderNewGoalModal()}
 
       <TaskCaptureModal 

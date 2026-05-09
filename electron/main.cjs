@@ -129,12 +129,17 @@ function loadWindowState() {
   return null;
 }
 
-// ── Auto-start on boot ──────────────────────────────────────────────────────
-app.setLoginItemSettings({
-  openAtLogin: true,
-  path: app.getPath('exe'),
-  args: ['--autostart'],
-});
+// ── Auto-start on boot (Default to true on first run) ───────────────────────
+const savedState = loadWindowState();
+if (!savedState || savedState.autoStartSet === undefined) {
+  logToFile('First run: Enabling auto-start by default');
+  app.setLoginItemSettings({
+    openAtLogin: true,
+    path: app.getPath('exe'),
+    args: ['--autostart'],
+  });
+  saveWindowState({ autoStartSet: true });
+}
 
 // ── Auto-updater config ─────────────────────────────────────────────────────
 autoUpdater.autoDownload = true;
@@ -608,6 +613,21 @@ ipcMain.on('window-maximize', (event) => {
 ipcMain.on('window-close', (event) => {
   const win = BrowserWindow.fromWebContents(event.sender);
   if (win) win.close();
+});
+
+// ── Auto-start Settings ─────────────────────────────────────────────────────
+ipcMain.handle('get-auto-start', () => {
+  return app.getLoginItemSettings().openAtLogin;
+});
+
+ipcMain.on('set-auto-start', (event, openAtLogin) => {
+  logToFile(`Setting auto-start to: ${openAtLogin}`);
+  app.setLoginItemSettings({
+    openAtLogin,
+    path: app.getPath('exe'),
+    args: ['--autostart'],
+  });
+  saveWindowState({ autoStartSet: true }); // Mark as explicitly set or at least initialized
 });
 
 // ── Universal Task Capture ──────────────────────────────────────────────────

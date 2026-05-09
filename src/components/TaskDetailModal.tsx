@@ -12,7 +12,8 @@ import { toast } from 'sonner';
 import FullscreenTimer from './FullscreenTimer';
 import SubtasksSection from './SubtasksSection';
 import { AutoTextarea } from '@/components/ui/auto-textarea';
-
+import { CalendarDatePicker } from '@/components/ui/calendar-date-picker';
+import { DurationPicker } from '@/components/ui/duration-picker';
 
 interface TaskDetailModalProps {
   task: any;
@@ -28,7 +29,7 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [link, setLink] = useState('');
+  const [links, setLinks] = useState<string[]>(['']);
   const [dueDate, setDueDate] = useState('');
   const [estimatedMinutes, setEstimatedMinutes] = useState(0);
   const [importance, setImportance] = useState(false);
@@ -51,7 +52,8 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
     if (task && open) {
       setTitle(task.title || '');
       setDescription(task.description || '');
-      setLink(task.link || '');
+      const initialLinks = task.link ? task.link.split(/\s+/).filter(Boolean) : [];
+      setLinks(initialLinks.length > 0 ? initialLinks : ['']);
       setDueDate(task.due_date || '');
       setEstimatedMinutes(task.estimated_minutes || 25);
       setImportance(task.importance || false);
@@ -127,7 +129,7 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
       importance, urgency, priority,
       folder_id: folderId, goal_id: goalId, status,
       recurrence_id: recurrenceId,
-      link: link.trim() || null,
+      link: links.filter(l => l.trim() !== '').join(' ') || null,
       ...(status === 'done' ? { completed_at: new Date().toISOString() } : {}),
     };
 
@@ -181,221 +183,251 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
           <>
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/60 z-[60]" onClick={handleSaveAndClose} />
             <motion.div
-              initial={{ opacity: 0, scale: 0.96, y: 12 }}
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.96, y: 12 }}
-              transition={{ type: 'spring', damping: 25, stiffness: 240 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              transition={{ type: 'spring', damping: 22, stiffness: 260 }}
               className="fixed inset-0 z-[70] flex items-center justify-center p-4 pointer-events-none"
             >
-              <div className="mx-auto w-full max-w-[400px] max-h-[85vh] overflow-y-auto pointer-events-auto rounded-3xl"
-                style={{ background: '#18181B', border: '1px solid rgba(255,255,255,0.09)', boxShadow: '0 16px 48px rgba(0,0,0,0.6)' }}>
+              <div className="relative mx-auto w-full max-w-[400px] max-h-[90vh] overflow-y-auto pointer-events-auto rounded-[32px] no-scrollbar shadow-[0_20px_60px_-10px_hsla(140,95%,8%,0.15)] bg-background border border-border">
                 
-                {/* Top bar */}
-                <div className="flex items-center justify-between px-5 pt-4 pb-3">
-                  <div className="flex items-center gap-3">
-                    <button onClick={handleSaveAndClose}
-                      className="w-8 h-8 rounded-full flex items-center justify-center transition-all active:scale-90 bg-white/5 hover:bg-white/10"
-                      title="Cerrar">
-                      <X className="w-4 h-4 text-white/40" />
-                    </button>
-                    <div className="w-[1px] h-4 bg-white/10 mx-1" />
-                    <button onClick={() => setTimerOpen(true)}
-                      className="w-8 h-8 rounded-full flex items-center justify-center transition-colors"
-                      style={{ background: 'rgba(163,230,53,0.15)' }}
-                      title="Iniciar timer">
-                      <Play className="w-3.5 h-3.5" style={{ color: '#A3E635' }} />
-                    </button>
-                    <button onClick={handleDelete}
-                      className="w-8 h-8 rounded-full flex items-center justify-center transition-colors"
-                      style={{ color: 'rgba(255,255,255,0.3)' }}
-                      title="Eliminar">
-                      <Trash2 className="w-3.5 h-3.5" />
+                <div className="flex flex-col p-6 gap-6">
+                  {/* Top bar / Header Actions */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <button onClick={handleSaveAndClose}
+                        className="p-1.5 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 transition-all active:scale-90 text-muted-foreground"
+                        title="Cerrar">
+                        <X className="w-4 h-4" />
+                      </button>
+                      <div className="w-px h-4 bg-border" />
+                      <button onClick={() => setTimerOpen(true)}
+                        className="w-8 h-8 rounded-xl flex items-center justify-center transition-all hover:bg-primary/10 text-primary"
+                        title="Iniciar timer">
+                        <Play className="w-4 h-4 fill-current" />
+                      </button>
+                      <button onClick={handleDelete}
+                        className="w-8 h-8 rounded-xl flex items-center justify-center transition-all hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
+                        title="Eliminar">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                    <button onClick={handleSave}
+                      className={`px-5 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${hasChanges ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20' : 'text-muted-foreground bg-surface-container/30 border border-outline-variant/10'}`}>
+                      {hasChanges ? 'Guardar Cambios' : 'Sin cambios'}
                     </button>
                   </div>
-                  <button onClick={handleSave}
-                    className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 ${hasChanges ? 'bg-[#A3E635] text-black' : 'bg-white/5 text-white/20'}`}>
-                    {hasChanges ? <><Check className="w-3 h-3" /> Guardar</> : 'Sin cambios'}
-                  </button>
-                </div>
 
-                <div className="px-5 pb-5 space-y-4">
-                  {/* Title */}
-                  <input
-                    value={title}
-                    onChange={(e) => { setTitle(e.target.value); markChanged(); }}
-                    className="w-full bg-transparent text-lg font-bold focus:outline-none border-b border-white/10 focus:border-[#A3E635]/50 transition-colors pb-2"
-                    style={{ color: '#F4F4F5' }}
-                    placeholder="Nombre de la tarea"
-                  />
-
-                  {/* Date + Time row */}
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant/40 ml-1 flex items-center">
-                        <Calendar className="w-3 h-3 mr-1" />FECHA
-                      </label>
-                      <input 
-                        type="date" 
-                        value={dueDate} 
-                        onChange={(e) => { setDueDate(e.target.value); markChanged(); }}
-                        className="w-full text-sm bg-surface-container/30 border border-outline-variant/10 rounded-[20px] px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary/30 mt-1"
+                  <div className="space-y-5">
+                    {/* Title Section */}
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Tarea</label>
+                      <input
+                        value={title}
+                        onChange={(e) => { setTitle(e.target.value); markChanged(); }}
+                        className="w-full text-xl font-black bg-surface border border-outline-variant rounded-[20px] px-5 py-4 focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-muted-foreground/30 transition-all"
+                        placeholder="¿Qué necesitas hacer?"
                       />
                     </div>
-                    <div>
-                      <label className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant/40 ml-1 flex items-center">
-                        <Clock className="w-3 h-3 mr-1" />MIN
-                      </label>
-                      <input 
-                        type="number" 
-                        min={1} 
-                        max={480} 
-                        value={estimatedMinutes} 
-                        onChange={(e) => { setEstimatedMinutes(Number(e.target.value)); markChanged(); }}
-                        className="w-full text-sm bg-surface-container/30 border border-outline-variant/10 rounded-[20px] px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary/30 mt-1"
-                      />
-                    </div>
-                  </div>
 
-                  {/* Priority */}
-                  <div className="grid grid-cols-2 gap-2">
-                    <button onClick={() => { setImportance(!importance); markChanged(); }}
-                      className={`p-2 rounded-[20px] text-xs font-bold flex items-center justify-center gap-1.5 transition-all border ${importance ? 'border-primary text-primary bg-primary/10' : 'border-transparent text-on-surface-variant/60 bg-surface-container'}`}>
-                      <Flag className="w-3.5 h-3.5" /> Importante
-                    </button>
-                    <button onClick={() => { setUrgency(!urgency); markChanged(); }}
-                      className={`p-2 rounded-[20px] text-xs font-bold flex items-center justify-center gap-1.5 transition-all border ${urgency ? 'border-[#f97316] text-[#f97316] bg-[#f97316]/10' : 'border-transparent text-on-surface-variant/60 bg-surface-container'}`}>
-                      <Clock className="w-3.5 h-3.5" /> Urgente
-                    </button>
-                  </div>
-
-                  {/* Link */}
-                  <div>
-                    <label className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant/40 ml-1">
-                      <LinkIcon className="w-3 h-3 inline mr-1" />Link o Referencia
-                    </label>
-                    <div className="relative mt-1">
-                      <input 
-                        type="url" 
-                        value={link} 
-                        onChange={(e) => { setLink(e.target.value); markChanged(); }} 
-                        placeholder="https://..."
-                        className="w-full text-sm bg-surface-container/30 border border-outline-variant/10 rounded-[24px] px-5 py-4 focus:outline-none focus:ring-2 focus:ring-primary/30 placeholder:text-on-surface-variant/20"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Description */}
-                  <div>
-                    <label className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant/40 ml-1">Descripción</label>
-                    <AutoTextarea 
-                      value={description} 
-                      onChange={(e) => { setDescription(e.target.value); markChanged(); }}
-                      placeholder="Detalles opcionales..."
-                      className="w-full text-sm bg-surface-container/30 border border-outline-variant/10 rounded-[24px] p-5 focus:outline-none focus:ring-2 focus:ring-primary/30 min-h-[100px] placeholder:text-on-surface-variant/20 mt-1"
-                    />
-                  </div>
-
-                  {/* Folder */}
-                  {folders.length > 0 && (
-                    <div>
-                      <label className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant/40 ml-1 flex items-center">
-                        <FolderOpen className="w-3 h-3 mr-1" />CARPETA
-                      </label>
-                      <div className="flex flex-wrap gap-1.5 mt-1">
-                        <button onClick={() => { setFolderId(null); markChanged(); }}
-                          className={`px-2.5 py-1 rounded-full text-[10px] font-bold transition-all border ${!folderId ? 'border-primary text-primary bg-primary/10' : 'border-transparent text-on-surface-variant/60 bg-surface-container'}`}>
-                          Sin carpeta
-                        </button>
-                        {folders.map((folder) => (
-                          <button key={folder.id} onClick={() => { setFolderId(folder.id === folderId ? null : folder.id); markChanged(); }}
-                            className={`px-2.5 py-1 rounded-full text-[10px] font-bold transition-all border ${folderId === folder.id ? 'border-transparent' : 'border-transparent text-on-surface-variant/60 bg-surface-container'}`}
-                            style={folderId === folder.id ? { backgroundColor: (folder.color || '#4BE277') + '30', color: folder.color || '#4BE277' } : {}}>
-                            {folder.name}
-                          </button>
-                        ))}
+                    {/* Date + Time row */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <CalendarDatePicker 
+                          date={dueDate} 
+                          onSelect={(d) => { setDueDate(d); markChanged(); }} 
+                          label="FECHA"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Minutos</label>
+                        <div className="relative group">
+                          <Clock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-on-surface-variant/30 group-focus-within:text-primary/50 transition-colors" />
+                        <DurationPicker 
+                          value={estimatedMinutes} 
+                          onChange={(val) => { setEstimatedMinutes(val); markChanged(); }}
+                          className="bg-surface-container/30 border border-outline-variant/10 rounded-[20px] pl-11 pr-4 py-3"
+                        />
+                        </div>
                       </div>
                     </div>
-                  )}
 
-                  {/* Goal */}
-                  {goals.filter(g => g.active).length > 0 && (
-                    <div>
-                      <label className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant/40 ml-1 flex items-center">
-                        <Target className="w-3 h-3 mr-1" />META
-                      </label>
-                      <div className="flex flex-wrap gap-1.5 mt-1">
-                        <button onClick={() => { setGoalId(null); markChanged(); }}
-                          className={`px-2.5 py-1 rounded-full text-[10px] font-bold transition-all border ${!goalId ? 'border-primary text-primary bg-primary/10' : 'border-transparent text-on-surface-variant/60 bg-surface-container'}`}>
-                          Sin meta
+                    {/* Priority (Matrix Style) */}
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Prioridad</label>
+                      <div className="grid grid-cols-2 gap-3">
+                        <button onClick={() => { setImportance(!importance); markChanged(); }}
+                          className={`flex flex-col items-center justify-center gap-1 rounded-[22px] font-black uppercase tracking-widest text-[9px] transition-all border h-14 ${importance ? 'bg-amber-500/10 text-amber-500 border-amber-500/30 shadow-lg shadow-amber-500/5' : 'bg-surface-container/30 text-muted-foreground border-outline-variant/10 hover:bg-surface-container/50'}`}>
+                          IMPORTANTE
                         </button>
-                        {goals.filter(g => g.active).map((goal) => (
-                          <button key={goal.id} onClick={() => { setGoalId(goal.id === goalId ? null : goal.id); markChanged(); }}
-                            className={`px-2.5 py-1 rounded-full text-[10px] font-bold transition-all border ${goalId === goal.id ? 'border-transparent bg-primary/20 text-primary' : 'border-transparent text-on-surface-variant/60 bg-surface-container'}`}>
-                            {goal.title}
-                          </button>
-                        ))}
+                        <button onClick={() => { setUrgency(!urgency); markChanged(); }}
+                          className={`flex flex-col items-center justify-center gap-1 rounded-[22px] font-black uppercase tracking-widest text-[9px] transition-all border h-14 ${urgency ? 'bg-red-500/10 text-red-500 border-red-500/30 shadow-lg shadow-red-500/5' : 'bg-surface-container/30 text-muted-foreground border-outline-variant/10 hover:bg-surface-container/50'}`}>
+                          URGENTE
+                        </button>
                       </div>
                     </div>
-                  )}
 
-                  {/* Recurrence */}
-                  <div>
-                    <button onClick={() => setShowRecurrence(!showRecurrence)}
-                      className={`w-full p-2.5 rounded-xl text-xs font-bold flex items-center justify-between transition-all ${recurrenceFreq !== 'none' ? 'text-primary' : 'text-on-surface-variant/60'}`}
-                      style={{ background: 'var(--surface-container)' }}>
-                      <span className="flex items-center gap-1.5"><Repeat className="w-3.5 h-3.5" /> {recurrenceLabel}</span>
-                      <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showRecurrence ? 'rotate-180' : ''}`} />
-                    </button>
-                    <AnimatePresence>
-                      {showRecurrence && (
-                        <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-                          <div className="pt-2 space-y-3">
-                            <div className="grid grid-cols-5 gap-1 p-1 rounded-xl bg-surface-container">
-                              {[{ id: 'none', label: 'No' }, { id: 'daily', label: 'Día' }, { id: 'weekly', label: 'Sem' }, { id: 'monthly', label: 'Mes' }, { id: 'yearly', label: 'Año' }].map((f) => (
-                                <button key={f.id} onClick={() => { setRecurrenceFreq(f.id as any); markChanged(); if (f.id === 'monthly' && !selectedMonthDay) setSelectedMonthDay(new Date().getDate()); }}
-                                  className={`py-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${recurrenceFreq === f.id ? 'bg-primary text-primary-foreground' : 'text-on-surface-variant/60 hover:text-foreground'}`}>
-                                  {f.label}
-                                </button>
-                              ))}
+                    {/* Links */}
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/40 ml-2">Links o Referencias</label>
+                      <div className="flex flex-col gap-2">
+                        {links.map((l, i) => (
+                          <div key={i} className="relative group flex items-center gap-2">
+                            <div className="relative flex-1">
+                              <LinkIcon className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-on-surface-variant/30 group-focus-within:text-primary/50 transition-colors" />
+                              <input 
+                                type="text"
+                                value={l} 
+                                onChange={(e) => {
+                                  const newLinks = [...links];
+                                  newLinks[i] = e.target.value;
+                                  setLinks(newLinks);
+                                  markChanged();
+                                }} 
+                                placeholder="https://..."
+                                className="w-full text-sm bg-surface-container/30 border border-outline-variant/10 rounded-[24px] pl-12 pr-5 py-4 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all placeholder:text-on-surface-variant/20"
+                              />
                             </div>
-                            {recurrenceFreq === 'weekly' && (
-                              <div className="flex justify-between gap-1">
-                                {weekDayLabels.map(({ label, value }) => (
-                                  <button key={value} onClick={() => toggleWeekDay(value)}
-                                    className={`w-8 h-8 rounded-full text-[11px] font-bold transition-all ${selectedWeekDays.includes(value) ? 'bg-primary text-primary-foreground' : 'text-on-surface-variant/60 bg-surface-container'}`}>
-                                    {label}
-                                  </button>
-                                ))}
-                              </div>
+                            {i === links.length - 1 && (
+                              <button
+                                type="button"
+                                onClick={() => setLinks([...links, ''])}
+                                className="w-[52px] h-[52px] flex-shrink-0 flex items-center justify-center rounded-[24px] bg-surface-container/30 border border-outline-variant/10 text-on-surface-variant/50 hover:bg-surface-container hover:text-primary transition-all hover:border-primary/30"
+                              >
+                                <span className="text-xl leading-none">+</span>
+                              </button>
                             )}
-                            {recurrenceFreq === 'monthly' && (
-                              <div className="grid grid-cols-7 gap-1">
-                                {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
-                                  <button key={day} onClick={() => { setSelectedMonthDay(day); markChanged(); }}
-                                    className={`py-1 rounded text-[10px] font-bold transition-all ${selectedMonthDay === day ? 'bg-primary text-primary-foreground' : 'text-on-surface-variant/60 bg-surface-container'}`}>
-                                    {day}
-                                  </button>
-                                ))}
-                              </div>
+                            {links.length > 1 && i !== links.length - 1 && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const newLinks = [...links];
+                                  newLinks.splice(i, 1);
+                                  setLinks(newLinks);
+                                  markChanged();
+                                }}
+                                className="w-[52px] h-[52px] flex-shrink-0 flex items-center justify-center rounded-[24px] bg-surface-container/30 border border-outline-variant/10 text-on-surface-variant/50 hover:bg-red-500/10 hover:text-red-400 transition-all hover:border-red-500/30"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
                             )}
                           </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
+                        ))}
+                      </div>
+                    </div>
 
-                  {/* Subtasks */}
-                  <SubtasksSection parentTaskId={task.id} />
+                    {/* Description */}
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/40 ml-2">Descripción</label>
+                      <AutoTextarea 
+                        value={description} 
+                        onChange={(e) => { setDescription(e.target.value); markChanged(); }}
+                        placeholder="Detalles adicionales..."
+                        className="w-full text-sm bg-surface-container/30 border border-outline-variant/10 rounded-[24px] p-5 focus:outline-none focus:ring-2 focus:ring-primary/30 min-h-[100px] placeholder:text-on-surface-variant/20 transition-all"
+                      />
+                    </div>
 
-                  {/* Status */}
-                  <div className="flex gap-1.5">
-                    {['pending', 'done', 'skipped'].map((s) => (
-                      <button key={s} onClick={() => { setStatus(s); markChanged(); }}
-                        className={`flex-1 py-2 rounded-lg text-[10px] font-bold uppercase transition-all ${status === s ? 'bg-[#A3E635] text-black' : 'text-white/40'}`}
-                        style={{ background: status === s ? undefined : 'rgba(255,255,255,0.04)' }}>
-                        {s === 'pending' ? 'Pendiente' : s === 'done' ? 'Hecha' : 'Pospuesta'}
+                    {/* Folder Selection */}
+                    {folders.length > 0 && (
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 ml-2">Carpeta</label>
+                        <div className="flex flex-wrap gap-2">
+                          <button onClick={() => { setFolderId(null); markChanged(); }}
+                            className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border ${!folderId ? 'bg-primary text-primary-foreground border-primary shadow-lg shadow-primary/20' : 'bg-surface-container/30 text-muted-foreground border-outline-variant/10 hover:bg-surface-container/50'}`}>
+                            Sin carpeta
+                          </button>
+                          {folders.map((folder) => (
+                            <button key={folder.id} onClick={() => { setFolderId(folder.id === folderId ? null : folder.id); markChanged(); }}
+                              className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border ${folderId === folder.id ? 'border-transparent shadow-lg text-black' : 'bg-surface-container/30 text-muted-foreground border-outline-variant/10 hover:bg-surface-container/50'}`}
+                              style={folderId === folder.id ? { backgroundColor: (folder.color || '#4BE277'), shadowColor: (folder.color || '#4BE277') + '40' } : {}}>
+                              {folder.name}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Goal Selection */}
+                    {goals.filter(g => g.active).length > 0 && (
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 ml-2">Meta Asociada</label>
+                        <div className="flex flex-wrap gap-2">
+                          <button onClick={() => { setGoalId(null); markChanged(); }}
+                            className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border ${!goalId ? 'bg-primary text-primary-foreground border-primary shadow-lg shadow-primary/20' : 'bg-surface-container/30 text-muted-foreground border-outline-variant/10 hover:bg-surface-container/50'}`}>
+                            Sin meta
+                          </button>
+                          {goals.filter(g => g.active).map((goal) => (
+                            <button key={goal.id} onClick={() => { setGoalId(goal.id === goalId ? null : goal.id); markChanged(); }}
+                              className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border flex items-center gap-2 ${goalId === goal.id ? 'bg-primary text-primary-foreground border-primary shadow-lg shadow-primary/20' : 'bg-surface-container/30 text-muted-foreground border-outline-variant/10 hover:bg-surface-container/50'}`}>
+                              <Target className="w-3 h-3" />
+                              {goal.title}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Recurrence Selection */}
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 ml-2">Repetición</label>
+                      <button onClick={() => setShowRecurrence(!showRecurrence)}
+                        className={`w-full p-4 rounded-[20px] text-[11px] font-black uppercase tracking-wider flex items-center justify-between transition-all border ${recurrenceFreq !== 'none' ? 'text-primary border-primary/20 bg-primary/10' : 'text-muted-foreground border-outline-variant/10 bg-surface-container/30 hover:bg-surface-container/50'}`}>
+                        <span className="flex items-center gap-3"><Repeat className="w-4 h-4" /> {recurrenceLabel}</span>
+                        <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${showRecurrence ? 'rotate-180' : ''}`} />
                       </button>
-                    ))}
+                      <AnimatePresence>
+                        {showRecurrence && (
+                          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+                            <div className="pt-2 space-y-4">
+                              <div className="grid grid-cols-5 gap-1 p-1 rounded-2xl bg-surface-container/30 border border-outline-variant/10">
+                                {[{ id: 'none', label: 'No' }, { id: 'daily', label: 'Día' }, { id: 'weekly', label: 'Sem' }, { id: 'monthly', label: 'Mes' }, { id: 'yearly', label: 'Año' }].map((f) => (
+                                  <button key={f.id} onClick={() => { setRecurrenceFreq(f.id as any); markChanged(); if (f.id === 'monthly' && !selectedMonthDay) setSelectedMonthDay(new Date().getDate()); }}
+                                    className={`py-2 rounded-xl text-[10px] font-black uppercase transition-all ${recurrenceFreq === f.id ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/10' : 'text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5'}`}>
+                                    {f.label}
+                                  </button>
+                                ))}
+                              </div>
+                              {recurrenceFreq === 'weekly' && (
+                                <div className="flex justify-between gap-1">
+                                  {weekDayLabels.map(({ label, value }) => (
+                                    <button key={value} onClick={() => toggleWeekDay(value)}
+                                      className={`w-10 h-10 rounded-full text-[11px] font-black transition-all border ${selectedWeekDays.includes(value) ? 'bg-primary text-primary-foreground border-transparent shadow-lg shadow-primary/20' : 'text-muted-foreground border-outline-variant/10 bg-surface-container/30 hover:bg-surface-container/50'}`}>
+                                      {label}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                              {recurrenceFreq === 'monthly' && (
+                                <div className="grid grid-cols-7 gap-1.5">
+                                  {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
+                                    <button key={day} onClick={() => { setSelectedMonthDay(day); markChanged(); }}
+                                      className={`aspect-square rounded-lg text-[10px] font-black transition-all border ${selectedMonthDay === day ? 'bg-primary text-primary-foreground border-transparent shadow-md shadow-primary/20' : 'text-muted-foreground border-outline-variant/10 bg-surface-container/30 hover:bg-surface-container/50'}`}>
+                                      {day}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+
+                    {/* Subtasks */}
+                    <SubtasksSection parentTaskId={task.id} />
+
+                    {/* Status Selection */}
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 ml-2">Estado</label>
+                      <div className="flex gap-2 p-1.5 rounded-[22px] bg-surface-container/30 border border-outline-variant/10">
+                        {['pending', 'done', 'skipped'].map((s) => (
+                          <button key={s} onClick={() => { setStatus(s); markChanged(); }}
+                            className={`flex-1 py-3 rounded-[18px] text-[10px] font-black uppercase tracking-[0.15em] transition-all duration-300 ${status === s ? 'bg-primary text-primary-foreground shadow-xl shadow-primary/20' : 'text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5'}`}>
+                            {s === 'pending' ? 'Pendiente' : s === 'done' ? 'Hecha' : 'Pospuesta'}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>

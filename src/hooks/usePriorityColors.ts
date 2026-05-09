@@ -8,16 +8,22 @@ export type PriorityColors = {
 };
 
 const DEFAULT_COLORS: PriorityColors = {
-  p1: '#EF4444', // Red
-  p2: '#F97316', // Orange
-  p3: '#EAB308', // Yellow
-  p4: 'transparent', // Transparent
+  p1: '#ff4b4b', // Urgent & Important (Red)
+  p2: '#ffb34b', // Urgent & Not Important (Orange)
+  p3: '#4b79ff', // Not Urgent & Important (Blue)
+  p4: '#a3a3a3', // Not Urgent & Not Important (Gray)
 };
 
 export const usePriorityColors = () => {
   const [colors, setColors] = useState<PriorityColors>(() => {
     const saved = localStorage.getItem('adonai_priority_colors');
-    return saved ? JSON.parse(saved) : DEFAULT_COLORS;
+    if (!saved) return DEFAULT_COLORS;
+    try {
+      return JSON.parse(saved);
+    } catch (e) {
+      console.error('Error parsing priority colors:', e);
+      return DEFAULT_COLORS;
+    }
   });
 
   const updateColors = (newColors: Partial<PriorityColors>) => {

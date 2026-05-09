@@ -69,7 +69,8 @@ export const useTasks = (filters?: { date?: string; startDate?: string; endDate?
           query = query.eq('due_date', filters.date);
         }
       } else if (filters?.startDate && filters?.endDate) {
-        query = query.gte('due_date', filters.startDate).lte('due_date', filters.endDate);
+        // Fetch tasks in range OR overdue tasks (past due date and not done)
+        query = query.or(`and(due_date.gte.${filters.startDate},due_date.lte.${filters.endDate}),and(due_date.lt.${filters.startDate},status.neq.done)`);
       }
 
       // Exclude subtasks from main list — they are loaded per-parent via useSubtasks

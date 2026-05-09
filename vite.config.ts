@@ -10,9 +10,15 @@ export default defineConfig(({ mode }) => ({
     assetsDir: "assets",
     modulePreload: false,
   },
+  optimizeDeps: {
+    exclude: ["android"],
+  },
   server: {
     host: "::",
     port: 8080,
+    watch: {
+      ignored: ["**/android/**", "**/dist-electron/**", "**/dist/**"],
+    },
     hmr: {
       overlay: false,
     },

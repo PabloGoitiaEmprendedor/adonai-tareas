@@ -631,7 +631,14 @@ const AdminPanelPage = () => {
                     >
                       <td className="py-3 px-2">
                         <div className="flex flex-col">
-                          <span className="font-bold text-foreground truncate max-w-[200px]">{u.name || u.email?.split('@')[0] || 'Sin nombre'}</span>
+                          <span className="font-bold text-foreground truncate max-w-[200px]">
+                            {u.name || u.email?.split('@')[0] || 'Sin nombre'}
+                            {!u.email && (
+                              <span className="font-normal text-on-surface-variant/60 ml-1">
+                                "todavía no registrado"
+                              </span>
+                            )}
+                          </span>
                           <span className="text-[10px] text-on-surface-variant/50">{u.email || u.user_id.slice(0, 8)}</span>
                         </div>
                       </td>

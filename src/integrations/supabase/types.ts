@@ -425,36 +425,54 @@ export type Database = {
           created_at: string
           day_of_month: number | null
           days_of_week: number[] | null
+          description: string | null
           end_date: string | null
+          end_time: string | null
+          estimated_minutes: number | null
           frequency: string
           id: string
           interval: number
+          link: string | null
           month_of_year: number | null
           start_date: string
+          start_time: string | null
+          title: string | null
           user_id: string
         }
         Insert: {
           created_at?: string
           day_of_month?: number | null
           days_of_week?: number[] | null
+          description?: string | null
           end_date?: string | null
+          end_time?: string | null
+          estimated_minutes?: number | null
           frequency?: string
           id?: string
           interval?: number
+          link?: string | null
           month_of_year?: number | null
           start_date?: string
+          start_time?: string | null
+          title?: string | null
           user_id: string
         }
         Update: {
           created_at?: string
           day_of_month?: number | null
           days_of_week?: number[] | null
+          description?: string | null
           end_date?: string | null
+          end_time?: string | null
+          estimated_minutes?: number | null
           frequency?: string
           id?: string
           interval?: number
+          link?: string | null
           month_of_year?: number | null
           start_date?: string
+          start_time?: string | null
+          title?: string | null
           user_id?: string
         }
         Relationships: []

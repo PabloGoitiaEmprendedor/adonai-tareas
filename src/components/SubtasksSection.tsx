@@ -91,13 +91,13 @@ export const SubtasksSection = ({ parentTaskId, defaultOpen = false, compact = f
               initial={{ scale: 0, rotate: -45 }}
               animate={{ scale: 1, rotate: 0 }}
               transition={{ type: "spring", stiffness: 500, damping: 30 }}
-              className="w-10 h-10 rounded-[14px] bg-primary flex items-center justify-center cursor-pointer shadow-sm"
+              className="w-10 h-10 rounded-[14px] bg-primary flex items-center justify-center cursor-pointer shadow-lg shadow-primary/20"
               onClick={(e) => {
                 e.stopPropagation();
                 toggleSubtask.mutate({ id: st.id, done: !done });
               }}
             >
-              <Check className="w-6 h-6 text-primary-foreground stroke-[3]" />
+              <Check className="w-5 h-5 text-black stroke-[4]" />
             </motion.div>
           ) : (
             <button 
@@ -105,9 +105,13 @@ export const SubtasksSection = ({ parentTaskId, defaultOpen = false, compact = f
                 e.stopPropagation();
                 toggleSubtask.mutate({ id: st.id, done: !done });
               }}
-              className="w-10 h-10 rounded-[14px] border-2 border-outline/40 flex items-center justify-center hover:border-primary hover:bg-primary/10 transition-all active:scale-75 group/check shadow-sm bg-surface"
+              className="w-10 h-10 rounded-[14px] border-2 flex items-center justify-center transition-all active:scale-75 group/check bg-zinc-900/50 backdrop-blur-sm"
+              style={{ 
+                borderColor: 'rgba(255,255,255,0.08)',
+                backgroundColor: 'transparent'
+              }}
             >
-              <div className="w-4 h-4 rounded-[6px] bg-primary scale-0 group-hover/check:scale-100 transition-transform duration-300" />
+              <div className="w-3.5 h-3.5 rounded-[6px] bg-primary scale-0 group-hover/check:scale-100 transition-all duration-300 shadow-[0_0_12px_rgba(163,230,53,0.4)]" />
             </button>
           )}
         </div>
@@ -137,8 +141,8 @@ export const SubtasksSection = ({ parentTaskId, defaultOpen = false, compact = f
               setDraftTitle(st.title);
             }}
             title="Haz clic para editar"
-            className={`flex-1 text-sm font-bold tracking-tight font-headline cursor-text transition-all leading-tight rounded px-1 -ml-1 hover:bg-on-surface-variant/5 min-w-0 break-words ${
-              done ? 'text-on-surface-variant/20 line-through' : 'text-foreground/80'
+            className={`flex-1 text-[15px] font-bold tracking-tight font-headline cursor-text transition-all leading-tight rounded-xl px-2 py-1 -ml-2 hover:bg-white/5 min-w-0 break-words ${
+              done ? 'text-white/20 line-through' : 'text-foreground'
             }`}
           >
             {st.title}
@@ -207,14 +211,16 @@ export const SubtasksSection = ({ parentTaskId, defaultOpen = false, compact = f
 
               {/* Always show the input directly — no two-step reveal */}
               <form onSubmit={submit} onClick={(e) => e.stopPropagation()} className="flex items-center gap-3 pt-2">
-                <div className="w-10 h-10 rounded-[14px] border-2 border-outline/40 flex items-center justify-center shadow-sm bg-surface flex-shrink-0 opacity-50" />
+                <div className="w-10 h-10 rounded-[14px] border-2 border-white/5 flex items-center justify-center bg-white/[0.02] flex-shrink-0 opacity-40">
+                   <span className="text-white/20 text-lg font-black">+</span>
+                </div>
                 <input
                   ref={inputRef}
                   type="text"
                   value={draft}
                   onChange={(e) => setDraft(e.target.value)}
                   placeholder="Nueva subtarea…"
-                  className="flex-1 bg-transparent border-none p-0 text-sm font-bold tracking-tight font-headline text-foreground focus:outline-none focus:ring-0 placeholder:text-on-surface-variant/20"
+                  className="flex-1 bg-transparent border-none p-0 text-[15px] font-bold tracking-tight font-headline text-foreground focus:outline-none focus:ring-0 placeholder:text-white/10"
                 />
               </form>
             </div>

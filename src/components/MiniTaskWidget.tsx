@@ -4,7 +4,7 @@ import { useTasks } from '@/hooks/useTasks';
 import { useFolders } from '@/hooks/useFolders';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Check, Flame, X, Folder } from 'lucide-react';
+import { Check, Flame, X, Folder, Link as LinkIcon, Paperclip } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { usePriorityColors } from '@/hooks/usePriorityColors';
 
@@ -252,6 +252,27 @@ export const MiniTaskWidget = ({ isOpen, onClose }: MiniTaskWidgetProps) => {
                       </div>
                     )}
                   </div>
+
+                  {/* Link icons (Clips) */}
+                  {!isDone && !isCompleting && task.link && (
+                    <div className="flex items-center gap-1 ml-auto">
+                      {task.link.split(/\s+/).filter(Boolean).map((url: string, i: number) => {
+                        const href = url.startsWith('http') ? url : `https://${url}`;
+                        return (
+                          <a
+                            key={i}
+                            href={href}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="w-8 h-8 rounded-xl flex items-center justify-center bg-surface-container/50 border border-outline-variant/10 hover:bg-primary/10 hover:text-primary transition-all text-on-surface-variant/40"
+                          >
+                            <Paperclip className="w-3.5 h-3.5" />
+                          </a>
+                        );
+                      })}
+                    </div>
+                  )}
                 </motion.div>
               );
             })}

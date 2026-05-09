@@ -35,9 +35,6 @@ const SidebarContent = ({ user, profile, menuItems, location, handleNavigate, si
                  user?.email?.split('@')[0] || 
                  'Mi Espacio')}
           </span>
-          <span className="text-[10px] text-on-surface-variant font-bold uppercase tracking-wider">
-            {user?.is_anonymous ? 'Modo Local' : 'Configuración'}
-          </span>
         </div>
       </div>
 
@@ -45,17 +42,10 @@ const SidebarContent = ({ user, profile, menuItems, location, handleNavigate, si
         <div className="flex flex-col gap-2">
           <button 
             onClick={toggleSidebar}
-            className="w-10 h-10 flex items-center justify-center rounded-xl hover:bg-surface-container text-on-surface-variant transition-colors flex-shrink-0"
+            className="w-10 h-10 flex items-center justify-center text-on-surface-variant transition-colors flex-shrink-0"
             aria-label="Cerrar menú"
           >
             <Menu className="w-5 h-5" />
-          </button>
-          <button 
-            onClick={() => handleNavigate('/priority-settings')}
-            className="w-10 h-10 flex items-center justify-center rounded-xl hover:bg-surface-container text-on-surface-variant transition-colors flex-shrink-0"
-            aria-label="Ajustar Colores"
-          >
-            <Palette className="w-5 h-5" />
           </button>
         </div>
       )}
@@ -100,8 +90,14 @@ const SidebarContent = ({ user, profile, menuItems, location, handleNavigate, si
       <div className="mt-8 px-6">
         <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-on-surface-variant mb-4">Ajustes</p>
         <div className="space-y-1">
+          <Button id="nav-personalizar" onClick={() => handleNavigate('/priority-settings')} variant="ghost" className="w-full justify-start gap-4 h-11 text-on-surface-variant hover:text-foreground hover:bg-surface-container">
+            <Palette className="w-4 h-4" /> <span className="text-xs">Personalizar</span>
+          </Button>
           <Button id="nav-profile" onClick={() => handleNavigate('/profile')} variant="ghost" className="w-full justify-start gap-4 h-11 text-on-surface-variant hover:text-foreground hover:bg-surface-container">
-            <Settings className="w-4 h-4" /> <span className="text-xs">Perfil</span>
+            <User className="w-4 h-4" /> <span className="text-xs">Perfil</span>
+          </Button>
+          <Button id="nav-settings" onClick={() => handleNavigate('/settings')} variant="ghost" className="w-full justify-start gap-4 h-11 text-on-surface-variant hover:text-foreground hover:bg-surface-container">
+            <Settings className="w-4 h-4" /> <span className="text-xs">Ajustes</span>
           </Button>
         </div>
       </div>
@@ -224,16 +220,9 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
               }
             }}
             aria-label="Mostrar menú"
-            className="w-10 h-10 flex items-center justify-center rounded-xl bg-surface-container-high/80 backdrop-blur-md border border-outline-variant/20 text-foreground shadow-sm transition-all active:scale-90 hover:bg-surface-container-highest"
+            className="p-2.5 text-on-surface-variant/70 hover:text-foreground transition-all active:scale-90"
           >
             <Menu className="w-5 h-5" />
-          </button>
-          <button
-            onClick={() => navigate('/priority-settings')}
-            aria-label="Ajustar Colores"
-            className="w-10 h-10 flex items-center justify-center rounded-xl bg-surface-container-high/80 backdrop-blur-md border border-outline-variant/20 text-foreground shadow-sm transition-all active:scale-90 hover:bg-surface-container-highest"
-          >
-            <Palette className="w-5 h-5" />
           </button>
         </div>
       )}
@@ -256,7 +245,8 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
       </aside>
 
       <main
-        className={`pb-24 lg:pb-12 min-h-screen bg-background transition-[padding] duration-300 ${
+        id="main-content"
+        className={`flex-1 pb-24 lg:pb-12 min-h-screen bg-background transition-[padding] duration-300 ${
           desktopSidebarOpen ? 'lg:pl-72' : 'lg:pl-0'
         }`}
       >
