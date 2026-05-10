@@ -73,7 +73,7 @@ const AdonaiCalendarView: React.FC<AdonaiCalendarViewProps> = ({ selectedDate, o
   const { timeBlocks, createBlock, updateBlock, deleteBlock } = useTimeBlocks(dateStr, timeBlocksRangeEnd);
   const { folders } = useFolders();
   const { colors: priorityColors } = usePriorityColors();
-  const { createRule, deleteRule } = useRecurrenceRules();
+  const { rules: recurrenceRules, createRule, deleteRule } = useRecurrenceRules();
 
   // Map everything to EventManager
   const calendarEvents = useMemo(() => {
@@ -213,26 +213,59 @@ tasks?.forEach((task) => {
            if (color === 'transparent') color = 'var(--primary)';
          }
 
-         events.push({
-           id: `task-${task.id}`,
-           title: task.title,
-           startTime: start,
-           endTime: end,
-           color: color,
-           category: folderName,
-            description: stripAllPrefixes(scheduledTime ? scheduledTime.cleanDescription : (task.description || '')) || (task.isVirtual ? 'Tarea Recurrente' : undefined),
-           urgency: urgency,
-           importance: importance,
-           links: task.link ? [task.link] : [],
-           priority: (urgency ? 2 : 0) + (importance ? 1 : 0),
-           isAllDay: !scheduledTime,
-           completed: task.status === 'done',
-         });
+          // Resolve recurrence from task's recurrence_id -> recurrence_rules
+          let taskRecurrence: Event['recurrence'] = 'none';
+          let taskRecurrenceDays: number[] | undefined = undefined;
+          if (task.recurrence_id && recurrenceRules) {
+            const rule = recurrenceRules.find(r => r.id === task.recurrence_id);
+            if (rule) {
+              if (rule.frequency === 'daily') {
+                taskRecurrence = 'daily';
+              } else if (rule.frequency === 'weekly') {
+                const days = rule.days_of_week || [];
+                const allWeekdays = [1, 2, 3, 4, 5];
+                const isAllWeekdays = days.length === 5 && allWeekdays.every(d => days.includes(d));
+                if (rule.interval === 2) {
+                  taskRecurrence = 'biweekly';
+                  if (days.length > 0) taskRecurrenceDays = days;
+                } else if (isAllWeekdays) {
+                  taskRecurrence = 'weekdays';
+                } else if (days.length > 0) {
+                  taskRecurrence = 'weekly';
+                  taskRecurrenceDays = days;
+                } else {
+                  taskRecurrence = 'weekly';
+                }
+              } else if (rule.frequency === 'monthly') {
+                taskRecurrence = 'monthly';
+              } else if (rule.frequency === 'yearly') {
+                taskRecurrence = 'yearly';
+              }
+            }
+          }
+
+          events.push({
+            id: `task-${task.id}`,
+            title: task.title,
+            startTime: start,
+            endTime: end,
+            color: color,
+            category: folderName,
+             description: stripAllPrefixes(scheduledTime ? scheduledTime.cleanDescription : (task.description || '')) || (task.isVirtual ? 'Tarea Recurrente' : undefined),
+            urgency: urgency,
+            importance: importance,
+            links: task.link ? [task.link] : [],
+            priority: (urgency ? 2 : 0) + (importance ? 1 : 0),
+            isAllDay: !scheduledTime,
+            completed: task.status === 'done',
+            recurrence: taskRecurrence,
+            recurrenceDays: taskRecurrenceDays,
+          });
        }
      });
 
     return events;
-  }, [tasks, timeBlocks, dateStr, folders, priorityColors, rangeStart, rangeEnd]);
+  }, [tasks, timeBlocks, dateStr, folders, priorityColors, rangeStart, rangeEnd, recurrenceRules]);
 
 const handleEventUpdate = (id: string, updates: Partial<Event>) => {
     if (id.startsWith('block-')) {
