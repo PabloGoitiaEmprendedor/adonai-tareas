@@ -8,7 +8,7 @@ import { useTasks } from '@/hooks/useTasks';
 import { useFolders } from '@/hooks/useFolders';
 import { useRecurrenceRules } from '@/hooks/useRecurrenceRules';
 import { useGoals } from '@/hooks/useGoals';
-import { toast } from 'sonner';
+import { notify } from '@/components/ui/adonai-notifier';
 import FullscreenTimer from './FullscreenTimer';
 import SubtasksSection from './SubtasksSection';
 import { AutoTextarea } from '@/components/ui/auto-textarea';
@@ -114,7 +114,7 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
         const newRule = await createRule.mutateAsync(ruleData);
         recurrenceId = newRule.id;
       } catch {
-        toast.error('Error al crear la recurrencia');
+        notify('Error al crear la recurrencia', 'error');
       }
     } else if (task.recurrence_id) {
       try { await deleteRule.mutateAsync(task.recurrence_id); } catch { }
@@ -135,22 +135,22 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
 
     if (task.isNew) {
       createTask.mutate({ ...taskData, source_type: 'text', creation_source: 'secondary' }, {
-        onSuccess: () => { toast.success('Tarea creada'); onClose(); },
-        onError: () => toast.error('Error al crear tarea')
+        onSuccess: () => { notify('Tarea creada', 'success'); onClose(); },
+        onError: () => notify('Error al crear tarea', 'error')
       });
       return;
     }
 
     updateTask.mutate({ id: task.id, ...taskData });
-    toast.success('Tarea actualizada');
+    notify('Tarea actualizada', 'success');
     onClose();
   };
 
   const handleDelete = () => {
     if (window.confirm('¿Mover a la papelera?')) {
       deleteTask.mutate(task.id, {
-        onSuccess: () => { toast.success('Tarea movida a la papelera'); onClose(); },
-        onError: () => toast.error('No se pudo mover la tarea a la papelera'),
+        onSuccess: () => { notify('Tarea movida a la papelera', 'info'); onClose(); },
+        onError: () => notify('No se pudo mover la tarea a la papelera', 'error'),
       });
     }
   };

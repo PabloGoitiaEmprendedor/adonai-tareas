@@ -101,10 +101,11 @@ const getDynamicGreeting = (
 };
 
 const DailyPage = () => {
-  const today = format(new Date(), 'yyyy-MM-dd');
+  const today = useMemo(() => format(new Date(), 'yyyy-MM-dd'), []);
+  const tasksFilter = useMemo(() => ({ date: today }), [today]);
 
   const { user } = useAuth();
-  const { tasks, updateTask, isLoading } = useTasks({ date: today });
+  const { tasks, updateTask, isLoading } = useTasks(tasksFilter);
   const { createTask } = useTasks();
   const { goals } = useGoals();
   const { profile } = useProfile();

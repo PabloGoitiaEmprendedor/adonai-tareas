@@ -35,6 +35,7 @@ import SelectionBubblePage from './pages/SelectionBubblePage';
 import QuickTaskPage from './pages/QuickTaskPage';
 import ToastPage from './pages/ToastPage';
 import NotificationManager from './components/NotificationManager';
+import { AdonaiNotifier } from '@/components/ui/adonai-notifier';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -240,7 +241,8 @@ const App = () => {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <TooltipProvider>
-          <Sonner position="top-center" duration={2000} />
+          <Sonner position="bottom-right" duration={4000} />
+          <AdonaiNotifier />
           <HashRouter>
             <AuthProvider>
               <NotificationManager />

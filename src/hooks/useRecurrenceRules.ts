@@ -43,9 +43,19 @@ export const useRecurrenceRules = () => {
   const createRule = useMutation({
     mutationFn: async (rule: Omit<RecurrenceRule, 'id' | 'user_id' | 'created_at'>) => {
       if (!user) throw new Error('No user');
+      // Only insert columns that definitely exist in the base table schema
       const { data, error } = await supabase
         .from('recurrence_rules')
-        .insert({ ...rule, user_id: user.id })
+        .insert({
+          user_id: user.id,
+          frequency: rule.frequency,
+          interval: rule.interval,
+          days_of_week: rule.days_of_week || [],
+          day_of_month: rule.day_of_month,
+          month_of_year: rule.month_of_year,
+          start_date: rule.start_date,
+          end_date: rule.end_date,
+        })
         .select()
         .maybeSingle();
       if (error) throw error;

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useTasks } from '@/hooks/useTasks';
 import { useGoals } from '@/hooks/useGoals';
 import { useProfile } from '@/hooks/useProfile';
@@ -50,7 +50,8 @@ const WeeklyPage = () => {
   const startDate = format(weekStart, 'yyyy-MM-dd');
   const endDate = format(weekEnd, 'yyyy-MM-dd');
 
-  const { tasks, updateTask } = useTasks({ startDate, endDate });
+  const tasksFilter = useMemo(() => ({ startDate, endDate }), [startDate, endDate]);
+  const { tasks, updateTask } = useTasks(tasksFilter);
   const { goals } = useGoals();
   const { profile } = useProfile();
 

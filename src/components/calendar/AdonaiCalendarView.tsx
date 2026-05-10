@@ -3,10 +3,9 @@ import { useTasks } from '@/hooks/useTasks';
 import { useTimeBlocks } from '@/hooks/useTimeBlocks';
 import { useFolders } from '@/hooks/useFolders';
 import { usePriorityColors } from '@/hooks/usePriorityColors';
+import { useRecurrenceRules } from '@/hooks/useRecurrenceRules';
 import { EventManager, Event } from '@/components/ui/event-manager';
-import { format, parseISO, startOfMonth, endOfMonth, addMonths, startOfDay, addHours, differenceInMinutes, addMinutes, isSameDay } from 'date-fns';
-import { es } from 'date-fns/locale';
-import { toast } from 'sonner';
+import { format, parseISO, startOfMonth, endOfMonth, addMonths, startOfDay, addHours, differenceInMinutes, addMinutes, isSameDay, eachDayOfInterval } from 'date-fns';
 import { Sparkles, Calendar as CalendarIcon, Plus } from 'lucide-react';
 
 interface AdonaiCalendarViewProps {
@@ -16,6 +15,12 @@ interface AdonaiCalendarViewProps {
 }
 
 const TIME_PREFIX_REGEX = /^\[T:(\d{2}:\d{2})-(\d{2}:\d{2})\]/;
+const COLOR_PREFIX_REGEX = /\[C:([^\]]+)\]/;
+ 
+const stripAllPrefixes = (description: string | null): string => {
+  if (!description) return '';
+  return description.replace(TIME_PREFIX_REGEX, '').replace(COLOR_PREFIX_REGEX, '').trim();
+};
 
 const parseTimeFromDescription = (description: string | null) => {
   if (!description) return null;
@@ -24,42 +29,115 @@ const parseTimeFromDescription = (description: string | null) => {
   return {
     start: match[1],
     end: match[2],
-    cleanDescription: description.replace(TIME_PREFIX_REGEX, '').trim()
+    cleanDescription: stripAllPrefixes(description)
   };
 };
+ 
+const parseColorFromDescription = (description: string | null) => {
+  if (!description) return null;
+  const match = description.match(COLOR_PREFIX_REGEX);
+  if (!match) return null;
+  return match[1]; // Return the color value
+};
 
-const formatTimeToDescription = (startTime: Date, endTime: Date, description: string | null) => {
-  const cleanDesc = description ? description.replace(TIME_PREFIX_REGEX, '').trim() : '';
-  const timePrefix = `[T:${format(startTime, 'HH:mm')}-${format(endTime, 'HH:mm')}]`;
-  return `${timePrefix} ${cleanDesc}`.trim();
+const rebuildDescription = (startTime: Date | null, endTime: Date | null, color: string | null, text: string): string => {
+  const parts: string[] = [];
+  if (startTime && endTime) {
+    parts.push(`[T:${format(startTime, 'HH:mm')}-${format(endTime, 'HH:mm')}]`);
+  }
+  if (color) {
+    parts.push(`[C:${color}]`);
+  }
+  if (text) {
+    parts.push(text);
+  }
+  return parts.join(' ').trim();
 };
 
 const AdonaiCalendarView: React.FC<AdonaiCalendarViewProps> = ({ selectedDate, onSelectDate, viewMode = 'day' }) => {
   const dateStr = format(selectedDate, 'yyyy-MM-dd');
   
-  // Fetch tasks for the current month view
-  const rangeStart = startOfMonth(selectedDate);
-  const rangeEnd = endOfMonth(selectedDate);
-  
-  const { tasks, createTask, updateTask, deleteTask } = useTasks({
+  const rangeStart = useMemo(() => startOfMonth(selectedDate), [selectedDate]);
+  const rangeEnd = useMemo(() => endOfMonth(selectedDate), [selectedDate]);
+  const tasksFilter = useMemo(() => ({
     startDate: format(rangeStart, 'yyyy-MM-dd'),
     endDate: format(rangeEnd, 'yyyy-MM-dd'),
-  });
+  }), [rangeStart, rangeEnd]);
+  
+  const { tasks, createTask, updateTask, deleteTask } = useTasks(tasksFilter);
 
-  const { timeBlocks, createBlock, updateBlock, deleteBlock } = useTimeBlocks(dateStr);
+  const rangeStartStr = format(rangeStart, 'yyyy-MM-dd');
+  const rangeEndStr = format(rangeEnd, 'yyyy-MM-dd');
+  // For month view, pass the full range to fetch time blocks across the entire month
+  const timeBlocksRangeEnd = viewMode === 'month' ? rangeEndStr : undefined;
+  const { timeBlocks, createBlock, updateBlock, deleteBlock } = useTimeBlocks(dateStr, timeBlocksRangeEnd);
   const { folders } = useFolders();
   const { colors: priorityColors } = usePriorityColors();
+  const { createRule, deleteRule } = useRecurrenceRules();
 
   // Map everything to EventManager
   const calendarEvents = useMemo(() => {
     const events: Event[] = [];
 
+    // Helper to find the next occurrence of a specific day from a start date
+    const findNextDay = (from: Date, targetDay: number): Date => {
+      const d = new Date(from);
+      while (d.getDay() !== targetDay) {
+        d.setDate(d.getDate() + 1);
+      }
+      return d;
+    };
+
     // Map Time Blocks
     timeBlocks?.forEach((block) => {
-      // If the block is recurring and we are on a day it applies to, we show it
-      // The useTimeBlocks hook already filters for the current day, but for month view we might need more
-      const start = parseISO(`${dateStr}T${block.start_time}`);
-      const end = parseISO(`${dateStr}T${block.end_time}`);
+      const blockDays = block.days_of_week || [];
+      
+      // Determine recurrence type from time block data
+      let recurrence: Event['recurrence'] = 'none';
+      let recurrenceDays: number[] | undefined = undefined;
+      let anchorDate: Date;
+      
+      if (block.is_recurring) {
+        const weekdays = [1, 2, 3, 4, 5];
+        const isAllWeekdays = blockDays.length === 5 && weekdays.every(d => blockDays.includes(d));
+        
+        if (blockDays.length === 0 || blockDays.length >= 7) {
+          recurrence = 'daily';
+          anchorDate = parseISO(`${dateStr}T${block.start_time}`);
+        } else if (isAllWeekdays) {
+          recurrence = 'weekdays';
+          anchorDate = findNextDay(rangeStart, 1);
+        } else if (blockDays.length === 1) {
+          recurrence = 'weekly';
+          recurrenceDays = blockDays;
+          anchorDate = findNextDay(rangeStart, blockDays[0]);
+        } else {
+          // For blocks with specific multiple days (e.g. Mon+Wed), generate one event per day
+          const rangeDays = eachDayOfInterval({ start: rangeStart, end: rangeEnd });
+          rangeDays.forEach(day => {
+            if (blockDays.includes(day.getDay())) {
+              const dStr = format(day, 'yyyy-MM-dd');
+              const s = parseISO(`${dStr}T${block.start_time}`);
+              const e = parseISO(`${dStr}T${block.end_time}`);
+              events.push({
+                id: `block-${block.id}-${dStr}`,
+                title: block.title,
+                startTime: s,
+                endTime: e,
+                color: block.color || 'blue',
+                category: 'Calendario',
+                description: 'Bloque Recurrente',
+              });
+            }
+          });
+          return; // Skip the default single event push below
+        }
+      } else {
+        anchorDate = parseISO(`${dateStr}T${block.start_time}`);
+      }
+      
+      const start = anchorDate;
+      const end = parseISO(`${format(anchorDate, 'yyyy-MM-dd')}T${block.end_time}`);
       
       events.push({
         id: `block-${block.id}`,
@@ -69,130 +147,267 @@ const AdonaiCalendarView: React.FC<AdonaiCalendarViewProps> = ({ selectedDate, o
         color: block.color || 'blue',
         category: 'Calendario',
         description: block.is_recurring ? 'Hábito Recurrente' : 'Bloque de Tiempo',
+        recurrence,
+        recurrenceDays,
       });
     });
 
-    tasks?.forEach((task) => {
-      // Show tasks that match the current month range or have no date (though useTasks filters)
-      if (task.status !== 'done') {
-        const taskDateStr = task.due_date || dateStr;
-        const scheduledTime = parseTimeFromDescription(task.description);
-        
-        // Default time or parsed time
-        const start = scheduledTime 
-          ? parseISO(`${taskDateStr}T${scheduledTime.start}:00`)
-          : parseISO(`${taskDateStr}T08:00:00`);
-        const end = scheduledTime 
-          ? parseISO(`${taskDateStr}T${scheduledTime.end}:00`)
-          : parseISO(`${taskDateStr}T08:10:00`); // Default to 10 minutes
+tasks?.forEach((task) => {
+       // Show tasks that match the current month range or have no date (though useTasks filters)
+       if (task.status !== 'done') {
+         const taskDateStr = task.due_date || dateStr;
+         const scheduledTime = parseTimeFromDescription(task.description);
+         const parsedColor = parseColorFromDescription(task.description);
+         
+         // Default time or parsed time
+         const start = scheduledTime 
+           ? parseISO(`${taskDateStr}T${scheduledTime.start}:00`)
+           : parseISO(`${taskDateStr}T08:00:00`);
+         const end = scheduledTime 
+           ? parseISO(`${taskDateStr}T${scheduledTime.end}:00`)
+           : addMinutes(start, 30); // Default to 30 minutes
 
-        const folder = folders.find((f: any) => f.id === task.folder_id);
-        const folderName = folder ? folder.name : 'General';
+         const folder = folders.find((f: any) => f.id === task.folder_id);
+         const folderName = folder ? folder.name : 'General';
 
-        let color = priorityColors.p4; // Default to P4
-        if (task.urgency && task.importance) color = priorityColors.p1;
-        else if (task.urgency && !task.importance) color = priorityColors.p2;
-        else if (!task.urgency && task.importance) color = priorityColors.p3;
+         // Use parsed color from description if available, otherwise fall back to priority-based color
+         let color = parsedColor ? parsedColor : priorityColors.p4; // Default to P4
+         let urgency = task.urgency || false;
+         let importance = task.importance || false;
+         
+         if (parsedColor) {
+           // If color is set via description, we map it back to urgency/importance for UI consistency
+           if (parsedColor === priorityColors.p1 || parsedColor === '#ef4444') {
+             urgency = true;
+             importance = true;
+           } else if (parsedColor === priorityColors.p2 || parsedColor === '#f59e0b') {
+             urgency = true;
+             importance = false;
+           } else if (parsedColor === priorityColors.p3 || parsedColor === '#3b82f6') {
+             urgency = false;
+             importance = true;
+           } else if (parsedColor === priorityColors.p4 || parsedColor === 'transparent') {
+             urgency = false;
+             importance = false;
+           }
+         } else {
+           // Fall back to priority-based color mapping
+           if (task.urgency && task.importance) {
+             color = priorityColors.p1;
+             urgency = true;
+             importance = true;
+           } else if (task.urgency && !task.importance) {
+             color = priorityColors.p2;
+             urgency = true;
+             importance = false;
+           } else if (!task.urgency && task.importance) {
+             color = priorityColors.p3;
+             urgency = false;
+             importance = true;
+           } else {
+             color = priorityColors.p4;
+             urgency = false;
+             importance = false;
+           }
+           
+           if (color === 'transparent') color = 'var(--primary)';
+         }
 
-        if (color === 'transparent') color = 'var(--primary)';
-
-        events.push({
-          id: `task-${task.id}`,
-          title: task.title,
-          startTime: start,
-          endTime: end,
-          color: color,
-          category: folderName,
-          description: scheduledTime ? scheduledTime.cleanDescription : (task.description || (task.isVirtual ? 'Tarea Recurrente' : undefined)),
-          urgency: task.urgency || false,
-          importance: task.importance || false,
-          links: task.link ? [task.link] : [],
-          priority: (task.urgency ? 2 : 0) + (task.importance ? 1 : 0),
-          isAllDay: !scheduledTime,
-          completed: task.status === 'done',
-        });
-      }
-    });
+         events.push({
+           id: `task-${task.id}`,
+           title: task.title,
+           startTime: start,
+           endTime: end,
+           color: color,
+           category: folderName,
+            description: stripAllPrefixes(scheduledTime ? scheduledTime.cleanDescription : (task.description || '')) || (task.isVirtual ? 'Tarea Recurrente' : undefined),
+           urgency: urgency,
+           importance: importance,
+           links: task.link ? [task.link] : [],
+           priority: (urgency ? 2 : 0) + (importance ? 1 : 0),
+           isAllDay: !scheduledTime,
+           completed: task.status === 'done',
+         });
+       }
+     });
 
     return events;
-  }, [tasks, timeBlocks, dateStr, folders, priorityColors]);
+  }, [tasks, timeBlocks, dateStr, folders, priorityColors, rangeStart, rangeEnd]);
 
-  const handleEventUpdate = (id: string, updates: Partial<Event>) => {
+const handleEventUpdate = (id: string, updates: Partial<Event>) => {
     if (id.startsWith('block-')) {
-      const blockId = id.replace('block-', '');
+      // Extract base block ID (strip date suffix from generated events like "block-{id}-2026-05-11")
+      const blockId = id.replace(/^block-/, '').replace(/-\d{4}-\d{2}-\d{2}$/, '');
       const updateData: any = {};
       
       if (updates.title) updateData.title = updates.title;
       if (updates.startTime) updateData.start_time = format(updates.startTime, 'HH:mm:ss');
       if (updates.endTime) updateData.end_time = format(updates.endTime, 'HH:mm:ss');
       if (updates.color) updateData.color = updates.color;
+      if (updates.recurrence !== undefined) updateData.is_recurring = updates.recurrence !== 'none';
+      if (updates.recurrenceDays !== undefined) updateData.days_of_week = updates.recurrenceDays;
       
       updateBlock.mutate({ id: blockId, ...updateData });
     } else if (id.startsWith('task-')) {
       const taskId = id.replace('task-', '');
+      const task = tasks?.find(t => t.id === taskId);
       const updateData: any = {};
-      
+
       if (updates.title) updateData.title = updates.title;
-      if (updates.description !== undefined) updateData.description = updates.description;
       if (updates.urgency !== undefined) updateData.urgency = updates.urgency;
       if (updates.importance !== undefined) updateData.importance = updates.importance;
       if (updates.links && updates.links.length > 0) updateData.link = updates.links[0];
 
-      // ── Remove time ──────────────────────────────────────────────────────────
-      // If the user toggled OFF "Asignar hora específica", isAllDay becomes true.
-      // Strip the [T:HH:mm-HH:mm] prefix so the task leaves the calendar
-      // and returns to the unscheduled task bank. Silent — no toast.
-      if (updates.isAllDay === true) {
-        const task = tasks?.find(t => t.id === taskId);
-        const cleanDesc = (task?.description || '').replace(TIME_PREFIX_REGEX, '').trim();
-        updateData.description = cleanDesc;
-        updateTask.mutate({ id: taskId, ...updateData });
-        return;
-      }
-      // ─────────────────────────────────────────────────────────────────────────
-      
-      if (updates.startTime && updates.endTime) {
-        const task = tasks?.find(t => t.id === taskId);
-        updateData.description = formatTimeToDescription(updates.startTime, updates.endTime, updates.description || task?.description || null);
-        
-        const newDate = format(updates.startTime, 'yyyy-MM-dd');
-        if (newDate !== dateStr) {
-          updateData.due_date = newDate;
-          // Silent save — no toast on drag-drop
-        }
-      } else if (updates.startTime) {
-        const task = tasks?.find(t => t.id === taskId);
-        const duration = 10 * 60 * 1000;
-        const endTime = new Date(updates.startTime.getTime() + duration);
-        updateData.description = formatTimeToDescription(updates.startTime, endTime, updates.description || task?.description || null);
-        
-        const newDate = format(updates.startTime, 'yyyy-MM-dd');
-        if (newDate !== dateStr) {
-          updateData.due_date = newDate;
-        }
-      }
-      
-      updateTask.mutate({ id: taskId, ...updateData });
+      // ── Rebuild description from all sources ──────────────────────────
+      const currentDbDesc = task?.description || '';
+      const cleanText = updates.description !== undefined
+        ? stripAllPrefixes(updates.description)
+        : stripAllPrefixes(currentDbDesc);
 
+      const existingColor = parseColorFromDescription(currentDbDesc);
+      const newColor = updates.color ?? existingColor;
+
+      const existingTime = parseTimeFromDescription(currentDbDesc);
+      const newStartTime = updates.startTime ?? null;
+      const newEndTime = updates.endTime ?? null;
+
+      const isAllDay = updates.isAllDay ?? (existingTime === null);
+      const noTimesProvided = !updates.startTime && !updates.endTime;
+      if (isAllDay === true && noTimesProvided) {
+        updateData.description = rebuildDescription(null, null, newColor, cleanText) || undefined;
+      } else {
+        let startTime = newStartTime;
+        let endTime = newEndTime;
+
+        if (startTime || endTime) {
+          if (!startTime && existingTime) {
+            startTime = parseISO(`${dateStr}T${existingTime.start}:00`);
+          }
+          if (startTime && !endTime) {
+            endTime = addMinutes(startTime, 30);
+          }
+        } else if (existingTime) {
+          startTime = parseISO(`${dateStr}T${existingTime.start}:00`);
+          endTime = parseISO(`${dateStr}T${existingTime.end}:00`);
+        } else if (isAllDay === false) {
+          startTime = parseISO(`${dateStr}T09:00:00`);
+          endTime = parseISO(`${dateStr}T10:00:00`);
+        }
+
+        updateData.description = rebuildDescription(startTime, endTime, newColor, cleanText);
+
+        if (startTime && format(startTime, 'yyyy-MM-dd') !== dateStr) {
+          updateData.due_date = format(startTime, 'yyyy-MM-dd');
+        }
+      }
+
+      // ── Handle recurrence ────────────────────────────────────────────
+      const doUpdate = () => updateTask.mutate({ id: taskId, ...updateData });
+
+      if (updates.recurrence === undefined) {
+        doUpdate();
+      } else {
+        const existingRuleId = task?.recurrence_id;
+
+        if (updates.recurrence === 'none') {
+          if (existingRuleId) deleteRule.mutate(existingRuleId);
+          updateData.recurrence_id = null;
+          doUpdate();
+        } else {
+          const frequencyMap: Record<string, 'daily' | 'weekly' | 'monthly' | 'yearly'> = {
+            daily: 'daily',
+            weekdays: 'weekly',
+            weekly: 'weekly',
+            biweekly: 'weekly',
+            monthly: 'monthly',
+            yearly: 'yearly',
+          };
+          const frequency = frequencyMap[updates.recurrence];
+          if (!frequency) { doUpdate(); return; }
+
+          let daysOfWeek: number[] = [];
+          if (updates.recurrence === 'weekdays') {
+            daysOfWeek = [1, 2, 3, 4, 5];
+          } else if (updates.recurrenceDays && updates.recurrenceDays.length > 0) {
+            daysOfWeek = updates.recurrenceDays;
+          }
+
+          const interval = updates.recurrence === 'biweekly' ? 2 : 1;
+          const eventDate = updates.startTime
+            ? format(updates.startTime, 'yyyy-MM-dd')
+            : dateStr;
+
+          (async () => {
+            try {
+              const newRule = await createRule.mutateAsync({
+                title: updateData.title || task?.title || '',
+                description: null,
+                link: null,
+                frequency,
+                interval,
+                days_of_week: daysOfWeek,
+                day_of_month: null,
+                month_of_year: null,
+                start_date: eventDate,
+                end_date: null,
+                start_time: null,
+                end_time: null,
+                estimated_minutes: null,
+              });
+              if (existingRuleId) deleteRule.mutate(existingRuleId);
+              updateData.recurrence_id = newRule.id;
+              doUpdate();
+            } catch (err) {
+              console.error('[recurrence] Error creating rule:', err);
+              window.dispatchEvent(new CustomEvent('adonai:notify', {
+                detail: { type: 'error', message: 'Error al guardar recurrencia' }
+              }));
+            }
+          })();
+        }
+      }
     }
   };
 
   const handleEventCreate = (event: Omit<Event, 'id'>) => {
-    createTask.mutate({
-      title: event.title || 'Nueva Tarea',
-      description: event.description,
-      importance: event.importance || false,
-      urgency: event.urgency || false,
-      link: event.links && event.links.length > 0 ? event.links[0] : null,
-      due_date: dateStr,
-      status: 'todo',
-    });
-    toast.success('Tarea creada');
+    const start = event.startTime || new Date();
+    const end = event.endTime || addMinutes(start, 60);
+    const eventDateStr = format(start, 'yyyy-MM-dd');
+
+    const cleanDesc = stripAllPrefixes(event.description || '');
+    const description = !event.isAllDay
+      ? rebuildDescription(start, end, event.color || null, cleanDesc)
+      : rebuildDescription(null, null, event.color || null, cleanDesc) || undefined;
+
+    createTask.mutate(
+      {
+        title: event.title || 'Nueva Tarea',
+        description,
+        importance: event.importance || false,
+        urgency: event.urgency || false,
+        link: event.links && event.links.length > 0 ? event.links[0] : null,
+        due_date: eventDateStr,
+        status: 'pending',
+      },
+      {
+        onSuccess: () => {
+          window.dispatchEvent(new CustomEvent('adonai:notify', {
+            detail: { type: 'success', message: 'Evento creado' }
+          }));
+        },
+        onError: () => {
+          window.dispatchEvent(new CustomEvent('adonai:notify', {
+            detail: { type: 'error', message: 'Error al crear el evento' }
+          }));
+        }
+      }
+    );
   };
 
   const handleEventDelete = (id: string) => {
     if (id.startsWith('block-')) {
-      deleteBlock.mutate(id.replace('block-', ''));
+      const blockId = id.replace(/^block-/, '').replace(/-\d{4}-\d{2}-\d{2}$/, '');
+      deleteBlock.mutate(blockId);
     } else if (id.startsWith('task-')) {
       deleteTask.mutate(id.replace('task-', ''));
     }

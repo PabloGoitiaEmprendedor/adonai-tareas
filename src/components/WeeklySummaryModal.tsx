@@ -61,89 +61,78 @@ export const WeeklySummaryModal = () => {
     return (
         <AnimatePresence>
             {isOpen && (
-                <div className="fixed inset-0 z-[110] flex items-center justify-center p-6 bg-background/90 backdrop-blur-2xl">
+                <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-background/90 backdrop-blur-2xl">
                     <motion.div
-                        initial={{ opacity: 0, scale: 0.9, y: 40 }}
+                        initial={{ opacity: 0, scale: 0.9, y: 20 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
-                        exit={{ opacity: 0, scale: 0.9, y: 40 }}
-                        className="w-full max-w-[500px] bg-surface-container border border-outline-variant/30 rounded-[48px] overflow-hidden shadow-[0_40px_100px_rgba(0,0,0,0.4)] relative"
+                        exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                        className="relative w-full max-w-[420px] bg-surface-container border border-outline-variant/30 rounded-[32px] shadow-[0_40px_100px_rgba(0,0,0,0.4)] max-h-[85vh] flex flex-col"
                     >
-                        {/* Header Image/Gradient */}
-                        <div className="h-48 primary-gradient relative flex items-center justify-center overflow-hidden">
-                            <div className="absolute inset-0 opacity-20">
-                                <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-white via-transparent to-transparent" />
-                            </div>
-                            <motion.div 
-                                initial={{ scale: 0.8, opacity: 0 }}
-                                animate={{ scale: 1, opacity: 1 }}
-                                transition={{ delay: 0.3 }}
-                                className="relative z-10 text-center"
-                            >
-                                <div className="w-20 h-20 rounded-[32px] bg-white/10 backdrop-blur-xl border border-white/20 flex items-center justify-center mx-auto mb-4 shadow-2xl">
-                                    <Sparkles className="w-10 h-10 text-primary-foreground" />
+                        {/* Fixed close button at top-right outside scroll */}
+                        <button 
+                            onClick={() => setIsOpen(false)}
+                            className="absolute top-3 right-3 z-20 p-2 rounded-full bg-black/10 hover:bg-black/20 transition-colors text-muted-foreground hover:text-foreground"
+                        >
+                            <X className="w-5 h-5" />
+                        </button>
+
+                        {/* Scrollable content */}
+                        <div className="overflow-y-auto p-5 space-y-4">
+                            {/* Compact Header */}
+                            <div className="flex items-center gap-3 pr-8">
+                                <div className="w-10 h-10 rounded-[14px] primary-gradient flex items-center justify-center shadow-lg shrink-0">
+                                    <Sparkles className="w-5 h-5 text-primary-foreground" />
                                 </div>
-                                <h2 className="text-2xl font-black text-primary-foreground tracking-tight">Tu Reporte de Poder</h2>
-                            </motion.div>
-                            
-                            <button 
-                                onClick={() => setIsOpen(false)}
-                                className="absolute top-8 right-8 p-2 rounded-full bg-black/10 hover:bg-black/20 transition-colors text-primary-foreground/60"
-                            >
-                                <X className="w-6 h-6" />
-                            </button>
-                        </div>
-
-                        <div className="p-10 space-y-10">
-                            {/* Summary Text */}
-                            <div className="space-y-2">
-                                <p className="text-on-surface-variant font-bold uppercase tracking-[0.2em] text-[10px]">Resumen de la Semana</p>
-                                <p className="text-xl font-medium leading-relaxed">
-                                    Esta semana capturaste <span className="font-black text-foreground">{metrics.capturedTasks} tareas</span> en segundos.
-                                    En apps tradicionales como Notion o agendas, te hubiera tomado <span className="text-primary font-black">~{metrics.timeSavedMinutes} minutos</span> de gestión innecesaria.
-                                </p>
+                                <div>
+                                    <h2 className="text-lg font-black tracking-tight">Tu Reporte de Poder</h2>
+                                    <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Resumen de la Semana</p>
+                                </div>
                             </div>
 
-                            {/* Stats Grid */}
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="bg-surface-container-low p-6 rounded-[32px] border border-outline-variant/10 space-y-3">
-                                    <div className="w-10 h-10 rounded-2xl bg-primary/10 flex items-center justify-center">
-                                        <Brain className="w-5 h-5 text-primary" />
+                            {/* Summary */}
+                            <p className="text-sm leading-relaxed text-muted-foreground">
+                                Capturaste <span className="font-black text-foreground">{metrics.capturedTasks} tareas</span> en segundos.
+                                En apps tradicionales, te hubiera tomado <span className="text-primary font-black">~{metrics.timeSavedMinutes} min</span> de gestión.
+                            </p>
+
+                            {/* Stats Row */}
+                            <div className="grid grid-cols-2 gap-2">
+                                <div className="bg-surface-container-low p-3 rounded-[20px] border border-outline-variant/10 flex items-center gap-3">
+                                    <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                                        <Brain className="w-4 h-4 text-primary" />
                                     </div>
                                     <div>
-                                        <p className="text-2xl font-black">{metrics.energySavedPercent}%</p>
-                                        <p className="text-[10px] uppercase font-bold text-on-surface-variant/60 tracking-wider">Energía Mental Ahorrada</p>
+                                        <p className="text-lg font-black">{metrics.energySavedPercent}%</p>
+                                        <p className="text-[8px] uppercase font-bold text-muted-foreground/60 tracking-wider leading-tight">Energía Ahorrada</p>
                                     </div>
                                 </div>
-
-                                <div className="bg-surface-container-low p-6 rounded-[32px] border border-outline-variant/10 space-y-3">
-                                    <div className="w-10 h-10 rounded-2xl bg-secondary/10 flex items-center justify-center">
+                                <div className="bg-surface-container-low p-3 rounded-[20px] border border-outline-variant/10 flex items-center gap-3">
+                                    <div className="w-8 h-8 rounded-xl bg-secondary/10 flex items-center justify-center shrink-0">
                                         {metrics.comparisonPercent >= 0 ? (
-                                            <TrendingUp className="w-5 h-5 text-secondary" />
+                                            <TrendingUp className="w-4 h-4 text-secondary" />
                                         ) : (
-                                            <TrendingDown className="w-5 h-5 text-on-surface-variant/40" />
+                                            <TrendingDown className="w-4 h-4 text-muted-foreground/40" />
                                         )}
                                     </div>
                                     <div>
-                                        <p className="text-2xl font-black">{Math.abs(metrics.comparisonPercent)}%</p>
-                                        <p className="text-[10px] uppercase font-bold text-on-surface-variant/60 tracking-wider">
-                                            {metrics.comparisonPercent >= 0 ? 'Más enfoque que la semana pasada' : 'Menos actividad que la pasada'}
+                                        <p className="text-lg font-black">{Math.abs(metrics.comparisonPercent)}%</p>
+                                        <p className="text-[8px] uppercase font-bold text-muted-foreground/60 tracking-wider leading-tight">
+                                            {metrics.comparisonPercent >= 0 ? 'vs semana pasada' : 'vs semana pasada'}
                                         </p>
                                     </div>
                                 </div>
                             </div>
 
-                            {/* Progress Indicator */}
-                            <div className="bg-surface-container-highest/30 p-8 rounded-[40px] border border-outline-variant/10 space-y-6">
+                            {/* Efficiency */}
+                            <div className="bg-surface-container-low p-4 rounded-[24px] border border-outline-variant/10 space-y-3">
                                 <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-8 h-8 rounded-xl bg-foreground/5 flex items-center justify-center">
-                                            <Target className="w-4 h-4 text-foreground" />
-                                        </div>
-                                        <p className="font-black text-sm uppercase tracking-widest">Nivel de Ejecución</p>
+                                    <div className="flex items-center gap-2">
+                                        <Target className="w-4 h-4 text-muted-foreground" />
+                                        <p className="font-black text-xs uppercase tracking-widest">Ejecución</p>
                                     </div>
-                                    <p className="text-2xl font-black text-primary">{metrics.efficiencyScore}%</p>
+                                    <p className="text-lg font-black text-primary">{metrics.efficiencyScore}%</p>
                                 </div>
-                                <div className="h-4 bg-background rounded-full overflow-hidden p-1 border border-outline-variant/10">
+                                <div className="h-2.5 bg-background rounded-full overflow-hidden border border-outline-variant/10">
                                     <motion.div 
                                         initial={{ width: 0 }}
                                         animate={{ width: `${metrics.efficiencyScore}%` }}
@@ -151,19 +140,17 @@ export const WeeklySummaryModal = () => {
                                         className="h-full primary-gradient rounded-full" 
                                     />
                                 </div>
-                                <div className="bg-white/5 p-4 rounded-2xl">
-                                    <p className="text-xs italic text-on-surface-variant leading-relaxed">
-                                        "{metrics.productivityTip}"
-                                    </p>
-                                </div>
+                                <p className="text-xs italic text-muted-foreground leading-relaxed">
+                                    "{metrics.productivityTip}"
+                                </p>
                             </div>
 
                             {/* CTA */}
                             <button 
                                 onClick={() => setIsOpen(false)}
-                                className="w-full h-20 bg-foreground text-background rounded-[28px] font-black text-xl flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-[0.98] transition-all shadow-2xl"
+                                className="w-full h-12 bg-foreground text-background rounded-[20px] font-black text-sm flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98] transition-all shadow-lg"
                             >
-                                Preparar próxima semana <ArrowRight className="w-6 h-6" />
+                                Preparar próxima semana <ArrowRight className="w-4 h-4" />
                             </button>
                         </div>
                     </motion.div>

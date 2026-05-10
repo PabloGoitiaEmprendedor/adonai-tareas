@@ -3,21 +3,29 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 
-export const useTimeBlocks = (date: string) => {
+export const useTimeBlocks = (date: string, rangeEndDate?: string) => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
   const { data: allBlocks = [], isLoading } = useQuery({
-    queryKey: ['time_blocks', date],
+    queryKey: rangeEndDate ? ['time_blocks', date, rangeEndDate] : ['time_blocks', date],
     queryFn: async () => {
       if (!user) return [];
       
-      const { data, error } = await supabase
+      let query = supabase
         .from('time_blocks')
         .select('*')
-        .eq('user_id', user.id)
-        .or(`block_date.eq.${date},is_recurring.eq.true`)
-        .order('start_time', { ascending: true });
+        .eq('user_id', user.id);
+
+      if (rangeEndDate) {
+        // Fetch blocks in the entire range OR recurring blocks
+        query = query.or(`and(block_date.gte.${date},block_date.lte.${rangeEndDate}),is_recurring.eq.true`);
+      } else {
+        // Single date mode
+        query = query.or(`block_date.eq.${date},is_recurring.eq.true`);
+      }
+      
+      const { data, error } = await query.order('start_time', { ascending: true });
 
       if (error) throw error;
       return data;
@@ -28,7 +36,15 @@ export const useTimeBlocks = (date: string) => {
   const dayOfWeek = (new Date(`${date}T12:00:00`)).getDay(); // 0-6
 
   const timeBlocks = allBlocks.filter(b => {
-    if (!b.is_recurring) return b.block_date === date;
+    if (!b.is_recurring) {
+      if (rangeEndDate) {
+        return b.block_date >= date && b.block_date <= rangeEndDate;
+      }
+      return b.block_date === date;
+    }
+    // For range queries (month view), include ALL recurring blocks regardless of dayOfWeek
+    // The caller/EventManager will handle which days they appear on via the recurrence field
+    if (rangeEndDate) return true;
     if (!b.days_of_week || b.days_of_week.length === 0) return true;
     return b.days_of_week.includes(dayOfWeek);
   });
