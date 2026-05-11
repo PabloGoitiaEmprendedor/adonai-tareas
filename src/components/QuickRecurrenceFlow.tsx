@@ -217,39 +217,29 @@ const QuickRecurrenceFlow = ({ open, onClose }: QuickRecurrenceFlowProps) => {
       }
 
       // Create the task linked to the recurrence rule
-      createTask.mutate(
-        {
-          title: title.trim(),
-          description: description.trim(),
-          link: links.filter(l => l.trim()).join(' '),
-          user_id: user.id,
-          due_date: format(firstValidDate, 'yyyy-MM-dd'),
-          recurrence_id: newRule.id,
-          importance: false,
-          urgency: false,
-          priority: 'medium',
-          status: 'pending',
-          source_type: 'text',
-          creation_source: 'secondary',
-          estimated_minutes: estimatedMinutes,
-          start_time: hasSpecificTime ? startTime + ":00" : null,
-          end_time: hasSpecificTime ? endTime + ":00" : null,
-        },
-        {
-          onSuccess: () => {
-            toast.success('¡Tarea recurrente creada!');
-            (window as any).electronAPI?.syncData?.();
-            onClose();
-          },
-          onError: () => {
-            toast.error('Error al crear la tarea');
-            setSaving(false);
-          },
-        }
-      );
-    } catch {
-      toast.error('Error al crear la recurrencia');
+      await createTask.mutateAsync({
+        title: title.trim(),
+        description: description.trim(),
+        link: links.filter(l => l.trim()).join(' ') || null,
+        due_date: format(firstValidDate, 'yyyy-MM-dd'),
+        recurrence_id: newRule.id,
+        importance: false,
+        urgency: false,
+        priority: 'medium',
+        status: 'pending',
+        source_type: 'text',
+        creation_source: 'secondary',
+        estimated_minutes: estimatedMinutes,
+      });
+
+      toast.success('¡Tarea recurrente creada!');
+      (window as any).electronAPI?.syncData?.();
+      onClose();
+    } catch (err) {
+      console.error('[QuickRecurrenceFlow] Error creating recurring task:', err);
+      toast.error('Error al crear la tarea recurrente');
       setSaving(false);
+      return;
     }
   };
 

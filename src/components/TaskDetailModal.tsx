@@ -113,8 +113,10 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
       try {
         const newRule = await createRule.mutateAsync(ruleData);
         recurrenceId = newRule.id;
-      } catch {
+      } catch (err) {
+        console.error('[TaskDetailModal] Error creating recurrence rule:', err);
         notify('Error al crear la recurrencia', 'error');
+        return;
       }
     } else if (task.recurrence_id) {
       try { await deleteRule.mutateAsync(task.recurrence_id); } catch { }

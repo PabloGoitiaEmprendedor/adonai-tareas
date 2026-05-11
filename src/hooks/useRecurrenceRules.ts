@@ -44,25 +44,40 @@ export const useRecurrenceRules = () => {
     mutationFn: async (rule: Omit<RecurrenceRule, 'id' | 'user_id' | 'created_at'>) => {
       if (!user) throw new Error('No user');
       // Only insert columns that definitely exist in the base table schema
+      const insertData: Record<string, unknown> = {
+        user_id: user.id,
+        frequency: rule.frequency,
+        interval: rule.interval,
+        start_date: rule.start_date,
+        end_date: rule.end_date || null,
+      };
+      if (rule.days_of_week && rule.days_of_week.length > 0) {
+        insertData.days_of_week = rule.days_of_week;
+      }
+      if (rule.day_of_month != null) {
+        insertData.day_of_month = rule.day_of_month;
+      }
+      if (rule.month_of_year != null) {
+        insertData.month_of_year = rule.month_of_year;
+      }
+
       const { data, error } = await supabase
         .from('recurrence_rules')
-        .insert({
-          user_id: user.id,
-          frequency: rule.frequency,
-          interval: rule.interval,
-          days_of_week: rule.days_of_week || [],
-          day_of_month: rule.day_of_month,
-          month_of_year: rule.month_of_year,
-          start_date: rule.start_date,
-          end_date: rule.end_date,
-        })
+        .insert(insertData)
         .select()
         .maybeSingle();
-      if (error) throw error;
-      if (!data) throw new Error('Error al crear la regla: no se devolvieron datos');
+      if (error) {
+        console.error('[recurrence] Error creating rule:', error, 'insertData:', insertData);
+        throw error;
+      }
+      if (!data) {
+        console.error('[recurrence] No data returned for insertData:', insertData);
+        throw new Error('Error al crear la regla: no se devolvieron datos');
+      }
       return data as RecurrenceRule;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['recurrence_rules'] }),
+    onError: (err) => console.error('[recurrence] createRule mutation error:', err),
   });
 
   const deleteRule = useMutation({

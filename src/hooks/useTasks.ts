@@ -219,18 +219,22 @@ export const useTasks = (filters?: { date?: string; startDate?: string; endDate?
     }) => {
       if (!user) throw new Error('No user');
       const { creation_source = 'fab', ...taskData } = task;
+      // Strip null/undefined values to avoid sending columns that don't exist in the table
+      const cleanData = Object.fromEntries(
+        Object.entries(taskData).filter(([, v]) => v !== null && v !== undefined)
+      );
       const { data, error } = await supabase
         .from('tasks')
         .insert({
-          ...taskData,
+          ...cleanData,
           user_id: user.id,
-          due_date: taskData.due_date || format(new Date(), 'yyyy-MM-dd'),
+          due_date: cleanData.due_date || format(new Date(), 'yyyy-MM-dd'),
         })
         .select()
         .single();
-      
+
       if (error) {
-        console.error("[useTasks] Error inserting task:", error);
+        console.error("[useTasks] Error inserting task:", error, "taskData:", taskData);
         throw error;
       }
 
