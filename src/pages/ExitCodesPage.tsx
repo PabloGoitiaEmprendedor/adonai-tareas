@@ -26,49 +26,49 @@ const ExitCodesPage = () => {
               </thead>
               <tbody className="divide-y divide-gray-100">
                 <tr className="hover:bg-gray-50">
-                  <td className="px-5 py-4 text-gray-900 font-medium">Usuario canceló instalación</td>
-                  <td className="px-5 py-4 font-mono text-red-700 font-bold">1</td>
-                  <td className="px-5 py-4 text-gray-600">No aplica en modo oneClick (sin interfaz). Si se fuerza la cancelación, retorna error 1.</td>
-                </tr>
-                <tr className="hover:bg-gray-50">
-                  <td className="px-5 py-4 text-gray-900 font-medium">Aplicación ya existe</td>
-                  <td className="px-5 py-4 font-mono text-green-700 font-bold">0</td>
-                  <td className="px-5 py-4 text-gray-600">El instalador actualiza la versión existente silenciosamente. Se considera éxito.</td>
-                </tr>
-                <tr className="hover:bg-gray-50">
-                  <td className="px-5 py-4 text-gray-900 font-medium">Instalación ya en curso</td>
-                  <td className="px-5 py-4 font-mono text-red-700 font-bold">1</td>
-                  <td className="px-5 py-4 text-gray-600">NSIS bloquea con mutex. El segundo proceso retorna error 1.</td>
-                </tr>
-                <tr className="hover:bg-gray-50">
-                  <td className="px-5 py-4 text-gray-900 font-medium">Disco lleno</td>
-                  <td className="px-5 py-4 font-mono text-red-700 font-bold">1</td>
-                  <td className="px-5 py-4 text-gray-600">NSIS retorna error 1 cuando no hay espacio suficiente.</td>
-                </tr>
-                <tr className="hover:bg-gray-50">
-                  <td className="px-5 py-4 text-gray-900 font-medium">Reinicio requerido</td>
-                  <td className="px-5 py-4 font-mono text-green-700 font-bold">0</td>
-                  <td className="px-5 py-4 text-gray-600">El instalador oneClick no requiere reinicio. Retorna 0 en todos los casos.</td>
-                </tr>
-                <tr className="hover:bg-gray-50">
-                  <td className="px-5 py-4 text-gray-900 font-medium">Error de red</td>
-                  <td className="px-5 py-4 font-mono text-gray-400 font-bold">N/A</td>
-                  <td className="px-5 py-4 text-gray-600">No aplica. El instalador es un ejecutable local que no descarga contenido.</td>
-                </tr>
-                <tr className="hover:bg-gray-50">
-                  <td className="px-5 py-4 text-gray-900 font-medium">Paquete rechazado en instalación</td>
-                  <td className="px-5 py-4 font-mono text-red-700 font-bold">1</td>
-                  <td className="px-5 py-4 text-gray-600">Si el instalador está corrupto o la firma no es válida, retorna 1.</td>
-                </tr>
-                <tr className="hover:bg-gray-50">
                   <td className="px-5 py-4 text-gray-900 font-medium">Instalación exitosa</td>
                   <td className="px-5 py-4 font-mono text-green-700 font-bold">0</td>
                   <td className="px-5 py-4 text-gray-600">Instalación completada correctamente.</td>
                 </tr>
                 <tr className="hover:bg-gray-50">
-                  <td className="px-5 py-4 text-gray-900 font-medium">Error de instalación varios</td>
+                  <td className="px-5 py-4 text-gray-900 font-medium">Error general</td>
                   <td className="px-5 py-4 font-mono text-red-700 font-bold">1</td>
-                  <td className="px-5 py-4 text-gray-600">Cualquier error no especificado retorna código 1.</td>
+                  <td className="px-5 py-4 text-gray-600">Cualquier error de instalación no especificado.</td>
+                </tr>
+                <tr className="hover:bg-gray-50">
+                  <td className="px-5 py-4 text-gray-900 font-medium">Usuario canceló instalación</td>
+                  <td className="px-5 py-4 font-mono text-red-700 font-bold">2</td>
+                  <td className="px-5 py-4 text-gray-600">No aplica en modo oneClick (sin interfaz de usuario).</td>
+                </tr>
+                <tr className="hover:bg-gray-50">
+                  <td className="px-5 py-4 text-gray-900 font-medium">Aplicación ya existe</td>
+                  <td className="px-5 py-4 font-mono text-green-700 font-bold">3</td>
+                  <td className="px-5 py-4 text-gray-600">El instalador detecta y actualiza la versión existente. Se retorna 0 en la práctica.</td>
+                </tr>
+                <tr className="hover:bg-gray-50">
+                  <td className="px-5 py-4 text-gray-900 font-medium">Instalación ya en curso</td>
+                  <td className="px-5 py-4 font-mono text-red-700 font-bold">4</td>
+                  <td className="px-5 py-4 text-gray-600">NSIS bloquea con mutex. El segundo proceso es rechazado.</td>
+                </tr>
+                <tr className="hover:bg-gray-50">
+                  <td className="px-5 py-4 text-gray-900 font-medium">Disco lleno</td>
+                  <td className="px-5 py-4 font-mono text-red-700 font-bold">5</td>
+                  <td className="px-5 py-4 text-gray-600">NSIS retorna error cuando no hay espacio suficiente en disco.</td>
+                </tr>
+                <tr className="hover:bg-gray-50">
+                  <td className="px-5 py-4 text-gray-900 font-medium">Reinicio requerido</td>
+                  <td className="px-5 py-4 font-mono text-green-700 font-bold">6</td>
+                  <td className="px-5 py-4 text-gray-600">El instalador oneClick no requiere reinicio forzoso.</td>
+                </tr>
+                <tr className="hover:bg-gray-50">
+                  <td className="px-5 py-4 text-gray-900 font-medium">Error de red</td>
+                  <td className="px-5 py-4 font-mono text-red-700 font-bold">7</td>
+                  <td className="px-5 py-4 text-gray-600">No aplica. El instalador es un ejecutable local sin descarga de contenido.</td>
+                </tr>
+                <tr className="hover:bg-gray-50">
+                  <td className="px-5 py-4 text-gray-900 font-medium">Paquete rechazado en instalación</td>
+                  <td className="px-5 py-4 font-mono text-red-700 font-bold">8</td>
+                  <td className="px-5 py-4 text-gray-600">Instalador corrupto o firma inválida. Windows bloquea antes de ejecutar NSIS.</td>
                 </tr>
               </tbody>
             </table>
@@ -90,12 +90,47 @@ const ExitCodesPage = () => {
                 <tr className="hover:bg-gray-50">
                   <td className="px-5 py-4 font-mono text-green-700 font-bold">0</td>
                   <td className="px-5 py-4 font-medium text-gray-900">Éxito</td>
-                  <td className="px-5 py-4 text-gray-600">La instalación se completó correctamente.</td>
+                  <td className="px-5 py-4 text-gray-600">Instalación completada correctamente.</td>
                 </tr>
                 <tr className="hover:bg-gray-50">
                   <td className="px-5 py-4 font-mono text-red-700 font-bold">1</td>
                   <td className="px-5 py-4 font-medium text-gray-900">Error general</td>
-                  <td className="px-5 py-4 text-gray-600">La instalación falló por cualquier motivo. Revise los logs del sistema para más detalles.</td>
+                  <td className="px-5 py-4 text-gray-600">Error de instalación no especificado.</td>
+                </tr>
+                <tr className="hover:bg-gray-50">
+                  <td className="px-5 py-4 font-mono text-red-700 font-bold">2</td>
+                  <td className="px-5 py-4 font-medium text-gray-900">Cancelado por usuario</td>
+                  <td className="px-5 py-4 text-gray-600">Instalación cancelada.</td>
+                </tr>
+                <tr className="hover:bg-gray-50">
+                  <td className="px-5 py-4 font-mono text-green-700 font-bold">3</td>
+                  <td className="px-5 py-4 font-medium text-gray-900">Actualización</td>
+                  <td className="px-5 py-4 text-gray-600">Aplicación existente actualizada.</td>
+                </tr>
+                <tr className="hover:bg-gray-50">
+                  <td className="px-5 py-4 font-mono text-red-700 font-bold">4</td>
+                  <td className="px-5 py-4 font-medium text-gray-900">Instalador bloqueado</td>
+                  <td className="px-5 py-4 text-gray-600">Otra instancia ya se está ejecutando.</td>
+                </tr>
+                <tr className="hover:bg-gray-50">
+                  <td className="px-5 py-4 font-mono text-red-700 font-bold">5</td>
+                  <td className="px-5 py-4 font-medium text-gray-900">Disco lleno</td>
+                  <td className="px-5 py-4 text-gray-600">Espacio insuficiente en disco.</td>
+                </tr>
+                <tr className="hover:bg-gray-50">
+                  <td className="px-5 py-4 font-mono text-green-700 font-bold">6</td>
+                  <td className="px-5 py-4 font-medium text-gray-900">Sin reinicio</td>
+                  <td className="px-5 py-4 text-gray-600">No requiere reinicio del sistema.</td>
+                </tr>
+                <tr className="hover:bg-gray-50">
+                  <td className="px-5 py-4 font-mono text-red-700 font-bold">7</td>
+                  <td className="px-5 py-4 font-medium text-gray-900">Error de red</td>
+                  <td className="px-5 py-4 text-gray-600">Sin conexión (no aplica, instalador local).</td>
+                </tr>
+                <tr className="hover:bg-gray-50">
+                  <td className="px-5 py-4 font-mono text-red-700 font-bold">8</td>
+                  <td className="px-5 py-4 font-medium text-gray-900">Paquete rechazado</td>
+                  <td className="px-5 py-4 text-gray-600">Instalador corrupto o firma inválida.</td>
                 </tr>
               </tbody>
             </table>
