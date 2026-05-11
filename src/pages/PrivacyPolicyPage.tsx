@@ -3,9 +3,10 @@ const PrivacyPolicyPage = () => {
     <div className="min-h-screen bg-background text-foreground">
       <div className="max-w-[700px] mx-auto px-6 py-12 space-y-8">
         <h1 className="text-2xl font-bold">Política de Privacidad</h1>
-        <p className="text-sm text-on-surface-variant">Última actualización: 8 de abril de 2026</p>
+        <p className="text-sm text-muted-foreground">Última actualización: 11 de mayo de 2026</p>
+        <p className="text-sm text-muted-foreground">Esta política aplica a la aplicación de escritorio Adonai para Windows y Mac.</p>
 
-        <section className="space-y-3 text-sm leading-relaxed text-on-surface-variant">
+        <section className="space-y-3 text-sm leading-relaxed text-muted-foreground">
           <h2 className="text-lg font-semibold text-foreground">1. Información que recopilamos</h2>
           <p>Adonai recopila la siguiente información para ofrecer una experiencia personalizada de productividad:</p>
           <ul className="list-disc pl-5 space-y-1">
@@ -19,7 +20,7 @@ const PrivacyPolicyPage = () => {
           </ul>
         </section>
 
-        <section className="space-y-3 text-sm leading-relaxed text-on-surface-variant">
+        <section className="space-y-3 text-sm leading-relaxed text-muted-foreground">
           <h2 className="text-lg font-semibold text-foreground">2. Cómo usamos tu información</h2>
           <ul className="list-disc pl-5 space-y-1">
             <li>Personalizar recomendaciones y priorización inteligente de tareas mediante IA.</li>
@@ -31,7 +32,7 @@ const PrivacyPolicyPage = () => {
           </ul>
         </section>
 
-        <section className="space-y-3 text-sm leading-relaxed text-on-surface-variant">
+        <section className="space-y-3 text-sm leading-relaxed text-muted-foreground">
           <h2 className="text-lg font-semibold text-foreground">3. Uso de datos de Google</h2>
           <p>El uso y la transferencia a cualquier otra aplicación de la información recibida de las API de Google se adhiere a la <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener noreferrer" className="text-primary underline">Política de datos de usuario de los servicios de API de Google</a>, incluidos los requisitos de uso limitado.</p>
           <p>Específicamente:</p>
@@ -39,42 +40,68 @@ const PrivacyPolicyPage = () => {
             <li>Solo accedemos a los datos de Google Calendar necesarios para la funcionalidad de la app.</li>
             <li>No vendemos datos de Google a terceros.</li>
             <li>No usamos datos de Google para publicidad.</li>
-            <li>Los datos de calendario solo se almacenan temporalmente para mostrar tu agenda.</li>
+            <li>No transferimos datos de Google a terceros sin tu consentimiento explícito.</li>
+            <li>Los datos de calendario solo se almacenan mientras sean necesarios para mostrar tu agenda.</li>
           </ul>
         </section>
 
-        <section className="space-y-3 text-sm leading-relaxed text-on-surface-variant">
+        <section className="space-y-3 text-sm leading-relaxed text-muted-foreground">
           <h2 className="text-lg font-semibold text-foreground">4. Almacenamiento y seguridad</h2>
-          <p>Tus datos se almacenan de forma segura en servidores protegidos con cifrado en tránsito (TLS) y en reposo. Implementamos políticas de seguridad a nivel de fila (RLS) para garantizar que solo tú puedas acceder a tus datos.</p>
+          <p>Tus datos se almacenan de forma segura en servidores protegidos con cifrado en tránsito (TLS) y en reposo. Implementamos políticas de seguridad a nivel de fila (RLS) en nuestra base de datos para garantizar que solo tú puedas acceder a tus datos. Retenemos tus datos mientras mantengas una cuenta activa. Si eliminas tu cuenta, todos tus datos se borran en un plazo de 30 días.</p>
         </section>
 
-        <section className="space-y-3 text-sm leading-relaxed text-on-surface-variant">
-          <h2 className="text-lg font-semibold text-foreground">5. Compartir información</h2>
+        <section className="space-y-3 text-sm leading-relaxed text-muted-foreground">
+          <h2 className="text-lg font-semibold text-foreground">5. Base legal y cumplimiento (GDPR / CCPA)</h2>
+          <p>Si resides en el Espacio Económico Europeo, procesamos tus datos bajo las siguientes bases legales:</p>
+          <ul className="list-disc pl-5 space-y-1">
+            <li><strong>Consentimiento:</strong> para el uso de Google Calendar, entrada de voz y recomendaciones personalizadas.</li>
+            <li><strong>Interés legítimo:</strong> para mejorar el servicio mediante análisis de uso agregado.</li>
+            <li><strong>Ejecución de un contrato:</strong> para proveer el servicio que solicitaste al registrarte.</li>
+          </ul>
+          <p>Si resides en California (EE.UU.), tienes derecho a solicitar la eliminación de tus datos y a optar por no vender tu información personal. No vendemos información personal de ningún usuario.</p>
+        </section>
+
+        <section className="space-y-3 text-sm leading-relaxed text-muted-foreground">
+          <h2 className="text-lg font-semibold text-foreground">6. Compartir información</h2>
           <p>No vendemos, alquilamos ni compartimos tu información personal con terceros, excepto:</p>
           <ul className="list-disc pl-5 space-y-1">
-            <li>Proveedores de servicios necesarios para operar la app (autenticación, almacenamiento, IA).</li>
+            <li>Proveedores de servicios necesarios para operar la app (Supabase para almacenamiento, Google para autenticación y calendario, proveedor de IA para recomendaciones).</li>
             <li>Cuando lo requiera la ley o una orden judicial.</li>
           </ul>
         </section>
 
-        <section className="space-y-3 text-sm leading-relaxed text-on-surface-variant">
-          <h2 className="text-lg font-semibold text-foreground">6. Tus derechos</h2>
+        <section className="space-y-3 text-sm leading-relaxed text-muted-foreground">
+          <h2 className="text-lg font-semibold text-foreground">7. Tus derechos</h2>
           <ul className="list-disc pl-5 space-y-1">
             <li>Acceder, corregir o eliminar tus datos personales en cualquier momento desde la sección de Perfil.</li>
             <li>Revocar el acceso a Google Calendar desde la configuración de tu cuenta de Google.</li>
-            <li>Eliminar tu cuenta y todos los datos asociados contactándonos.</li>
+            <li>Solicitar la exportación de tus datos en formato portable.</li>
+            <li>Eliminar tu cuenta y todos los datos asociados.</li>
             <li>Desactivar notificaciones y entrada de voz desde la configuración.</li>
           </ul>
         </section>
 
-        <section className="space-y-3 text-sm leading-relaxed text-on-surface-variant">
-          <h2 className="text-lg font-semibold text-foreground">7. Cookies y tecnologías similares</h2>
-          <p>Utilizamos almacenamiento local del navegador para mantener tu sesión activa y tus preferencias. No utilizamos cookies de seguimiento de terceros.</p>
+        <section className="space-y-3 text-sm leading-relaxed text-muted-foreground">
+          <h2 className="text-lg font-semibold text-foreground">8. Cookies y tecnologías similares</h2>
+          <p>Utilizamos almacenamiento local del navegador únicamente para mantener tu sesión activa y tus preferencias. No utilizamos cookies de seguimiento, cookies de terceros ni herramientas de análisis externo que recopilen datos personales.</p>
         </section>
 
-        <section className="space-y-3 text-sm leading-relaxed text-on-surface-variant">
-          <h2 className="text-lg font-semibold text-foreground">8. Contacto</h2>
-          <p>Si tienes preguntas sobre esta política, puedes contactarnos a través de la aplicación.</p>
+        <section className="space-y-3 text-sm leading-relaxed text-muted-foreground">
+          <h2 className="text-lg font-semibold text-foreground">9. Datos de niños</h2>
+          <p>Adonai no está dirigida a menores de 13 años. No recopilamos intencionadamente información de niños. Si descubrimos que un menor nos ha proporcionado datos personales, los eliminaremos inmediatamente.</p>
+        </section>
+
+        <section className="space-y-3 text-sm leading-relaxed text-muted-foreground">
+          <h2 className="text-lg font-semibold text-foreground">10. Cambios a esta política</h2>
+          <p>Notificaremos cualquier cambio significativo a través de la aplicación y actualizaremos la fecha de "Última actualización" al inicio de esta página.</p>
+        </section>
+
+        <section className="space-y-3 text-sm leading-relaxed text-muted-foreground">
+          <h2 className="text-lg font-semibold text-foreground">11. Contacto</h2>
+          <p>Si tienes preguntas sobre esta política de privacidad, puedes contactarnos en:</p>
+          <p className="mt-2">
+            Email: <a href="mailto:support@adonai-app.com" className="text-primary underline">support@adonai-app.com</a>
+          </p>
         </section>
       </div>
     </div>

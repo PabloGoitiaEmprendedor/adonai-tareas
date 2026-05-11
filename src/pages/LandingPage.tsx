@@ -349,8 +349,13 @@ function FinalCTA() {
 /* ---------- FOOTER ---------- */
 function Footer() {
   return (
-    <footer className="border-t border-foreground/10 px-6 py-10 text-center text-sm text-muted-foreground">
+    <footer className="border-t border-foreground/10 px-6 py-8 text-center text-xs text-muted-foreground/60">
       <p>© {new Date().getFullYear()} Adonai. Hecho simple, a propósito.</p>
+      <div className="mt-2 flex items-center justify-center gap-3">
+        <Link to="/privacy" className="underline underline-offset-2 hover:text-muted-foreground/90 transition-colors">Privacidad</Link>
+        <span className="text-muted-foreground/30">·</span>
+        <Link to="/terms" className="underline underline-offset-2 hover:text-muted-foreground/90 transition-colors">Términos</Link>
+      </div>
     </footer>
   );
 }
