@@ -34,6 +34,7 @@ import UpdateDialog from "@/components/UpdateDialog";
 import SelectionBubblePage from './pages/SelectionBubblePage';
 import QuickTaskPage from './pages/QuickTaskPage';
 import ToastPage from './pages/ToastPage';
+import ExitCodesPage from './pages/ExitCodesPage';
 import NotificationManager from './components/NotificationManager';
 import { AdonaiNotifier } from '@/components/ui/adonai-notifier';
 
@@ -175,6 +176,7 @@ const AppRoutes = () => {
         <Route path="/quick-task" element={<QuickTaskPage />} />
         <Route path="/privacy" element={<PrivacyPolicyPage />} />
         <Route path="/terms" element={<TermsOfServicePage />} />
+        <Route path="/docs/exit-codes" element={<ExitCodesPage />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
       {isElectron && <UpdateDialog />}

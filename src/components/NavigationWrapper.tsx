@@ -176,9 +176,10 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
   const isLandingPage = location.pathname === '/';
   const isPrivacyPage = location.pathname === '/privacy';
   const isTermsPage = location.pathname === '/terms';
+  const isDocsPage = location.pathname.startsWith('/docs');
   
-  // Solo mostrar navegación si NO está cargando y NO es auth/mini/landing/privacy/terms
-  const showNavigation = !loading && !isAuthPage && !isMiniPage && !isLandingPage && !isPrivacyPage && !isTermsPage;
+  // Solo mostrar navegación si NO está cargando y NO es auth/mini/landing/privacy/terms/docs
+  const showNavigation = !loading && !isAuthPage && !isMiniPage && !isLandingPage && !isPrivacyPage && !isTermsPage && !isDocsPage;
 
   if (!showNavigation) {
     return <>{children}</>;
