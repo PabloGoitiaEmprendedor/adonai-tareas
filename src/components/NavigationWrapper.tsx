@@ -174,9 +174,11 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
   const isAuthPage = location.pathname === '/auth';
   const isMiniPage = location.pathname === '/mini';
   const isLandingPage = location.pathname === '/';
+  const isPrivacyPage = location.pathname === '/privacy';
+  const isTermsPage = location.pathname === '/terms';
   
-  // Solo mostrar navegación si NO está cargando y NO es auth/mini/landing
-  const showNavigation = !loading && !isAuthPage && !isMiniPage && !isLandingPage;
+  // Solo mostrar navegación si NO está cargando y NO es auth/mini/landing/privacy/terms
+  const showNavigation = !loading && !isAuthPage && !isMiniPage && !isLandingPage && !isPrivacyPage && !isTermsPage;
 
   if (!showNavigation) {
     return <>{children}</>;
