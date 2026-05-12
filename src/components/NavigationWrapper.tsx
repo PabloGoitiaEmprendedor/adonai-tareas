@@ -173,8 +173,8 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
   const isAuthPage = location.pathname === '/auth';
   const isMiniPage = location.pathname === '/mini';
   const isLandingPage = location.pathname === '/';
-  const isPrivacyPage = location.pathname === '/privacy';
-  const isTermsPage = location.pathname === '/terms';
+  const isPrivacyPage = location.pathname === '/politica-de-privacidad';
+  const isTermsPage = location.pathname === '/terminos-de-servicio';
   const isDocsPage = location.pathname.startsWith('/docs');
   
   // Solo mostrar navegación si NO está cargando y NO es auth/mini/landing/privacy/terms/docs
