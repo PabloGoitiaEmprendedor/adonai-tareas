@@ -1,58 +1,39 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useTasks } from '@/hooks/useTasks';
-import { useGoals } from '@/hooks/useGoals';
 import { useProfile } from '@/hooks/useProfile';
 import { useGlobalVoiceCapture } from '@/hooks/useGlobalVoiceCapture';
 import { usePriorityColors } from '@/hooks/usePriorityColors';
-import { format, startOfWeek, addDays, subDays, isSameDay } from 'date-fns';
-import { es } from 'date-fns/locale';
-import { CalendarSearch as CalendarIcon, Check, GripVertical, Timer, Plus, Link as LinkIcon, LayoutList, Lock } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { format, startOfWeek, addDays } from 'date-fns';
+import { Lock } from 'lucide-react';
+
 import { triggerTaskCelebration, triggerDailyCelebration, triggerOnTimeCelebration } from '@/lib/celebrations';
 import FAB from '@/components/FAB';
 import TaskCaptureModal, { type TaskCaptureModalHandle } from '@/components/TaskCaptureModal';
 import TaskDetailModal from '@/components/TaskDetailModal';
 import FullscreenTimer from '@/components/FullscreenTimer';
-import { Button } from '@/components/ui/button';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { AISchedulerModal } from '@/components/AISchedulerModal';
-import SubtasksSection from '@/components/SubtasksSection';
-import { TaskCard } from '@/components/TaskCard';
-import { Sparkles } from 'lucide-react';
 import AdonaiCalendarView from '@/components/calendar/AdonaiCalendarView';
 import QuickRecurrenceFlow from '@/components/QuickRecurrenceFlow';
 
 const WeeklyPage = () => {
   const [captureOpen, setCaptureOpen] = useState(false);
   const [captureMode, setCaptureMode] = useState<'text' | 'voice' | null>(null);
-  const [viewDate, setViewDate] = useState<Date>(new Date());
   const [selectedDay, setSelectedDay] = useState<Date>(new Date());
   const [selectedTask, setSelectedTask] = useState<any>(null);
   const [recurrenceOpen, setRecurrenceOpen] = useState(false);
   const [timerTask, setTimerTask] = useState<any>(null);
-  const [currentTime, setCurrentTime] = useState(new Date());
   const captureModalRef = useRef<TaskCaptureModalHandle>(null);
   const [completingTaskId, setCompletingTaskId] = useState<string | null>(null);
 
   const [aiModalOpen, setAiModalOpen] = useState(false);
-  const [view, setView] = useState<'list' | 'calendar'>('calendar');
-
-  useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 60000);
-    return () => clearInterval(timer);
-  }, []);
-
-  // ... rest of state and logic ...
 
   const weekStart = startOfWeek(selectedDay, { weekStartsOn: 1 });
   const weekEnd = addDays(weekStart, 6);
   const startDate = format(weekStart, 'yyyy-MM-dd');
   const endDate = format(weekEnd, 'yyyy-MM-dd');
 
-  const tasksFilter = useMemo(() => ({ startDate, endDate }), [startDate, endDate]);
+  const tasksFilter = useMemo(() => ({ startDate, endDate, excludeEvents: true }), [startDate, endDate]);
   const { tasks, updateTask } = useTasks(tasksFilter);
-  const { goals } = useGoals();
   const { profile } = useProfile();
 
   const openCapture = useCallback(() => {
@@ -70,111 +51,12 @@ const WeeklyPage = () => {
   }, []);
   useGlobalVoiceCapture(captureModalRef, openCapture);
 
-  const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
-  const today = new Date();
-
-  const getDayStatusLabel = (date: Date) => {
-    if (isSameDay(date, today)) return 'Hoy';
-    if (isSameDay(date, addDays(today, 1))) return 'Mañana';
-    if (isSameDay(date, subDays(today, 1))) return 'Ayer';
-    
-    return format(date, 'EEEE d MMM', { locale: es });
-  };
-
-  const handleSelectDate = (date: Date | undefined) => {
-    if (date) {
-      setViewDate(date);
-      setSelectedDay(date);
-    }
-  };
-
-  const dayNames = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
-
   const getTasksForDay = (date: Date) => {
     const dateStr = format(date, 'yyyy-MM-dd');
     return tasks.filter((t) => t.due_date === dateStr);
   };
 
-  const weeklyData = days.map((d) => {
-    const dayTasks = getTasksForDay(d);
-    const completed = dayTasks.filter((t) => t.status === 'done').length;
-    const total = dayTasks.length;
-    return { date: d, completed, total, pct: total > 0 ? Math.round((completed / total) * 100) : 0 };
-  });
-
-  const totalCompleted = tasks.filter((t) => t.status === 'done').length;
-  const totalPlanned = tasks.length;
-
   const selectedDayTasks = getTasksForDay(selectedDay);
-  const [orderedTasks, setOrderedTasks] = useState<any[]>([]);
-
-  useEffect(() => {
-    const quadrantRank = (t: any) =>
-      t.urgency && t.importance ? 0
-      : t.urgency ? 1
-      : t.importance ? 2
-      : 3;
-    const sorted = [...selectedDayTasks].sort((a, b) => {
-      const rankDiff = quadrantRank(a) - quadrantRank(b);
-      if (rankDiff !== 0) return rankDiff;
-      return (a.sort_order || 0) - (b.sort_order || 0);
-    });
-
-    setOrderedTasks((prev) => {
-      const newIds = sorted.map(t => t.id).join(',');
-      const prevIds = prev.map(t => t.id).join(',');
-      if (newIds === prevIds && prev.length > 0) return prev;
-      return sorted;
-    });
-  }, [tasks, selectedDay]);
-
-  const [dragIdx, setDragIdx] = useState<number | null>(null);
-  const handleDragStart = (idx: number) => setDragIdx(idx);
-  const handleDragOver = (e: React.DragEvent, idx: number) => {
-    e.preventDefault();
-    if (dragIdx === null || dragIdx === idx) return;
-    const newOrder = [...orderedTasks];
-    const [moved] = newOrder.splice(dragIdx, 1);
-    newOrder.splice(idx, 0, moved);
-    setOrderedTasks(newOrder);
-    setDragIdx(idx);
-  };
-  const handleDragEnd = () => {
-    setDragIdx(null);
-    orderedTasks.forEach((task, idx) => {
-      if ((task.sort_order || 0) !== idx) {
-        updateTask.mutate({ id: task.id, sort_order: idx });
-      }
-    });
-  };
-
-  const [touchIdx, setTouchIdx] = useState<number | null>(null);
-  const [touchY, setTouchY] = useState(0);
-  const handleTouchStart = (idx: number, e: React.TouchEvent) => { setTouchIdx(idx); setTouchY(e.touches[0].clientY); };
-  const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    if (touchIdx === null) return;
-    const diff = e.touches[0].clientY - touchY;
-    const steps = Math.round(diff / 56);
-    if (steps !== 0) {
-      const newIdx = Math.max(0, Math.min(orderedTasks.length - 1, touchIdx + steps));
-      if (newIdx !== touchIdx) {
-        const newOrder = [...orderedTasks];
-        const [moved] = newOrder.splice(touchIdx, 1);
-        newOrder.splice(newIdx, 0, moved);
-        setOrderedTasks(newOrder);
-        setTouchIdx(newIdx);
-        setTouchY(e.touches[0].clientY);
-      }
-    }
-  }, [touchIdx, touchY, orderedTasks]);
-  const handleTouchEnd = () => {
-    if (touchIdx !== null) {
-      orderedTasks.forEach((task, idx) => {
-        if ((task.sort_order || 0) !== idx) updateTask.mutate({ id: task.id, status: task.status, sort_order: idx });
-      });
-    }
-    setTouchIdx(null);
-  };
 
   const handleComplete = (task: any) => {
     setCompletingTaskId(task.id);
@@ -249,11 +131,16 @@ const WeeklyPage = () => {
           />
         </section>
 
-        <FAB 
-          onTextClick={openCapture} 
-          onVoiceClick={openCaptureInVoiceMode} 
-          onRecurrenceClick={() => setRecurrenceOpen(true)}
-        />
+
+
+        {/* Desktop FAB */}
+        <div className="hidden lg:block">
+          <FAB 
+            onTextClick={openCapture} 
+            onVoiceClick={openCaptureInVoiceMode} 
+            onRecurrenceClick={() => setRecurrenceOpen(true)}
+          />
+        </div>
         <QuickRecurrenceFlow 
           open={recurrenceOpen}
           onClose={() => setRecurrenceOpen(false)}

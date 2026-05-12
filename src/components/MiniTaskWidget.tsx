@@ -1,12 +1,13 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useTasks } from '@/hooks/useTasks';
 import { useFolders } from '@/hooks/useFolders';
-import { format } from 'date-fns';
+import { format, parseISO, addMinutes } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Check, Flame, X, Folder, Link as LinkIcon, Paperclip } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { usePriorityColors } from '@/hooks/usePriorityColors';
+import { MiniDayView, type DayEvent } from './MiniDayView';
 
 interface MiniTaskWidgetProps {
   isOpen: boolean;
@@ -21,8 +22,46 @@ export const MiniTaskWidget = ({ isOpen, onClose }: MiniTaskWidgetProps) => {
   const [completingId, setCompletingId] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
-  const [showFolderBar, setShowFolderBar] = useState(true); 
+  const [showFolderBar, setShowFolderBar] = useState(true);
+  const [calendarOpen, setCalendarOpen] = useState(false);
+  const calendarTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  const TIME_PREFIX_REGEX = /^\[T:(\d{2}:\d{2})-(\d{2}:\d{2})\]/;
+  const parseTimeFromDescription = (desc: string | null) => {
+    if (!desc) return null;
+    const match = desc.match(TIME_PREFIX_REGEX);
+    if (!match) return null;
+    return { start: match[1], end: match[2] };
+  };
+
+  const calendarEvents = useMemo((): DayEvent[] => {
+    return tasks
+      .filter((t: any) => t.status !== 'done')
+      .map((t: any) => {
+        const parsed = parseTimeFromDescription(t.description);
+        const dateStr = t.due_date || format(new Date(), 'yyyy-MM-dd');
+        const startTime = parsed
+          ? parseISO(`${dateStr}T${parsed.start}:00`)
+          : parseISO(`${dateStr}T08:00:00`);
+        const endTime = parsed
+          ? parseISO(`${dateStr}T${parsed.end}:00`)
+          : addMinutes(startTime, 30);
+
+        let color = priorityColors.p4;
+        if (t.urgency && t.importance) color = priorityColors.p1;
+        else if (t.urgency && !t.importance) color = priorityColors.p2;
+        else if (!t.urgency && t.importance) color = priorityColors.p3;
+
+        return {
+          id: t.id,
+          title: t.title,
+          startTime,
+          endTime,
+          color: color === 'transparent' ? 'var(--primary)' : color,
+        };
+      });
+  }, [tasks, priorityColors]);
 
   useEffect(() => {
     const t = setInterval(() => setCurrentTime(new Date()), 60_000);
@@ -64,13 +103,29 @@ export const MiniTaskWidget = ({ isOpen, onClose }: MiniTaskWidgetProps) => {
     }
   };
 
+  const handleCalendarEnter = useCallback(() => {
+    if (calendarTimerRef.current) clearTimeout(calendarTimerRef.current);
+    setCalendarOpen(true);
+  }, []);
+
+  const handleCalendarLeave = useCallback(() => {
+    calendarTimerRef.current = setTimeout(() => {
+      setCalendarOpen(false);
+    }, 400);
+  }, []);
+
   if (!isOpen) return null;
 
   return createPortal(
-    <div 
-      className="fixed bottom-6 right-6 w-[380px] max-h-[580px] bg-background border border-outline-variant/20 rounded-[32px] shadow-2xl flex flex-col z-[9999] overflow-hidden"
+    <div
+      onMouseLeave={handleCalendarLeave}
+      className="fixed bottom-6 right-6 z-[9999]"
+      style={{ width: calendarOpen ? 780 : 380 }}
       onClick={(e) => e.stopPropagation()}
     >
+      <div className="flex max-h-[580px] bg-background border border-outline-variant/20 rounded-[32px] shadow-2xl overflow-hidden">
+        {/* Left panel: tasks */}
+        <div className="flex flex-col flex-shrink-0" style={{ width: 380 }}>
       {/* Header & Folders */}
       <div className="flex flex-col bg-background/95 backdrop-blur-md border-b border-outline-variant/10">
         <div className="w-12 h-1.5 bg-on-surface-variant/10 rounded-full mx-auto mt-3 mb-2" />
@@ -291,6 +346,34 @@ export const MiniTaskWidget = ({ isOpen, onClose }: MiniTaskWidgetProps) => {
             <p className="text-[10px] font-black text-on-surface-variant/40 uppercase tracking-widest mt-1">Has completado todas las tareas de esta sección.</p>
           </motion.div>
         )}
+      </div>
+        </div>
+
+        {/* Hot zone / calendar toggle */}
+        <div
+          onMouseEnter={handleCalendarEnter}
+          className="relative flex-shrink-0 w-4 cursor-pointer flex items-center justify-center hover:bg-primary/5 transition-colors"
+        >
+          <div className="w-0.5 h-8 rounded-full bg-outline-variant/20 group-hover:bg-primary/30 transition-colors" />
+        </div>
+
+        {/* Right panel: day calendar */}
+        <AnimatePresence>
+          {calendarOpen && (
+            <motion.div
+              initial={{ width: 0, opacity: 0 }}
+              animate={{ width: 400, opacity: 1 }}
+              exit={{ width: 0, opacity: 0 }}
+              transition={{ duration: 0.25, ease: 'easeInOut' }}
+              className="border-l border-outline-variant/10 overflow-hidden flex-shrink-0"
+              onMouseEnter={handleCalendarEnter}
+            >
+              <div className="w-[400px] h-full">
+                <MiniDayView events={calendarEvents} currentDate={currentTime} />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>,
     document.body

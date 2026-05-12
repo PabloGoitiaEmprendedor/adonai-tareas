@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, memo } from 'react';
 import { motion } from 'framer-motion';
 import { Check, Clock, Link as LinkIcon, Paperclip } from 'lucide-react';
 import SubtasksSection from './SubtasksSection';
@@ -26,7 +26,7 @@ interface TaskCardProps {
   view: 'daily' | 'weekly';
 }
 
-export const TaskCard = ({
+export const TaskCard = memo(({
   task,
   taskIdx,
   isDone,
@@ -266,4 +266,4 @@ export const TaskCard = ({
       </div>
     </motion.div>
   );
-};
+});

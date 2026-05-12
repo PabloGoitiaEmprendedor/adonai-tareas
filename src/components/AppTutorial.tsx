@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { Joyride, type EventData, ACTIONS, EVENTS, STATUS } from 'react-joyride';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { X } from 'lucide-react';
@@ -213,29 +213,28 @@ const PriorityHighlighter = ({ content }: { content: string }) => {
 
     const isCompleted = priorityInstruction?.includes('🎯');
 
-  // Exclusive Enter key listener
+  // Advance tutorial (works for both keyboard Enter and touch tap)
+  const advanceTutorial = useCallback(() => {
+    if (!canProceed) return;
+    if (isLastStep) {
+      if (closeProps.onClick) closeProps.onClick(new MouseEvent('click') as any);
+    } else {
+      document.dispatchEvent(new CustomEvent('force-tutorial-next', { detail: index + 1 }));
+    }
+  }, [canProceed, isLastStep, closeProps, index]);
+
+  // Enter key listener for desktop
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Enter' && canProceed) {
         e.preventDefault();
         e.stopPropagation();
-        
-        if (isLastStep) {
-          if (closeProps.onClick) closeProps.onClick(e as any);
-        } else {
-          // Logic to advance
-          if (step.spotlightClicks === false) {
-            document.dispatchEvent(new CustomEvent('force-tutorial-next', { detail: index + 1 }));
-          } else {
-            document.dispatchEvent(new CustomEvent('force-tutorial-next', { detail: index + 1 }));
-          }
-        }
+        advanceTutorial();
       }
     };
-
     window.addEventListener('keydown', handleKeyDown, { capture: true });
     return () => window.removeEventListener('keydown', handleKeyDown, { capture: true });
-  }, [canProceed, index, isLastStep, closeProps, step.spotlightClicks]);
+  }, [canProceed, advanceTutorial]);
 
   const customWidth = (step as any).width ? `${(step as any).width}px` : 'min(440px,calc(100vw-32px))';
 
@@ -366,24 +365,23 @@ const PriorityHighlighter = ({ content }: { content: string }) => {
           <button
             type="button"
             disabled={!canProceed}
+            onClick={advanceTutorial}
             style={{ 
               position: 'relative', 
-              zIndex: 999999, 
-              pointerEvents: 'none', // Deshabilitamos clics del ratón
+              zIndex: 999999,
               userSelect: 'none'
             }}
             className={`flex-[2] h-12 rounded-[20px] text-[14px] font-black transition-all flex items-center justify-center gap-2.5 ${
               canProceed 
-                ? 'bg-primary text-black shadow-lg shadow-primary/20 opacity-100' 
-                : 'bg-white/10 text-white/30 border border-white/5 opacity-50'
+                ? 'bg-primary text-black shadow-lg shadow-primary/20 opacity-100 cursor-pointer active:scale-[0.97]' 
+                : 'bg-white/10 text-white/30 border border-white/5 opacity-50 cursor-default'
             }`}
           >
             <span>{isLastStep ? '¡Empezar!' : 'Siguiente'}</span>
             {canProceed && !isLastStep && (
-              <div className="flex items-center gap-1.5 px-2.5 py-1 bg-black/10 rounded-lg border border-black/5 animate-pulse">
-                <span className="text-[9px] font-black tracking-tighter opacity-70">ENTER</span>
-                <svg width="10" height="10" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="opacity-70">
-                  <path d="M9 3L10 4L4 10L1 7L2 6L4 8L9 3Z" fill="currentColor"/>
+              <div className="flex items-center gap-1.5 px-2.5 py-1 bg-black/10 rounded-lg border border-black/5">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="opacity-70">
+                  <polyline points="9 18 15 12 9 6" />
                 </svg>
               </div>
             )}

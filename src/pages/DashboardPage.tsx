@@ -26,7 +26,7 @@ const DashboardPage = () => {
   const { goals } = useGoals();
   const { metrics, trackDayActive } = useStreaks();
   const today = format(new Date(), 'yyyy-MM-dd');
-  const { tasks, updateTask } = useTasks({ date: today });
+  const { tasks, updateTask } = useTasks({ date: today, excludeEvents: true });
   const [captureOpen, setCaptureOpen] = useState(false);
   const [recurrenceOpen, setRecurrenceOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<any>(null);

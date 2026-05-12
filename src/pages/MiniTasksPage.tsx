@@ -10,9 +10,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTasks } from '@/hooks/useTasks';
 import { useFolders } from '@/hooks/useFolders';
 import { useSubtasks } from '@/hooks/useSubtasks';
-import { format } from 'date-fns';
+import { format, parseISO, addMinutes } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Check, MoreHorizontal, ChevronRight, Clock, Pause, Plus, Mic, Repeat, Paperclip, Folder, X, Users as UsersIcon } from 'lucide-react';
+import { Check, MoreHorizontal, ChevronRight, Clock, Pause, Plus, Mic, Repeat, Paperclip, Folder, FolderOpen, X, Users as UsersIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import TaskCaptureModal from '@/components/TaskCaptureModal';
 import TaskDetailModal from '@/components/TaskDetailModal';
@@ -21,6 +21,7 @@ import { useGamification } from '@/hooks/useGamification';
 import { triggerTaskCelebration, triggerDailyCelebration, triggerOnTimeCelebration } from '@/lib/celebrations';
 import { useProfile } from '@/hooks/useProfile';
 import { usePriorityColors } from '@/hooks/usePriorityColors';
+import { MiniDayView, type DayEvent } from '@/components/MiniDayView';
 import '../index.css';
 
 const FOLDER_COLORS = ['#C3F53C', '#4BE277', '#6B9FFF', '#FF8B7C', '#FFB86C', '#BD93F9', '#FF79C6', '#C7C6C6'];
@@ -387,10 +388,11 @@ function useDragWindow() {
 const MiniTaskList = () => {
   const { user, loading } = useAuth();
   const today = format(new Date(), 'yyyy-MM-dd');
-  const { tasks, updateTask, createTask, isLoading } = useTasks({ date: today });
+  const { tasks, updateTask, createTask, isLoading } = useTasks({ date: today, excludeEvents: true });
   const { folders, createFolder } = useFolders();
   const { checkAndUnlock } = useGamification();
   const { profile } = useProfile();
+  const { colors } = usePriorityColors();
   const [completingId, setCompletingId] = useState<string | null>(null);
   const [isExpanded, setIsExpanded] = useState(false);
   const [isReady, setIsReady] = useState(false);
@@ -412,6 +414,7 @@ const MiniTaskList = () => {
   const [selectedTask, setSelectedTask] = useState<any>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [recurrenceFlowOpen, setRecurrenceFlowOpen] = useState(false);
+  const handleDetail = useCallback((t: any) => { setSelectedTask(t); setDetailOpen(true); }, []);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const sessionStartRef = useRef<number>(0);
 
@@ -423,6 +426,45 @@ const MiniTaskList = () => {
   // LED animation state
   const [showLedGlow, setShowLedGlow] = useState(false);
   const hasInteractedRef = useRef(false);
+
+  const [calendarOpen, setCalendarOpen] = useState(false);
+  const calendarTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const TIME_PREFIX_REGEX = /^\[T:(\d{2}:\d{2})-(\d{2}:\d{2})\]/;
+  const parseTimeFromDescription = (desc: string | null) => {
+    if (!desc) return null;
+    const match = desc.match(TIME_PREFIX_REGEX);
+    if (!match) return null;
+    return { start: match[1], end: match[2] };
+  };
+
+  const calendarEvents = useMemo((): DayEvent[] => {
+    return tasks
+      .filter((t: any) => t.status !== 'done')
+      .map((t: any) => {
+        const parsed = parseTimeFromDescription(t.description);
+        const dateStr = t.due_date || format(new Date(), 'yyyy-MM-dd');
+        const startTime = parsed
+          ? parseISO(`${dateStr}T${parsed.start}:00`)
+          : parseISO(`${dateStr}T08:00:00`);
+        const endTime = parsed
+          ? parseISO(`${dateStr}T${parsed.end}:00`)
+          : addMinutes(startTime, 30);
+
+        let color = colors.p4;
+        if (t.urgency && t.importance) color = colors.p1;
+        else if (t.urgency && !t.importance) color = colors.p2;
+        else if (!t.urgency && t.importance) color = colors.p3;
+
+        return {
+          id: t.id,
+          title: t.title,
+          startTime,
+          endTime,
+          color: color === 'transparent' ? 'var(--primary)' : color,
+        };
+      });
+  }, [tasks, colors]);
 
   // Timer logic
   const handleTimerToggle = useCallback((taskId: string, estimatedMinutes: number = 30) => {
@@ -532,8 +574,34 @@ const MiniTaskList = () => {
     }
   }, [isExpanded, hasMovedRef, activeTimerId]);
 
+  const handleCalendarEnter = useCallback(async () => {
+    if (calendarTimerRef.current) clearTimeout(calendarTimerRef.current);
+    setCalendarOpen(true);
+    const api = (window as any).electronAPI;
+    if (api?.getMiniPosition && api?.setMiniBounds) {
+      const pos = await api.getMiniPosition();
+      if (pos && pos.w < 700) {
+        api.setMiniBounds({ x: pos.x, y: pos.y, w: 750, h: pos.h });
+      }
+    }
+  }, []);
+
+  const handleCalendarLeave = useCallback(() => {
+    calendarTimerRef.current = setTimeout(async () => {
+      setCalendarOpen(false);
+      const api = (window as any).electronAPI;
+      if (api?.getMiniPosition && api?.setMiniBounds) {
+        const pos = await api.getMiniPosition();
+        if (pos && pos.w >= 700) {
+          const newX = pos.x + Math.round((pos.w - PANEL_W) / 2);
+          api.setMiniBounds({ x: newX, y: pos.y, w: PANEL_W, h: PANEL_H });
+        }
+      }
+    }, 400);
+  }, []);
+
   useEffect(() => {
-    const t = setInterval(() => setNow(new Date()), 1000);
+    const t = setInterval(() => setNow(new Date()), 30000);
     return () => clearInterval(t);
   }, []);
 
@@ -785,6 +853,7 @@ const MiniTaskList = () => {
 
   // ── EXPANDED PANEL ──
   return (
+    <>
     <div
       onMouseEnter={handleMouseEnterUI}
       onMouseLeave={(e) => {
@@ -794,19 +863,22 @@ const MiniTaskList = () => {
           setShowLedGlow(false);
         }
         handleMouseLeaveUI(e as any);
+        handleCalendarLeave();
       }}
       style={{
         position: 'fixed', inset: 0,
         background: C.bg, borderRadius: 20,
         border: `1px solid ${C.border}`,
         boxShadow: '0 12px 48px rgba(0,0,0,0.6)',
-        display: 'flex', flexDirection: 'column',
+        display: 'flex', flexDirection: 'row',
         overflow: 'hidden',
         boxSizing: 'border-box',
         fontFamily: 'system-ui, -apple-system, sans-serif',
         color: C.text,
       }}
     >
+      {/* Left panel: tasks */}
+      <div style={{ width: PANEL_W, display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
       {/* Top bar — fully draggable */}
       <div onMouseDown={onDragMouseDown} style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -979,7 +1051,19 @@ const MiniTaskList = () => {
                     {folder.isShared ? (
                       <UsersIcon style={{ width: 10, height: 10, color: selectedFolderId === folder.id ? '#000' : folder.color }} />
                     ) : (
-                      <Folder style={{ width: 10, height: 10, color: selectedFolderId === folder.id ? '#000' : folder.color }} />
+                      <motion.div
+                        key={selectedFolderId === folder.id ? 'open' : 'closed'}
+                        initial={{ rotateY: selectedFolderId === folder.id ? 180 : -180, scale: 0.8 }}
+                        animate={{ rotateY: 0, scale: 1 }}
+                        transition={{ type: 'spring', stiffness: 400, damping: 15 }}
+                        style={{ display: 'flex' }}
+                      >
+                        {selectedFolderId === folder.id ? (
+                          <FolderOpen style={{ width: 10, height: 10, color: '#000' }} />
+                        ) : (
+                          <Folder style={{ width: 10, height: 10, color: folder.color }} />
+                        )}
+                      </motion.div>
                     )}
                     {folder.name}
                   </button>
@@ -1133,7 +1217,7 @@ const MiniTaskList = () => {
               <TaskRow key={task.id}
                 task={completingId === task.id ? { ...task, status: 'done' } : task}
                 onToggle={handleToggle}
-                onDetail={(t) => { setSelectedTask(t); setDetailOpen(true); }}
+                onDetail={handleDetail}
                 activeTimerId={activeTimerId}
                 onTimerToggle={handleTimerToggle}
                 updateTask={updateTask}
@@ -1150,6 +1234,29 @@ const MiniTaskList = () => {
           </motion.div>
         )}
       </div>
+      </div>
+
+        {/* Hot zone */}
+        <div
+          onMouseEnter={handleCalendarEnter}
+          style={{ width: 4, flexShrink: 0, cursor: 'pointer', position: 'relative' }}
+        >
+          <div style={{
+            position: 'absolute', inset: '12px 0', width: 1,
+            background: C.border, opacity: 0.3, borderRadius: 1,
+          }} />
+        </div>
+
+        {/* Right panel: day calendar */}
+        {calendarOpen && (
+          <div
+            style={{ width: 410, flexShrink: 0, borderLeft: `1px solid ${C.border}33`, display: 'flex', flexDirection: 'column' }}
+            onMouseEnter={handleCalendarEnter}
+          >
+            <MiniDayView events={calendarEvents} currentDate={now} />
+          </div>
+        )}
+    </div>
 
       <TaskCaptureModal
         open={captureOpen}
@@ -1160,7 +1267,7 @@ const MiniTaskList = () => {
       />
       <TaskDetailModal task={selectedTask} open={detailOpen} onClose={() => setDetailOpen(false)} />
       <QuickRecurrenceFlow open={recurrenceFlowOpen} onClose={() => setRecurrenceFlowOpen(false)} />
-    </div>
+    </>
   );
 };
 

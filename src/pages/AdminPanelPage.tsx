@@ -24,6 +24,7 @@ import {
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area, CartesianGrid, Legend } from 'recharts';
+import { useAdminNotifications } from '@/hooks/useAdminNotifications';
 
 // ─── Stat Card ───────────────────────────────────────────────────────────────
 const StatCard = ({ icon: Icon, label, value, sub, color = 'primary', large }: {
@@ -745,6 +746,16 @@ const AdminPanelPage = () => {
           </div>
         </section>
 
+        {/* ─── Notificaciones ─────────────────────────────────────────────── */}
+        <section className="bg-card rounded-2xl p-6 border border-outline-variant/10 shadow-sm mb-8">
+          <div className="flex items-center justify-between mb-5">
+            <h2 className="text-sm font-black uppercase tracking-widest text-on-surface-variant/60">
+              Notificaciones a Usuarios
+            </h2>
+          </div>
+          <NotificationsPanel />
+        </section>
+
         {/* ─── Cohort User Details Modal ────────────────────────────────────── */}
         <AnimatePresence>
           {viewingCohortUsers && (
@@ -899,6 +910,110 @@ const AdminPanelPage = () => {
             </motion.div>
           )}
         </AnimatePresence>
+      </div>
+    </div>
+  );
+};
+
+// ─── Notifications Panel ────────────────────────────────────────────────────
+const NotificationsPanel = () => {
+  const [title, setTitle] = useState('');
+  const [body, setBody] = useState('');
+  const [targetType, setTargetType] = useState<'all' | 'user'>('all');
+  const [targetUserId, setTargetUserId] = useState('');
+  const { notifications, isLoading, createNotification } = useAdminNotifications();
+
+  const handleSend = () => {
+    if (!title.trim() || !body.trim()) return;
+    createNotification.mutate({
+      title: title.trim(),
+      body: body.trim(),
+      target_type: targetType,
+      target_user_id: targetType === 'user' ? targetUserId.trim() : undefined,
+    });
+    setTitle('');
+    setBody('');
+    setTargetUserId('');
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Create Form */}
+      <div className="bg-surface-container-low rounded-2xl p-5 border border-outline-variant/5 space-y-4">
+        <h3 className="text-xs font-black uppercase tracking-widest text-on-surface-variant/60">Crear notificación</h3>
+        <div className="space-y-3">
+          <input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Título de la notificación"
+            className="w-full px-4 py-3 rounded-xl bg-surface-container-high text-sm text-foreground placeholder:text-on-surface-variant/40 border-none outline-none focus:ring-1 focus:ring-primary"
+          />
+          <textarea
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            placeholder="Cuerpo del mensaje..."
+            rows={3}
+            className="w-full px-4 py-3 rounded-xl bg-surface-container-high text-sm text-foreground placeholder:text-on-surface-variant/40 border-none outline-none focus:ring-1 focus:ring-primary resize-none"
+          />
+          <div className="flex items-center gap-4">
+            <select
+              value={targetType}
+              onChange={(e) => setTargetType(e.target.value as 'all' | 'user')}
+              className="px-4 py-2.5 rounded-xl bg-surface-container-high text-sm font-bold text-on-surface-variant outline-none"
+            >
+              <option value="all">Todos los usuarios</option>
+              <option value="user">Usuario específico</option>
+            </select>
+            {targetType === 'user' && (
+              <input
+                value={targetUserId}
+                onChange={(e) => setTargetUserId(e.target.value)}
+                placeholder="User ID..."
+                className="flex-1 px-4 py-2.5 rounded-xl bg-surface-container-high text-sm text-foreground placeholder:text-on-surface-variant/40 border-none outline-none focus:ring-1 focus:ring-primary"
+              />
+            )}
+            <button
+              onClick={handleSend}
+              disabled={!title.trim() || !body.trim() || createNotification.isPending}
+              className="px-6 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-bold hover:opacity-90 transition-opacity disabled:opacity-40 whitespace-nowrap"
+            >
+              {createNotification.isPending ? 'Enviando...' : 'Enviar'}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* History */}
+      <div>
+        <h3 className="text-xs font-black uppercase tracking-widest text-on-surface-variant/60 mb-3">Historial</h3>
+        {isLoading ? (
+          <div className="text-center py-8 text-sm text-on-surface-variant/50">Cargando...</div>
+        ) : !notifications || notifications.length === 0 ? (
+          <div className="text-center py-8 text-sm text-on-surface-variant/50">Sin notificaciones enviadas</div>
+        ) : (
+          <div className="space-y-2">
+            {notifications.map((n) => (
+              <div key={n.id} className="bg-surface-container-low rounded-xl p-4 border border-outline-variant/5">
+                <div className="flex items-start justify-between mb-1">
+                  <div>
+                    <span className="text-sm font-black text-foreground">{n.title}</span>
+                    <span className="text-[10px] font-bold text-on-surface-variant/50 ml-2">
+                      {new Date(n.created_at).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-lg bg-primary/10 text-primary">
+                    {n.target_type === 'all' ? 'Global' : 'Individual'}
+                  </span>
+                </div>
+                <p className="text-sm text-on-surface-variant/70 mb-2">{n.body}</p>
+                <div className="flex items-center gap-4 text-[10px] font-bold text-on-surface-variant/50">
+                  <span>Enviada: {n.sent_count}</span>
+                  <span>Leída: {n.read_count}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

@@ -97,9 +97,14 @@ const FoldersPage = () => {
   }, [JSON.stringify(friendUserIds)]);
 
   const sharedWithIds = shares.map((s: any) => s.shared_with_id);
-  const currentFolder = folders.find((f) => f.id === selectedFolder);
+  const isUncategorized = selectedFolder === '__uncategorized__';
+  const currentFolder = isUncategorized
+    ? { id: '__uncategorized__', name: 'General', color: '#6B7280' }
+    : folders.find((f) => f.id === selectedFolder);
   const folderTasks = useMemo(() => {
-    const raw = selectedFolder ? tasks.filter((t) => t.folder_id === selectedFolder) : [];
+    const raw = isUncategorized
+      ? tasks.filter((t) => t.folder_id === null || t.folder_id === undefined)
+      : selectedFolder ? tasks.filter((t) => t.folder_id === selectedFolder) : [];
     const quadrantRank = (t: any) =>
       t.urgency && t.importance ? 0
       : t.urgency ? 1
@@ -110,7 +115,7 @@ const FoldersPage = () => {
       if (rankDiff !== 0) return rankDiff;
       return (a.sort_order || 0) - (b.sort_order || 0);
     });
-  }, [tasks, selectedFolder]);
+  }, [tasks, selectedFolder, isUncategorized]);
   const completedCount = folderTasks.filter(t => t.status === 'done').length;
 
   const handleComplete = async (task: any, e: React.MouseEvent) => {
@@ -360,6 +365,45 @@ const FoldersPage = () => {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {/* Virtual: General (tareas sin carpeta) */}
+                {tasks.filter(t => !t.folder_id).length > 0 && (
+                  <motion.div
+                    onClick={() => setSelectedFolder('__uncategorized__')}
+                    whileHover={{ y: -8 }}
+                    className="group cursor-pointer relative"
+                  >
+                    <div className="absolute inset-0 rounded-[32px] opacity-0 group-hover:opacity-100 transition-opacity blur-2xl -z-10"
+                      style={{ backgroundColor: '#6B728020' }}
+                    />
+                    <div className="bg-surface border border-dashed border-outline-variant/50 rounded-[32px] p-6 h-full flex flex-col justify-between hover:border-primary/30 transition-colors shadow-sm group-hover:shadow-xl group-hover:shadow-primary/5">
+                      <div className="space-y-4">
+                        <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-2"
+                          style={{ backgroundColor: '#6B728015' }}
+                        >
+                          <Folder className="w-6 h-6" style={{ color: '#6B7280' }} />
+                        </div>
+                        <div>
+                          <h3 className="text-xl font-black tracking-tight font-headline group-hover:text-primary transition-colors">
+                            General
+                          </h3>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between mt-8 pt-4 border-t border-outline-variant/30">
+                        <div className="flex items-center gap-2">
+                          <div className="w-6 h-6 rounded-full bg-surface-container border-2 border-surface flex items-center justify-center">
+                            <span className="text-[10px] font-black">
+                              {tasks.filter(t => !t.folder_id).length}
+                            </span>
+                          </div>
+                          <span className="text-[10px] font-black uppercase tracking-wider text-on-surface-variant/40">
+                            Tareas
+                          </span>
+                        </div>
+                        <ChevronRight className="w-5 h-5 text-on-surface-variant/30 group-hover:translate-x-1 transition-transform" />
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
                 {folders.map((folder) => (
                   <motion.div
                     key={folder.id}
@@ -576,7 +620,7 @@ const FoldersPage = () => {
         ref={captureModalRef} 
         open={captureOpen} 
         onClose={() => setCaptureOpen(false)} 
-        folderId={selectedFolder || undefined}
+        folderId={isUncategorized ? undefined : (selectedFolder || undefined)}
         creationSource="fab" 
       />
       <TaskDetailModal task={selectedTask} open={!!selectedTask} onClose={() => setSelectedTask(null)} />

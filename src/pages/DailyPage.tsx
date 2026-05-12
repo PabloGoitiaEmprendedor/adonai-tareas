@@ -2,13 +2,14 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useTasks } from '@/hooks/useTasks';
 import { useGoals } from '@/hooks/useGoals';
+import { useFolders } from '@/hooks/useFolders';
 import { useProfile } from '@/hooks/useProfile';
 import { useStreaks } from '@/hooks/useStreaks';
 import { useAuth } from '@/contexts/AuthContext';
 import { useGlobalVoiceCapture } from '@/hooks/useGlobalVoiceCapture';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Bell, Flame, Monitor, Sparkles, Zap } from 'lucide-react';
+import { Bell, Flame, Monitor, Sparkles, Folder, FolderOpen } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { triggerTaskCelebration, triggerDailyCelebration, triggerOnTimeCelebration } from '@/lib/celebrations';
 import FAB from '@/components/FAB';
@@ -102,13 +103,15 @@ const getDynamicGreeting = (
 
 const DailyPage = () => {
   const today = useMemo(() => format(new Date(), 'yyyy-MM-dd'), []);
-  const tasksFilter = useMemo(() => ({ date: today }), [today]);
+  const tasksFilter = useMemo(() => ({ date: today, excludeEvents: true }), [today]);
 
   const { user } = useAuth();
   const { tasks, updateTask, isLoading } = useTasks(tasksFilter);
   const { createTask } = useTasks();
   const { goals } = useGoals();
+  const { folders } = useFolders();
   const { profile } = useProfile();
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const { metrics, trackDayActive } = useStreaks();
   const { checkAndUnlock } = useGamification();
   const streakCount = metrics?.streak_current || 0;
@@ -117,13 +120,16 @@ const DailyPage = () => {
   const [captureMode, setCaptureMode] = useState<'text' | 'voice' | null>(null);
   const [selectedTask, setSelectedTask] = useState<any>(null);
   const [timerTask, setTimerTask] = useState<any>(null);
-  const [orderedTasks, setOrderedTasks] = useState<any[]>([]);
   const [dragIdx] = useState<number | null>(null);
   const [completingTaskId, setCompletingTaskId] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
   const timerDurationRef = useRef(0);
   const captureModalRef = useRef<TaskCaptureModalHandle>(null);
   const hasTrackedDayRef = useRef(false);
+  const tasksRef = useRef(tasks);
+  tasksRef.current = tasks;
+  const completedCountRef = useRef(0);
+  completedCountRef.current = tasks.filter((t) => t.status === 'done').length;
   const [miniWidgetOpen, setMiniWidgetOpen] = useState(() => !!window.electronAPI);
 
   useEffect(() => {
@@ -166,40 +172,31 @@ const DailyPage = () => {
     openDownloadDialog();
   }, []);
 
-  const quadrantRank = (t: any) =>
-    t.urgency && t.importance ? 0
-    : t.urgency ? 1
-    : t.importance ? 2
-    : 3;
-
   const sortedTasks = useMemo(() => {
-    return [...tasks].sort((a: any, b: any) => {
-      const rankDiff = quadrantRank(a) - quadrantRank(b);
+    const filtered = !selectedFolderId
+      ? tasks.filter((t: any) => !t.folder_id)
+      : tasks.filter((t: any) => t.folder_id === selectedFolderId);
+    return [...filtered].sort((a: any, b: any) => {
+      const rankA = a.urgency && a.importance ? 0 : a.urgency ? 1 : a.importance ? 2 : 3;
+      const rankB = b.urgency && b.importance ? 0 : b.urgency ? 1 : b.importance ? 2 : 3;
+      const rankDiff = rankA - rankB;
       if (rankDiff !== 0) return rankDiff;
-
       return (a.sort_order || 0) - (b.sort_order || 0);
     });
-  }, [tasks]);
+  }, [tasks, selectedFolderId]);
 
-  useEffect(() => {
-    setOrderedTasks(prev => {
-      const ids = sortedTasks.map((t: any) => t.id).join(',');
-      const prevIds = prev.map((t: any) => t.id).join(',');
-      if (ids === prevIds && prev.length > 0) return prev;
-      return sortedTasks;
-    });
-  }, [sortedTasks]);
+  const completedCount = useMemo(() => tasks.filter((t) => t.status === 'done').length, [tasks]);
 
-  const completedCount = tasks.filter((t) => t.status === 'done').length;
-
-  const greeting = getDynamicGreeting(
+  const greeting = useMemo(() => getDynamicGreeting(
     profile?.name || user?.user_metadata?.full_name || (user?.email?.split('@')[0]) || 'Emprendedor',
     completedCount,
-    orderedTasks.length,
+    sortedTasks.length,
     profile?.main_goal_id ? goals.find((g: any) => g.id === profile.main_goal_id)?.title : undefined
-  );
+  ), [profile, user, completedCount, sortedTasks.length, goals]);
 
-  const handleComplete = async (task: any, e: React.MouseEvent) => {
+  const profileName = useMemo(() => profile?.name, [profile?.name]);
+
+  const handleComplete = useCallback(async (task: any, e: React.MouseEvent) => {
     e.stopPropagation();
     setCompletingTaskId(task.id);
 
@@ -211,8 +208,9 @@ const DailyPage = () => {
     }
 
     setTimeout(() => {
-      const remainingTasks = tasks.filter((t: any) => t.status !== 'done' && t.id !== task.id);
-      const isLastTask = tasks.length > 0 && remainingTasks.length === 0;
+      const currentTasks = tasksRef.current;
+      const remainingTasks = currentTasks.filter((t: any) => t.status !== 'done' && t.id !== task.id);
+      const isLastTask = currentTasks.length > 0 && remainingTasks.length === 0;
 
       updateTask.mutate({ 
         id: task.id, 
@@ -225,21 +223,19 @@ const DailyPage = () => {
           checkAndUnlock.mutate({ type: 'task_completed' });
           
           if (isLastTask) {
-            triggerDailyCelebration(profile?.name);
-            // Smart Notification: Victory
+            triggerDailyCelebration(profileName);
             if (window.electronAPI) {
               window.electronAPI.showNotification(
                 "¡Misión Cumplida! 🎉",
-                `Has terminado todas tus tareas de hoy, ${profile?.name || 'Emprendedor'}. ¡Disfruta tu descanso!`,
+                `Has terminado todas tus tareas de hoy, ${profileName || 'Emprendedor'}. ¡Disfruta tu descanso!`,
                 'success'
               );
             }
           } else if (isCurrentlyTiming) {
-            triggerOnTimeCelebration(task.title, profile?.name);
+            triggerOnTimeCelebration(task.title, profileName);
           } else {
-            triggerTaskCelebration(task.title, profile?.name);
-            // Smart Notification: Milestone (Optional: only if it's a big number)
-            if (completedCount + 1 === 5 && window.electronAPI) {
+            triggerTaskCelebration(task.title, profileName);
+            if (completedCountRef.current + 1 === 5 && window.electronAPI) {
               window.electronAPI.showNotification(
                 "¡Estás en racha! 🔥",
                 "Llevas 5 tareas completadas hoy. Sigue así.",
@@ -251,17 +247,17 @@ const DailyPage = () => {
         onError: () => setCompletingTaskId(null)
       });
     }, 500);
-  };
+  }, [timerTask, updateTask, checkAndUnlock, profileName]);
 
-  const handleUncomplete = (task: any, e: React.MouseEvent) => {
+  const handleUncomplete = useCallback((task: any, e: React.MouseEvent) => {
     e.stopPropagation();
     updateTask.mutate({ id: task.id, status: 'pending', completed_at: null });
-  };
+  }, [updateTask]);
 
-  const handleStartTimer = (task: any, e: React.MouseEvent) => {
+  const handleStartTimer = useCallback((task: any, e: React.MouseEvent) => {
     e.stopPropagation();
     setTimerTask(task);
-  };
+  }, []);
 
   return (
     <div className="min-h-screen bg-background text-foreground selection:bg-primary/20">
@@ -297,23 +293,72 @@ const DailyPage = () => {
             </motion.div>
           </div>
 
-          <div className="flex items-center justify-end w-12 flex-shrink-0">
+          <div className="flex items-center gap-2">
             <motion.button
               id="mini-window-btn"
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.97 }}
               onClick={toggleMiniWidget}
-              className="p-2.5 rounded-xl text-on-surface-variant/50 hover:text-primary transition-all group"
+              className={`px-4 py-2 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all border ${
+                miniWidgetOpen
+                  ? 'bg-primary/15 text-primary border-primary/30 shadow-sm'
+                  : 'bg-surface-container text-on-surface-variant/70 hover:text-primary border-outline-variant/20 hover:border-primary/30'
+              }`}
             >
-              <Zap className={`w-5 h-5 transition-colors ${miniWidgetOpen ? 'text-primary fill-primary/20' : 'text-on-surface-variant hover:text-primary'}`} />
+              {miniWidgetOpen ? 'Desactivar' : 'Activar mini ventana'}
             </motion.button>
           </div>
         </div>
 
+        {/* Folder filter bar */}
+        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-2">
+          <motion.button
+            onClick={() => setSelectedFolderId(null)}
+            whileTap={{ scale: 0.95 }}
+            className={`flex-shrink-0 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border ${
+              !selectedFolderId
+                ? 'bg-primary text-primary-foreground border-primary shadow-sm'
+                : 'bg-surface-container text-on-surface-variant/70 hover:text-primary border-outline-variant/20 hover:border-primary/30'
+            }`}
+          >
+            General
+          </motion.button>
+          {folders.map((folder: any) => {
+            const isSelected = selectedFolderId === folder.id;
+            return (
+              <motion.button
+                key={folder.id}
+                onClick={() => setSelectedFolderId(isSelected ? null : folder.id)}
+                whileTap={{ scale: 0.95 }}
+                className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border ${
+                  isSelected
+                    ? 'bg-primary text-primary-foreground border-primary shadow-sm'
+                    : 'bg-surface-container text-on-surface-variant/70 hover:text-primary border-outline-variant/20 hover:border-primary/30'
+                }`}
+              >
+                <motion.div
+                  key={isSelected ? 'open' : 'closed'}
+                  initial={{ rotateY: isSelected ? 180 : -180, scale: 0.8 }}
+                  animate={{ rotateY: 0, scale: 1 }}
+                  transition={{ type: 'spring', stiffness: 400, damping: 15 }}
+                  style={{ display: 'flex' }}
+                >
+                  {isSelected ? (
+                    <FolderOpen className="w-3.5 h-3.5" />
+                  ) : (
+                    <Folder className="w-3.5 h-3.5" />
+                  )}
+                </motion.div>
+                {folder.name}
+              </motion.button>
+            );
+          })}
+        </div>
+
         <div className="pt-2 space-y-3">
-          <GamificationBar completedCount={completedCount} totalCount={orderedTasks.length} /> 
+          <GamificationBar completedCount={completedCount} totalCount={sortedTasks.length} /> 
 
           <FAB 
             onTextClick={openCapture} 
@@ -333,10 +378,10 @@ const DailyPage = () => {
               <div key={i} className="h-24 bg-surface/50 border border-outline-variant rounded-[24px] animate-pulse" />
             ))}
           </div>
-        ) : orderedTasks.length > 0 ? (
+        ) : sortedTasks.length > 0 ? (
           <div className="space-y-4">
-            <AnimatePresence mode="popLayout">
-              {orderedTasks.map((task, idx) => (
+            <AnimatePresence>
+              {sortedTasks.map((task, idx) => (
                 <TaskCard
                   key={task.id}
                   task={task}

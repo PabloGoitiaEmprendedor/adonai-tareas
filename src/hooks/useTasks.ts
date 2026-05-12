@@ -21,7 +21,7 @@ const parseVirtualTaskId = (id: string) => {
   };
 };
 
-export const useTasks = (filters?: { date?: string; startDate?: string; endDate?: string; status?: string }) => {
+export const useTasks = (filters?: { date?: string; startDate?: string; endDate?: string; status?: string; excludeEvents?: boolean }) => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
@@ -46,6 +46,11 @@ export const useTasks = (filters?: { date?: string; startDate?: string; endDate?
         query = query.eq('user_id', user.id);
       }
       
+      // Exclude calendar-only events from task queries
+      if (filters?.excludeEvents) {
+        query = query.or(`creation_source.neq.event,creation_source.is.null`);
+      }
+
       const todayStr = format(new Date(), 'yyyy-MM-dd');
       const todayStart = `${todayStr}T00:00:00`;
 
@@ -218,15 +223,16 @@ export const useTasks = (filters?: { date?: string; startDate?: string; endDate?
       creation_source?: string;
     }) => {
       if (!user) throw new Error('No user');
-      const { creation_source = 'fab', ...taskData } = task;
+      const creationSource = task.creation_source || 'fab';
       // Strip null/undefined values to avoid sending columns that don't exist in the table
       const cleanData = Object.fromEntries(
-        Object.entries(taskData).filter(([, v]) => v !== null && v !== undefined)
+        Object.entries(task).filter(([, v]) => v !== null && v !== undefined)
       );
       const { data, error } = await supabase
         .from('tasks')
         .insert({
           ...cleanData,
+          creation_source: creationSource,
           user_id: user.id,
           due_date: cleanData.due_date || format(new Date(), 'yyyy-MM-dd'),
         })
@@ -234,19 +240,19 @@ export const useTasks = (filters?: { date?: string; startDate?: string; endDate?
         .single();
 
       if (error) {
-        console.error("[useTasks] Error inserting task:", error, "taskData:", taskData);
+        console.error("[useTasks] Error inserting task:", error, "taskData:", task);
         throw error;
       }
 
       // Determine the event type based on source
       let eventType = 'task_created_text';
-      if (taskData.source_type === 'voice') eventType = 'task_created_voice';
-      else if (taskData.source_type === 'image') eventType = 'task_created_image';
+      if (task.source_type === 'voice') eventType = 'task_created_voice';
+      else if (task.source_type === 'image') eventType = 'task_created_image';
 
       await supabase.from('usage_events').insert({
         user_id: user.id,
         event_type: eventType,
-        metadata: { creation_source },
+        metadata: { creation_source: creationSource },
       });
 
       return data;

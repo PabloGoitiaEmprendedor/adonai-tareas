@@ -4,9 +4,12 @@ import { useTimeBlocks } from '@/hooks/useTimeBlocks';
 import { useFolders } from '@/hooks/useFolders';
 import { usePriorityColors } from '@/hooks/usePriorityColors';
 import { useRecurrenceRules } from '@/hooks/useRecurrenceRules';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { EventManager, Event } from '@/components/ui/event-manager';
 import { format, parseISO, startOfMonth, endOfMonth, addMonths, startOfDay, addHours, differenceInMinutes, addMinutes, isSameDay, eachDayOfInterval } from 'date-fns';
 import { Sparkles, Calendar as CalendarIcon, Plus } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 
 interface AdonaiCalendarViewProps {
   selectedDate: Date;
@@ -55,16 +58,47 @@ const rebuildDescription = (startTime: Date | null, endTime: Date | null, color:
 };
 
 const AdonaiCalendarView: React.FC<AdonaiCalendarViewProps> = ({ selectedDate, onSelectDate, viewMode = 'day' }) => {
+  const { user } = useAuth();
   const dateStr = format(selectedDate, 'yyyy-MM-dd');
   
   const rangeStart = useMemo(() => startOfMonth(selectedDate), [selectedDate]);
   const rangeEnd = useMemo(() => endOfMonth(selectedDate), [selectedDate]);
+
+  // Fetch all materialized recurring task instances (completed/deleted per-date)
+  const { data: materializedTasks = [], refetch: refetchMaterialized } = useQuery({
+    queryKey: ['materialized-recurrence', user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const { data } = await supabase
+        .from('tasks')
+        .select('id, recurrence_id, due_date, status')
+        .eq('user_id', user.id)
+        .not('recurrence_id', 'is', null);
+      return data || [];
+    },
+    enabled: !!user,
+    staleTime: 30_000,
+  });
   const tasksFilter = useMemo(() => ({
     startDate: format(rangeStart, 'yyyy-MM-dd'),
     endDate: format(rangeEnd, 'yyyy-MM-dd'),
   }), [rangeStart, rangeEnd]);
   
   const { tasks, createTask, updateTask, deleteTask } = useTasks(tasksFilter);
+
+  // Map excluded dates to event instance IDs for EventManager
+  const recurrenceExceptions = useMemo(() => {
+    const exceptions = new Set<string>();
+    (materializedTasks || []).forEach((mt: any) => {
+      if (mt.status !== 'done' && mt.status !== 'deleted') return;
+      exceptions.add(`task-${mt.id}`);
+      const anchorTask = tasks?.find((t: any) => t.recurrence_id === mt.recurrence_id);
+      if (anchorTask) {
+        exceptions.add(`task-${anchorTask.id}-rec-${mt.due_date}`);
+      }
+    });
+    return exceptions;
+  }, [materializedTasks, tasks]);
 
   const rangeStartStr = format(rangeStart, 'yyyy-MM-dd');
   const rangeEndStr = format(rangeEnd, 'yyyy-MM-dd');
@@ -258,6 +292,7 @@ tasks?.forEach((task) => {
             priority: (urgency ? 2 : 0) + (importance ? 1 : 0),
             isAllDay: !scheduledTime,
             completed: task.status === 'done',
+            isEvent: task.creation_source === 'event',
             recurrence: taskRecurrence,
             recurrenceDays: taskRecurrenceDays,
           });
@@ -267,7 +302,42 @@ tasks?.forEach((task) => {
     return events;
   }, [tasks, timeBlocks, dateStr, folders, priorityColors, rangeStart, rangeEnd, recurrenceRules]);
 
-const handleEventUpdate = (id: string, updates: Partial<Event>) => {
+const handleEventUpdate = async (id: string, updates: Partial<Event>) => {
+    // Handle completion of recurring instances (skip for calendar-only events)
+    const recMatch = id.match(/^task-(.+)-rec-(\d{4}-\d{2}-\d{2})$/);
+    if (recMatch && updates.completed === true) {
+      const anchorTaskId = recMatch[1];
+      const dueDate = recMatch[2];
+      const anchorTask = tasks?.find((t: any) => t.id === anchorTaskId);
+      // Events (creation_source='event') don't get checked off
+      if (anchorTask?.creation_source === 'event') return;
+      if (anchorTask && anchorTask.recurrence_id) {
+        const { error } = await supabase.from('tasks').insert({
+          user_id: user?.id,
+          title: anchorTask.title,
+          description: anchorTask.description,
+          due_date: dueDate,
+          recurrence_id: anchorTask.recurrence_id,
+          status: 'done',
+          completed_at: new Date().toISOString(),
+          priority: anchorTask.priority || 'medium',
+          importance: anchorTask.importance || false,
+          urgency: anchorTask.urgency || false,
+          source_type: 'text',
+          creation_source: 'calendar',
+        });
+        if (error) {
+          console.error('[calendar] Error saving recurrence completion:', error);
+        } else {
+          refetchMaterialized();
+        }
+      }
+      return;
+    }
+
+    // Skip drag updates for generated recurring instances (use optimistic local state only)
+    if (id.match(/^task-.+-rec-\d{4}-\d{2}-\d{2}$/)) return;
+
     if (id.startsWith('block-')) {
       // Extract base block ID (strip date suffix from generated events like "block-{id}-2026-05-11")
       const blockId = id.replace(/^block-/, '').replace(/-\d{4}-\d{2}-\d{2}$/, '');
@@ -408,9 +478,19 @@ const handleEventUpdate = (id: string, updates: Partial<Event>) => {
     const eventDateStr = format(start, 'yyyy-MM-dd');
 
     const cleanDesc = stripAllPrefixes(event.description || '');
-    const description = !event.isAllDay
-      ? rebuildDescription(start, end, event.color || null, cleanDesc)
-      : rebuildDescription(null, null, event.color || null, cleanDesc) || undefined;
+    const isEvent = event.isEvent === true;
+
+    let description: string | undefined;
+    if (event.isAllDay) {
+      // task_only: no time info
+      description = cleanDesc || undefined;
+    } else if (isEvent) {
+      // calendar_only: time info + isEvent flag
+      description = rebuildDescription(start, end, event.color || null, cleanDesc);
+    } else {
+      // both: time info, no isEvent flag
+      description = rebuildDescription(start, end, event.color || null, cleanDesc);
+    }
 
     createTask.mutate(
       {
@@ -421,23 +501,53 @@ const handleEventUpdate = (id: string, updates: Partial<Event>) => {
         link: event.links && event.links.length > 0 ? event.links[0] : null,
         due_date: eventDateStr,
         status: 'pending',
+        creation_source: isEvent ? 'event' : undefined,
       },
       {
         onSuccess: () => {
           window.dispatchEvent(new CustomEvent('adonai:notify', {
-            detail: { type: 'success', message: 'Evento creado' }
+            detail: { type: 'success', message: isEvent ? 'Evento creado' : 'Tarea creada' }
           }));
         },
         onError: () => {
           window.dispatchEvent(new CustomEvent('adonai:notify', {
-            detail: { type: 'error', message: 'Error al crear el evento' }
+            detail: { type: 'error', message: 'Error al crear' }
           }));
         }
       }
     );
   };
 
-  const handleEventDelete = (id: string) => {
+  const handleEventDelete = async (id: string) => {
+    // Check if this is a recurring instance (task-{id}-rec-{date})
+    const recMatch = id.match(/^task-(.+)-rec-(\d{4}-\d{2}-\d{2})$/);
+    if (recMatch) {
+      const anchorTaskId = recMatch[1];
+      const dueDate = recMatch[2];
+      const anchorTask = tasks?.find((t: any) => t.id === anchorTaskId);
+      if (!anchorTask || !anchorTask.recurrence_id) return;
+      // Create a 'deleted' materialized task for this specific date
+      const { error } = await supabase.from('tasks').insert({
+        user_id: user?.id,
+        title: anchorTask.title,
+        description: anchorTask.description,
+        due_date: dueDate,
+        recurrence_id: anchorTask.recurrence_id,
+        status: 'deleted',
+        priority: anchorTask.priority || 'medium',
+        importance: anchorTask.importance || false,
+        urgency: anchorTask.urgency || false,
+        source_type: 'text',
+        creation_source: 'calendar',
+      });
+      if (!error) {
+        window.dispatchEvent(new CustomEvent('adonai:notify', {
+          detail: { type: 'success', message: `Ocurrencia del ${dueDate} eliminada` }
+        }));
+        refetchMaterialized();
+      }
+      return;
+    }
     if (id.startsWith('block-')) {
       const blockId = id.replace(/^block-/, '').replace(/-\d{4}-\d{2}-\d{2}$/, '');
       deleteBlock.mutate(blockId);
@@ -470,6 +580,7 @@ const handleEventUpdate = (id: string, updates: Partial<Event>) => {
           ]}
           defaultView={viewMode}
           className="min-h-[600px]"
+          recurrenceExceptions={recurrenceExceptions}
         />
       </div>
 

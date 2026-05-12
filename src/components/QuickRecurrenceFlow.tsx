@@ -228,7 +228,7 @@ const QuickRecurrenceFlow = ({ open, onClose }: QuickRecurrenceFlowProps) => {
         priority: 'medium',
         status: 'pending',
         source_type: 'text',
-        creation_source: 'secondary',
+        creation_source: hasSpecificTime ? 'event' : 'secondary',
         estimated_minutes: estimatedMinutes,
       });
 

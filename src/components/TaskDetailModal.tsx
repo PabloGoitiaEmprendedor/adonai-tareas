@@ -336,7 +336,7 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
                         <div className="flex flex-wrap gap-2">
                           <button onClick={() => { setFolderId(null); markChanged(); }}
                             className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border ${!folderId ? 'bg-primary text-primary-foreground border-primary shadow-lg shadow-primary/20' : 'bg-surface-container/30 text-muted-foreground border-outline-variant/10 hover:bg-surface-container/50'}`}>
-                            Sin carpeta
+                            General
                           </button>
                           {folders.map((folder) => (
                             <button key={folder.id} onClick={() => { setFolderId(folder.id === folderId ? null : folder.id); markChanged(); }}

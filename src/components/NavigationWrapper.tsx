@@ -6,7 +6,6 @@ import { toast } from 'sonner';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import BottomNav from './BottomNav';
 import AppTutorial from './AppTutorial';
 import TitleBar from './TitleBar';
 import { useProfile } from '@/hooks/useProfile';
@@ -258,7 +257,6 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
         </div>
       </main>
 
-      <BottomNav />
       <AppTutorial run={tutorialRun} onFinish={() => setTutorialRun(false)} />
     </div>
   );
