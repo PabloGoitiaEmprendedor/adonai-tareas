@@ -352,9 +352,9 @@ function Footer() {
     <footer className="border-t border-foreground/10 px-6 py-8 text-center text-xs text-muted-foreground/60">
       <p>© {new Date().getFullYear()} Adonai. Hecho simple, a propósito.</p>
       <div className="mt-2 flex items-center justify-center gap-3">
-        <Link to="/privacy" className="underline underline-offset-2 hover:text-muted-foreground/90 transition-colors">Política de Privacidad</Link>
+        <Link to="/politica-de-privacidad" className="underline underline-offset-2 hover:text-muted-foreground/90 transition-colors">Política de Privacidad</Link>
         <span className="text-muted-foreground/30">·</span>
-        <Link to="/terms" className="underline underline-offset-2 hover:text-muted-foreground/90 transition-colors">Términos de Servicio</Link>
+        <Link to="/terminos-de-servicio" className="underline underline-offset-2 hover:text-muted-foreground/90 transition-colors">Términos de Servicio</Link>
       </div>
     </footer>
   );

@@ -174,8 +174,8 @@ const AppRoutes = () => {
         <Route path="/admin" element={appRouteElement(<AdminPanelPage />)} />
         <Route path="/selection-bubble" element={<SelectionBubblePage />} />
         <Route path="/quick-task" element={<QuickTaskPage />} />
-        <Route path="/privacy" element={<PrivacyPolicyPage />} />
-        <Route path="/terms" element={<TermsOfServicePage />} />
+        <Route path="/politica-de-privacidad" element={<PrivacyPolicyPage />} />
+        <Route path="/terminos-de-servicio" element={<TermsOfServicePage />} />
         <Route path="/docs/exit-codes" element={<ExitCodesPage />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
