@@ -26,4 +26,26 @@
     <priority>0.3</priority>
   </url>
 
+  <!-- Public Info pages -->
+  <url>
+    <loc>https://webadonai.com/#/caracteristicas</loc>
+    <lastmod>2026-05-13</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://webadonai.com/#/faq</loc>
+    <lastmod>2026-05-13</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+
+  <url>
+    <loc>https://webadonai.com/#/codigos-de-retorno</loc>
+    <lastmod>2026-05-13</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+
 </urlset>

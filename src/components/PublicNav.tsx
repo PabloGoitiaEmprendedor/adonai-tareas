@@ -6,7 +6,7 @@ import { WIN_DOWNLOAD, MAC_DOWNLOAD } from "@/lib/download-urls";
 const NAV_LINKS = [
   { label: "Inicio",          to: "/" },
   { label: "Características", to: "/caracteristicas" },
-  { label: "FAQ",             to: "/#faq" },
+  { label: "FAQ",             to: "/faq" },
 ];
 
 function useDownloadWin() {

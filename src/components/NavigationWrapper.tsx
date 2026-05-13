@@ -290,16 +290,18 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
     setOpen(false);
   };
 
-  // For /mini popup window, Auth Page, or Landing Page on web — render children without any navigation chrome
+  // For /mini popup window, Auth Page, Landing Page, or public pages — render children without any navigation chrome
   const isAuthPage = location.pathname === '/auth';
   const isMiniPage = location.pathname === '/mini';
   const isLandingPage = location.pathname === '/';
   const isPrivacyPage = location.pathname === '/politica-de-privacidad';
   const isTermsPage = location.pathname === '/terminos-de-servicio';
   const isDocsPage = location.pathname.startsWith('/docs');
+  const isCaracteristicasPage = location.pathname === '/caracteristicas';
+  const isFaqPage = location.pathname === '/faq';
   
-  // Solo mostrar navegación si NO está cargando y NO es auth/mini/landing/privacy/terms/docs
-  const showNavigation = !loading && !isAuthPage && !isMiniPage && !isLandingPage && !isPrivacyPage && !isTermsPage && !isDocsPage;
+  // Solo mostrar navegación si NO está cargando y NO es auth/mini/landing/privacy/terms/docs/caracteristicas/faq
+  const showNavigation = !loading && !isAuthPage && !isMiniPage && !isLandingPage && !isPrivacyPage && !isTermsPage && !isDocsPage && !isCaracteristicasPage && !isFaqPage;
 
   if (!showNavigation) {
     return <>{children}</>;

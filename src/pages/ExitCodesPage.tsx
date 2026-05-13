@@ -1,178 +1,173 @@
+import { useEffect } from "react";
 import { Link } from "react-router-dom";
+import { PublicNav } from "@/components/PublicNav";
+import { PublicFooter } from "@/components/PublicFooter";
+import { motion } from "framer-motion";
+import { Terminal, Code, Info, AlertTriangle, CheckCircle2, XCircle, HardDrive, Network, ShieldAlert, ArrowLeft, Command } from "lucide-react";
 
 const ExitCodesPage = () => {
+  useEffect(() => {
+    document.title = "Códigos de Retorno | Adonai Documentation";
+    const metaDesc = document.querySelector('meta[name="description"]');
+    if (metaDesc) {
+      metaDesc.setAttribute("content", "Documentación técnica de los códigos de retorno y modificadores CLI del instalador de Adonai Tasks.");
+    }
+  }, []);
+
   return (
-    <div className="min-h-screen bg-white text-gray-900">
-      <div className="max-w-[800px] mx-auto px-6 py-12 space-y-8">
-        <Link to="/" className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-900 transition-colors">
-          ← Volver a Adonai
-        </Link>
+    <div className="min-h-screen bg-background text-foreground selection:bg-primary selection:text-primary-foreground font-sans">
+      <PublicNav />
 
-        <h1 className="text-3xl font-bold tracking-tight">Códigos de Retorno del Instalador</h1>
-        <p className="text-sm text-gray-500">
-          Documentación de los códigos de retorno (exit codes) del instalador <code className="bg-gray-100 px-1.5 py-0.5 rounded text-xs">Adonai-Setup.exe</code>.
-        </p>
-
-        <section className="space-y-3 text-sm leading-relaxed text-gray-700">
-          <h2 className="text-base font-semibold text-gray-900">Escenarios de instalación</h2>
-          <div className="overflow-hidden border border-gray-200 rounded-xl">
-            <table className="w-full text-sm text-left">
-              <thead className="bg-gray-50 border-b border-gray-200">
-                <tr>
-                  <th className="px-5 py-3 font-semibold text-gray-900">Escenario</th>
-                  <th className="px-5 py-3 font-semibold text-gray-900">Código</th>
-                  <th className="px-5 py-3 font-semibold text-gray-900">Descripción</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                <tr className="hover:bg-gray-50">
-                  <td className="px-5 py-4 text-gray-900 font-medium">Instalación exitosa</td>
-                  <td className="px-5 py-4 font-mono text-green-700 font-bold">0</td>
-                  <td className="px-5 py-4 text-gray-600">Instalación completada correctamente.</td>
-                </tr>
-                <tr className="hover:bg-gray-50">
-                  <td className="px-5 py-4 text-gray-900 font-medium">Error general</td>
-                  <td className="px-5 py-4 font-mono text-red-700 font-bold">1</td>
-                  <td className="px-5 py-4 text-gray-600">Cualquier error de instalación no especificado.</td>
-                </tr>
-                <tr className="hover:bg-gray-50">
-                  <td className="px-5 py-4 text-gray-900 font-medium">Usuario canceló instalación</td>
-                  <td className="px-5 py-4 font-mono text-red-700 font-bold">2</td>
-                  <td className="px-5 py-4 text-gray-600">No aplica en modo oneClick (sin interfaz de usuario).</td>
-                </tr>
-                <tr className="hover:bg-gray-50">
-                  <td className="px-5 py-4 text-gray-900 font-medium">Aplicación ya existe</td>
-                  <td className="px-5 py-4 font-mono text-green-700 font-bold">3</td>
-                  <td className="px-5 py-4 text-gray-600">El instalador detecta y actualiza la versión existente. Se retorna 0 en la práctica.</td>
-                </tr>
-                <tr className="hover:bg-gray-50">
-                  <td className="px-5 py-4 text-gray-900 font-medium">Instalación ya en curso</td>
-                  <td className="px-5 py-4 font-mono text-red-700 font-bold">4</td>
-                  <td className="px-5 py-4 text-gray-600">NSIS bloquea con mutex. El segundo proceso es rechazado.</td>
-                </tr>
-                <tr className="hover:bg-gray-50">
-                  <td className="px-5 py-4 text-gray-900 font-medium">Disco lleno</td>
-                  <td className="px-5 py-4 font-mono text-red-700 font-bold">5</td>
-                  <td className="px-5 py-4 text-gray-600">NSIS retorna error cuando no hay espacio suficiente en disco.</td>
-                </tr>
-                <tr className="hover:bg-gray-50">
-                  <td className="px-5 py-4 text-gray-900 font-medium">Reinicio requerido</td>
-                  <td className="px-5 py-4 font-mono text-green-700 font-bold">6</td>
-                  <td className="px-5 py-4 text-gray-600">El instalador oneClick no requiere reinicio forzoso.</td>
-                </tr>
-                <tr className="hover:bg-gray-50">
-                  <td className="px-5 py-4 text-gray-900 font-medium">Error de red</td>
-                  <td className="px-5 py-4 font-mono text-red-700 font-bold">7</td>
-                  <td className="px-5 py-4 text-gray-600">No aplica. El instalador es un ejecutable local sin descarga de contenido.</td>
-                </tr>
-                <tr className="hover:bg-gray-50">
-                  <td className="px-5 py-4 text-gray-900 font-medium">Paquete rechazado en instalación</td>
-                  <td className="px-5 py-4 font-mono text-red-700 font-bold">8</td>
-                  <td className="px-5 py-4 text-gray-600">Instalador corrupto o firma inválida. Windows bloquea antes de ejecutar NSIS.</td>
-                </tr>
-              </tbody>
-            </table>
+      {/* ── Header ── */}
+      <header className="relative pt-32 pb-20 px-6 text-center overflow-hidden">
+        {/* Glow effect */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-[800px] h-[500px] bg-primary/5 rounded-[100%] blur-[120px] pointer-events-none -translate-y-1/2" />
+        
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="max-w-3xl mx-auto relative z-10"
+        >
+          <div className="inline-flex items-center gap-2 mb-6 px-4 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary text-[10px] font-black uppercase tracking-widest">
+            <Terminal className="w-3.5 h-3.5" />
+            Documentación Técnica
           </div>
-        </section>
+          <h1 className="text-5xl md:text-7xl font-black tracking-tight mb-6">
+            Códigos de <span className="text-primary font-mono">Retorno</span>
+          </h1>
+          <p className="text-lg text-foreground/40 font-medium">
+            Documentación de <code className="bg-white/5 px-2 py-0.5 rounded font-mono text-primary italic">Adonai-Setup.exe</code>.
+          </p>
+        </motion.div>
+      </header>
 
-        <section className="space-y-3 text-sm leading-relaxed text-gray-700">
-          <h2 className="text-base font-semibold text-gray-900">Resumen de códigos</h2>
-          <div className="overflow-hidden border border-gray-200 rounded-xl">
-            <table className="w-full text-sm text-left">
-              <thead className="bg-gray-50 border-b border-gray-200">
-                <tr>
-                  <th className="px-5 py-3 font-semibold text-gray-900">Código</th>
-                  <th className="px-5 py-3 font-semibold text-gray-900">Significado</th>
-                  <th className="px-5 py-3 font-semibold text-gray-900">Descripción</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                <tr className="hover:bg-gray-50">
-                  <td className="px-5 py-4 font-mono text-green-700 font-bold">0</td>
-                  <td className="px-5 py-4 font-medium text-gray-900">Éxito</td>
-                  <td className="px-5 py-4 text-gray-600">Instalación completada correctamente.</td>
-                </tr>
-                <tr className="hover:bg-gray-50">
-                  <td className="px-5 py-4 font-mono text-red-700 font-bold">1</td>
-                  <td className="px-5 py-4 font-medium text-gray-900">Error general</td>
-                  <td className="px-5 py-4 text-gray-600">Error de instalación no especificado.</td>
-                </tr>
-                <tr className="hover:bg-gray-50">
-                  <td className="px-5 py-4 font-mono text-red-700 font-bold">2</td>
-                  <td className="px-5 py-4 font-medium text-gray-900">Cancelado por usuario</td>
-                  <td className="px-5 py-4 text-gray-600">Instalación cancelada.</td>
-                </tr>
-                <tr className="hover:bg-gray-50">
-                  <td className="px-5 py-4 font-mono text-green-700 font-bold">3</td>
-                  <td className="px-5 py-4 font-medium text-gray-900">Actualización</td>
-                  <td className="px-5 py-4 text-gray-600">Aplicación existente actualizada.</td>
-                </tr>
-                <tr className="hover:bg-gray-50">
-                  <td className="px-5 py-4 font-mono text-red-700 font-bold">4</td>
-                  <td className="px-5 py-4 font-medium text-gray-900">Instalador bloqueado</td>
-                  <td className="px-5 py-4 text-gray-600">Otra instancia ya se está ejecutando.</td>
-                </tr>
-                <tr className="hover:bg-gray-50">
-                  <td className="px-5 py-4 font-mono text-red-700 font-bold">5</td>
-                  <td className="px-5 py-4 font-medium text-gray-900">Disco lleno</td>
-                  <td className="px-5 py-4 text-gray-600">Espacio insuficiente en disco.</td>
-                </tr>
-                <tr className="hover:bg-gray-50">
-                  <td className="px-5 py-4 font-mono text-green-700 font-bold">6</td>
-                  <td className="px-5 py-4 font-medium text-gray-900">Sin reinicio</td>
-                  <td className="px-5 py-4 text-gray-600">No requiere reinicio del sistema.</td>
-                </tr>
-                <tr className="hover:bg-gray-50">
-                  <td className="px-5 py-4 font-mono text-red-700 font-bold">7</td>
-                  <td className="px-5 py-4 font-medium text-gray-900">Error de red</td>
-                  <td className="px-5 py-4 text-gray-600">Sin conexión (no aplica, instalador local).</td>
-                </tr>
-                <tr className="hover:bg-gray-50">
-                  <td className="px-5 py-4 font-mono text-red-700 font-bold">8</td>
-                  <td className="px-5 py-4 font-medium text-gray-900">Paquete rechazado</td>
-                  <td className="px-5 py-4 text-gray-600">Instalador corrupto o firma inválida.</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </section>
+      {/* ── Main Content ── */}
+      <main className="max-w-4xl mx-auto px-6 pb-32">
+        <div className="grid gap-16 md:gap-24">
+          
+          {/* Section: Escenarios de instalación */}
+          <motion.section 
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="space-y-8"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-secondary flex items-center justify-center text-primary">
+                <Code className="w-5 h-5" />
+              </div>
+              <h2 className="text-2xl font-black tracking-tight">Escenarios de instalación</h2>
+            </div>
 
-        <section className="space-y-3 text-sm leading-relaxed text-gray-700">
-          <h2 className="text-base font-semibold text-gray-900">Comportamiento del instalador</h2>
-          <ul className="list-disc pl-5 space-y-1 text-gray-600">
-            <li>El instalador es de tipo <strong>oneClick</strong>: se ejecuta en modo silencioso sin ventanas de configuración.</li>
-            <li>No requiere modificadores de línea de comandos para instalación silenciosa.</li>
-            <li>Se instala por usuario (no por máquina).</li>
-            <li>Crea acceso directo en el escritorio y menú de inicio.</li>
-            <li>La aplicación se inicia automáticamente al finalizar la instalación.</li>
-          </ul>
-        </section>
+            <div className="overflow-hidden rounded-[32px] border border-foreground/5 bg-secondary/30 backdrop-blur-sm">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-foreground/5 bg-foreground/[0.02]">
+                      <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-foreground/30">Escenario</th>
+                      <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-foreground/30">Código</th>
+                      <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-foreground/30">Descripción</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-foreground/5">
+                    {[
+                      { scenario: "Instalación exitosa", code: "0", desc: "Instalación completada correctamente.", icon: <CheckCircle2 className="w-4 h-4 text-primary" />, status: "success" },
+                      { scenario: "Error general", code: "1", desc: "Cualquier error de instalación no especificado.", icon: <XCircle className="w-4 h-4 text-red-500" />, status: "error" },
+                      { scenario: "Cancelado por usuario", code: "2", desc: "No aplica en modo oneClick (sin interfaz).", icon: <AlertTriangle className="w-4 h-4 text-yellow-500" />, status: "warning" },
+                      { scenario: "Aplicación ya existe", code: "3", desc: "Se detecta y actualiza la versión existente.", icon: <CheckCircle2 className="w-4 h-4 text-primary" />, status: "success" },
+                      { scenario: "Instalación en curso", code: "4", desc: "NSIS bloquea con mutex. Segundo proceso rechazado.", icon: <ShieldAlert className="w-4 h-4 text-red-500" />, status: "error" },
+                      { scenario: "Disco lleno", code: "5", desc: "Espacio insuficiente en el disco de destino.", icon: <HardDrive className="w-4 h-4 text-red-500" />, status: "error" },
+                      { scenario: "Error de red", code: "7", desc: "No aplica. El instalador es un ejecutable local.", icon: <Network className="w-4 h-4 text-foreground/20" />, status: "muted" },
+                    ].map((item, i) => (
+                      <tr key={i} className="hover:bg-foreground/[0.02] transition-colors group">
+                        <td className="px-6 py-5 font-bold text-sm text-foreground/80 flex items-center gap-3">
+                          {item.icon}
+                          {item.scenario}
+                        </td>
+                        <td className="px-6 py-5 font-mono font-black text-primary text-sm tracking-widest">
+                          {item.code}
+                        </td>
+                        <td className="px-6 py-5 text-sm text-foreground/40 font-medium leading-relaxed">
+                          {item.desc}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </motion.section>
 
-        <section className="space-y-3 text-sm leading-relaxed text-gray-700">
-          <h2 className="text-base font-semibold text-gray-900">Modificadores opcionales</h2>
-          <p className="text-gray-600">El instalador acepta los siguientes parámetros opcionales desde la línea de comandos:</p>
-          <div className="overflow-hidden border border-gray-200 rounded-xl">
-            <table className="w-full text-sm text-left">
-              <thead className="bg-gray-50 border-b border-gray-200">
-                <tr>
-                  <th className="px-5 py-3 font-semibold text-gray-900">Modificador</th>
-                  <th className="px-5 py-3 font-semibold text-gray-900">Efecto</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                <tr className="hover:bg-gray-50">
-                  <td className="px-5 py-4 font-mono text-gray-800 font-bold">/S</td>
-                  <td className="px-5 py-4 text-gray-600">Ejecuta el instalador en modo completamente silencioso (sin barra de progreso).</td>
-                </tr>
-                <tr className="hover:bg-gray-50">
-                  <td className="px-5 py-4 font-mono text-gray-800 font-bold">/D=C:\ruta</td>
-                  <td className="px-5 py-4 text-gray-600">Especifica el directorio de instalación. Debe ser el último parámetro.</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </section>
-      </div>
+          {/* Section: Comportamiento */}
+          <motion.section 
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="grid md:grid-cols-2 gap-8"
+          >
+            <div className="p-8 rounded-[40px] bg-secondary border border-foreground/5 space-y-6 group hover:border-primary/20 transition-all duration-500">
+              <div className="w-12 h-12 rounded-2xl bg-background flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
+                <Info className="w-6 h-6" />
+              </div>
+              <h3 className="text-xl font-black tracking-tight">Comportamiento One-Click</h3>
+              <ul className="space-y-4 text-sm text-foreground/60 font-medium">
+                <li className="flex items-center gap-3">
+                  <div className="w-1.5 h-1.5 rounded-full bg-primary" />
+                  Ejecución silenciosa sin ventanas
+                </li>
+                <li className="flex items-center gap-3">
+                  <div className="w-1.5 h-1.5 rounded-full bg-primary" />
+                  Instalación por usuario (sin admin req.)
+                </li>
+                <li className="flex items-center gap-3">
+                  <div className="w-1.5 h-1.5 rounded-full bg-primary" />
+                  Auto-inicio al finalizar
+                </li>
+              </ul>
+            </div>
+
+            <div className="p-8 rounded-[40px] bg-primary/5 border border-primary/10 space-y-6 group hover:bg-primary/10 transition-all duration-500">
+              <div className="w-12 h-12 rounded-2xl bg-primary text-black flex items-center justify-center group-hover:scale-110 transition-transform">
+                <Command className="w-6 h-6" />
+              </div>
+              <h3 className="text-xl font-black tracking-tight">Modificadores CLI</h3>
+              <div className="space-y-4">
+                <div className="flex justify-between items-center p-3 rounded-xl bg-background/50 border border-foreground/5">
+                  <code className="text-primary font-black">/S</code>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-foreground/30">Totalmente Silencioso</span>
+                </div>
+                <div className="flex justify-between items-center p-3 rounded-xl bg-background/50 border border-foreground/5">
+                  <code className="text-primary font-black">/D=C:\Ruta</code>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-foreground/30">Destino Custom</span>
+                </div>
+              </div>
+            </div>
+          </motion.section>
+
+          {/* Section: Disclaimer */}
+          <motion.section 
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="p-8 rounded-[32px] bg-secondary/50 border border-foreground/5 text-center"
+          >
+            <p className="text-sm text-foreground/40 font-medium max-w-2xl mx-auto leading-relaxed">
+              Esta documentación está dirigida a administradores de sistemas y usuarios avanzados que deseen automatizar el despliegue de Adonai en entornos controlados.
+            </p>
+          </motion.section>
+
+        </div>
+
+        {/* ── Back Link ── */}
+        <div className="mt-24 pt-12 border-t border-foreground/5 text-center">
+          <Link to="/" className="inline-flex items-center gap-2 text-foreground/30 hover:text-primary transition-colors font-black text-sm uppercase tracking-widest group">
+            <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
+            Volver al inicio
+          </Link>
+        </div>
+      </main>
+
+      <PublicFooter />
     </div>
   );
 };

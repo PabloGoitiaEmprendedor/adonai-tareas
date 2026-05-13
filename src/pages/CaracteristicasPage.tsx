@@ -1,7 +1,9 @@
 import { Link } from "react-router-dom";
 import { PublicNav } from "@/components/PublicNav";
-import { Monitor, Apple, Loader2, Download } from "lucide-react";
-import { useState } from "react";
+import { PublicFooter } from "@/components/PublicFooter";
+import { Monitor, Apple, Loader2, Flame, Trophy, Target, CalendarDays, Users, Timer, FolderOpen, Sparkles, Check, ArrowRight } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { motion, useInView } from "framer-motion";
 import { WIN_DOWNLOAD, MAC_DOWNLOAD } from "@/lib/download-urls";
 
 /* ── Download helpers ── */
@@ -20,205 +22,439 @@ function useDownload(url: string) {
   return { loading, handle };
 }
 
-/* ── Feature block ── */
-function FeatureBlock({
-  emoji, tag, title, body, reversed = false, highlight,
-}: {
-  emoji: string; tag: string; title: string; body: string;
-  reversed?: boolean; highlight?: string;
-}) {
-  return (
-    <article
-      className={`mx-auto max-w-5xl flex flex-col gap-10 items-center ${reversed ? "lg:flex-row-reverse" : "lg:flex-row"}`}
-    >
-      {/* Ilustración */}
-      <div className="w-full lg:w-1/2 flex-shrink-0">
-        <div className="relative rounded-3xl bg-foreground/5 border border-foreground/8 aspect-video flex items-center justify-center overflow-hidden shadow-lg">
-          <span className="text-[7rem] select-none drop-shadow-2xl">{emoji}</span>
-          <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent pointer-events-none" />
-        </div>
-      </div>
+/* ── Animated counter ── */
+function AnimatedCounter({ end, suffix = "", duration = 2000 }: { end: number; suffix?: string; duration?: number }) {
+  const [count, setCount] = useState(0);
+  const ref = useRef<HTMLSpanElement>(null);
+  const isInView = useInView(ref, { once: true });
 
-      {/* Texto */}
-      <div className="w-full lg:w-1/2">
-        <p className="text-xs font-black uppercase tracking-[0.25em] text-primary mb-3">{tag}</p>
-        <h2 className="text-3xl font-black leading-tight md:text-4xl">
+  useEffect(() => {
+    if (!isInView) return;
+    let start = 0;
+    const step = end / (duration / 16);
+    const timer = setInterval(() => {
+      start += step;
+      if (start >= end) { setCount(end); clearInterval(timer); }
+      else setCount(Math.floor(start));
+    }, 16);
+    return () => clearInterval(timer);
+  }, [isInView, end, duration]);
+
+  return <span ref={ref}>{count}{suffix}</span>;
+}
+
+/* ── Feature block with screenshot and animations ── */
+function FeatureBlock({
+  icon: Icon, tag, title, body, reversed = false, highlight, screenshot, index,
+}: {
+  icon: React.ElementType; tag: string; title: string; body: string;
+  reversed?: boolean; highlight?: string; screenshot?: string; index: number;
+}) {
+  const ref = useRef(null);
+  const isInView = useInView(ref, { once: true, margin: "-100px" });
+
+  return (
+    <motion.article
+      ref={ref}
+      initial={{ opacity: 0, y: 60 }}
+      animate={isInView ? { opacity: 1, y: 0 } : {}}
+      transition={{ duration: 0.8, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
+      className={`mx-auto max-w-6xl flex flex-col gap-12 items-center ${reversed ? "lg:flex-row-reverse" : "lg:flex-row"}`}
+    >
+      {/* Screenshot / Visual */}
+      <motion.div
+        className="w-full lg:w-[55%] flex-shrink-0"
+        initial={{ opacity: 0, scale: 0.9, rotateY: reversed ? -10 : 10 }}
+        animate={isInView ? { opacity: 1, scale: 1, rotateY: 0 } : {}}
+        transition={{ duration: 1, delay: 0.2 }}
+      >
+        <div className="relative rounded-[32px] overflow-hidden border border-foreground/10 bg-background shadow-2xl shadow-primary/5 group perspective-1000">
+          {screenshot ? (
+            <div className="relative aspect-video overflow-hidden">
+              <img
+                src={screenshot}
+                alt={tag}
+                className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105"
+                loading="lazy"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-background/40 via-transparent to-transparent pointer-events-none" />
+            </div>
+          ) : (
+            <div className="aspect-video flex items-center justify-center bg-foreground/[0.03] relative overflow-hidden">
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(34,197,94,0.05),transparent_70%)]" />
+              <Icon className="w-24 h-24 text-primary/20 transition-transform duration-700 group-hover:scale-110 group-hover:text-primary/40" />
+            </div>
+          )}
+          
+          {/* Decorative elements */}
+          <div className="absolute top-4 left-4 flex gap-2">
+            <div className="w-2 h-2 rounded-full bg-red-500/40" />
+            <div className="w-2 h-2 rounded-full bg-amber-500/40" />
+            <div className="w-2 h-2 rounded-full bg-green-500/40" />
+          </div>
+          
+          {/* Inner Glow hover */}
+          <div className="absolute inset-0 border-2 border-primary/0 group-hover:border-primary/20 rounded-[32px] transition-colors duration-500 pointer-events-none" />
+        </div>
+      </motion.div>
+
+      {/* Text Content */}
+      <motion.div
+        className="w-full lg:w-[45%] text-center lg:text-left"
+        initial={{ opacity: 0, x: reversed ? -40 : 40 }}
+        animate={isInView ? { opacity: 1, x: 0 } : {}}
+        transition={{ duration: 0.7, delay: 0.4 }}
+      >
+        <div className="inline-flex items-center gap-3 mb-6 px-4 py-2 rounded-full bg-primary/10 border border-primary/20">
+          <Icon className="w-4 h-4 text-primary" />
+          <p className="text-[10px] font-black uppercase tracking-[0.25em] text-primary">{tag}</p>
+        </div>
+        <h2 className="text-4xl font-black leading-[1.1] md:text-5xl mb-6 tracking-tight">
           {highlight
             ? title.split(highlight).map((part, i, arr) => (
                 <span key={i}>
                   {part}
                   {i < arr.length - 1 && (
-                    <span className="bg-primary px-2 text-primary-foreground">{highlight}</span>
+                    <span className="relative inline-block">
+                      <span className="relative z-10 text-primary">{highlight}</span>
+                      <motion.span 
+                        initial={{ width: 0 }}
+                        whileInView={{ width: "100%" }}
+                        className="absolute bottom-1 left-0 h-3 bg-primary/10 -z-0" 
+                      />
+                    </span>
                   )}
                 </span>
               ))
             : title}
         </h2>
-        <p className="mt-4 text-lg text-foreground/65 leading-relaxed">{body}</p>
-      </div>
-    </article>
+        <p className="text-lg text-foreground/50 leading-relaxed font-medium mb-8">
+          {body}
+        </p>
+        
+        <div className="flex flex-wrap justify-center lg:justify-start gap-4">
+          <div className="flex items-center gap-2 text-sm font-bold text-foreground/30">
+            <Check className="w-4 h-4 text-primary" />
+            <span>Sin distracciones</span>
+          </div>
+          <div className="flex items-center gap-2 text-sm font-bold text-foreground/30">
+            <Check className="w-4 h-4 text-primary" />
+            <span>Foco total</span>
+          </div>
+        </div>
+      </motion.div>
+    </motion.article>
   );
 }
 
-/* ══════════════════════════════════════════════════
-   PAGE
-══════════════════════════════════════════════════ */
+/* ── Floating particles background ── */
+function FloatingParticles() {
+  return (
+    <div className="fixed inset-0 pointer-events-none overflow-hidden -z-10">
+      {[...Array(6)].map((_, i) => (
+        <motion.div
+          key={i}
+          className="absolute w-1.5 h-1.5 rounded-full bg-primary/10"
+          style={{
+            left: `${10 + i * 16}%`,
+            top: `${15 + i * 12}%`,
+          }}
+          animate={{
+            y: [0, -50, 0],
+            opacity: [0.1, 0.4, 0.1],
+            scale: [1, 1.5, 1],
+          }}
+          transition={{
+            duration: 5 + i,
+            repeat: Infinity,
+            delay: i * 0.8,
+            ease: "easeInOut",
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
 export default function CaracteristicasPage() {
   const win = useDownload(WIN_DOWNLOAD);
   const mac = useDownload(MAC_DOWNLOAD);
+  const heroRef = useRef(null);
+  const heroInView = useInView(heroRef, { once: true });
+  const statsRef = useRef(null);
+  const statsInView = useInView(statsRef, { once: true, margin: "-50px" });
+
+  useEffect(() => {
+    document.title = "Características de Adonai Tasks - Sistema de Enfoque Extremo";
+    const metaDescription = document.querySelector('meta[name="description"]');
+    if (metaDescription) {
+      metaDescription.setAttribute("content", "Descubre las funciones premium de Adonai Tasks: mini-ventana persistente, racha diaria, calendario 360, organización por carpetas y gamificación para maximizar tu productividad.");
+    }
+  }, []);
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="min-h-screen bg-background text-foreground overflow-x-hidden selection:bg-primary selection:text-primary-foreground">
       <PublicNav />
+      <FloatingParticles />
 
       {/* ── Hero ── */}
-      <header className="px-6 pt-20 pb-16 text-center md:pt-28">
-        <p className="text-xs font-black uppercase tracking-[0.3em] text-primary mb-4">
-          Dentro de Adonai
-        </p>
-        <h1 className="text-5xl font-black leading-[1.05] md:text-7xl">
-          Una app sencilla.<br />
-          <span className="inline-block bg-primary px-3 py-1 text-primary-foreground rounded-md mt-2">
-            Con superpoderes.
-          </span>
-        </h1>
-        <p className="mt-6 mx-auto max-w-xl text-lg text-foreground/60 leading-relaxed">
-          Adonai no es otra app de listas. Es la herramienta que se adapta a cómo
-          tu cerebro realmente trabaja — visible, rápida y honesta contigo mismo.
-        </p>
+      <header ref={heroRef} className="relative px-6 pt-32 pb-24 text-center md:pt-48 overflow-hidden">
+        {/* Background glow */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-[1000px] h-[600px] bg-primary/10 rounded-[100%] blur-[120px] pointer-events-none -translate-y-1/2" />
+        
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={heroInView ? { opacity: 1, y: 0 } : {}}
+          transition={{ duration: 0.6 }}
+        >
+          <div className="inline-flex items-center gap-3 mb-8 px-5 py-2.5 rounded-full bg-foreground text-background shadow-2xl">
+            <Sparkles className="w-4 h-4 text-primary" />
+            <span className="text-[10px] font-black uppercase tracking-[0.2em]">Funciones Premium</span>
+          </div>
+        </motion.div>
+
+        <motion.h1
+          className="text-6xl font-black leading-[0.95] md:text-8xl tracking-tight relative z-10"
+          initial={{ opacity: 0, y: 40 }}
+          animate={heroInView ? { opacity: 1, y: 0 } : {}}
+          transition={{ duration: 0.8, delay: 0.2 }}
+        >
+          Simple por fuera.<br />
+          <span className="text-primary">Potente</span> por dentro.
+        </motion.h1>
+
+        <motion.p
+          className="mt-10 mx-auto max-w-2xl text-xl text-foreground/50 leading-relaxed font-medium"
+          initial={{ opacity: 0 }}
+          animate={heroInView ? { opacity: 1 } : {}}
+          transition={{ duration: 0.7, delay: 0.5 }}
+        >
+          Adonai no es otra aplicación de listas genérica. Es un sistema de enfoque extremo 
+          diseñado para que recuperes el control de tu tiempo y tu energía.
+        </motion.p>
+        
+        <motion.div
+          className="mt-12 flex justify-center"
+          initial={{ opacity: 0, y: 20 }}
+          animate={heroInView ? { opacity: 1, y: 0 } : {}}
+          transition={{ duration: 0.6, delay: 0.7 }}
+        >
+          <a href="#features" className="group flex flex-col items-center gap-4 text-foreground/30 hover:text-primary transition-colors">
+            <span className="text-xs font-black uppercase tracking-widest">Explorar funciones</span>
+            <div className="w-6 h-10 rounded-full border-2 border-current flex justify-center p-1.5">
+              <motion.div 
+                animate={{ y: [0, 12, 0] }}
+                transition={{ repeat: Infinity, duration: 2 }}
+                className="w-1 h-2 rounded-full bg-current" 
+              />
+            </div>
+          </a>
+        </motion.div>
       </header>
 
+      {/* ── Stats bar ── */}
+      <motion.section
+        ref={statsRef}
+        className="mx-auto max-w-5xl px-6 pb-32"
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={statsInView ? { opacity: 1, scale: 1 } : {}}
+        transition={{ duration: 0.8, ease: "easeOut" }}
+      >
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 rounded-[40px] bg-foreground/[0.02] border border-foreground/5 p-10 md:p-12 backdrop-blur-xl relative overflow-hidden group">
+          <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+          
+          <div className="text-center relative z-10">
+            <p className="text-4xl md:text-5xl font-black text-primary mb-2">
+              <AnimatedCounter end={100} suffix="%" />
+            </p>
+            <p className="text-sm text-foreground/40 font-bold uppercase tracking-widest">Gratis para siempre</p>
+          </div>
+          <div className="text-center relative z-10 border-y md:border-y-0 md:border-x border-foreground/5 py-8 md:py-0">
+            <p className="text-4xl md:text-5xl font-black text-primary mb-2">
+              <AnimatedCounter end={3} />
+            </p>
+            <p className="text-sm text-foreground/40 font-bold uppercase tracking-widest">Plataformas nativas</p>
+          </div>
+          <div className="text-center relative z-10">
+            <p className="text-4xl md:text-5xl font-black text-primary mb-2">
+              <AnimatedCounter end={0} />
+            </p>
+            <p className="text-sm text-foreground/40 font-bold uppercase tracking-widest">Publicidad o Distracción</p>
+          </div>
+        </div>
+      </motion.section>
+
       {/* ── Features ── */}
-      <main className="space-y-28 px-6 pb-28">
+      <main id="features" className="space-y-48 px-6 pb-48">
 
         {/* 1 — Mini-ventana */}
         <FeatureBlock
-          emoji="🪟"
-          tag="Mini-ventana flotante"
-          title="Tus tareas siempre a la vista. Sin excusas."
-          highlight="Sin excusas."
-          body="La mayoría de las apps de productividad fallan por lo mismo: tienes que acordarte de abrirlas. Adonai vive en una pequeña ventana que flota encima de todo lo demás. No interrumpe. No molesta. Solo está ahí — recordándote en silencio lo que importa, mientras trabajas, navegas o procrastinas."
+          icon={Monitor}
+          index={0}
+          tag="Mini-ventana"
+          title="Tus tareas siempre visibles."
+          highlight="siempre visibles."
+          body="Una ventanita persistente que flota sobre todas tus aplicaciones. No necesitas cambiar de ventana — tus prioridades están ahí, acompañándote en cada paso para que nunca pierdas el foco."
           reversed={false}
+          screenshot="/screenshots/mini-window.png"
         />
 
         {/* 2 — Racha */}
         <FeatureBlock
-          emoji="🔥"
+          icon={Flame}
+          index={1}
           tag="Racha diaria"
-          title="Un día que no fallas se convierte en dos. Luego en diez."
-          highlight="en diez."
-          body="Hay algo primitivo en no querer romper una racha. Cada día que cumples tus tareas, tu contador sube. Y sin darte cuenta, la productividad deja de ser un esfuerzo para convertirse en parte de quién eres. La racha de Adonai no te presiona — te engancha de la forma correcta."
+          title="Construye un hábito imparable."
+          highlight="imparable."
+          body="Visualiza tu progreso con el sistema de rachas. Cada día que completas tus tareas, tu racha crece, motivándote a no romper la cadena y mantener la inercia positiva."
           reversed={true}
+          screenshot="/screenshots/daily-view.png"
         />
 
         {/* 3 — Logros */}
         <FeatureBlock
-          emoji="🏆"
-          tag="Logros y recompensas"
-          title="Hacer el trabajo se convierte en un juego que quieres ganar."
-          highlight="un juego"
-          body="Cada tarea completada, cada meta alcanzada, cada semana sin fallar — Adonai lo reconoce. Los logros no son solo badges bonitos. Son pequeñas dosis de dopamina que tu cerebro aprende a esperar. Y cuando el cerebro espera recompensa, el comportamiento cambia solo."
+          icon={Trophy}
+          index={2}
+          tag="Logros"
+          title="Gamifica tu productividad."
+          highlight="Gamifica"
+          body="Desbloquea logros exclusivos mientras trabajas. Adonai convierte la gestión de tareas en una experiencia gratificante donde cada meta alcanzada es celebrada."
           reversed={false}
         />
 
         {/* 4 — Metas */}
         <FeatureBlock
-          emoji="🎯"
-          tag="Metas conectadas a tus tareas"
-          title="Cada tarea tiene un por qué. Adonai te lo recuerda."
-          highlight="un por qué."
-          body="Puedes definir metas grandes — terminar un proyecto, aprender algo nuevo, mejorar en algo — y luego conectar tus tareas diarias directamente a esas metas. Así cada pequeña acción tiene contexto. No estás tachando cosas de una lista. Estás construyendo algo."
+          icon={Target}
+          index={3}
+          tag="Metas de Alto Impacto"
+          title="Enfócate en lo que importa."
+          highlight="lo que importa."
+          body="Define tus objetivos a largo plazo y vincula tus tareas diarias con ellos. Deja de 'estar ocupado' y empieza a ser productivo de verdad, trabajando en lo que mueve la aguja."
           reversed={true}
         />
 
         {/* 5 — Calendario */}
         <FeatureBlock
-          emoji="📅"
-          tag="Calendario inteligente"
-          title="No solo sabes qué hacer. Sabes cuándo hacerlo."
-          highlight="cuándo hacerlo."
-          body="El calendario de Adonai no es un horario rígido — es una vista honesta de tu semana. Arrastra tareas, asigna bloques de tiempo y visualiza si tu carga es razonable o si te estás mintiendo a ti mismo. La claridad temporal es el superpoder que más subestima la gente."
+          icon={CalendarDays}
+          index={4}
+          tag="Calendario 360"
+          title="Domina tu tiempo, visualmente."
+          highlight="Domina tu tiempo,"
+          body="Integra tus tareas con una vista de calendario fluida. Planifica tu semana, arrastra eventos y visualiza tus huecos libres para una gestión del tiempo sin estrés."
           reversed={false}
+          screenshot="/screenshots/calendar-view.png"
         />
 
         {/* 6 — Amigos */}
         <FeatureBlock
-          emoji="👥"
-          tag="Productividad con amigos"
-          title="La responsabilidad compartida es el sistema que más funciona."
-          highlight="más funciona."
-          body="Añade amigos a Adonai y véis vuestras rachas y logros. No es competición — es compañía. Hay algo en saber que alguien más está siendo productivo hoy que te hace levantarte del sofá. Y si un día fallas, ahí están para no dejarte caer solo."
+          icon={Users}
+          index={5}
+          tag="Comunidad y Amigos"
+          title="La motivación es contagiosa."
+          highlight="contagiosa."
+          body="Conéctate con amigos para ver sus rachas y logros. El compromiso social es una de las herramientas más potentes para mantener la disciplina a largo plazo."
           reversed={true}
         />
 
         {/* 7 — Temporizador */}
         <FeatureBlock
-          emoji="⏱️"
-          tag="Temporizador por tarea"
-          title="Pon tiempo a lo que haces. Para de mentirte con cuánto tardas."
-          highlight="Para de mentirte"
-          body="Asigna un tiempo estimado a cada tarea. Cuando empieces, el reloj corre. Al terminar el tiempo decides si continúas o pasas. Sin juzgarte. Sin presión. Solo información honesta sobre cómo usas las horas de tu día — y eso solo ya cambia todo."
+          icon={Timer}
+          index={6}
+          tag="Time Boxing"
+          title="Trabaja en bloques de foco."
+          highlight="bloques de foco."
+          body="Utiliza el temporizador integrado para asignar bloques de tiempo específicos a tus tareas. Evita que una tarea sencilla se expanda hasta ocupar todo tu día."
           reversed={false}
         />
 
-        {/* 8 — Carpetas y prioridades */}
+        {/* 8 — Carpetas */}
         <FeatureBlock
-          emoji="📁"
-          tag="Carpetas y prioridades"
-          title="Urgente vs. importante. La diferencia que lo cambia todo."
-          highlight="lo cambia todo."
-          body="Adonai usa el método de la matriz urgente/importante para que no te pases el día apagando incendios y te olvides de lo que realmente te hace avanzar. Organiza tus tareas en carpetas por proyecto o área de tu vida, y dale a cada una la prioridad correcta — no la que más estresa."
+          icon={FolderOpen}
+          index={7}
+          tag="Organización Lógica"
+          title="Cada cosa en su lugar."
+          highlight="su lugar."
+          body="Organiza tus tareas por proyectos, áreas de vida o categorías mediante un sistema de carpetas intuitivo. Mantén tu mente despejada sabiendo que todo está organizado."
           reversed={true}
+          screenshot="/screenshots/folders-view.png"
         />
 
       </main>
 
       {/* ── Final CTA ── */}
-      <section className="bg-foreground text-background px-6 py-24 text-center">
-        <h2 className="text-5xl font-black leading-tight md:text-6xl">
-          Todo esto,<br />
-          <span className="bg-primary text-primary-foreground px-3">gratis.</span>
-        </h2>
-        <p className="mt-6 text-xl text-background/65 max-w-lg mx-auto">
-          Sin suscripción. Sin publicidad. Sin trampa. Solo descarga e instala.
-        </p>
-        <div className="mt-10 flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
-          <button
-            id="features-download-win"
-            onClick={win.handle}
-            disabled={win.loading}
-            className="flex-1 inline-flex items-center justify-center gap-2 rounded-full bg-primary px-6 py-4 text-base font-bold text-primary-foreground transition hover:opacity-90 disabled:opacity-60"
+      <motion.section
+        className="relative bg-foreground text-background px-6 py-32 md:py-48 text-center overflow-hidden"
+        initial={{ opacity: 0 }}
+        whileInView={{ opacity: 1 }}
+        viewport={{ once: true }}
+        transition={{ duration: 1 }}
+      >
+        <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_50%_50%,rgba(34,197,94,0.1),transparent_70%)]" />
+        
+        <div className="relative z-10 mx-auto max-w-4xl">
+          <motion.h2
+            className="text-6xl font-black leading-[0.9] md:text-8xl tracking-tight mb-12"
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.7, delay: 0.2 }}
           >
-            {win.loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Monitor className="w-5 h-5" />}
-            {win.loading ? "Descargando…" : "Descargar para Windows"}
-          </button>
-          <button
-            id="features-download-mac"
-            onClick={mac.handle}
-            disabled={mac.loading}
-            className="flex-1 inline-flex items-center justify-center gap-2 rounded-full bg-background/10 border border-background/20 px-6 py-4 text-base font-bold text-background transition hover:bg-background/20 disabled:opacity-60"
+            Libera tu <br />
+            <span className="text-primary">potencial</span> hoy.
+          </motion.h2>
+          
+          <motion.p
+            className="mt-8 text-xl md:text-2xl text-background/50 max-w-2xl mx-auto mb-16 font-medium leading-relaxed"
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5, delay: 0.4 }}
           >
-            {mac.loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Apple className="w-5 h-5" />}
-            {mac.loading ? "Descargando…" : "Descargar para Mac"}
-          </button>
+            Únete a miles de personas que han simplificado su flujo de trabajo con Adonai. 
+            Sin suscripciones, sin trampas. Solo productividad pura.
+          </motion.p>
+          
+          <motion.div
+            className="flex flex-col sm:flex-row gap-4 justify-center"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5, delay: 0.6 }}
+          >
+            <button
+              onClick={win.handle}
+              disabled={win.loading}
+              className="group flex items-center justify-center gap-3 rounded-full bg-primary px-10 py-5 text-lg font-black text-primary-foreground transition-all hover:scale-105 active:scale-95 disabled:opacity-60 shadow-xl shadow-primary/20"
+            >
+              {win.loading ? <Loader2 className="w-6 h-6 animate-spin" /> : <Monitor className="w-6 h-6" />}
+              <span>{win.loading ? "Descargando…" : "Descargar para Windows"}</span>
+            </button>
+            <button
+              onClick={mac.handle}
+              disabled={mac.loading}
+              className="group flex items-center justify-center gap-3 rounded-full bg-background/10 border-2 border-background/20 px-10 py-5 text-lg font-black text-background transition-all hover:bg-background/20 hover:scale-105 active:scale-95 disabled:opacity-60"
+            >
+              {mac.loading ? <Loader2 className="w-6 h-6 animate-spin" /> : <Apple className="w-6 h-6" />}
+              <span>{mac.loading ? "Descargando…" : "Descargar para Mac"}</span>
+            </button>
+          </motion.div>
+          
+          <motion.div
+            className="mt-12"
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5, delay: 0.8 }}
+          >
+            <Link to="/auth" className="text-background/40 hover:text-primary transition-colors font-black text-sm uppercase tracking-widest flex items-center justify-center gap-2 group">
+              O usa la versión web
+              <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+            </Link>
+          </motion.div>
         </div>
-        <p className="mt-5 text-sm text-background/40">
-          ¿Prefieres el navegador?{" "}
-          <Link to="/auth" className="underline underline-offset-2 hover:text-background/70 transition-colors">
-            Entra a la versión web →
-          </Link>
-        </p>
-      </section>
+      </motion.section>
 
-      {/* ── Footer ── */}
-      <footer className="border-t border-foreground/10 px-6 py-8 text-center text-xs text-foreground/40">
-        <p>© {new Date().getFullYear()} Adonai. Hecho simple, a propósito.</p>
-        <div className="mt-2 flex items-center justify-center gap-3">
-          <Link to="/politica-de-privacidad" className="underline underline-offset-2 hover:text-foreground/60 transition-colors">Política de Privacidad</Link>
-          <span className="text-foreground/20">·</span>
-          <Link to="/terminos-de-servicio" className="underline underline-offset-2 hover:text-foreground/60 transition-colors">Términos de Servicio</Link>
-        </div>
-      </footer>
+      <PublicFooter />
     </div>
   );
 }

@@ -18,12 +18,14 @@ Disallow: /mini
 Disallow: /quick-task
 Disallow: /selection-bubble
 Disallow: /toast
-Disallow: /docs/exit-codes
 
 # Allow public pages
 Allow: /$
 Allow: /politica-de-privacidad
 Allow: /terminos-de-servicio
+Allow: /caracteristicas
+Allow: /faq
+Allow: /codigos-de-retorno
 
 # LLM crawlers — allow full access to landing
 User-agent: GPTBot

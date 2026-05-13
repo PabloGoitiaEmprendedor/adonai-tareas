@@ -39,6 +39,14 @@ const DashboardPage = () => {
     return () => window.removeEventListener(TUTORIAL_CLOSE_CAPTURE_MODAL_EVENT, handleCloseModal);
   }, []);
 
+  useEffect(() => {
+    document.title = "Panel de Control - Adonai Tasks";
+    const metaDescription = document.querySelector('meta[name="description"]');
+    if (metaDescription) {
+      metaDescription.setAttribute("content", "Gestiona tus tareas diarias, visualiza tus metas y mantén tus rachas en Adonai Tasks. El centro de mando para tu productividad personal.");
+    }
+  }, []);
+
   const pendingTasks = tasks.filter((t) => t.status === 'pending');
   const sorted = useEisenhowerSort(pendingTasks);
 

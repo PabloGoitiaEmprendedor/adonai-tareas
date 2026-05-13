@@ -27,6 +27,7 @@ import MiniTasksPage from "./pages/MiniTasksPage";
 import AdminPanelPage from "./pages/AdminPanelPage";
 import LandingPage from "./pages/LandingPage";
 import CaracteristicasPage from "./pages/CaracteristicasPage";
+import FAQPage from "./pages/FAQPage";
 import PrioritySettingsPage from "./pages/PrioritySettingsPage";
 import NotFound from "./pages/NotFound";
 import { supabase } from "@/integrations/supabase/client";
@@ -176,9 +177,10 @@ const AppRoutes = () => {
         <Route path="/selection-bubble" element={<SelectionBubblePage />} />
         <Route path="/quick-task" element={<QuickTaskPage />} />
         <Route path="/caracteristicas" element={<CaracteristicasPage />} />
+        <Route path="/faq" element={<FAQPage />} />
         <Route path="/politica-de-privacidad" element={<PrivacyPolicyPage />} />
         <Route path="/terminos-de-servicio" element={<TermsOfServicePage />} />
-        <Route path="/docs/exit-codes" element={<ExitCodesPage />} />
+        <Route path="/codigos-de-retorno" element={<ExitCodesPage />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
       {isElectron && <UpdateDialog />}

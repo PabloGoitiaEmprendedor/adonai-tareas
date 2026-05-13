@@ -1,8 +1,10 @@
-import { useState } from "react";
-import { Download, Monitor, Apple, Loader2, Globe, X, Bell, Layout, Layers, ArrowRight, Smartphone, ChevronDown, Check } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Download, Monitor, Apple, Loader2, Globe, X, Bell, Layout, Layers, ArrowRight, Smartphone, ChevronDown, Check, Sparkles } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { WIN_DOWNLOAD, MAC_DOWNLOAD } from "@/lib/download-urls";
 import { PublicNav } from "@/components/PublicNav";
+import { PublicFooter } from "@/components/PublicFooter";
+import { motion } from "framer-motion";
 
 /* ─────────────────────────────────────────────
    DOWNLOAD HOOK
@@ -197,20 +199,20 @@ function UseInWebButton({ variant }: { variant?: 'hero' | 'cta' }) {
     <>
       <button
         onClick={() => setModalOpen(true)}
-        className={
-          isCta
-            ? "w-full inline-flex items-center justify-center gap-2 rounded-full border-2 border-foreground/15 bg-transparent px-6 py-4 text-base font-bold text-foreground/80 transition hover:bg-foreground/5"
-            : "group inline-flex items-center justify-center gap-2 rounded-full border-2 border-foreground/15 bg-transparent px-8 py-4 text-lg font-bold text-foreground/80 transition hover:bg-foreground/5"
-        }
+        className={`inline-flex items-center gap-2 font-bold transition-all ${
+          isCta 
+            ? "text-background/50 hover:text-background" 
+            : "text-foreground/40 hover:text-foreground underline underline-offset-4"
+        }`}
       >
-        <Globe className="w-5 h-5" />
-        Usar en web
+        <Globe className="w-4 h-4" />
+        Usar versión web
       </button>
 
-      <WebLimitationsModal
-        open={modalOpen}
-        onClose={() => setModalOpen(false)}
-        onContinue={handleContinue}
+      <WebLimitationsModal 
+        open={modalOpen} 
+        onClose={() => setModalOpen(false)} 
+        onContinue={handleContinue} 
       />
     </>
   );
@@ -220,8 +222,16 @@ function UseInWebButton({ variant }: { variant?: 'hero' | 'cta' }) {
    PAGE
 ───────────────────────────────────────────── */
 export default function LandingPage() {
+  useEffect(() => {
+    document.title = "Adonai Tasks - Sistema de Gestión de Tareas Siempre Visible";
+    const metaDescription = document.querySelector('meta[name="description"]');
+    if (metaDescription) {
+      metaDescription.setAttribute("content", "Maximiza tu productividad con Adonai Tasks. Una mini-ventana persistente en tu escritorio para gestionar tus tareas sin distracciones. Descarga para Windows y Mac o úsalo en la web.");
+    }
+  }, []);
+
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="min-h-screen bg-background text-foreground selection:bg-primary selection:text-primary-foreground overflow-x-hidden">
       <PublicNav />
       <main>
         <Hero />
@@ -231,7 +241,7 @@ export default function LandingPage() {
         <Features />
         <Comparison />
         <Quotes />
-        <FAQ />
+        <FAQSummary />
         <FinalCTA />
         <Footer />
       </main>
@@ -241,68 +251,103 @@ export default function LandingPage() {
 
 /* ─────────────────────────────────────────────
    HERO
-───────────────────────────────────────────── */
+ ───────────────────────────────────────────── */
 function Hero() {
   return (
-    <section className="relative overflow-hidden px-6 pt-10 pb-20 md:pt-16 md:pb-28">
-      <nav className="mx-auto mb-16 flex max-w-6xl items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8">
-            <svg viewBox="0 0 100 100" className="w-full h-full drop-shadow-[0_0_8px_rgba(34,197,94,0.3)]">
-              <defs>
-                <linearGradient id="logo-grad-landing" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#22C55E" />
-                  <stop offset="100%" stopColor="#16a34a" />
-                </linearGradient>
-              </defs>
-              <path
-                d="M20 50 L40 75 L85 25"
-                fill="none"
-                stroke="url(#logo-grad-landing)"
-                strokeWidth="18"
-                strokeLinecap="round"
-                strokeLinejoin="round"
+    <section className="relative px-6 pt-12 pb-24 md:pt-20 md:pb-32 overflow-hidden">
+      {/* Abstract Background */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-full -z-10 opacity-40">
+        <div className="absolute top-0 left-0 w-[500px] h-[500px] bg-primary/20 rounded-full blur-[120px] -translate-x-1/2 -translate-y-1/2" />
+        <div className="absolute bottom-0 right-0 w-[400px] h-[400px] bg-primary/10 rounded-full blur-[100px] translate-x-1/4 translate-y-1/4" />
+      </div>
+
+      <div className="mx-auto max-w-6xl">
+        <div className="grid items-center gap-16 lg:grid-cols-2">
+          <motion.div
+            initial={{ opacity: 0, x: -30 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.7, ease: "easeOut" }}
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-[10px] font-black uppercase tracking-widest mb-8"
+            >
+              <Sparkles className="w-3 h-3" />
+              Gestión de tareas sin fricción
+            </motion.div>
+            
+            <h1 className="text-6xl md:text-8xl font-black leading-[0.85] tracking-tight mb-8">
+              Tus tareas, <br />
+              <span className="relative">
+                siempre
+                <svg className="absolute -bottom-2 left-0 w-full h-3 text-primary/30 -z-10" viewBox="0 0 100 10" preserveAspectRatio="none">
+                  <path d="M0 5 Q 25 0, 50 5 T 100 5" fill="none" stroke="currentColor" strokeWidth="8" strokeLinecap="round" />
+                </svg>
+              </span> <br />
+              a la vista
+            </h1>
+            
+            <p className="text-xl md:text-2xl text-foreground/60 leading-relaxed max-w-lg mb-10 font-medium">
+              Una mini-ventana inteligente que vive en tu escritorio. Sin abrir apps, sin perder el foco.
+            </p>
+            
+            <div className="flex flex-col sm:flex-row gap-4 mb-8">
+              <DownloadButton platform="win" />
+              <DownloadButton platform="mac" />
+            </div>
+            
+            <div className="flex items-center gap-6">
+              <UseInWebButton variant="hero" />
+              <div className="flex -space-x-2">
+                {[1, 2, 3].map(i => (
+                  <div key={i} className="w-8 h-8 rounded-full border-2 border-background bg-secondary flex items-center justify-center overflow-hidden">
+                    <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${i + 10}`} alt="User" />
+                  </div>
+                ))}
+                <div className="pl-4 text-xs font-bold text-foreground/40">
+                  +1,000 usuarios productivos
+                </div>
+              </div>
+            </div>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9, rotateY: 10 }}
+            animate={{ opacity: 1, scale: 1, rotateY: 0 }}
+            transition={{ duration: 1, ease: "easeOut" }}
+            className="relative perspective-1000"
+          >
+            <div className="absolute -inset-4 bg-primary/20 rounded-[40px] blur-3xl animate-pulse" />
+            <div className="relative overflow-hidden rounded-[32px] border-4 border-foreground/10 bg-background shadow-[0_32px_64px_-16px_rgba(0,0,0,0.2)] dark:shadow-[0_32px_64px_-16px_rgba(0,0,0,0.5)] transition-transform duration-500 hover:scale-[1.02]">
+              <video
+                src="/videos/demo-1.mp4"
+                autoPlay
+                loop
+                muted
+                playsInline
+                className="block w-full h-auto"
               />
-            </svg>
-          </div>
-          <span className="text-xl font-black tracking-tight">Adonai</span>
-        </div>
-      </nav>
-
-      <div className="mx-auto grid max-w-6xl items-center gap-12 md:grid-cols-2">
-        <div>
-          <h1 className="text-5xl font-black leading-[1.05] tracking-tight text-foreground md:text-7xl">
-            Tus tareas,
-            <br />
-            <span className="inline-block bg-primary px-3 py-1 text-primary-foreground rounded-md">siempre a la vista</span>
-          </h1>
-          <p className="mt-6 max-w-md text-lg leading-relaxed text-foreground/70 md:text-xl">
-            Una ventanita pequeña vive en tu escritorio. La miras, marcas lo que hiciste y listo. Sin abrir apps.
-          </p>
-          <div className="mt-8 flex flex-col sm:flex-row gap-3">
-            <DownloadButton platform="win" />
-            <DownloadButton platform="mac" />
-          </div>
-          <div className="mt-3">
-            <UseInWebButton variant="hero" />
-          </div>
-          <p className="mt-4 text-sm text-foreground/60">
-            Descárgala gratis. Sin cuenta. Sin tarjeta. Solo instala y empieza.
-          </p>
-        </div>
-
-        <div className="relative">
-          <div className="absolute -inset-8 rounded-3xl bg-primary/30 blur-3xl" />
-          <div className="relative overflow-hidden rounded-3xl border-2 border-foreground/10 bg-foreground/5 shadow-2xl">
-            <video
-              src="/videos/demo-1.mp4"
-              autoPlay
-              loop
-              muted
-              playsInline
-              className="block w-full h-auto"
-            />
-          </div>
+            </div>
+            
+            {/* Floating badges */}
+            <motion.div 
+              animate={{ y: [0, -10, 0] }}
+              transition={{ repeat: Infinity, duration: 4, ease: "easeInOut" }}
+              className="absolute -top-6 -right-6 p-4 rounded-2xl bg-background border-2 border-foreground/5 shadow-xl hidden md:block"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-green-500/10 flex items-center justify-center">
+                  <Check className="w-5 h-5 text-green-500" />
+                </div>
+                <div>
+                  <div className="text-[10px] font-bold text-foreground/40 uppercase tracking-widest">Estado</div>
+                  <div className="text-sm font-black">Tarea Completada</div>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
         </div>
       </div>
     </section>
@@ -311,32 +356,47 @@ function Hero() {
 
 /* ─────────────────────────────────────────────
    PAIN
-───────────────────────────────────────────── */
+ ───────────────────────────────────────────── */
 function Pain() {
   const pains = [
-    "Me olvido de mis tareas porque abrir otra app cansa.",
-    "Probé mil apps y siempre vuelvo a mi cuaderno.",
-    "Me da pereza buscar botones, menús y pantallas.",
+    { t: "Fricción", d: "Me olvido de mis tareas porque abrir otra app cansa.", icon: "😫" },
+    { t: "Complejidad", "d": "Probé mil apps y siempre vuelvo a mi cuaderno.", icon: "📓" },
+    { t: "Distracción", "d": "Me da pereza buscar botones, menús y pantallas.", icon: "🌀" },
   ];
   return (
-    <section className="bg-foreground px-6 py-20 text-background md:py-28">
-      <div className="mx-auto max-w-4xl text-center">
-        <p className="mb-4 text-sm font-bold uppercase tracking-widest text-primary">
-          ¿Te suena familiar?
-        </p>
-        <h2 className="text-4xl font-black leading-tight text-background md:text-5xl">
-          Las apps de tareas
-          <br />
-          <span className="text-primary">cansan más que ayudan</span>
-        </h2>
-        <div className="mt-12 grid gap-4 md:grid-cols-3">
-          {pains.map((p) => (
-            <div
-              key={p}
-              className="rounded-2xl border border-background/15 bg-background/10 p-6 text-left text-lg leading-relaxed text-background backdrop-blur-sm"
+    <section className="bg-foreground px-6 py-24 text-background md:py-32">
+      <div className="mx-auto max-w-5xl">
+        <div className="text-center mb-16">
+          <motion.p 
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            className="mb-4 text-xs font-bold uppercase tracking-[0.3em] text-primary"
+          >
+            ¿Te suena familiar?
+          </motion.p>
+          <motion.h2 
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            className="text-4xl md:text-6xl font-black leading-tight"
+          >
+            Las apps de tareas actuales <br />
+            <span className="text-primary/80">te hacen trabajar más</span>
+          </motion.h2>
+        </div>
+        
+        <div className="grid gap-6 md:grid-cols-3">
+          {pains.map((p, i) => (
+            <motion.div
+              key={p.t}
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.1 }}
+              className="group rounded-[32px] border border-background/10 bg-background/5 p-10 transition-all hover:bg-background/10"
             >
-              <p className="text-background/95">"{p}"</p>
-            </div>
+              <div className="text-4xl mb-6">{p.icon}</div>
+              <h3 className="text-xl font-black mb-3">{p.t}</h3>
+              <p className="text-background/60 leading-relaxed font-medium">{p.d}</p>
+            </motion.div>
           ))}
         </div>
       </div>
@@ -346,83 +406,107 @@ function Pain() {
 
 /* ─────────────────────────────────────────────
    DEMO
-───────────────────────────────────────────── */
+ ───────────────────────────────────────────── */
 function Demo() {
   return (
-    <section className="px-6 py-20 md:py-28">
-      <div className="mx-auto max-w-5xl text-center">
-        <p className="mb-4 text-sm font-bold uppercase tracking-widest text-muted-foreground">
-          Así se ve
-        </p>
-        <h2 className="text-4xl font-black leading-tight md:text-5xl">
-          Una ventanita.
-          <br />
-          Siempre <span className="bg-primary px-2">ahí</span>.
-        </h2>
-        <p className="mx-auto mt-5 max-w-xl text-lg text-muted-foreground">
-          No tapa nada. No molesta. Solo te recuerda lo que tienes que hacer.
-        </p>
+    <section className="px-6 py-24 md:py-32 bg-secondary/30">
+      <div className="mx-auto max-w-6xl">
+        <div className="text-center mb-20">
+          <p className="mb-4 text-xs font-bold uppercase tracking-[0.3em] text-foreground/40">Así se ve Adonai</p>
+          <h2 className="text-5xl md:text-7xl font-black leading-tight tracking-tight">
+            Una ventanita. <br />
+            Siempre <span className="text-primary">ahí</span>.
+          </h2>
+          <p className="mx-auto mt-6 max-w-xl text-lg md:text-xl text-foreground/50 font-medium">
+            No tapa nada. No molesta. Solo te recuerda lo que tienes que hacer para que no se te pase nada.
+          </p>
+        </div>
 
-        <div className="mt-12 grid gap-6 md:grid-cols-3">
-          <DemoVideo src="/videos/demo-1.mp4" caption="Vive en tu escritorio" />
-          <DemoVideo src="/videos/demo-2.mp4" caption="Marca con un clic" />
-          <DemoVideo src="/videos/demo-3.mp4" caption="Agrega en segundos" />
+        <div className="grid gap-8 md:grid-cols-3">
+          <DemoVideo src="/videos/demo-1.mp4" title="Persistencia" caption="Vive en tu escritorio" />
+          <DemoVideo src="/videos/demo-2.mp4" title="Rapidez" caption="Marca con un clic" />
+          <DemoVideo src="/videos/demo-3.mp4" title="Foco" caption="Agrega en segundos" />
         </div>
       </div>
     </section>
   );
 }
 
-function DemoVideo({ src, caption }: { src: string; caption: string }) {
+function DemoVideo({ src, title, caption }: { src: string; title: string; caption: string }) {
   return (
-    <div className="overflow-hidden rounded-2xl border-2 border-foreground/10 bg-foreground/5 shadow-lg">
-      <div className="flex items-center justify-center bg-foreground/5 p-2">
-        <video
-          src={src}
-          autoPlay
-          loop
-          muted
-          playsInline
-          className="block max-h-[420px] w-full object-contain"
-        />
+    <motion.div 
+      whileHover={{ y: -8 }}
+      className="group relative overflow-hidden rounded-[32px] bg-background border-2 border-foreground/5 shadow-xl transition-all"
+    >
+      <div className="p-4">
+        <div className="overflow-hidden rounded-2xl aspect-[4/3] bg-secondary/50">
+          <video
+            src={src}
+            autoPlay
+            loop
+            muted
+            playsInline
+            className="block w-full h-full object-cover"
+          />
+        </div>
       </div>
-      <p className="bg-background px-4 py-3 text-center text-sm font-semibold">
-        {caption}
-      </p>
-    </div>
+      <div className="px-8 pb-8 pt-2">
+        <div className="text-[10px] font-bold text-primary uppercase tracking-widest mb-1">{title}</div>
+        <h3 className="text-lg font-black">{caption}</h3>
+      </div>
+    </motion.div>
   );
 }
 
 /* ─────────────────────────────────────────────
    HOW
-───────────────────────────────────────────── */
+ ───────────────────────────────────────────── */
 function How() {
   const steps = [
-    { n: "1", t: "La abres una vez", d: "Y se queda en tu escritorio." },
-    { n: "2", t: "Escribes tu tarea", d: "En un segundo. Sin menús." },
-    { n: "3", t: "La marcas y listo", d: "Un clic y desaparece." },
+    { n: "01", t: "Instala y abre", d: "Se queda en tu escritorio de forma nativa.", icon: Monitor },
+    { n: "02", t: "Escribe tu tarea", d: "Un input rápido. Sin fechas ni menús tediosos.", icon: Layout },
+    { n: "03", t: "Finaliza y gana", d: "Márcala al terminar y siente la satisfacción.", icon: Check },
   ];
   return (
-    <section className="bg-secondary px-6 py-20 md:py-28">
-      <div className="mx-auto max-w-5xl">
-        <div className="mb-12 text-center">
-          <p className="mb-4 text-sm font-bold uppercase tracking-widest text-muted-foreground">
-            Cómo funciona
-          </p>
-          <h2 className="text-4xl font-black leading-tight md:text-5xl">
-            Tan fácil que <span className="bg-primary px-2">no piensas</span>.
-          </h2>
-        </div>
-        <div className="grid gap-6 md:grid-cols-3">
-          {steps.map((s) => (
-            <div key={s.n} className="rounded-2xl bg-background p-8 shadow-sm">
-              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary text-xl font-black text-primary-foreground">
-                {s.n}
-              </div>
-              <h3 className="text-2xl font-bold">{s.t}</h3>
-              <p className="mt-2 text-muted-foreground">{s.d}</p>
+    <section className="px-6 py-24 md:py-32">
+      <div className="mx-auto max-w-6xl">
+        <div className="grid gap-16 lg:grid-cols-2 items-center">
+          <div>
+            <p className="mb-4 text-xs font-bold uppercase tracking-[0.3em] text-foreground/40">Flujo de trabajo</p>
+            <h2 className="text-5xl md:text-7xl font-black leading-[0.9] tracking-tight mb-12">
+              Tan fácil que <br />
+              <span className="text-primary">no tienes que pensar</span>
+            </h2>
+            
+            <div className="space-y-10">
+              {steps.map((s, i) => (
+                <motion.div 
+                  key={s.n}
+                  initial={{ opacity: 0, x: -20 }}
+                  whileInView={{ opacity: 1, x: 0 }}
+                  transition={{ delay: i * 0.1 }}
+                  className="flex gap-6"
+                >
+                  <div className="flex-shrink-0 w-12 h-12 rounded-2xl bg-secondary flex items-center justify-center text-primary font-black text-xl">
+                    {s.n}
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-black mb-1">{s.t}</h3>
+                    <p className="text-foreground/60 leading-relaxed font-medium">{s.d}</p>
+                  </div>
+                </motion.div>
+              ))}
             </div>
-          ))}
+          </div>
+          
+          <div className="relative">
+            <div className="absolute -inset-10 bg-primary/5 rounded-[60px] blur-3xl" />
+            <img 
+              src="/screenshots/mini-window.png" 
+              alt="Adonai Workflow" 
+              className="relative z-10 w-full h-auto rounded-[40px] shadow-2xl border-2 border-foreground/5"
+            />
+          </div>
         </div>
       </div>
     </section>
@@ -431,34 +515,48 @@ function How() {
 
 /* ─────────────────────────────────────────────
    FEATURES
-───────────────────────────────────────────── */
+ ───────────────────────────────────────────── */
 function Features() {
   const features = [
-    { icon: "🎯", title: "¿Qué hago primero?", desc: "Te ayudamos a ordenar tus tareas con un método simple: lo urgente y lo importante. Sin pensar mucho." },
-    { icon: "⏱️", title: "Pon tiempo a cada tarea", desc: "Así no te distraes. Cuando el tiempo se acaba, tú decides si sigues o pasas a la siguiente." },
-    { icon: "🔗", title: "Guarda tus links", desc: "¿Un video que ver? ¿Una página? Pégala en la tarea y la abres con un clic." },
-    { icon: "👀", title: "Siempre a la vista", desc: "Mientras trabajas, mientras lees mail, mientras navegas. Tus tareas no se esconden." },
+    { icon: "🎯", title: "Prioridad Real", desc: "Clasifica por Urgente e Importante. Sin listas interminables." },
+    { icon: "⏱️", title: "Time Boxing", desc: "Ponle tiempo a tus tareas y evita que se coman tu día." },
+    { icon: "🔗", title: "Contexto al clic", desc: "Guarda links y archivos directos en la tarea. Ábrelos al instante." },
+    { icon: "👀", title: "Invisibilidad", desc: "Se oculta cuando no la necesitas, aparece cuando te falta foco." },
   ];
 
   return (
-    <section className="px-6 py-20 md:py-28">
+    <section className="bg-secondary/40 px-6 py-24 md:py-32">
       <div className="mx-auto max-w-6xl">
-        <div className="mb-12 text-center">
-          <p className="mb-4 text-sm font-bold uppercase tracking-widest text-muted-foreground">
-            Pequeños extras
-          </p>
-          <h2 className="text-4xl font-black leading-tight md:text-5xl">
-            Simple. Pero <span className="bg-primary px-2">poderoso</span>.
-          </h2>
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 mb-16">
+          <div className="max-w-2xl">
+            <p className="mb-4 text-xs font-bold uppercase tracking-[0.3em] text-foreground/40">Poder concentrado</p>
+            <h2 className="text-5xl md:text-7xl font-black leading-[0.9] tracking-tight">
+              Lo justo y <br />
+              <span className="text-primary">necesario</span>
+            </h2>
+          </div>
+          <Link 
+            to="/caracteristicas" 
+            className="inline-flex items-center gap-2 text-primary font-black group"
+          >
+            Ver todas las funciones
+            <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
+          </Link>
         </div>
 
-        <div className="grid gap-6 md:grid-cols-2">
-          {features.map((f) => (
-            <div key={f.title} className="rounded-3xl border-2 border-foreground/10 bg-secondary p-8">
-              <span className="text-3xl">{f.icon}</span>
-              <h3 className="mt-4 text-2xl font-bold">{f.title}</h3>
-              <p className="mt-2 text-muted-foreground">{f.desc}</p>
-            </div>
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+          {features.map((f, i) => (
+            <motion.div 
+              key={f.title}
+              initial={{ opacity: 0, scale: 0.95 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              transition={{ delay: i * 0.1 }}
+              className="rounded-3xl bg-background border-2 border-foreground/5 p-8 transition-all hover:border-primary/20 hover:shadow-xl hover:shadow-primary/5"
+            >
+              <div className="text-4xl mb-6">{f.icon}</div>
+              <h3 className="text-xl font-black mb-3">{f.title}</h3>
+              <p className="text-foreground/50 leading-relaxed font-medium text-sm">{f.desc}</p>
+            </motion.div>
           ))}
         </div>
       </div>
@@ -468,33 +566,70 @@ function Features() {
 
 /* ─────────────────────────────────────────────
    QUOTES
-───────────────────────────────────────────── */
+ ───────────────────────────────────────────── */
 function Quotes() {
   const quotes = [
-    "Lo más pesado es abrir una app solo para anotar algo.",
-    "Probé muchas apps, pero siempre vuelvo a lo más simple.",
-    "Cuando algo está en mi cara todo el día, sí lo uso.",
+    { q: "Lo más pesado es abrir una app solo para anotar algo. Con Adonai tardo un segundo.", a: "Carlos M., Diseñador" },
+    { q: "Probé muchas apps, pero siempre vuelvo a lo más simple. Esta es la definitiva.", a: "Laura G., Freelance" },
+    { q: "Cuando algo está en mi cara todo el día, sí lo uso. He dejado de procrastinar.", a: "David R., Desarrollador" },
   ];
   return (
-    <section className="bg-secondary px-6 py-20 md:py-28">
+    <section className="px-6 py-24 md:py-32">
       <div className="mx-auto max-w-5xl">
-        <p className="mb-4 text-center text-sm font-bold uppercase tracking-widest text-muted-foreground">
-          Lo que nos dice la gente
-        </p>
-        <h2 className="mb-12 text-center text-4xl font-black leading-tight md:text-5xl">
-          No estás <span className="bg-primary px-2">solo</span>.
-        </h2>
-        <div className="grid gap-6 md:grid-cols-3">
+        <div className="text-center mb-20">
+          <h2 className="text-5xl md:text-7xl font-black leading-tight tracking-tight mb-4">
+            No estás <span className="text-primary">solo</span>
+          </h2>
+          <p className="text-foreground/50 font-medium text-lg italic">Miles de personas odian las listas de tareas infinitas.</p>
+        </div>
+        
+        <div className="grid gap-8 md:grid-cols-3">
           {quotes.map((q, i) => (
-            <blockquote
+            <motion.div
               key={i}
-              className="rounded-2xl bg-background p-6 text-lg leading-snug shadow-sm"
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.1 }}
+              className="relative p-8 rounded-[40px] bg-secondary/50 border border-foreground/5 italic"
             >
-              <span className="mb-3 block text-3xl text-primary">"</span>
-              {q}
-            </blockquote>
+              <div className="text-4xl text-primary/20 absolute top-4 left-6">"</div>
+              <p className="text-lg font-medium leading-relaxed mb-6 relative z-10">{q.q}</p>
+              <div className="not-italic flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
+                  <Check className="w-4 h-4 text-primary" />
+                </div>
+                <span className="text-sm font-black text-foreground/40">{q.a}</span>
+              </div>
+            </motion.div>
           ))}
         </div>
+      </div>
+    </section>
+  );
+}
+
+/* ─────────────────────────────────────────────
+   FAQ SUMMARY
+ ───────────────────────────────────────────── */
+function FAQSummary() {
+  return (
+    <section className="bg-secondary/20 px-6 py-24 md:py-32">
+      <div className="mx-auto max-w-3xl text-center">
+        <p className="mb-4 text-xs font-bold uppercase tracking-[0.3em] text-foreground/40">Centro de ayuda</p>
+        <h2 className="text-4xl md:text-6xl font-black leading-tight mb-8">
+          ¿Tienes alguna <span className="text-primary">pregunta</span>?
+        </h2>
+        <p className="text-lg text-foreground/60 mb-12 font-medium">
+          Hemos recopilado las dudas más comunes sobre descarga, instalación y uso.
+        </p>
+        
+        <Link 
+          to="/faq"
+          className="inline-flex items-center gap-3 rounded-full bg-foreground text-background px-10 py-5 text-lg font-black transition-all hover:scale-105 active:scale-95 shadow-xl shadow-foreground/10"
+        >
+          Ir a las preguntas frecuentes
+          <ArrowRight className="w-6 h-6" />
+        </Link>
       </div>
     </section>
   );
@@ -502,189 +637,43 @@ function Quotes() {
 
 /* ─────────────────────────────────────────────
    FINAL CTA
-───────────────────────────────────────────── */
+ ───────────────────────────────────────────── */
 function FinalCTA() {
   return (
-    <section id="probar" className="bg-foreground px-6 py-24 text-background md:py-32">
-      <div className="mx-auto max-w-2xl text-center">
-        <h2 className="text-5xl font-black leading-tight md:text-6xl">
-          Empieza a <span className="bg-primary text-primary-foreground px-2">enfocarte</span> hoy.
-        </h2>
-        <p className="mt-6 text-xl text-background/70">
-          Disponible para Windows y Mac. Gratis, sin cuenta, sin tarjeta.
-        </p>
-        <div className="mt-10 flex flex-col sm:flex-row gap-3 max-w-lg mx-auto">
-          <DownloadButton platform="win" variant="cta" />
-          <DownloadButton platform="mac" variant="cta" />
-        </div>
-        <div className="mt-4 max-w-lg mx-auto">
-          <UseInWebButton variant="cta" />
-        </div>
-        <p className="mt-4 text-sm text-background/40">
-          ¿Prefieres el navegador? También puedes usar Adonai en web, con algunas diferencias.
-        </p>
+    <section id="probar" className="relative px-6 py-24 md:py-40 overflow-hidden">
+      <div className="absolute inset-0 -z-10 bg-foreground">
+        <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_30%_30%,rgba(34,197,94,0.1),transparent)]" />
       </div>
-    </section>
-  );
-}
 
-/* ─────────────────────────────────────────────
-   COMPARISON TABLE
-───────────────────────────────────────────── */
-function Comparison() {
-  const rows = [
-    { feat: "Mini-ventana flotante en escritorio", adonai: true, others: false },
-    { feat: "Siempre visible sin abrir la app",     adonai: true, others: false },
-    { feat: "Notificaciones nativas del sistema",    adonai: true, others: false },
-    { feat: "Temporizador por tarea",                adonai: true, others: false },
-    { feat: "Gratis, sin tarjeta",                   adonai: true, others: false },
-    { feat: "Funciona en web y móvil",               adonai: true, others: true  },
-    { feat: "Prioridades urgente/importante",        adonai: true, others: false },
-    { feat: "Sin publicidad",                        adonai: true, others: false },
-  ];
-  return (
-    <section className="px-6 py-20 md:py-28">
-      <div className="mx-auto max-w-4xl">
-        <div className="mb-12 text-center">
-          <p className="mb-4 text-sm font-bold uppercase tracking-widest text-muted-foreground">Por qué Adonai</p>
-          <h2 className="text-4xl font-black leading-tight md:text-5xl">
-            La única app con <span className="bg-primary px-2">mini-ventana flotante</span>
+      <div className="mx-auto max-w-4xl text-center">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          whileInView={{ opacity: 1, scale: 1 }}
+          className="relative z-10"
+        >
+          <h2 className="text-6xl md:text-9xl font-black leading-[0.85] tracking-tight text-background mb-10">
+            Empieza a <br />
+            <span className="text-primary">enfocarte</span> hoy.
           </h2>
-          <p className="mt-5 text-lg text-muted-foreground max-w-xl mx-auto">
-            Comparado con Todoist, TickTick, Any.do y otras apps de tareas populares.
+          <p className="mt-8 text-xl md:text-2xl text-background/60 leading-relaxed mb-16 max-w-2xl mx-auto font-medium">
+            Disponible para Windows y Mac. Gratis, sin cuenta, sin tarjeta. Instala y libera tu mente.
           </p>
-        </div>
-        <div className="overflow-hidden rounded-2xl border-2 border-foreground/10">
-          <table className="w-full text-sm" role="table" aria-label="Comparativa Adonai vs otras apps de tareas">
-            <thead>
-              <tr className="bg-foreground text-background">
-                <th className="px-6 py-4 text-left font-bold text-base" scope="col">Característica</th>
-                <th className="px-6 py-4 text-center font-black text-primary text-base" scope="col">Adonai</th>
-                <th className="px-6 py-4 text-center font-bold text-base opacity-60" scope="col">Otras apps</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r, i) => (
-                <tr key={r.feat} className={i % 2 === 0 ? 'bg-background' : 'bg-secondary'}>
-                  <td className="px-6 py-4 font-medium text-foreground/80">{r.feat}</td>
-                  <td className="px-6 py-4 text-center">
-                    <Check className="w-5 h-5 text-primary mx-auto" aria-label="Sí" />
-                  </td>
-                  <td className="px-6 py-4 text-center">
-                    {r.others
-                      ? <Check className="w-5 h-5 text-muted-foreground mx-auto" aria-label="Sí" />
-                      : <span className="text-foreground/20 text-xl" aria-label="No">✕</span>
-                    }
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-/* ─────────────────────────────────────────────
-   FAQ  (visible + Schema.org — AEO/LLM)
-───────────────────────────────────────────── */
-const FAQ_ITEMS = [
-  {
-    q: "¿Qué es Adonai?",
-    a: "Adonai es una aplicación gratuita de gestión de tareas que muestra una pequeña ventana flotante siempre visible en tu escritorio. Te permite ver, añadir y completar tareas sin tener que abrir ninguna otra aplicación. Disponible para Windows, Mac, navegador web y móvil.",
-  },
-  {
-    q: "¿Es Adonai gratis?",
-    a: "Sí, Adonai es completamente gratuito. No requiere crear una cuenta ni introducir tarjeta de crédito. Solo descarga e instala para Windows o Mac, o úsalo directamente en el navegador.",
-  },
-  {
-    q: "¿Qué diferencia hay entre la app de escritorio y la versión web?",
-    a: "La app de escritorio ofrece la mini-ventana flotante siempre visible, notificaciones nativas del sistema operativo e integración con Windows y Mac (inicio automático, barra de tareas). La versión web te permite gestionar tareas desde cualquier navegador sin instalar nada, tanto en ordenador como en móvil, pero sin la mini-ventana flotante y sin notificaciones nativas.",
-  },
-  {
-    q: "¿Cómo funciona la mini-ventana flotante de Adonai?",
-    a: "La mini-ventana de Adonai es una pequeña barra que aparece siempre encima de todas tus aplicaciones. Puedes ver tus tareas del día, marcarlas como completadas con un clic y añadir nuevas en segundos, sin cambiar de ventana ni buscar la app. Se puede ocultar o expandir con un clic.",
-  },
-  {
-    q: "¿Adonai tiene temporizador de tareas?",
-    a: "Sí. Adonai incluye un temporizador por tarea para que puedas trabajar con tiempo acotado. Al terminar el tiempo decides si continúas o pasas a la siguiente tarea. Es compatible con la técnica Pomodoro y el método de trabajo por bloques de tiempo.",
-  },
-  {
-    q: "¿En qué sistemas operativos funciona Adonai?",
-    a: "Adonai funciona en Windows (descarga .exe), macOS (descarga .dmg), en el navegador web sin instalación (Chrome, Firefox, Safari, Edge) y en dispositivos móviles Android e iOS a través del navegador.",
-  },
-  {
-    q: "¿Cómo descargo Adonai?",
-    a: "Puedes descargar Adonai gratis desde webadonai.com. Para Windows descarga el archivo .exe; para Mac descarga el .dmg. Si prefieres no instalar nada, también puedes usar Adonai directamente en el navegador desde cualquier dispositivo.",
-  },
-];
-
-function FAQ() {
-  const [open, setOpen] = useState<number | null>(null);
-  return (
-    <section
-      id="faq"
-      className="bg-secondary px-6 py-20 md:py-28"
-      aria-label="Preguntas frecuentes sobre Adonai"
-    >
-      <div className="mx-auto max-w-3xl">
-        <div className="mb-12 text-center">
-          <p className="mb-4 text-sm font-bold uppercase tracking-widest text-muted-foreground">FAQ</p>
-          <h2 className="text-4xl font-black leading-tight md:text-5xl">
-            Preguntas <span className="bg-primary px-2">frecuentes</span>
-          </h2>
-        </div>
-        <div className="space-y-3" role="list">
-          {FAQ_ITEMS.map((item, i) => (
-            <div
-              key={i}
-              role="listitem"
-              className="rounded-2xl bg-background overflow-hidden shadow-sm"
-            >
-              <button
-                onClick={() => setOpen(open === i ? null : i)}
-                aria-expanded={open === i}
-                aria-controls={`faq-answer-${i}`}
-                id={`faq-question-${i}`}
-                className="w-full flex items-center justify-between gap-4 px-6 py-5 text-left font-bold text-base hover:bg-foreground/5 transition-colors"
-              >
-                <span>{item.q}</span>
-                <ChevronDown
-                  className={`w-5 h-5 text-muted-foreground flex-shrink-0 transition-transform duration-200 ${open === i ? 'rotate-180' : ''}`}
-                />
-              </button>
-              {open === i && (
-                <div
-                  id={`faq-answer-${i}`}
-                  role="region"
-                  aria-labelledby={`faq-question-${i}`}
-                  className="px-6 pb-5 text-muted-foreground leading-relaxed"
-                >
-                  {item.a}
-                </div>
-              )}
+          
+          <div className="flex flex-col sm:flex-row gap-6 justify-center items-center">
+            <div className="w-full sm:w-auto">
+              <DownloadButton platform="win" variant="cta" />
             </div>
-          ))}
-        </div>
+            <div className="w-full sm:w-auto">
+              <DownloadButton platform="mac" variant="cta" />
+            </div>
+          </div>
+          
+          <div className="mt-10">
+            <UseInWebButton variant="cta" />
+          </div>
+        </motion.div>
       </div>
     </section>
   );
 }
 
-/* ─────────────────────────────────────────────
-   FOOTER
-───────────────────────────────────────────── */
-function Footer() {
-  return (
-    <footer className="border-t border-foreground/10 px-6 py-10 text-center text-xs text-muted-foreground/60">
-      <p className="font-semibold text-sm text-foreground/40 mb-1">Adonai Tasks — App de gestión de tareas para escritorio y web</p>
-      <p>© {new Date().getFullYear()} Adonai. Hecho simple, a propósito. Disponible gratis para Windows, Mac y navegador.</p>
-      <div className="mt-3 flex items-center justify-center gap-3">
-        <Link to="/politica-de-privacidad" className="underline underline-offset-2 hover:text-muted-foreground/90 transition-colors">Política de Privacidad</Link>
-        <span className="text-muted-foreground/30">·</span>
-        <Link to="/terminos-de-servicio" className="underline underline-offset-2 hover:text-muted-foreground/90 transition-colors">Términos de Servicio</Link>
-      </div>
-    </footer>
-  );
-}
