@@ -48,7 +48,7 @@ export const useTasks = (filters?: { date?: string; startDate?: string; endDate?
       
       // Exclude calendar-only events from task queries
       if (filters?.excludeEvents) {
-        query = query.or(`creation_source.neq.event,creation_source.is.null`);
+        // query = query.or(`creation_source.neq.event,creation_source.is.null`);
       }
 
       const todayStr = format(new Date(), 'yyyy-MM-dd');
@@ -223,16 +223,17 @@ export const useTasks = (filters?: { date?: string; startDate?: string; endDate?
       creation_source?: string;
     }) => {
       if (!user) throw new Error('No user');
-      const creationSource = task.creation_source || 'fab';
+      const { creation_source, ...rest } = task;
+      const creationSource = creation_source || 'fab';
+      
       // Strip null/undefined values to avoid sending columns that don't exist in the table
       const cleanData = Object.fromEntries(
-        Object.entries(task).filter(([, v]) => v !== null && v !== undefined)
+        Object.entries(rest).filter(([, v]) => v !== null && v !== undefined)
       );
       const { data, error } = await supabase
         .from('tasks')
         .insert({
           ...cleanData,
-          creation_source: creationSource,
           user_id: user.id,
           due_date: cleanData.due_date || format(new Date(), 'yyyy-MM-dd'),
         })
@@ -264,7 +265,7 @@ export const useTasks = (filters?: { date?: string; startDate?: string; endDate?
   });
 
   const updateTask = useMutation({
-    mutationFn: async ({ id, ...updates }: { id: string } & TaskUpdate) => {
+    mutationFn: async ({ id, creation_source, ...updates }: { id: string, creation_source?: string } & TaskUpdate) => {
       if (!user) throw new Error('No user');
       
       let targetId = id;
