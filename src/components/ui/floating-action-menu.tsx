@@ -119,7 +119,7 @@ const FloatingActionMenu = ({ options, className }: FloatingActionMenuProps) => 
           transition={wakePulse ? { duration: 0.45 } : { duration: 0.5 }}
           className={cn(
             "w-16 h-16 rounded-[22px] flex items-center justify-center shadow-[0_12px_40px_rgba(0,0,0,0.3)] transition-all duration-500 border border-white/10",
-            isOpen ? "bg-foreground text-background rotate-90" : "bg-primary text-primary-foreground"
+            isOpen ? "bg-foreground text-background rotate-90" : "bg-brand text-brand-foreground"
           )}
         >
           {isOpen ? (

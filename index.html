@@ -17,7 +17,21 @@
   <meta name="twitter:title" content="Adonai — Tu lista de tareas siempre a la vista">
   <meta property="og:description" content="Sin abrir apps. Sin pensar. Solo mira y marca. Descarga gratis para Windows.">
   <meta name="twitter:description" content="Sin abrir apps. Sin pensar. Solo mira y marca. Descarga gratis para Windows.">
-</head>
+    <script>
+      window.onerror = function(msg, url, line, col, error) {
+        var div = document.createElement('div');
+        div.style.padding = '20px';
+        div.style.color = 'red';
+        div.style.background = 'white';
+        div.style.position = 'fixed';
+        div.style.inset = '0';
+        div.style.zIndex = '9999';
+        div.innerHTML = '<h1>ERROR CRÍTICO (INICIO)</h1><p>' + msg + '</p><p>En: ' + url + ':' + line + '</p><pre>' + (error ? error.stack : "") + '</pre>';
+        document.body.appendChild(div);
+        return false;
+      };
+    </script>
+  </head>
 
   <body spellcheck="true" lang="es">
     <div id="root"></div>

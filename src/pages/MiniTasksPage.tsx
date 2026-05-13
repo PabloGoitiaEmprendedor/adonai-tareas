@@ -10,11 +10,11 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTasks } from '@/hooks/useTasks';
 import { useFolders } from '@/hooks/useFolders';
 import { useSubtasks } from '@/hooks/useSubtasks';
-import { format, parseISO, addMinutes } from 'date-fns';
+import { format, parseISO, addMinutes, differenceInMinutes } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Check, MoreHorizontal, ChevronRight, Clock, Pause, Plus, Mic, Repeat, Paperclip, Folder, FolderOpen, X, Users as UsersIcon } from 'lucide-react';
+import { Check, MoreHorizontal, ChevronRight, CalendarDays, Clock, Pause, Plus, Mic, Repeat, Paperclip, Folder, FolderOpen, X, Users as UsersIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import TaskCaptureModal from '@/components/TaskCaptureModal';
+import TaskCaptureModal, { type TaskCaptureModalHandle } from '@/components/TaskCaptureModal';
 import TaskDetailModal from '@/components/TaskDetailModal';
 import QuickRecurrenceFlow from '@/components/QuickRecurrenceFlow';
 import { useGamification } from '@/hooks/useGamification';
@@ -157,8 +157,6 @@ const TaskRowRaw = ({ task, onToggle, onDetail, activeTimerId, onTimerToggle, up
   const estimatedSeconds = (task.estimated_minutes || 0) * 60;
   const isOverTime = actualSeconds > estimatedSeconds && estimatedSeconds > 0;
 
-  const folder = folders.find(f => f.id === task.folder_id);
-
   return (
     <motion.div layout initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.95 }} style={{ marginBottom: 4 }}>
@@ -241,14 +239,7 @@ const TaskRowRaw = ({ task, onToggle, onDetail, activeTimerId, onTimerToggle, up
               {task.title}
             </span>
           )}
-          {folder && !isDone && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
-              <Folder style={{ width: 10, height: 10, color: folder.color }} />
-              <span style={{ fontSize: 9, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: C.muted, opacity: 0.6 }}>
-                {folder.name}
-              </span>
-            </div>
-          )}
+
         </div>
 
         {/* Link / Timer / Duration Result */}
@@ -387,8 +378,12 @@ function useDragWindow() {
 // ─── Main component ──────────────────────────────────────────────────────────
 const MiniTaskList = () => {
   const { user, loading } = useAuth();
-  const today = format(new Date(), 'yyyy-MM-dd');
-  const { tasks, updateTask, createTask, isLoading } = useTasks({ date: today, excludeEvents: true });
+  const isAdmin = user?.email === 'pablogoitiaemprendedor@gmail.com';
+  const [viewDate, setViewDate] = useState(new Date());
+  const { tasks, updateTask, createTask, isLoading } = useTasks({ 
+    date: format(viewDate, 'yyyy-MM-dd'), 
+    excludeEvents: false 
+  });
   const { folders, createFolder } = useFolders();
   const { checkAndUnlock } = useGamification();
   const { profile } = useProfile();
@@ -417,6 +412,7 @@ const MiniTaskList = () => {
   const handleDetail = useCallback((t: any) => { setSelectedTask(t); setDetailOpen(true); }, []);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const sessionStartRef = useRef<number>(0);
+  const captureModalRef = useRef<TaskCaptureModalHandle>(null);
 
   const { onMouseDown: onDragMouseDown, hasMovedRef, isDraggingRef: isDraggingWindowRef } = useDragWindow();
 
@@ -428,6 +424,7 @@ const MiniTaskList = () => {
   const hasInteractedRef = useRef(false);
 
   const [calendarOpen, setCalendarOpen] = useState(false);
+  const [isCalendarInteracting, setIsCalendarInteracting] = useState(false);
   const calendarTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const TIME_PREFIX_REGEX = /^\[T:(\d{2}:\d{2})-(\d{2}:\d{2})\]/;
@@ -551,7 +548,9 @@ const MiniTaskList = () => {
       const maxY = pos.screenY + pos.screenH - PANEL_H;
       panelY = Math.max(pos.screenY, Math.min(panelY, maxY));
 
-      api.setMiniBounds({ x: Math.round(panelX), y: Math.round(panelY), w: PANEL_W, h: PANEL_H });
+      // Add 32px buffer for the protruding calendar tab
+      const WINDOW_W = PANEL_W + 32;
+      api.setMiniBounds({ x: Math.round(panelX), y: Math.round(panelY), w: WINDOW_W, h: PANEL_H });
       setIsExpanded(true);
     } else {
       // COLLAPSING — restore pill to original saved position
@@ -575,30 +574,73 @@ const MiniTaskList = () => {
   }, [isExpanded, hasMovedRef, activeTimerId]);
 
   const handleCalendarEnter = useCallback(async () => {
-    if (calendarTimerRef.current) clearTimeout(calendarTimerRef.current);
+    if (calendarTimerRef.current) {
+      clearTimeout(calendarTimerRef.current);
+      calendarTimerRef.current = null;
+    }
     setCalendarOpen(true);
+    
     const api = (window as any).electronAPI;
     if (api?.getMiniPosition && api?.setMiniBounds) {
       const pos = await api.getMiniPosition();
+      // Only expand if not already wide enough
       if (pos && pos.w < 700) {
         api.setMiniBounds({ x: pos.x, y: pos.y, w: 750, h: pos.h });
       }
     }
   }, []);
 
+  const updateDescriptionWithTime = (currentDesc: string | null, start: Date, end: Date) => {
+    const startStr = format(start, 'HH:mm');
+    const endStr = format(end, 'HH:mm');
+    const newPrefix = `[T:${startStr}-${endStr}]`;
+    let newDesc = currentDesc || '';
+    if (TIME_PREFIX_REGEX.test(newDesc)) {
+      return newDesc.replace(TIME_PREFIX_REGEX, newPrefix);
+    } else {
+      return `${newPrefix} ${newDesc}`.trim();
+    }
+  };
+
+  const handleGridClick = useCallback((startTime: Date) => {
+    const end = addMinutes(startTime, 30);
+    const startStr = format(startTime, 'HH:mm');
+    const endStr = format(end, 'HH:mm');
+    setCaptureOpen(true);
+    setCaptureMode('text');
+    setCaptureCreationSource('mini_plus');
+    setTimeout(() => {
+      captureModalRef.current?.openInTextMode(
+        format(viewDate, 'yyyy-MM-dd'),
+        '', // Title empty
+        '', // Description empty
+        `[T:${startStr}-${endStr}]` // Time prefix passed as internal metadata
+      );
+    }, 100);
+  }, []);
+
   const handleCalendarLeave = useCallback(() => {
+    // DO NOT CLOSE if user is dragging an event, if the detail modal is open, or if capture modal is open
+    if (isCalendarInteracting || detailOpen || captureOpen) return;
+
+    // 3000ms delay for a very generous grace period
     calendarTimerRef.current = setTimeout(async () => {
+      // Final double-check before closing
+      if (isCalendarInteracting || detailOpen || captureOpen) return;
+
       setCalendarOpen(false);
+      calendarTimerRef.current = null;
+      
       const api = (window as any).electronAPI;
       if (api?.getMiniPosition && api?.setMiniBounds) {
         const pos = await api.getMiniPosition();
         if (pos && pos.w >= 700) {
-          const newX = pos.x + Math.round((pos.w - PANEL_W) / 2);
-          api.setMiniBounds({ x: newX, y: pos.y, w: PANEL_W, h: PANEL_H });
+          const newX = pos.x + Math.round((pos.w - (PANEL_W + 32)) / 2);
+          api.setMiniBounds({ x: newX, y: pos.y, w: PANEL_W + 32, h: PANEL_H });
         }
       }
-    }, 400);
-  }, []);
+    }, 3000);
+  }, [isCalendarInteracting, detailOpen, captureOpen]);
 
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 30000);
@@ -685,7 +727,11 @@ const MiniTaskList = () => {
   }, [tasks, activeTimerId, updateTask]);
 
   const filteredTasks = useMemo(() => {
-    if (!selectedFolderId) return tasks.filter((t: any) => !t.folder_id);
+    // La pestaña "General" (null) solo muestra las tareas que NO tienen carpeta asignada
+    if (!selectedFolderId) {
+      return tasks.filter((t: any) => !t.folder_id);
+    }
+    // Si hay una carpeta seleccionada, muestra solo las tareas de esa carpeta
     return tasks.filter((t: any) => t.folder_id === selectedFolderId);
   }, [tasks, selectedFolderId]);
 
@@ -851,13 +897,24 @@ const MiniTaskList = () => {
     );
   }
 
+  // Detect if running in browser (not Electron) for preview mode
+  const isElectron = !!(window as any).electronAPI;
+
   // ── EXPANDED PANEL ──
-  return (
+  // In browser: render inside a preview shell that simulates the floating window
+  const panelContent = (
     <>
+    {/* OUTER: position context — no overflow clip so the tab can protrude */}
     <div
-      onMouseEnter={handleMouseEnterUI}
+      onMouseEnter={() => {
+        handleMouseEnterUI();
+        // Clear any pending calendar close timer when mouse enters the interface
+        if (calendarTimerRef.current) {
+          clearTimeout(calendarTimerRef.current);
+          calendarTimerRef.current = null;
+        }
+      }}
       onMouseLeave={(e) => {
-        // Don't ignore mouse events when expanded - panel is solid
         if (showLedGlow && !hasInteractedRef.current) {
           hasInteractedRef.current = true;
           setShowLedGlow(false);
@@ -866,17 +923,62 @@ const MiniTaskList = () => {
         handleCalendarLeave();
       }}
       style={{
-        position: 'fixed', inset: 0,
-        background: C.bg, borderRadius: 20,
-        border: `1px solid ${C.border}`,
-        boxShadow: '0 12px 48px rgba(0,0,0,0.6)',
-        display: 'flex', flexDirection: 'row',
-        overflow: 'hidden',
-        boxSizing: 'border-box',
+        position: isElectron ? 'fixed' : 'relative',
+        inset: isElectron ? 0 : undefined,
+        width: isElectron ? undefined : (calendarOpen ? PANEL_W + 410 : PANEL_W + 32),
+        height: isElectron ? undefined : '100%',
         fontFamily: 'system-ui, -apple-system, sans-serif',
         color: C.text,
+        overflow: 'visible', // Ensure tab doesn't clip
       }}
     >
+    {/* TAB: Put it BEFORE the Inner panel in JSX so it naturally renders 'behind' but is still interactive */}
+    <motion.div
+      onMouseEnter={isAdmin ? handleCalendarEnter : undefined}
+      onMouseLeave={isAdmin ? handleCalendarLeave : undefined}
+      animate={{ 
+        opacity: calendarOpen ? 0 : 1, 
+        x: calendarOpen ? 12 : 0 
+      }}
+      whileHover={isAdmin ? { 
+        scale: 1.05,
+        boxShadow: `0 0 25px rgba(34, 197, 94, 0.4)`,
+        borderColor: '#4ADE80'
+      } : {}}
+      transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+      style={{
+        position: 'absolute',
+        // Protrude relative to the TASK PANEL edge
+        left: PANEL_W - 24,
+        top: '50%',
+        transform: 'translateY(-50%)',
+        width: 48, height: 48, 
+        borderRadius: '50%',
+        background: isAdmin ? 'linear-gradient(135deg, #064E3B 0%, #065F46 100%)' : 'linear-gradient(135deg, #374151 0%, #1F2937 100%)', // Premium dark emerald or gray
+        border: `1.5px solid ${isAdmin ? '#10B981' : '#4B5563'}`, // Vibrant emerald border or gray
+        boxShadow: '4px 0 16px rgba(0,0,0,0.5)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        cursor: isAdmin ? 'pointer' : 'not-allowed', 
+        pointerEvents: calendarOpen ? 'none' : 'auto',
+      }}
+      title={isAdmin ? "Ver calendario" : "Calendario (Pronto)"}
+    >
+      <CalendarDays style={{ width: 22, height: 22, color: isAdmin ? '#4ADE80' : '#9CA3AF', marginLeft: 12 }} />
+    </motion.div>
+
+    {/* INNER: visual panel with clipping */}
+    <div style={{
+      position: 'absolute',
+      left: 0, top: 0, bottom: 0,
+      width: calendarOpen ? PANEL_W + 410 : PANEL_W,
+      background: C.bg, borderRadius: isElectron ? 20 : 18,
+      border: `1px solid ${C.border}`,
+      boxShadow: '0 12px 48px rgba(0,0,0,0.6)',
+      display: 'flex', flexDirection: 'row',
+      overflow: 'hidden',
+      boxSizing: 'border-box',
+      transition: 'width 0.3s ease', // Smoothly match the window expansion
+    }}>
       {/* Left panel: tasks */}
       <div style={{ width: PANEL_W, display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
       {/* Top bar — fully draggable */}
@@ -1136,11 +1238,8 @@ const MiniTaskList = () => {
                   style={{
                     flexShrink: 0, padding: '4px 12px', borderRadius: 8,
                     fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em',
-                    background: 'transparent',
-                    color: C.muted,
-                    border: `1px dashed ${C.border}`,
-                    display: 'flex', alignItems: 'center', gap: 4,
-                    transition: 'all 0.2s ease', cursor: 'pointer'
+                    background: 'transparent', color: C.muted, border: `1px dashed ${C.border}`,
+                    display: 'flex', alignItems: 'center', gap: 4, transition: 'all 0.2s ease', cursor: 'pointer'
                   }}
                   title="Crear nueva carpeta"
                 >
@@ -1152,21 +1251,14 @@ const MiniTaskList = () => {
         )}
       </AnimatePresence>
 
-      {/* Task list */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '6px 10px 10px' }}>
-        {/* Quick Task Actions - Only shown when a folder is selected */}
         {selectedFolderId && (
           <div style={{ padding: '0 8px', marginBottom: 12, display: 'flex', gap: 8 }}>
             <button
-              onClick={() => {
-                setCaptureMode('text');
-                setCaptureCreationSource('mini_plus');
-                setCaptureOpen(true);
-              }}
+              onClick={() => { setCaptureMode('text'); setCaptureCreationSource('mini_plus'); setCaptureOpen(true); }}
               style={{
                 flex: 1, height: 36, borderRadius: 12,
-                background: 'rgba(255,255,255,0.03)',
-                border: `1px solid ${C.border}`,
+                background: 'rgba(255,255,255,0.03)', border: `1px solid ${C.border}`,
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
                 color: C.text, fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em',
                 cursor: 'pointer', transition: 'all 0.2s ease'
@@ -1175,15 +1267,10 @@ const MiniTaskList = () => {
               <Plus style={{ width: 14, height: 14, color: C.muted }} /> Texto
             </button>
             <button
-              onClick={() => {
-                setCaptureMode('voice');
-                setCaptureCreationSource('mini_voice');
-                setCaptureOpen(true);
-              }}
+              onClick={() => { setCaptureMode('voice'); setCaptureCreationSource('mini_voice'); setCaptureOpen(true); }}
               style={{
                 flex: 1, height: 36, borderRadius: 12,
-                background: 'rgba(255,255,255,0.03)',
-                border: `1px solid ${C.border}`,
+                background: 'rgba(255,255,255,0.03)', border: `1px solid ${C.border}`,
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
                 color: C.text, fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em',
                 cursor: 'pointer', transition: 'all 0.2s ease'
@@ -1196,11 +1283,7 @@ const MiniTaskList = () => {
 
         {loading || isLoading ? (
           <div style={{ display: 'flex', justifyContent: 'center', padding: 20 }}>
-            <div style={{
-              width: 20, height: 20, border: `2px solid ${C.accent}`,
-              borderTopColor: 'transparent', borderRadius: '50%',
-              animation: 'spin 0.8s linear infinite',
-            }} />
+            <div style={{ width: 20, height: 20, border: `2px solid ${C.accent}`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
           </div>
         ) : !user ? (
           <p style={{ textAlign: 'center', fontSize: 12, color: C.muted, padding: 16 }}>Abre la app principal primero.</p>
@@ -1212,62 +1295,145 @@ const MiniTaskList = () => {
             </p>
           </div>
         ) : (
-          <AnimatePresence mode="popLayout">
-            {sortedTasks.map((task: any) => (
-              <TaskRow key={task.id}
-                task={completingId === task.id ? { ...task, status: 'done' } : task}
-                onToggle={handleToggle}
-                onDetail={handleDetail}
-                activeTimerId={activeTimerId}
-                onTimerToggle={handleTimerToggle}
-                updateTask={updateTask}
-                folders={folders} />
-            ))}
-          </AnimatePresence>
-        )}
-        {totalCount > 0 && completedCount === totalCount && (
-          <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
-            style={{ margin: '6px 0', padding: '10px', borderRadius: 12, textAlign: 'center',
-              background: C.accentBg, border: '1px solid rgba(163,230,53,0.2)' }}>
-            <span style={{ fontSize: 20 }}>🏆</span>
-            <p style={{ fontSize: 12, fontWeight: 800, color: C.accent, marginTop: 4 }}>¡Todo completado!</p>
-          </motion.div>
-        )}
-      </div>
-      </div>
-
-        {/* Hot zone */}
-        <div
-          onMouseEnter={handleCalendarEnter}
-          style={{ width: 4, flexShrink: 0, cursor: 'pointer', position: 'relative' }}
-        >
-          <div style={{
-            position: 'absolute', inset: '12px 0', width: 1,
-            background: C.border, opacity: 0.3, borderRadius: 1,
-          }} />
-        </div>
-
-        {/* Right panel: day calendar */}
-        {calendarOpen && (
-          <div
-            style={{ width: 410, flexShrink: 0, borderLeft: `1px solid ${C.border}33`, display: 'flex', flexDirection: 'column' }}
-            onMouseEnter={handleCalendarEnter}
-          >
-            <MiniDayView events={calendarEvents} currentDate={now} />
+          <div key="task-list-items">
+            <AnimatePresence mode="popLayout">
+              {sortedTasks.map((task: any) => (
+                <TaskRow 
+                  key={task.id}
+                  task={completingId === task.id ? { ...task, status: 'done' } : task}
+                  onToggle={handleToggle}
+                  onDetail={handleDetail}
+                  activeTimerId={activeTimerId}
+                  onTimerToggle={handleTimerToggle}
+                  updateTask={updateTask}
+                  folders={folders} 
+                />
+              ))}
+            </AnimatePresence>
+            {totalCount > 0 && completedCount === totalCount && (
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.9 }} 
+                animate={{ opacity: 1, scale: 1 }}
+                style={{ margin: '6px 0', padding: '10px', borderRadius: 12, textAlign: 'center', background: C.accentBg, border: '1px solid rgba(163,230,53,0.2)' }}
+              >
+                <span style={{ fontSize: 20 }}>🏆</span>
+                <p style={{ fontSize: 12, fontWeight: 800, color: C.accent, marginTop: 4 }}>¡Todo completado!</p>
+              </motion.div>
+            )}
           </div>
         )}
-    </div>
+      </div> {/* close Task list scroll area */}
+      </div> {/* close Left content area */}
 
-      <TaskCaptureModal
-        open={captureOpen}
-        onClose={() => { setCaptureOpen(false); setCaptureMode(null); }}
-        initialMode={captureMode}
-        creationSource={captureCreationSource}
-        folderId={selectedFolderId || undefined}
-      />
-      <TaskDetailModal task={selectedTask} open={detailOpen} onClose={() => setDetailOpen(false)} />
-      <QuickRecurrenceFlow open={recurrenceFlowOpen} onClose={() => setRecurrenceFlowOpen(false)} />
-    </>
+      <AnimatePresence>
+        {calendarOpen && (
+          <motion.div
+            initial={{ width: 0, opacity: 0, x: 40, scale: 0.96 }}
+            animate={{ width: 410, opacity: 1, x: 0, scale: 1 }}
+            exit={{ width: 0, opacity: 0, x: 40, scale: 0.96 }}
+            transition={{ type: 'spring', stiffness: 380, damping: 32, mass: 1 }}
+            style={{ 
+              flexShrink: 0, 
+              borderLeft: `1px solid rgba(255,255,255,0.06)`, 
+              display: 'flex', flexDirection: 'column', 
+              overflow: 'hidden',
+              background: 'rgba(20, 20, 20, 0.5)', // Slightly darker glass
+              backdropFilter: 'blur(24px) saturate(120%)', // High-fidelity glass
+              boxShadow: '-15px 0 40px rgba(0,0,0,0.4), inset 1px 0 0 rgba(255,255,255,0.03)',
+            }}
+            onMouseEnter={handleCalendarEnter}
+            onMouseLeave={handleCalendarLeave}
+          >
+            <div 
+              style={{ width: 410, height: '100%', flex: 1, minWidth: 410 }}
+              onMouseEnter={() => {
+                if (calendarTimerRef.current) {
+                  clearTimeout(calendarTimerRef.current);
+                  calendarTimerRef.current = null;
+                }
+              }}
+            >
+              <MiniDayView 
+                events={calendarEvents} 
+                currentDate={viewDate} 
+                onDateChange={setViewDate}
+                onEventClick={(id) => {
+                  const task = tasks.find((t: any) => t.id === id);
+                  if (task) handleDetail(task);
+                }}
+                onEventUpdate={(id, newStart) => {
+                  const task = tasks.find((t: any) => t.id === id);
+                  if (!task) return;
+                  const event = calendarEvents.find(e => e.id === id);
+                  if (!event) return;
+                  const duration = differenceInMinutes(event.endTime, event.startTime);
+                  const newEnd = addMinutes(newStart, duration);
+                  const newDesc = updateDescriptionWithTime(task.description, newStart, newEnd);
+                  updateTask.mutate({ id, description: newDesc });
+                }}
+                onEventResize={(id, newEnd) => {
+                  const task = tasks.find((t: any) => t.id === id);
+                  if (!task) return;
+                  const event = calendarEvents.find(e => e.id === id);
+                  if (!event) return;
+                  const newDesc = updateDescriptionWithTime(task.description, event.startTime, newEnd);
+                  updateTask.mutate({ id, description: newDesc });
+                }}
+                onGridClick={handleGridClick}
+                onInteractionChange={setIsCalendarInteracting}
+              />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div> {/* close INNER visual panel */}
+    </div> {/* close OUTER position context */}
+
+    <TaskCaptureModal
+      ref={captureModalRef}
+      open={captureOpen}
+      onClose={() => { setCaptureOpen(false); setCaptureMode(null); }}
+      initialMode={captureMode}
+      creationSource={captureCreationSource}
+      folderId={selectedFolderId || undefined}
+    />
+    <TaskDetailModal task={selectedTask} open={detailOpen} onClose={() => setDetailOpen(false)} />
+    <QuickRecurrenceFlow open={recurrenceFlowOpen} onClose={() => setRecurrenceFlowOpen(false)} />
+  </>
+  );
+
+  // In Electron, render normally (full-window)
+  if (isElectron) return panelContent;
+
+  // In browser, wrap in a preview shell simulating the floating mini window
+  return (
+    <div style={{
+      position: 'fixed', inset: 0,
+      background: 'rgba(10,10,10,0.85)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      fontFamily: 'system-ui, -apple-system, sans-serif',
+    }}>
+      {/* Preview label */}
+      <div style={{
+        position: 'absolute', top: 16, left: '50%', transform: 'translateX(-50%)',
+        fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.25)',
+        letterSpacing: '0.1em', textTransform: 'uppercase', userSelect: 'none',
+      }}>
+        Vista previa — Mini Ventana
+      </div>
+
+      {/* Simulated window — overflow visible so tab protrudes */}
+      <div style={{
+        width: PANEL_W + (calendarOpen ? 410 + 16 : 0),
+        height: PANEL_H,
+        position: 'relative',
+        transition: 'width 0.3s ease',
+        borderRadius: 20,
+        overflow: 'visible',
+      }}>
+        {panelContent}
+      </div>
+    </div>
   );
 };
 

@@ -5,19 +5,16 @@ import { useFriendships } from '@/hooks/useFriendships';
 import { useFolderShares } from '@/hooks/useFolderShares';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProfile } from '@/hooks/useProfile';
-import { useGlobalVoiceCapture } from '@/hooks/useGlobalVoiceCapture';
 import { supabase } from '@/integrations/supabase/client';
 import { Folder, Plus, ChevronRight, Users, Trash2, Check, Clock, Edit2, ArrowLeft, Share2, Settings, Sparkles, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import FAB from '@/components/FAB';
-import QuickRecurrenceFlow from '@/components/QuickRecurrenceFlow';
-import TaskCaptureModal, { type TaskCaptureModalHandle } from '@/components/TaskCaptureModal';
 import TaskDetailModal from '@/components/TaskDetailModal';
 import FullscreenTimer from '@/components/FullscreenTimer';
 import { TaskCard } from '@/components/TaskCard';
 import { toast } from 'sonner';
 import { triggerTaskCelebration } from '@/lib/celebrations';
 import { dispatchTutorialFolderCreated } from '@/lib/tutorialEvents';
+import { usePriorityColors, getPriorityKey } from '@/hooks/usePriorityColors';
 
 const FOLDER_COLORS = ['#C3F53C', '#4BE277', '#6B9FFF', '#FF8B7C', '#FFB86C', '#BD93F9', '#FF79C6', '#C7C6C6'];
 
@@ -27,6 +24,7 @@ const FoldersPage = () => {
   const { user } = useAuth();
   const { profile } = useProfile();
   const { friends: acceptedFriendships } = useFriendships();
+  const { priorityColors } = usePriorityColors();
   
   const [friendProfiles, setFriendProfiles] = useState<{ user_id: string; name: string | null; email: string | null }[]>([]);
   const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
@@ -34,23 +32,13 @@ const FoldersPage = () => {
   const [newName, setNewName] = useState('');
   const [newColor, setNewColor] = useState(FOLDER_COLORS[0]);
   const [editingFolder, setEditingFolder] = useState<string | null>(null);
-  const [captureOpen, setCaptureOpen] = useState(false);
-  const [recurrenceOpen, setRecurrenceOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<any>(null);
   const [timerTask, setTimerTask] = useState<any>(null);
   const [sharingFolder, setSharingFolder] = useState<string | null>(null);
   const [completingTaskId, setCompletingTaskId] = useState<string | null>(null);
   const timerDurationRef = useRef(0);
-  const captureModalRef = useRef<TaskCaptureModalHandle>(null);
 
   const { shares, shareWithFriend, removeShare } = useFolderShares(sharingFolder || selectedFolder || undefined);
-
-  const openCapture = useCallback(() => setCaptureOpen(true), []);
-  const openCaptureInVoiceMode = useCallback(() => {
-    captureModalRef.current?.openInVoiceMode();
-    setCaptureOpen(true);
-  }, []);
-  useGlobalVoiceCapture(captureModalRef, openCapture);
 
   const handleCreate = () => {
     if (!newName.trim()) { toast.error('Escribe un nombre'); return; }
@@ -550,7 +538,7 @@ const FoldersPage = () => {
                     </span>
                   </h2>
                   <button 
-                    onClick={openCapture}
+                    onClick={() => window.dispatchEvent(new CustomEvent('adonai:open-capture', { detail: { folderId: isUncategorized ? undefined : (selectedFolder || undefined) } }))}
                     className="p-2 bg-primary/10 text-primary rounded-xl hover:bg-primary/20 transition-colors"
                   >
                     <Plus className="w-5 h-5" />
@@ -601,28 +589,10 @@ const FoldersPage = () => {
         )}
       </AnimatePresence>
 
-      <FAB 
-        onTextClick={openCapture} 
-        onVoiceClick={openCaptureInVoiceMode} 
-        onRecurrenceClick={() => setRecurrenceOpen(true)}
-      />
-
-      <QuickRecurrenceFlow 
-        open={recurrenceOpen}
-        onClose={() => setRecurrenceOpen(false)}
-      />
-
       {/* Modals */}
       {renderFolderModal(false)}
       <AnimatePresence>{sharingFolder && renderSharingModal()}</AnimatePresence>
-      
-      <TaskCaptureModal 
-        ref={captureModalRef} 
-        open={captureOpen} 
-        onClose={() => setCaptureOpen(false)} 
-        folderId={isUncategorized ? undefined : (selectedFolder || undefined)}
-        creationSource="fab" 
-      />
+
       <TaskDetailModal task={selectedTask} open={!!selectedTask} onClose={() => setSelectedTask(null)} />
       <FullscreenTimer 
         task={timerTask} 

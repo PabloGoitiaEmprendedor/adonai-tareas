@@ -10,7 +10,6 @@ import { ChevronLeft, ChevronRight, MapPin, ExternalLink, CalendarX, RotateCcw, 
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
 import BottomNav from '@/components/BottomNav';
-import GoogleCalendarView from '@/components/calendar/GoogleCalendarView';
 import AdonaiCalendarView from '@/components/calendar/AdonaiCalendarView';
 
 const CalendarPage = () => {
@@ -87,7 +86,7 @@ const CalendarPage = () => {
           </div>
         </div>
 
-        <AdonaiCalendarView 
+      <AdonaiCalendarView 
           selectedDate={selectedDate}
           onSelectDate={setSelectedDate}
           viewMode={viewMode}

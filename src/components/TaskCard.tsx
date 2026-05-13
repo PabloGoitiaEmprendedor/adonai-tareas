@@ -108,29 +108,29 @@ export const TaskCard = memo(({
             initial={{ scale: 0, rotate: -45 }}
             animate={{ scale: 1, rotate: 0 }}
             transition={{ type: "spring", stiffness: 500, damping: 30 }}
-            className="w-10 h-10 rounded-[14px] flex items-center justify-center cursor-pointer shadow-lg shadow-primary/20"
+            className="w-8 h-8 rounded-[12px] flex items-center justify-center cursor-pointer shadow-lg shadow-primary/20"
             style={{ backgroundColor: priorityColor === 'transparent' ? 'var(--primary)' : priorityColor }}
             onClick={(e) => handleUncomplete(task, e)}
           >
-            <Check className="w-5 h-5 text-black stroke-[4]" />
+            <Check className="w-4 h-4 text-black stroke-[4]" />
           </motion.div>
         ) : (
           <button onClick={(e) => { e.stopPropagation(); handleComplete(task, e); }}
-            className="w-9 h-9 rounded-[14px] border-2 flex items-center justify-center transition-all active:scale-75 group/check bg-zinc-900/50 backdrop-blur-sm"
+            className="w-8 h-8 rounded-[12px] border-2 flex items-center justify-center transition-all active:scale-75 group/check bg-zinc-900/50 backdrop-blur-sm"
             style={{ 
               borderColor: priorityColor === 'transparent' ? 'rgba(255,255,255,0.08)' : `${priorityColor}60`,
               backgroundColor: 'transparent'
             }}
           >
             <div 
-              className="w-3.5 h-3.5 rounded-[6px] scale-0 group-hover/check:scale-100 transition-all duration-300 shadow-[0_0_12px_rgba(163,230,53,0.4)]" 
+              className="w-3 h-3 rounded-[5px] scale-0 group-hover/check:scale-100 transition-all duration-300 shadow-[0_0_12px_rgba(163,230,53,0.4)]" 
               style={{ backgroundColor: priorityColor === 'transparent' ? 'var(--primary)' : priorityColor }}
             />
           </button>
         )}
       </div>
 
-      <div className="flex-1 min-w-0 relative flex flex-col justify-center min-h-[44px]">
+      <div className="flex-1 min-w-0 relative flex flex-col justify-center min-h-[44px] pr-2">
         <div className="flex items-center gap-2 mb-1">
           {/* Subtasks Toggle directly to the left of the title */}
           <button
@@ -140,12 +140,12 @@ export const TaskCard = memo(({
             }}
             className="flex-shrink-0 text-white/20 hover:text-primary transition-all flex items-center p-1 hover:bg-white/5 rounded-lg"
           >
-            <span className={`text-[18px] font-black inline-block transition-transform duration-300 ${subtasksOpen ? 'rotate-45 text-primary scale-110' : 'group-hover/task:scale-110'}`}>
+            <span className={`text-[16px] font-black inline-block transition-transform duration-300 ${subtasksOpen ? 'rotate-45 text-primary scale-110' : 'group-hover/task:scale-110'}`}>
               {"+"}
             </span>
           </button>
 
-          <div className={`text-[16px] font-black tracking-tight transition-all flex flex-1 items-center gap-2 font-headline break-words ${
+          <div className={`text-[14px] font-black tracking-tight transition-all flex flex-1 items-center gap-2 font-headline break-words ${
             isDone || completingTaskId === task.id ? 'text-on-surface-variant/30 line-through' : 'text-foreground'
           }`}>
             {isEditing ? (
@@ -214,7 +214,7 @@ export const TaskCard = memo(({
         )}
       </div>
       
-      <div className="flex items-center gap-1.5 flex-shrink-0">
+      <div className="flex items-center gap-1.5 flex-shrink-0 flex-wrap justify-end max-w-[45%]">
 
         {/* Green link clips — visible when task has a link(s) */}
         {!isDone && task.link && (
@@ -228,11 +228,11 @@ export const TaskCard = memo(({
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={(e) => e.stopPropagation()}
-                className="w-9 h-9 rounded-[12px] flex items-center justify-center transition-all active:scale-90 bg-surface/50 dark:bg-black/20 border border-outline/50 hover:bg-surface dark:hover:bg-black/40 group/link shadow-sm"
+                className="w-8 h-8 rounded-[10px] flex items-center justify-center transition-all active:scale-90 bg-surface/50 dark:bg-black/20 border border-outline/50 hover:bg-surface dark:hover:bg-black/40 group/link shadow-sm"
                 aria-label="Abrir link"
               >
                 <Paperclip 
-                  className="w-4 h-4 transition-colors" 
+                  className="w-3.5 h-3.5 transition-colors" 
                   style={{ color: priorityColor === 'transparent' ? 'var(--primary)' : priorityColor }} 
                 />
               </a>
@@ -245,19 +245,19 @@ export const TaskCard = memo(({
           isEditing ? (
             <button
               onClick={(e) => { e.stopPropagation(); submitEdit(); }}
-              className="w-9 h-9 rounded-[12px] flex items-center justify-center transition-all active:scale-90 bg-primary shadow-lg shadow-primary/20"
+              className="w-8 h-8 rounded-[10px] flex items-center justify-center transition-all active:scale-90 bg-primary shadow-lg shadow-primary/20"
               aria-label="Guardar cambios"
             >
-              <Check className="w-5 h-5 text-primary-foreground stroke-[3]" />
+              <Check className="w-4 h-4 text-primary-foreground stroke-[3]" />
             </button>
           ) : (
             <button
               onClick={(e) => handleStartTimer(task, e)}
-              className="w-9 h-9 rounded-[12px] border border-outline/50 flex items-center justify-center transition-all active:scale-90 bg-surface/50 dark:bg-black/20 hover:bg-surface dark:hover:bg-black/40 shadow-sm"
+              className="w-8 h-8 rounded-[10px] border border-outline/50 flex items-center justify-center transition-all active:scale-90 bg-surface/50 dark:bg-black/20 hover:bg-surface dark:hover:bg-black/40 shadow-sm"
               aria-label="Iniciar temporizador"
             >
               <Clock 
-                className="w-4 h-4" 
+                className="w-3.5 h-3.5" 
                 style={{ color: priorityColor === 'transparent' ? 'var(--primary)' : priorityColor }} 
               />
             </button>

@@ -2,14 +2,11 @@ import { useState, useCallback, useRef } from 'react';
 import { useGoals } from '@/hooks/useGoals';
 import { useTasks } from '@/hooks/useTasks';
 import { useProfile } from '@/hooks/useProfile';
-import { useGlobalVoiceCapture } from '@/hooks/useGlobalVoiceCapture';
 import { Flag, Plus, ChevronRight, Check, Trophy, Sparkles, Target, Zap, Layout, ArrowLeft, Trash2, Settings, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import FAB from '@/components/FAB';
-import QuickRecurrenceFlow from '@/components/QuickRecurrenceFlow';
-import TaskCaptureModal, { type TaskCaptureModalHandle } from '@/components/TaskCaptureModal';
 import { toast } from 'sonner';
 import { dispatchTutorialGoalCreated } from '@/lib/tutorialEvents';
+import { usePriorityColors, getPriorityKey } from '@/hooks/usePriorityColors';
 
 const horizonLabels: Record<string, string> = {
   daily: 'Día',
@@ -23,23 +20,13 @@ const GoalsPage = () => {
   const { goals, createGoal, updateGoal, deleteGoal } = useGoals();
   const { tasks } = useTasks();
   const { profile, updateProfile } = useProfile();
+  const { priorityColors } = usePriorityColors();
   
-  const [captureOpen, setCaptureOpen] = useState(false);
   const [showNewGoal, setShowNewGoal] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newHorizon, setNewHorizon] = useState('monthly');
   const [completedGoalId, setCompletedGoalId] = useState<string | null>(null);
   const [nextGoalTitle, setNextGoalTitle] = useState('');
-  const [targetGoalId, setTargetGoalId] = useState<string | null>(null);
-  const [recurrenceOpen, setRecurrenceOpen] = useState(false);
-  const captureModalRef = useRef<TaskCaptureModalHandle>(null);
-
-  const openCapture = useCallback(() => setCaptureOpen(true), []);
-  const openCaptureInVoiceMode = useCallback(() => {
-    captureModalRef.current?.openInVoiceMode();
-    setCaptureOpen(true);
-  }, []);
-  useGlobalVoiceCapture(captureModalRef, openCapture);
 
   const horizons = ['daily', 'weekly', 'monthly', 'quarterly', 'annual'];
   const activeGoals = goals.filter((g) => g.active);
@@ -281,7 +268,7 @@ const GoalsPage = () => {
                     
                     <div className="flex gap-2 pt-4">
                       <button 
-                        onClick={() => { setTargetGoalId(goal.id); setCaptureOpen(true); }}
+                        onClick={() => window.dispatchEvent(new CustomEvent('adonai:open-capture', { detail: { goalId: goal.id } }))}
                         className="flex-1 py-4 bg-surface-container rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-primary hover:text-primary-foreground transition-all"
                       >
                         Añadir Hito
@@ -341,26 +328,7 @@ const GoalsPage = () => {
         )}
       </div>
 
-      <FAB 
-        onTextClick={openCapture} 
-        onVoiceClick={openCaptureInVoiceMode} 
-        onRecurrenceClick={() => setRecurrenceOpen(true)}
-      />
-      
-      <QuickRecurrenceFlow 
-        open={recurrenceOpen}
-        onClose={() => setRecurrenceOpen(false)}
-      />
-
       {renderNewGoalModal()}
-
-      <TaskCaptureModal 
-        ref={captureModalRef} 
-        open={captureOpen} 
-        onClose={() => { setCaptureOpen(false); setTargetGoalId(null); }} 
-        goalId={targetGoalId || undefined}
-        creationSource="fab" 
-      />
 
       {/* Completion Dialog */}
       <AnimatePresence>

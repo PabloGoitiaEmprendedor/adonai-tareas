@@ -3,15 +3,12 @@ import { useProfile } from '@/hooks/useProfile';
 import { useTasks, useEisenhowerSort } from '@/hooks/useTasks';
 import { useGoals } from '@/hooks/useGoals';
 import { useStreaks } from '@/hooks/useStreaks';
-import { useGlobalVoiceCapture } from '@/hooks/useGlobalVoiceCapture';
 import { format } from 'date-fns';
 import { Check, Target, Plus, GripVertical, Timer } from 'lucide-react';
 import { motion } from 'framer-motion';
-import FAB from '@/components/FAB';
-import QuickRecurrenceFlow from '@/components/QuickRecurrenceFlow';
-import TaskCaptureModal, { type TaskCaptureModalHandle } from '@/components/TaskCaptureModal';
 import TaskDetailModal from '@/components/TaskDetailModal';
 import FullscreenTimer from '@/components/FullscreenTimer';
+import { usePriorityColors, getPriorityKey } from '@/hooks/usePriorityColors';
 import { TUTORIAL_CLOSE_CAPTURE_MODAL_EVENT } from '@/lib/tutorialEvents';
 
 const getGreeting = () => {
@@ -27,23 +24,17 @@ const DashboardPage = () => {
   const { metrics, trackDayActive } = useStreaks();
   const today = format(new Date(), 'yyyy-MM-dd');
   const { tasks, updateTask } = useTasks({ date: today, excludeEvents: true });
-  const [captureOpen, setCaptureOpen] = useState(false);
-  const [recurrenceOpen, setRecurrenceOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<any>(null);
   const [timerTask, setTimerTask] = useState<any>(null);
+  const { priorityColors } = usePriorityColors();
   const [orderedTasks, setOrderedTasks] = useState<any[]>([]);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
-  const captureModalRef = useRef<TaskCaptureModalHandle>(null);
-
-  const openCapture = useCallback(() => setCaptureOpen(true), []);
-  const openCaptureInVoiceMode = useCallback(() => {
-    captureModalRef.current?.openInVoiceMode();
-    setCaptureOpen(true);
-  }, []);
-  useGlobalVoiceCapture(captureModalRef, openCapture);
 
   useEffect(() => {
-    const handleCloseModal = () => setCaptureOpen(false);
+    const handleCloseModal = () => {
+      // This is now handled globally, but we can keep the listener if it's still needed for other reasons
+      // or just remove it if it was only for the local capture modal.
+    };
     window.addEventListener(TUTORIAL_CLOSE_CAPTURE_MODAL_EVENT, handleCloseModal);
     return () => window.removeEventListener(TUTORIAL_CLOSE_CAPTURE_MODAL_EVENT, handleCloseModal);
   }, []);
@@ -168,7 +159,7 @@ const DashboardPage = () => {
         {orderedTasks.length === 0 ? (
           <div className="bg-surface-container-low p-6 rounded-lg text-center space-y-3">
             <p className="text-on-surface-variant">Tu día está despejado. ¿Qué quieres lograr?</p>
-            <button onClick={openCapture} className="inline-flex items-center gap-2 px-4 py-2 rounded-full primary-gradient text-primary-foreground text-sm font-semibold">
+            <button onClick={() => window.dispatchEvent(new CustomEvent('adonai:open-capture'))} className="inline-flex items-center gap-2 px-4 py-2 rounded-full primary-gradient text-primary-foreground text-sm font-semibold">
               <Plus className="w-4 h-4" /> Añadir tarea
             </button>
           </div>
@@ -224,16 +215,6 @@ const DashboardPage = () => {
         )}
       </div>
 
-      <FAB 
-        onTextClick={openCapture} 
-        onVoiceClick={openCaptureInVoiceMode} 
-        onRecurrenceClick={() => setRecurrenceOpen(true)}
-      />
-      <QuickRecurrenceFlow 
-        open={recurrenceOpen}
-        onClose={() => setRecurrenceOpen(false)}
-      />
-      <TaskCaptureModal ref={captureModalRef} open={captureOpen} onClose={() => setCaptureOpen(false)} creationSource="fab" />
       <TaskDetailModal task={selectedTask} open={!!selectedTask} onClose={() => setSelectedTask(null)} />
       <FullscreenTimer task={timerTask} open={!!timerTask} onClose={() => setTimerTask(null)} />
     </div>

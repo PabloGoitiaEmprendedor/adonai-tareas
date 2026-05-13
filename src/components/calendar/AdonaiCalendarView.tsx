@@ -160,7 +160,7 @@ const AdonaiCalendarView: React.FC<AdonaiCalendarViewProps> = ({ selectedDate, o
                 endTime: e,
                 color: block.color || 'blue',
                 category: 'Calendario',
-                description: 'Bloque Recurrente',
+                description: '',
               });
             }
           });
@@ -180,7 +180,7 @@ const AdonaiCalendarView: React.FC<AdonaiCalendarViewProps> = ({ selectedDate, o
         endTime: end,
         color: block.color || 'blue',
         category: 'Calendario',
-        description: block.is_recurring ? 'Hábito Recurrente' : 'Bloque de Tiempo',
+        description: '',
         recurrence,
         recurrenceDays,
       });
@@ -285,7 +285,7 @@ tasks?.forEach((task) => {
             endTime: end,
             color: color,
             category: folderName,
-             description: stripAllPrefixes(scheduledTime ? scheduledTime.cleanDescription : (task.description || '')) || (task.isVirtual ? 'Tarea Recurrente' : undefined),
+             description: stripAllPrefixes(scheduledTime ? scheduledTime.cleanDescription : (task.description || '')) || undefined,
             urgency: urgency,
             importance: importance,
             links: task.link ? [task.link] : [],

@@ -10,6 +10,16 @@ import AppTutorial from './AppTutorial';
 import TitleBar from './TitleBar';
 import { useProfile } from '@/hooks/useProfile';
 import AnonymousReminder from './AnonymousReminder';
+import { useTasks } from '@/hooks/useTasks';
+import { usePriorityColors, getPriorityKey } from '@/hooks/usePriorityColors';
+import { useGlobalVoiceCapture } from '@/hooks/useGlobalVoiceCapture';
+import { MobileDynamicIsland } from '@/components/ui/mobile-task-island';
+import FAB from '@/components/FAB';
+import TaskCaptureModal, { type TaskCaptureModalHandle } from '@/components/TaskCaptureModal';
+import QuickRecurrenceFlow from '@/components/QuickRecurrenceFlow';
+import { format } from 'date-fns';
+import { useFolders } from '@/hooks/useFolders';
+import { useRef, useCallback } from 'react';
 
 interface NavigationWrapperProps {
   children: React.ReactNode;
@@ -154,9 +164,53 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
   const navigate = useNavigate();
   const location = useLocation();
 
+  // Task capture state
+  const [captureOpen, setCaptureOpen] = useState(false);
+  const [recurrenceOpen, setRecurrenceOpen] = useState(false);
+  const [targetContext, setTargetContext] = useState<{ goalId?: string; folderId?: string }>({});
+  const captureModalRef = useRef<TaskCaptureModalHandle>(null);
+
+  const today = format(new Date(), 'yyyy-MM-dd');
+  const { tasks } = useTasks({ date: today });
+  const { folders } = useFolders();
+  const { colors: priorityColors } = usePriorityColors();
+
+  const openCapture = useCallback((context?: { goalId?: string; folderId?: string }) => {
+    if (context) setTargetContext(context);
+    else setTargetContext({});
+    setCaptureOpen(true);
+  }, []);
+
+  const openCaptureInVoiceMode = useCallback((context?: { goalId?: string; folderId?: string }) => {
+    if (context) setTargetContext(context);
+    else setTargetContext({});
+    setCaptureOpen(true);
+    setTimeout(() => {
+      captureModalRef.current?.openInVoiceMode();
+    }, 10);
+  }, []);
+
+  useGlobalVoiceCapture(captureModalRef, () => openCapture());
+
+  // Listen for global open-capture events
+  useEffect(() => {
+    const handleOpenCapture = (e: any) => {
+      const { goalId, folderId, voice } = e.detail || {};
+      if (voice) {
+        openCaptureInVoiceMode({ goalId, folderId });
+      } else {
+        openCapture({ goalId, folderId });
+      }
+    };
+    window.addEventListener('adonai:open-capture' as any, handleOpenCapture);
+    return () => window.removeEventListener('adonai:open-capture' as any, handleOpenCapture);
+  }, [openCapture, openCaptureInVoiceMode]);
+
+  const isAdmin = user?.email === 'pablogoitiaemprendedor@gmail.com';
+
   const menuItems = [
     { label: 'Hoy', icon: Sun, path: '/daily' },
-    { label: 'Calendario', icon: Calendar, path: '/week' },
+    { label: isAdmin ? 'Calendario' : 'Calendario (Pronto)', icon: Calendar, path: isAdmin ? '/week' : '#' },
     { label: 'Metas', icon: Target, path: '/goals' },
     { label: 'Carpetas', icon: FolderOpen, path: '/folders' },
     { label: 'Logros', icon: Trophy, path: '/achievements' },
@@ -165,6 +219,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
   ];
 
   const handleNavigate = (path: string) => {
+    if (path === '#') return;
     navigate(path);
     setOpen(false);
   };
@@ -183,6 +238,8 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
   if (!showNavigation) {
     return <>{children}</>;
   }
+
+  const isWeeklyPage = location.pathname === '/week';
 
   return (
     <div className="min-h-screen bg-background">
@@ -256,6 +313,58 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
           {children}
         </div>
       </main>
+
+      {/* Universal Task Capture UI */}
+      <div className="relative z-[60]">
+        {/* Mobile logic: Island on week page, FAB elsewhere */}
+        <div className="lg:hidden">
+          {isWeeklyPage ? (
+            <MobileDynamicIsland
+              tasks={tasks}
+              currentDate={new Date()}
+              onAddTask={() => openCapture()}
+              onTaskClick={(task) => {
+                window.dispatchEvent(new CustomEvent('adonai:open-task-detail', { detail: task }));
+              }}
+              priorityColors={priorityColors}
+              getPriorityKey={getPriorityKey}
+              folders={folders}
+            />
+          ) : (
+            <FAB 
+              onTextClick={() => openCapture()} 
+              onVoiceClick={() => openCaptureInVoiceMode()} 
+              onRecurrenceClick={() => setRecurrenceOpen(true)}
+            />
+          )}
+        </div>
+
+        {/* Desktop logic: FAB is always present */}
+        <div className="hidden lg:block">
+          <FAB 
+            onTextClick={() => openCapture()} 
+            onVoiceClick={() => openCaptureInVoiceMode()} 
+            onRecurrenceClick={() => setRecurrenceOpen(true)}
+          />
+        </div>
+      </div>
+
+      <TaskCaptureModal 
+        ref={captureModalRef} 
+        open={captureOpen} 
+        onClose={() => {
+          setCaptureOpen(false);
+          setTargetContext({});
+        }} 
+        goalId={targetContext.goalId}
+        folderId={targetContext.folderId}
+        creationSource="global-fab" 
+      />
+
+      <QuickRecurrenceFlow 
+        open={recurrenceOpen}
+        onClose={() => setRecurrenceOpen(false)}
+      />
 
       <AppTutorial run={tutorialRun} onFinish={() => setTutorialRun(false)} />
     </div>

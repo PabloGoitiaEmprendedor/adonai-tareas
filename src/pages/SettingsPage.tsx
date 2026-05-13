@@ -92,12 +92,13 @@ const SettingsPage = () => {
           </div>
         </div>
 
-        {/* Desktop Settings - Very prominent */}
-        <motion.section 
+        {/* Desktop Settings - Hide on mobile via CSS */}
+        <div className="hidden md:block">
+          <motion.section 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             className="space-y-4"
-        >
+          >
             <div className="bg-gradient-to-br from-primary/20 to-surface-container-low border border-primary/20 rounded-[32px] p-1 shadow-2xl shadow-primary/5">
                 <div className="bg-surface-container-low rounded-[31px] overflow-hidden">
                     <div className="p-6 flex items-center justify-between">
@@ -154,7 +155,8 @@ const SettingsPage = () => {
                     </div>
                 </div>
             </div>
-        </motion.section>
+          </motion.section>
+        </div>
 
         {/* Appearance Section */}
         <section className="space-y-4">

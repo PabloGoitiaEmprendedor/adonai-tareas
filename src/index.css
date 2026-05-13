@@ -6,58 +6,63 @@
 
 @layer base {
   :root {
-    /* Notion Light Mode */
-    --background: 0 0% 100%; /* #FFFFFF */
-    --foreground: 45 8% 20%; /* #37352F */
+    /* Elegant Soft Light Mode (Anti-Glare) */
+    --background: 210 16% 93%; /* Noticeable soft cool gray (No glare) */
+    --foreground: 210 15% 20%; /* Deep cool gray text */
     
-    --card: 0 0% 100%; /* #FFFFFF */
-    --card-foreground: 45 8% 20%; /* #37352F */
+    --card: 0 0% 100%; /* Pure white for maximum contrast against background */
+    --card-foreground: 210 15% 20%;
     
-    --popover: 0 0% 100%; /* #FFFFFF */
-    --popover-foreground: 45 8% 20%; /* #37352F */
+    --popover: 0 0% 100%;
+    --popover-foreground: 210 15% 20%;
     
-    --primary: 112 98% 44%; /* #21D904 - Bright Green */
-    --primary-foreground: 0 0% 100%; /* #FFFFFF */
-    --primary-container: 101 64% 34%; /* #418C1F */
-    
-    --secondary: 60 9% 94%; /* #F1F1EF Gray Bg */
-    --secondary-foreground: 45 8% 20%; /* #37352F */
-    --secondary-container: 60 9% 94%; /* #F1F1EF Gray Bg */
-    
-    --muted: 60 9% 94%; /* #F1F1EF Gray Bg */
-    --muted-foreground: 45 2% 46%; /* #787774 Gray Text */
-    
-    --accent: 60 9% 94%; /* #F1F1EF Gray Bg */
-    --accent-foreground: 45 8% 20%; /* #37352F */
-    
-    --destructive: 2 61% 55%; /* #D44C47 Red Text */
-    --destructive-foreground: 0 0% 100%; /* #FFFFFF */
-    
-    --border: 60 9% 90%; /* Slightly darker than Gray Bg for borders */
-    --input: 60 9% 94%; /* #F1F1EF Gray Bg */
-    --ring: 202 54% 43%; /* #337EA9 Blue Text */
-    
-    --radius: 0.5rem; /* Notion uses smaller border radius */
+    /* Normal buttons - Reverting to Green as requested for vibrancy */
+    --primary: 112 98% 44%;
+    --primary-foreground: 210 15% 15%;
+    --primary-container: 101 64% 34%;
 
-    --surface: 0 0% 100%; /* #FFFFFF */
-    --surface-dim: 60 9% 94%; /* #F1F1EF Gray Bg */
+    /* Mega Important */
+    --brand: 112 98% 44%;
+    --brand-foreground: 210 15% 15%;
+    
+    --secondary: 210 16% 85%;
+    --secondary-foreground: 210 15% 20%;
+    --secondary-container: 210 16% 87%;
+    
+    --muted: 210 16% 87%;
+    --muted-foreground: 210 15% 35%; /* Darkened for better readability */
+    
+    --accent: 210 16% 87%;
+    --accent-foreground: 210 15% 20%;
+    
+    --destructive: 350 80% 60%;
+    --destructive-foreground: 0 0% 100%;
+    
+    --border: 210 16% 75%; /* Darker border for better definition */
+    --input: 210 16% 87%;
+    --ring: 210 100% 60%;
+    
+    --radius: 0.75rem; 
+
+    --surface: 0 0% 100%;
+    --surface-dim: 210 16% 87%;
     --surface-container-lowest: 0 0% 100%;
-    --surface-container-low: 60 9% 98%;
-    --surface-container: 60 9% 94%; /* #F1F1EF Gray Bg */
-    --surface-container-high: 45 5% 90%;
-    --surface-container-highest: 45 5% 86%;
+    --surface-container-low: 210 20% 96%;
+    --surface-container: 210 16% 92%;
+    --surface-container-high: 210 16% 87%;
+    --surface-container-highest: 210 16% 82%;
     
-    --on-surface: 45 8% 20%; /* #37352F */
-    --on-surface-variant: 45 2% 46%; /* #787774 Gray Text */
-    --outline: 60 9% 90%;
-    --outline-variant: 60 9% 94%; /* #F1F1EF Gray Bg */
+    --on-surface: 210 15% 20%;
+    --on-surface-variant: 210 15% 35%; /* Darkened for better readability */
+    --outline: 210 16% 70%; /* Darker outline for stronger edges */
+    --outline-variant: 210 16% 75%;
 
-    --error: 2 61% 55%; /* #D44C47 Red Text */
-    --error-container: 351 54% 96%; /* #FDEBEC Red Bg */
+    --error: 350 80% 60%;
+    --error-container: 350 80% 96%;
     --on-error: 0 0% 100%;
 
-    --tertiary: 148 32% 39%; /* #448361 Green Text */
-    --tertiary-container: 111 25% 94%; /* #EDF3EC Green Bg */
+    --tertiary: 148 32% 39%;
+    --tertiary-container: 111 25% 94%;
   }
 
   .dark {
@@ -71,9 +76,14 @@
     --popover: 200 6% 29%; /* #454B4E Gray Bg */
     --popover-foreground: 0 0% 92%; /* #EBEBEB Default Text */
     
+    /* Normal buttons */
     --primary: 112 98% 44%;
     --primary-foreground: 202 8% 20%; /* #2F3437 Default Bg */
     --primary-container: 101 64% 34%;
+
+    /* Mega Important */
+    --brand: 112 98% 44%; /* Green */
+    --brand-foreground: 202 8% 20%; /* Dark text */
     
     --secondary: 200 6% 29%; /* #454B4E Gray Bg */
     --secondary-foreground: 0 0% 92%; /* #EBEBEB Default Text */

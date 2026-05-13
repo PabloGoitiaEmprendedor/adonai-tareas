@@ -4,7 +4,7 @@ import path from "path";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
-  base: "./",
+  base: "",
   build: {
     target: "es2015",
     assetsDir: "assets",
@@ -14,8 +14,9 @@ export default defineConfig(({ mode }) => ({
     exclude: ["android"],
   },
   server: {
-    host: "::",
-    port: 8080,
+    host: "0.0.0.0",
+    port: 5173,
+    strictPort: true,
     watch: {
       ignored: ["**/android/**", "**/dist-electron/**", "**/dist/**"],
     },

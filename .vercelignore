@@ -1,0 +1,12 @@
+node_modules
+dist
+dist-electron
+build
+Adonai-Setup.exe
+Adonai-Instalador
+SETUP-FINAL
+adonai-key.jks
+android
+*.log
+.vercel
+.git

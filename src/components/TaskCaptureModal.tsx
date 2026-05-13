@@ -28,7 +28,7 @@ interface TaskCaptureModalProps {
 
 export interface TaskCaptureModalHandle {
   openInVoiceMode: () => Promise<boolean>;
-  openInTextMode: (date?: string) => void;
+  openInTextMode: (date?: string, title?: string, description?: string) => void;
 }
 
 const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProps>(({ open, onClose, goalId, folderId, timeBlockId, initialMode, creationSource }, ref) => {
@@ -60,6 +60,7 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
   const mountedRef = useRef(false);
   const voiceProcessedRef = useRef(false);
   const isCurrentlySavingRef = useRef(false);
+  const [timePrefix, setTimePrefix] = useState<string | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
 
   // Submit voice task via Enter key
@@ -80,6 +81,7 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
     setPrevOpen(open);
     if (open) {
       setDueDate(format(new Date(), 'yyyy-MM-dd'));
+      setTimePrefix(null);
       setClassificationSource('');
       setFallbackEstimatedMinutes(null);
       setSelectedGoalId(null);
@@ -131,9 +133,11 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
       setFallbackEstimatedMinutes(null);
       return beginVoiceCapture();
     },
-    openInTextMode: (date?: string) => {
+    openInTextMode: (date?: string, initialTitle?: string, initialDescription?: string, timePrefixArg?: string) => {
       setPhase('input');
-      setTitle('');
+      setTitle(initialTitle || '');
+      setDescription(initialDescription || '');
+      setTimePrefix(timePrefixArg || null);
       setDueDate(date || format(new Date(), 'yyyy-MM-dd'));
       setClassificationSource('');
       setFallbackEstimatedMinutes(null);
@@ -208,7 +212,7 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
         urgency,
         importance,
         source_type: sourceType,
-        description: taskDesc || null,
+        description: timePrefix ? `${timePrefix} ${taskDesc || ''}`.trim() : (taskDesc || null),
         link: taskLink || null,
         context_id: null,
         goal_id: chosenGoalId || goalId || null,
@@ -590,7 +594,7 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
                                autoFocus 
                                value={title} 
                                onChange={(e) => setTitle(e.target.value)}
-                               placeholder="¿Qué necesitas hacer?"
+                               placeholder=""
                                className={cn(
                                  "w-full font-black bg-surface border border-outline-variant rounded-[20px] px-5 py-4 focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-muted-foreground/30",
                                  isMini ? "text-lg py-3" : "text-xl py-4"
@@ -606,7 +610,7 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
                               id="task-description-input"
                               value={description} 
                               onChange={(e) => setDescription(e.target.value)}
-                              placeholder="Detalles adicionales..."
+                             placeholder=""
                               className={cn(
                                 "w-full text-sm bg-surface-container/30 border border-outline-variant/10 rounded-[24px] p-5 focus:outline-none focus:ring-2 focus:ring-primary/30 placeholder:text-on-surface-variant/20",
                                 isMini ? "min-h-[80px] p-4" : "min-h-[100px] p-5"
@@ -629,7 +633,7 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
                                         newLinks[i] = e.target.value;
                                         setLinks(newLinks);
                                       }}
-                                      placeholder="https://..."
+                                      placeholder=""
                                       className={cn(
                                         "w-full text-sm bg-surface-container/30 border border-outline-variant/10 rounded-[24px] pl-12 pr-5 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all placeholder:text-on-surface-variant/20",
                                         isMini ? "py-3" : "py-4"

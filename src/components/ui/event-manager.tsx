@@ -188,12 +188,14 @@ export function EventManager({
     tags: [],
   })
 
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>('General');
 
   const uniqueCategories = useMemo(() => {
     const cats = new Set<string>();
+    cats.add('General');
     events.forEach(e => {
-      if (e.category) cats.add(e.category);
+      const catName = e.category || 'General';
+      cats.add(catName);
     });
     return Array.from(cats).sort();
   }, [events]);
@@ -205,8 +207,9 @@ export function EventManager({
   const [hoveredDay, setHoveredDay] = useState<Date | null>(null)
   const [selectedDayForSheet, setSelectedDayForSheet] = useState<Date | null>(null)
   const [isSheetOpen, setIsSheetOpen] = useState(false)
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [sidebarView, setSidebarView] = useState<'list' | 'folders'>('list');
-  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set(['General']));
   const [showRecurrenceOptions, setShowRecurrenceOptions] = useState(false);
   const [showCustomRec, setShowCustomRec] = useState(false)
   const [isRecPopoverOpen, setIsRecPopoverOpen] = useState(false)
@@ -383,9 +386,10 @@ export function EventManager({
 
   const tasksByFolder = useMemo(() => {
     const tasks = filteredEvents.filter(e => {
-      const inTimeRange = (e.isAllDay && isSameDay(e.startTime, currentDate)) || 
+      const inTimeRange = (isSameDay(e.startTime, currentDate)) || 
         (e.startTime < startOfDay(currentDate) && !e.completed);
-      const matchesCategory = !selectedCategory || e.category === selectedCategory;
+      const taskCat = e.category || 'General';
+      const matchesCategory = !selectedCategory || taskCat === selectedCategory;
       return inTimeRange && matchesCategory;
     });
     const grouped: Record<string, Event[]> = {};
@@ -573,7 +577,14 @@ export function EventManager({
 
   // Drop event from sidebar onto the calendar grid at a specific time
   const dropEventOnCalendar = useCallback((event: Event, day: Date, hour: number, mins: number) => {
-    const duration = event.isAllDay ? 30 * 60 * 1000 : (event.endTime.getTime() - event.startTime.getTime())
+    // Ensure startTime and endTime are valid Dates (especially for external tasks/mobile island)
+    const start = event.startTime ? new Date(event.startTime) : new Date();
+    const end = event.endTime ? new Date(event.endTime) : new Date(start.getTime() + 30 * 60 * 1000);
+    
+    const duration = (event.isAllDay || isNaN(end.getTime()) || isNaN(start.getTime())) 
+      ? 30 * 60 * 1000 
+      : (end.getTime() - start.getTime());
+      
     const newStartTime = new Date(day)
     newStartTime.setHours(hour, mins, 0, 0)
     const newEndTime = new Date(newStartTime.getTime() + duration)
@@ -688,6 +699,64 @@ export function EventManager({
     window.addEventListener('touchmove', onMove, { passive: false })
     window.addEventListener('touchend', onEnd)
   }, [dropEventOnCalendar])
+
+  // External drag listeners (for MobileDynamicIsland long press)
+  useEffect(() => {
+    const handleExternalDragStart = (e: any) => {
+      const { task, x, y } = e.detail;
+      setGlobalDragEvent(task);
+      const g = globalGhostRef.current;
+      if (g) {
+        g.style.display = 'flex';
+        g.style.opacity = '1';
+        g.style.transform = `translate(${x - 70}px, ${y - 20}px)`;
+      }
+    };
+
+    const handleExternalDragMove = (e: any) => {
+      const { x, y } = e.detail;
+      const g = globalGhostRef.current;
+      if (g) {
+        g.style.transform = `translate(${x - 70}px, ${y - 20}px)`;
+      }
+    };
+
+    const handleExternalDragEnd = (e: any) => {
+      const g = globalGhostRef.current;
+      if (!g) return;
+      
+      const transform = g.style.transform;
+      const match = transform.match(/translate\((.+)px,\s*(.+)px\)/);
+      const x = match ? parseFloat(match[1]) : 0;
+      const y = match ? parseFloat(match[2]) : 0;
+      
+      // Hide ghost
+      g.style.opacity = '0';
+      g.style.transform = `translate(-9999px, -9999px)`;
+      setTimeout(() => { if (g) g.style.display = 'none' }, 150);
+
+      if (globalDragEvent) {
+        const els = document.elementsFromPoint(x + 70, y + 20) as HTMLElement[];
+        const cell = els.find(el => el.dataset && el.dataset.cellHour !== undefined);
+        if (cell && cell.dataset.cellDay && cell.dataset.cellHour !== undefined) {
+          const day = new Date(cell.dataset.cellDay);
+          const hour = parseInt(cell.dataset.cellHour);
+          const mins = parseInt(cell.dataset.cellMins || '0');
+          dropEventOnCalendar(globalDragEvent, day, hour, mins);
+        }
+      }
+      setGlobalDragEvent(null);
+    };
+
+    window.addEventListener('adonai:external-drag-start', handleExternalDragStart);
+    window.addEventListener('adonai:external-drag-move', handleExternalDragMove);
+    window.addEventListener('adonai:external-drag-end', handleExternalDragEnd);
+    return () => {
+      window.removeEventListener('adonai:external-drag-start', handleExternalDragStart);
+      window.removeEventListener('adonai:external-drag-move', handleExternalDragMove);
+      window.removeEventListener('adonai:external-drag-end', handleExternalDragEnd);
+    };
+  }, [globalDragEvent, dropEventOnCalendar]);
 
   const handleDrop = useCallback(
     (date: Date, hour?: number, minutes: number = 0) => {
@@ -928,30 +997,20 @@ export function EventManager({
                   >
                     <div className="p-4 border-b border-outline-variant/5">
                       <div className="flex items-center justify-between mb-1">
-                        <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-primary">Tareas de hoy</h3>
+                        <h3 className="text-[12px] font-black tracking-[0.1em] text-primary">Tareas de hoy</h3>
                       </div>
-                      <p className="text-[9px] text-on-surface-variant/40 font-black uppercase tracking-widest leading-tight">Arrastra tus tareas al calendario</p>
+                      <p className="text-[10px] text-on-surface-variant/40 font-black tracking-wider leading-tight">Mantén presionado para arrastras al calendario</p>
                     </div>
 
                     {/* Folder filter bar */}
                     {uniqueCategories.length > 0 && (
                       <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar px-4 py-2 border-b border-outline-variant/5">
-                        <button
-                          onClick={() => setSelectedCategory(null)}
-                          className={`flex-shrink-0 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all border ${
-                            !selectedCategory
-                              ? 'bg-primary text-primary-foreground border-primary shadow-sm'
-                              : 'bg-surface-container text-on-surface-variant/70 hover:text-primary border-outline-variant/20 hover:border-primary/30'
-                          }`}
-                        >
-                          Todas
-                        </button>
                         {uniqueCategories.map(cat => {
                           const isSelected = selectedCategory === cat;
                           return (
                             <button
                               key={cat}
-                              onClick={() => setSelectedCategory(isSelected ? null : cat)}
+                              onClick={() => setSelectedCategory(cat)}
                               className={`flex-shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all border ${
                                 isSelected
                                   ? 'bg-primary text-primary-foreground border-primary shadow-sm'
@@ -982,13 +1041,13 @@ export function EventManager({
                       {sidebarView === 'list' ? (
                         <div className="space-y-2">
                           {filteredEvents.filter(e => {
-                            const inTimeRange = (e.isAllDay && isSameDay(e.startTime, currentDate)) || (e.startTime < startOfDay(currentDate) && !e.completed);
+                            const inTimeRange = (isSameDay(e.startTime, currentDate)) || (e.startTime < startOfDay(currentDate) && !e.completed);
                             const matchesCategory = !selectedCategory || e.category === selectedCategory;
                             return inTimeRange && matchesCategory;
                           }).length > 0 ? (
                             filteredEvents
                               .filter(e => {
-                                const inTimeRange = (e.isAllDay && isSameDay(e.startTime, currentDate)) || (e.startTime < startOfDay(currentDate) && !e.completed);
+                                const inTimeRange = (isSameDay(e.startTime, currentDate)) || (e.startTime < startOfDay(currentDate) && !e.completed);
                                 const matchesCategory = !selectedCategory || e.category === selectedCategory;
                                 return inTimeRange && matchesCategory;
                               })
@@ -1010,7 +1069,7 @@ export function EventManager({
                                     }}
                                     className="group flex items-start gap-3 p-4 rounded-[20px] hover:bg-surface-container transition-all cursor-grab active:cursor-grabbing border border-transparent hover:border-primary/20 touch-none"
                                     style={{ 
-                                      backgroundColor: `color-mix(in srgb, ${priorityColors[getPriorityKey(event.urgency || false, event.importance || false)]}, transparent 92%)`,
+                                      backgroundColor: (() => { const pc = priorityColors[getPriorityKey(event.urgency || false, event.importance || false)]; return pc && pc !== 'transparent' ? `${pc}4D` : 'transparent'; })(),
                                     }}
                                   >
                                     <div
@@ -1019,20 +1078,11 @@ export function EventManager({
                                     />
                                     <div className={cn("flex-1 min-w-0", event.completed && "opacity-40 grayscale-[0.5]")}>
                                       <span className={cn("text-[13px] font-black leading-tight block group-hover:text-primary transition-colors text-foreground", event.completed && "line-through")}>{event.title}</span>
-                                      <div className="flex items-center gap-2 mt-1">
-                                        <span
-                                          className="text-[8px] font-black uppercase tracking-[0.2em]"
-                                          style={{ color: evColor || 'var(--primary)', opacity: 0.8 }}
-                                        >
-                                          {event.category || 'General'}
-                                        </span>
-                                        {event.description && (
-                                          <>
-                                            <div className="w-1 h-1 rounded-full bg-on-surface-variant/20" />
-                                            <span className="text-[10px] font-medium text-on-surface-variant/50 line-clamp-1 italic">{event.description}</span>
-                                          </>
-                                        )}
-                                      </div>
+                                      {event.description && (
+                                        <div className="flex items-center gap-2 mt-1">
+                                          <span className="text-[10px] font-medium text-on-surface-variant/50 line-clamp-1 italic">{event.description}</span>
+                                        </div>
+                                      )}
                                     </div>
                                   </div>
                                 );
@@ -1161,215 +1211,14 @@ export function EventManager({
                     setIsDialogOpen={setIsDialogOpen}
                     colors={colors}
                     categories={categories}
+                    openCreateDialog={openCreateDialog}
                   />
                 </div>
               </div>
             )}
-            {/* Mobile bottom task bar */}
-            {(view === "day" || view === "week") && (
-              <div className="lg:hidden mt-4">
-                <div className="p-3 border-b border-outline-variant/5">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-primary">Tareas de hoy</h3>
-                    <button
-                      onClick={() => setSidebarView(sidebarView === 'list' ? 'folders' : 'list')}
-                      className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant/50 hover:text-primary transition-colors"
-                    >
-                      {sidebarView === 'list' ? 'Por carpeta' : 'Lista'}
-                    </button>
-                  </div>
-                  <p className="text-[9px] text-on-surface-variant/40 font-black uppercase tracking-widest leading-tight">Arrastra tareas al calendario de arriba</p>
-                </div>
-                {/* Mobile folder filter bar */}
-                {uniqueCategories.length > 0 && (
-                  <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar px-3 py-2 border-b border-outline-variant/5">
-                    <button
-                      onClick={() => setSelectedCategory(null)}
-                      className={`flex-shrink-0 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all border ${
-                        !selectedCategory
-                          ? 'bg-primary text-primary-foreground border-primary shadow-sm'
-                          : 'bg-surface-container text-on-surface-variant/70 hover:text-primary border-outline-variant/20 hover:border-primary/30'
-                      }`}
-                    >
-                      Todas
-                    </button>
-                    {uniqueCategories.map(cat => {
-                      const isSelected = selectedCategory === cat;
-                      return (
-                        <button
-                          key={cat}
-                          onClick={() => setSelectedCategory(isSelected ? null : cat)}
-                          className={`flex-shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all border ${
-                            isSelected
-                              ? 'bg-primary text-primary-foreground border-primary shadow-sm'
-                              : 'bg-surface-container text-on-surface-variant/70 hover:text-primary border-outline-variant/20 hover:border-primary/30'
-                          }`}
-                        >
-                          <motion.div
-                            key={isSelected ? 'open' : 'closed'}
-                            initial={{ rotateY: isSelected ? 180 : -180, scale: 0.8 }}
-                            animate={{ rotateY: 0, scale: 1 }}
-                            transition={{ type: 'spring', stiffness: 400, damping: 15 }}
-                            style={{ display: 'flex' }}
-                          >
-                            {isSelected ? (
-                              <FolderOpen className="w-3 h-3" />
-                            ) : (
-                              <Folder className="w-3 h-3" />
-                            )}
-                          </motion.div>
-                          {cat}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-                <div className="max-h-[280px] overflow-y-auto custom-scrollbar p-2 space-y-1.5">
-                  {sidebarView === 'list' ? (
-                    filteredEvents.filter(e => {
-                      const inTimeRange = (e.isAllDay && isSameDay(e.startTime, currentDate)) || (e.startTime < startOfDay(currentDate) && !e.completed);
-                      const matchesCategory = !selectedCategory || e.category === selectedCategory;
-                      return inTimeRange && matchesCategory;
-                    }).length > 0 ? (
-                      filteredEvents
-                        .filter(e => {
-                          const inTimeRange = (e.isAllDay && isSameDay(e.startTime, currentDate)) || (e.startTime < startOfDay(currentDate) && !e.completed);
-                          const matchesCategory = !selectedCategory || e.category === selectedCategory;
-                          return inTimeRange && matchesCategory;
-                        })
-                        .sort((a, b) => (b.priority || 0) - (a.priority || 0))
-                        .map((event) => {
-                          const evColor = (event.color.startsWith('#') || event.color.startsWith('var')) ? event.color : undefined;
-                          return (
-                            <div
-                              key={event.id}
-                              onMouseDown={(e) => handleSidebarMouseDown(e, event)}
-                              onTouchStart={(e) => handleSidebarTouchStart(e, event)}
-                              onClick={() => {
-                                if (onEventClick) {
-                                  onEventClick(event)
-                                } else {
-                                  setSelectedEvent(event)
-                                  setIsDialogOpen(true)
-                                }
-                              }}
-                              className="group flex items-start gap-3 p-3 rounded-[16px] hover:bg-surface-container transition-all cursor-grab active:cursor-grabbing border border-transparent hover:border-primary/20 touch-none"
-                              style={{ 
-                                backgroundColor: `color-mix(in srgb, ${priorityColors[getPriorityKey(event.urgency || false, event.importance || false)]}, transparent 92%)`,
-                              }}
-                            >
-                              <div
-                                className="w-2 h-2 rounded-full mt-1.5 shrink-0"
-                                style={{ backgroundColor: evColor || priorityColors[getPriorityKey(event.urgency || false, event.importance || false)] }}
-                              />
-                              <div className={cn("flex-1 min-w-0", event.completed && "opacity-40 grayscale-[0.5]")}>
-                                <span className={cn("text-[12px] font-black leading-tight block group-hover:text-primary transition-colors text-foreground", event.completed && "line-through")}>{event.title}</span>
-                                <div className="flex items-center gap-2 mt-0.5">
-                                  <span
-                                    className="text-[8px] font-black uppercase tracking-[0.2em]"
-                                    style={{ color: evColor || 'var(--primary)', opacity: 0.8 }}
-                                  >
-                                    {event.category || 'General'}
-                                  </span>
-                                  {event.description && (
-                                    <>
-                                      <div className="w-1 h-1 rounded-full bg-on-surface-variant/20" />
-                                      <span className="text-[9px] font-medium text-on-surface-variant/50 line-clamp-1 italic">{event.description}</span>
-                                    </>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })
-                    ) : (
-                      <div className="flex flex-col items-center justify-center py-6 opacity-40 text-center px-2">
-                        <List className="w-5 h-5 mb-1" />
-                        <p className="text-[9px] font-black uppercase tracking-widest">Sin tareas sueltas</p>
-                      </div>
-                    )
-                  ) : (
-                    <div className="space-y-1">
-                      {Object.keys(tasksByFolder).length > 0 ? (
-                        Object.entries(tasksByFolder).sort().map(([folder, tasks]) => (
-                          <div key={folder} className="space-y-1">
-                            <button
-                              onClick={() => toggleFolder(folder)}
-                              className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-surface-container transition-all group"
-                            >
-                              <div className="flex items-center gap-2.5">
-                                <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0 transition-transform group-hover:scale-110">
-                                  {expandedFolders.has(folder) ? (
-                                    <FolderOpen className="w-3.5 h-3.5 fill-primary/20" />
-                                  ) : (
-                                    <Folder className="w-3.5 h-3.5 fill-primary/20" />
-                                  )}
-                                </div>
-                                <span className="text-[11px] font-black text-foreground">{folder}</span>
-                              </div>
-                              <ChevronRight className={cn("w-3.5 h-3.5 text-on-surface-variant/30 transition-transform duration-300", expandedFolders.has(folder) && "rotate-90")} />
-                            </button>
-                            <AnimatePresence initial={false}>
-                              {expandedFolders.has(folder) && (
-                                <motion.div
-                                  initial={{ height: 0, opacity: 0 }}
-                                  animate={{ height: "auto", opacity: 1 }}
-                                  exit={{ height: 0, opacity: 0 }}
-                                  transition={{ duration: 0.3, ease: "easeInOut" }}
-                                  className="overflow-hidden"
-                                >
-                                  <div className="space-y-1 pt-1 pl-3 pb-2">
-                                    {tasks.map((task) => {
-                                      const taskColor = (task.color.startsWith('#') || task.color.startsWith('var')) ? task.color : undefined;
-                                      return (
-                                        <div
-                                          key={task.id}
-                                          onMouseDown={(e) => handleSidebarMouseDown(e, task)}
-                                          onTouchStart={(e) => handleSidebarTouchStart(e, task)}
-                                          onClick={() => {
-                                            if (onEventClick) {
-                                              onEventClick(task)
-                                            } else {
-                                              setSelectedEvent(task)
-                                              setIsDialogOpen(true)
-                                            }
-                                          }}
-                                          className="group flex items-start gap-2.5 p-2.5 rounded-xl hover:bg-surface-container transition-all cursor-grab active:cursor-grabbing border hover:border-primary/30 touch-none"
-                                          style={{ 
-                                            backgroundColor: `color-mix(in srgb, ${priorityColors[getPriorityKey(task.urgency || false, task.importance || false)]}, transparent 85%)`,
-                                            borderColor: `color-mix(in srgb, ${priorityColors[getPriorityKey(task.urgency || false, task.importance || false)]}, transparent 80%)`
-                                          }}
-                                        >
-                                          <div
-                                            className="w-1.5 h-1.5 rounded-full mt-1 shrink-0"
-                                            style={{ backgroundColor: taskColor || priorityColors[getPriorityKey(task.urgency || false, task.importance || false)] }}
-                                          />
-                                          <div className={cn("flex-1 min-w-0", task.completed && "opacity-40 grayscale-[0.5]")}>
-                                            <span className={cn("text-[11px] font-black leading-tight block group-hover:text-primary transition-colors text-foreground", task.completed && "line-through")}>{task.title}</span>
-                                            {task.description && (
-                                              <span className="text-[9px] font-medium text-on-surface-variant/50 line-clamp-1 italic mt-0.5">{task.description}</span>
-                                            )}
-                                          </div>
-                                        </div>
-                                      );
-                                    })}
-                                  </div>
-                                </motion.div>
-                              )}
-                            </AnimatePresence>
-                          </div>
-                        ))
-                      ) : (
-                        <div className="flex flex-col items-center justify-center py-6 opacity-40 text-center px-2">
-                          <Folder className="w-5 h-5 mb-1" />
-                          <p className="text-[9px] font-black uppercase tracking-widest">Sin carpetas</p>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
+
+
+
             {view === "schedule" && (
               <ScheduleView
                 events={filteredEvents}
@@ -1457,11 +1306,13 @@ export function EventManager({
                       </button>
                     </div>
 
-                    <div className="space-y-5">
+                    <div className="space-y-6">
 
                       {/* TAREA */}
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Tarea</label>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between px-1">
+                          <label className="text-[11px] font-bold text-muted-foreground/60 uppercase tracking-wider">Tarea</label>
+                        </div>
                         <div className="flex items-center gap-3">
                           {!isCreating && selectedEvent && selectedEvent.id.startsWith('task-') && !selectedEvent.isEvent && (
                              <Checkbox 
@@ -1477,67 +1328,102 @@ export function EventManager({
                               : setSelectedEvent(prev => prev ? ({ ...prev, title: e.target.value }) : null)
                             }
                             className={cn(
-                              "w-full text-xl font-black bg-surface border border-outline-variant rounded-[20px] px-5 py-4 focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-muted-foreground/30 transition-all",
+                              "w-full text-xl font-bold bg-surface/50 border border-outline-variant/30 rounded-[22px] px-6 py-5 focus:outline-none focus:ring-4 focus:ring-primary/10 placeholder:text-muted-foreground/20 transition-all shadow-sm",
                               !isCreating && selectedEvent?.completed && "text-muted-foreground/50 line-through decoration-primary/30"
                             )}
-                            placeholder="¿Qué necesitas lograr?"
+                            placeholder="Título"
+                            autoFocus
                           />
                         </div>
                       </div>
 
-                      {/* FECHA */}
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Fecha</label>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <div
-                              className="flex items-center justify-between bg-surface border border-outline-variant rounded-[20px] px-5 py-4 cursor-pointer hover:border-primary/50 transition-all"
-                            >
-                              <div className="flex items-center gap-3">
-                                <Calendar className="w-4 h-4 text-primary/40" />
-                                <span className="text-sm font-black text-primary uppercase tracking-widest">
-                                  {format(isCreating ? (newEvent.startTime || new Date()) : (selectedEvent?.startTime || new Date()), "EEEE, d 'de' MMMM", { locale: es })}
+                      {/* CONFIGURACIÓN RÁPIDA (Grid layout) */}
+                      <div className="grid grid-cols-2 gap-4">
+                        {/* FECHA */}
+                        <div className="space-y-2">
+                          <label className="text-[11px] font-bold text-muted-foreground/60 uppercase tracking-wider ml-1">Fecha</label>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <div
+                                className="flex items-center gap-3 bg-surface/50 border border-outline-variant/30 rounded-[18px] px-4 py-3.5 cursor-pointer hover:border-primary/40 hover:bg-surface transition-all shadow-sm group"
+                              >
+                                <Calendar className="w-4 h-4 text-primary/40 group-hover:text-primary transition-colors" />
+                                <span className="text-[11px] font-bold text-primary truncate">
+                                  {format(isCreating ? (newEvent.startTime || new Date()) : (selectedEvent?.startTime || new Date()), "EEE, d MMM", { locale: es }).toUpperCase()}
                                 </span>
                               </div>
-                              <ChevronDown className="w-3.5 h-3.5 text-muted-foreground/30" />
-                            </div>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0 rounded-[32px] overflow-hidden border-outline-variant/10 shadow-2xl" align="start">
-                            <CalendarPicker
-                              mode="single"
-                              selected={isCreating ? (newEvent.startTime || new Date()) : (selectedEvent?.startTime || new Date())}
-                              onSelect={(date) => {
-                                if (!date) return;
-                                if (isCreating) {
-                                  const start = new Date(newEvent.startTime || new Date());
-                                  start.setFullYear(date.getFullYear(), date.getMonth(), date.getDate());
-                                  const end = new Date(newEvent.endTime || new Date());
-                                  end.setFullYear(date.getFullYear(), date.getMonth(), date.getDate());
-                                  setNewEvent(prev => ({ ...prev, startTime: start, endTime: end }));
-                                } else {
-                                  const start = new Date(selectedEvent?.startTime || new Date());
-                                  start.setFullYear(date.getFullYear(), date.getMonth(), date.getDate());
-                                  const end = new Date(selectedEvent?.endTime || new Date());
-                                  end.setFullYear(date.getFullYear(), date.getMonth(), date.getDate());
-                                  setSelectedEvent(prev => prev ? ({ ...prev, startTime: start, endTime: end }) : null);
-                                }
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0 rounded-[28px] overflow-hidden border-outline-variant/10 shadow-2xl" align="start">
+                              <CalendarPicker
+                                mode="single"
+                                selected={isCreating ? (newEvent.startTime || new Date()) : (selectedEvent?.startTime || new Date())}
+                                onSelect={(date) => {
+                                  if (!date) return;
+                                  if (isCreating) {
+                                    const start = new Date(newEvent.startTime || new Date());
+                                    start.setFullYear(date.getFullYear(), date.getMonth(), date.getDate());
+                                    const end = new Date(newEvent.endTime || new Date());
+                                    end.setFullYear(date.getFullYear(), date.getMonth(), date.getDate());
+                                    setNewEvent(prev => ({ ...prev, startTime: start, endTime: end }));
+                                  } else {
+                                    const start = new Date(selectedEvent?.startTime || new Date());
+                                    start.setFullYear(date.getFullYear(), date.getMonth(), date.getDate());
+                                    const end = new Date(selectedEvent?.endTime || new Date());
+                                    end.setFullYear(date.getFullYear(), date.getMonth(), date.getDate());
+                                    setSelectedEvent(prev => prev ? ({ ...prev, startTime: start, endTime: end }) : null);
+                                  }
+                                }}
+                                initialFocus
+                                locale={es}
+                              />
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+
+                        {/* HORA */}
+                        {!isCreating ? (
+                          <div className="space-y-2">
+                             <label className="text-[11px] font-bold text-muted-foreground/60 uppercase tracking-wider ml-1">Horario</label>
+                             <div className="flex flex-col gap-1.5">
+                                <PremiumTimePicker
+                                  value={format(selectedEvent?.startTime || new Date(), 'HH:mm')}
+                                  onChange={(val) => {
+                                    const [h, m] = val.split(':').map(Number);
+                                    const d = new Date(selectedEvent?.startTime || new Date());
+                                    d.setHours(h, m);
+                                    setSelectedEvent(prev => prev ? ({ ...prev, startTime: d }) : null);
+                                  }}
+                                  className="w-full h-11"
+                                />
+                             </div>
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            <label className="text-[11px] font-bold text-muted-foreground/60 uppercase tracking-wider ml-1">Hora inicio</label>
+                            <PremiumTimePicker
+                              value={format(newEvent.startTime || new Date(), 'HH:mm')}
+                              onChange={(val) => {
+                                const [h, m] = val.split(':').map(Number);
+                                const d = new Date(newEvent.startTime || new Date());
+                                d.setHours(h, m);
+                                const end = addMinutes(d, durationMinutes);
+                                setNewEvent(prev => ({ ...prev, startTime: d, endTime: end }));
                               }}
-                              initialFocus
-                              locale={es}
+                              className="w-full h-11"
                             />
-                          </PopoverContent>
-                        </Popover>
+                          </div>
+                        )}
                       </div>
 
-                       {/* MODO — selector de 3 opciones (solo cuando isCreating) */}
-                       {isCreating && (
-                        <div className="space-y-1">
-                          <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Modo</label>
-                          <div className="grid grid-cols-3 gap-2">
+                      {/* MODO (Segmented style) */}
+                      {isCreating && (
+                        <div className="space-y-2">
+                          <label className="text-[11px] font-bold text-muted-foreground/60 uppercase tracking-wider ml-1">¿Dónde aparecerá?</label>
+                          <div className="flex p-1 bg-surface-container/30 border border-outline-variant/10 rounded-[20px] gap-1">
                             {[
-                              { id: 'calendar_only' as const, label: 'Solo calendario', icon: '📅' },
-                              { id: 'task_only' as const, label: 'Solo tarea', icon: '✅' },
-                              { id: 'both' as const, label: 'Ambos', icon: '🔄' },
+                              { id: 'calendar_only' as const, label: 'Solo Calendario' },
+                              { id: 'task_only' as const, label: 'Solo Tarea' },
+                              { id: 'both' as const, label: 'Ambos' },
                             ].map(opt => (
                               <button
                                 key={opt.id}
@@ -1552,102 +1438,73 @@ export function EventManager({
                                   }
                                 }}
                                 className={cn(
-                                  "flex flex-col items-center justify-center gap-1 rounded-[18px] font-black uppercase tracking-widest text-[9px] transition-all border h-16",
+                                  "flex-1 py-2.5 rounded-[14px] text-[10px] font-bold uppercase tracking-tight transition-all",
                                   creationSource === opt.id
-                                    ? "bg-primary/10 text-primary border-primary/30 shadow-sm"
-                                    : "bg-surface-container/30 text-muted-foreground border-outline-variant/10 hover:bg-surface-container/50"
-                                )}
-                              >
-                                <span className="text-base">{opt.icon}</span>
-                                <span>{opt.label}</span>
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                       )}
-
-                       {/* HORA + DURACIÓN — solo cuando hay horario */}
-                       {(creationSource === 'calendar_only' || creationSource === 'both') && isCreating && (
-                        <div className="space-y-1">
-                          <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Duración</label>
-                          <div className="flex flex-wrap gap-1.5 mb-2">
-                            {DURATION_OPTIONS.map(opt => (
-                              <button
-                                key={opt.value}
-                                type="button"
-                                onClick={() => {
-                                  setDurationMinutes(opt.value)
-                                  const start = newEvent.startTime || new Date()
-                                  setNewEvent(prev => ({ ...prev, startTime: start, endTime: addMinutes(start, opt.value) }))
-                                }}
-                                className={cn(
-                                  "px-3 py-1.5 rounded-[10px] text-[10px] font-black uppercase tracking-wider transition-all border",
-                                  durationMinutes === opt.value
-                                    ? "bg-primary text-primary-foreground border-primary shadow-sm"
-                                    : "bg-surface-container/30 text-muted-foreground border-outline-variant/10 hover:bg-surface-container/50"
+                                    ? "bg-primary text-primary-foreground shadow-md"
+                                    : "text-muted-foreground hover:bg-black/5 dark:hover:bg-white/5"
                                 )}
                               >
                                 {opt.label}
                               </button>
                             ))}
                           </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-[10px] text-muted-foreground font-black uppercase tracking-widest">o personaliza</span>
-                            <input
-                              type="number"
-                              min={1}
-                              max={1440}
-                              value={customDuration}
-                              onChange={(e) => {
-                                setCustomDuration(e.target.value)
-                                const val = parseInt(e.target.value)
-                                if (val > 0) {
+                        </div>
+                      )}
+
+                      {/* DURACIÓN (Pills style) */}
+                      {(creationSource === 'calendar_only' || creationSource === 'both') && isCreating && (
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between px-1">
+                             <label className="text-[11px] font-bold text-muted-foreground/60 uppercase tracking-wider">Duración estimada</label>
+                             <div className="flex items-center gap-2">
+                                <input
+                                  type="number"
+                                  min={1}
+                                  max={1440}
+                                  value={customDuration}
+                                  onChange={(e) => {
+                                    setCustomDuration(e.target.value)
+                                    const val = parseInt(e.target.value)
+                                    if (val > 0) {
+                                      setDurationMinutes(val)
+                                      const start = new Date(newEvent.startTime || new Date())
+                                      setNewEvent(prev => ({ ...prev, startTime: start, endTime: addMinutes(start, val) }))
+                                    }
+                                  }}
+                                  placeholder="Min"
+                                  className="w-16 h-7 text-[10px] font-bold bg-surface/50 border border-outline-variant/30 rounded-lg text-center focus:outline-none focus:ring-2 focus:ring-primary/30"
+                                />
+                             </div>
+                          </div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {[15, 30, 45, 60, 90, 120].map(val => (
+                              <button
+                                key={val}
+                                type="button"
+                                onClick={() => {
                                   setDurationMinutes(val)
                                   const start = newEvent.startTime || new Date()
                                   setNewEvent(prev => ({ ...prev, startTime: start, endTime: addMinutes(start, val) }))
-                                }
-                              }}
-                              placeholder="min"
-                              className="w-20 text-sm font-black bg-surface border border-outline-variant rounded-[12px] px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary/50 text-center"
-                            />
-                            <span className="text-[10px] text-muted-foreground font-black">minutos</span>
+                                }}
+                                className={cn(
+                                  "px-3.5 py-2 rounded-xl text-[10px] font-bold transition-all border",
+                                  durationMinutes === val
+                                    ? "bg-primary/10 text-primary border-primary/30"
+                                    : "bg-surface-container/20 text-muted-foreground border-outline-variant/10 hover:border-primary/20"
+                                )}
+                              >
+                                {val < 60 ? `${val}m` : `${val/60}h${val%60 !== 0 ? ` ${val%60}m` : ''}`}
+                              </button>
+                            ))}
                           </div>
                         </div>
-                       )}
+                      )}
 
                        {!isCreating && (
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="space-y-1">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Hora</label>
-                            <div
-                              onClick={() => setSelectedEvent(prev => prev ? ({ ...prev, isAllDay: !prev.isAllDay }) : null)}
-                              className="relative group flex items-center gap-3 bg-surface-container/30 border border-outline-variant/10 rounded-[20px] px-4 py-3 cursor-pointer hover:bg-surface-container/50 transition-all h-[calc(78px)]"
-                            >
-                              <Clock className="w-4 h-4 text-muted-foreground/30 group-hover:text-primary/50 transition-colors flex-shrink-0" />
-                              <div className="flex-1 min-w-0">
-                                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 leading-tight">Asignar hora</p>
-                              </div>
-                              <div className={cn("w-10 h-5 rounded-full relative flex-shrink-0 transition-all duration-300", hasTime ? 'bg-primary' : 'bg-outline-variant/30')}>
-                                <div className={cn("absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-all duration-300", hasTime ? 'translate-x-5' : '')} />
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="space-y-1">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">{hasTime ? 'Inicio → Fin' : 'Sin hora'}</label>
-                            {hasTime ? (
-                              <div className="flex flex-col gap-2">
-                                <PremiumTimePicker
-                                  value={format(selectedEvent?.startTime || new Date(), 'HH:mm')}
-                                  onChange={(val) => {
-                                    const [h, m] = val.split(':').map(Number);
-                                    const d = new Date(selectedEvent?.startTime || new Date());
-                                    d.setHours(h, m);
-                                    setSelectedEvent(prev => prev ? ({ ...prev, startTime: d }) : null);
-                                  }}
-                                  className="w-full"
-                                />
-                                <PremiumTimePicker
+                          <div className="space-y-4">
+                             <div className="space-y-2">
+                               <label className="text-[11px] font-bold text-muted-foreground/60 uppercase tracking-wider ml-1">Hora fin (Duración)</label>
+                               <PremiumTimePicker
                                   value={format(selectedEvent?.endTime || new Date(), 'HH:mm')}
                                   onChange={(val) => {
                                     const [h, m] = val.split(':').map(Number);
@@ -1655,284 +1512,161 @@ export function EventManager({
                                     d.setHours(h, m);
                                     setSelectedEvent(prev => prev ? ({ ...prev, endTime: d }) : null);
                                   }}
-                                  className="w-full"
+                                  className="w-full h-11"
                                 />
-                              </div>
-                            ) : (
-                            <div className="h-[78px] flex items-center justify-center rounded-[20px] bg-surface-container/20 border border-outline-variant/10">
-                              <span className="text-[10px] text-muted-foreground/30 font-black uppercase tracking-widest">Sin calendario</span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      )}
+                             </div>
+                          </div>
+                        )}
 
-                       {/* PRIORIDAD */}
+                       {/* PRIORIDAD (Two-state high-end buttons) */}
                        {isTask && (
-                         <div className="space-y-1">
-                           <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Prioridad</label>
-                         <div className="grid grid-cols-2 gap-3">
-                           <button
-                             type="button"
-                             onClick={() => {
-                               const nextVal = !importanceVal;
-                               if (isCreating) {
-                                 setNewEvent(prev => {
-                                   const updated = { ...prev, importance: nextVal };
-                                   return { ...updated };
-                                 });
-                               } else {
-                                 setSelectedEvent(prev => {
-                                   if (!prev) return null;
-                                   const updated = { ...prev, importance: nextVal };
-                                   return { ...updated };
-                                 });
-                               }
-                             }}
-                             className={cn(
-                               "flex items-center justify-center rounded-[22px] font-black uppercase tracking-widest text-[9px] transition-all border h-14",
-                               importanceVal
-                                 ? 'bg-amber-500/10 text-amber-500 border-amber-500/30 shadow-lg shadow-amber-500/5'
-                                 : 'bg-surface-container/30 text-muted-foreground border-outline-variant/10 hover:bg-surface-container/50'
-                             )}
-                           >IMPORTANTE</button>
-                           <button
-                             type="button"
-                             onClick={() => {
-                               const nextVal = !urgencyVal;
-                               if (isCreating) {
-                                 setNewEvent(prev => {
-                                   const updated = { ...prev, urgency: nextVal };
-                                   return { ...updated };
-                                 });
-                               } else {
-                                 setSelectedEvent(prev => {
-                                   if (!prev) return null;
-                                   const updated = { ...prev, urgency: nextVal };
-                                   return { ...updated };
-                                 });
-                               }
-                             }}
-                             className={cn(
-                               "flex items-center justify-center rounded-[22px] font-black uppercase tracking-widest text-[9px] transition-all border h-14",
-                               urgencyVal
-                                 ? 'bg-red-500/10 text-red-500 border-red-500/30 shadow-lg shadow-red-500/5'
-                                 : 'bg-surface-container/30 text-muted-foreground border-outline-variant/10 hover:bg-surface-container/50'
-                             )}
-                           >URGENTE</button>
+                         <div className="space-y-3 pt-2">
+                            <label className="text-[11px] font-bold text-muted-foreground/60 uppercase tracking-wider ml-1">Importancia y Urgencia</label>
+                            <div className="grid grid-cols-2 gap-3">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const nextVal = !importanceVal;
+                                  if (isCreating) {
+                                    setNewEvent(prev => ({ ...prev, importance: nextVal }));
+                                  } else {
+                                    setSelectedEvent(prev => prev ? ({ ...prev, importance: nextVal }) : null);
+                                  }
+                                }}
+                                className={cn(
+                                  "flex items-center justify-center gap-2 rounded-[20px] font-bold uppercase tracking-wider text-[10px] transition-all border h-14",
+                                  importanceVal
+                                    ? 'bg-amber-500/10 text-amber-600 border-amber-500/30 shadow-sm'
+                                    : 'bg-surface-container/20 text-muted-foreground border-outline-variant/10'
+                                )}
+                              >
+                                <div className={cn("w-2 h-2 rounded-full", importanceVal ? "bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]" : "bg-muted-foreground/30")} />
+                                IMPORTANTE
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const nextVal = !urgencyVal;
+                                  if (isCreating) {
+                                    setNewEvent(prev => ({ ...prev, urgency: nextVal }));
+                                  } else {
+                                    setSelectedEvent(prev => prev ? ({ ...prev, urgency: nextVal }) : null);
+                                  }
+                                }}
+                                className={cn(
+                                  "flex items-center justify-center gap-2 rounded-[20px] font-bold uppercase tracking-wider text-[10px] transition-all border h-14",
+                                  urgencyVal
+                                    ? 'bg-red-500/10 text-red-600 border-red-500/30 shadow-sm'
+                                    : 'bg-surface-container/20 text-muted-foreground border-outline-variant/10'
+                                )}
+                              >
+                                <div className={cn("w-2 h-2 rounded-full", urgencyVal ? "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]" : "bg-muted-foreground/30")} />
+                                URGENTE
+                              </button>
+                            </div>
                          </div>
-                       </div>
-                     )}
+                       )}
 
-                      {/* REPETICIÓN */}
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Repetición</label>
+                      {/* COLOR SELECTION (Compact circles) */}
+                      <div className="space-y-3">
+                         <label className="text-[11px] font-bold text-muted-foreground/60 uppercase tracking-wider ml-1">Color de identificación</label>
+                         <div className="flex items-center gap-3 overflow-x-auto no-scrollbar py-1">
+                           {[
+                             priorityColors.p1, priorityColors.p2, priorityColors.p3, priorityColors.p4,
+                             '#6366f1', '#10b981', '#f43f5e', '#8b5cf6', '#06b6d4'
+                           ].map((c) => {
+                             const currentC = isCreating ? newEvent.color : selectedEvent?.color;
+                             const isSelected = currentC === c;
+                             return (
+                               <button
+                                 key={c}
+                                 type="button"
+                                 onClick={() => {
+                                   if (isCreating) setNewEvent(prev => ({ ...prev, color: c }));
+                                   else setSelectedEvent(prev => prev ? ({ ...prev, color: c }) : null);
+                                 }}
+                                 className={cn(
+                                   "w-7 h-7 rounded-full flex-shrink-0 transition-all duration-300 relative",
+                                   isSelected ? "scale-125 ring-2 ring-primary/40 ring-offset-2 ring-offset-background shadow-lg" : "hover:scale-110 opacity-70 hover:opacity-100"
+                                 )}
+                                 style={{ backgroundColor: c }}
+                               >
+                                 {isSelected && <Check className="w-3.5 h-3.5 text-white absolute inset-0 m-auto" />}
+                               </button>
+                             );
+                           })}
+                         </div>
+                      </div>
+
+                      {/* REPETICIÓN (Simple toggle) */}
+                      <div className="pt-2">
                         <button 
                           type="button"
                           onClick={() => setShowRecurrenceOptions(!showRecurrenceOptions)}
                           className={cn(
-                            "w-full rounded-[22px] border px-5 flex items-center justify-between transition-all hover:bg-surface-container/50",
-                            (isCreating ? newEvent.recurrence : selectedEvent?.recurrence) !== 'none'
-                              ? "bg-primary/5 border-primary/20 text-primary"
-                              : "bg-surface-container/30 border-outline-variant/10",
-                            showRecurrenceOptions ? "h-auto py-3" : "h-14"
+                            "w-full rounded-[20px] border px-5 py-4 flex items-center justify-between transition-all bg-surface-container/20 border-outline-variant/10",
+                            (isCreating ? newEvent.recurrence : selectedEvent?.recurrence) !== 'none' && "bg-primary/5 border-primary/20"
                           )}
                         >
                           <div className="flex items-center gap-3">
-                            <div className={cn(
-                              "w-8 h-8 rounded-full flex items-center justify-center transition-all",
-                              (isCreating ? newEvent.recurrence : selectedEvent?.recurrence) !== 'none'
-                                ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20"
-                                : "bg-surface-container-low text-muted-foreground"
-                            )}>
-                              <Repeat className="w-4 h-4" />
-                            </div>
-                            <div className="text-left">
-                              <span className={cn(
-                                "text-[11px] font-black uppercase tracking-widest block",
-                                (isCreating ? newEvent.recurrence : selectedEvent?.recurrence) !== 'none' && "text-primary"
-                              )}>
-                                {(() => {
+                            <Repeat className={cn("w-4 h-4", (isCreating ? newEvent.recurrence : selectedEvent?.recurrence) !== 'none' ? "text-primary" : "text-muted-foreground/40")} />
+                            <span className="text-[11px] font-bold uppercase tracking-widest text-primary">
+                               {(() => {
                                   const val = isCreating ? newEvent.recurrence : selectedEvent?.recurrence;
+                                  if (val === 'none') return 'Repetir tarea...';
                                   switch(val) {
-                                    case 'daily': return 'Todos los días';
-                                    case 'weekdays': return 'Días laborales (L-V)';
+                                    case 'daily': return 'Cada día';
+                                    case 'weekdays': return 'Días laborales';
                                     case 'weekly': return 'Cada semana';
                                     case 'biweekly': return 'Cada 2 semanas';
                                     case 'monthly': return 'Cada mes';
-                                    case 'yearly': return 'Cada año';
-                                    default: return 'No se repite';
+                                    default: return 'Recurrente';
                                   }
-                                })()}
-                              </span>
-                              {(isCreating ? newEvent.recurrence : selectedEvent?.recurrence) !== 'none' && (
-                                <span className="text-[8px] font-black uppercase tracking-widest text-primary/60 mt-0.5 block">
-                                  {(() => {
-                                    const val = isCreating ? newEvent.recurrence : selectedEvent?.recurrence;
-                                    const days = isCreating ? newEvent.recurrenceDays : selectedEvent?.recurrenceDays;
-                                    if (val === 'weekdays') return 'Lun · Mar · Mié · Jue · Vie';
-                                    if ((val === 'weekly' || val === 'biweekly') && days && days.length > 0) {
-                                      const dayNames = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
-                                      return days.map(d => dayNames[d]).join(' · ');
-                                    }
-                                    return '';
-                                  })()}
-                                </span>
-                              )}
-                            </div>
+                               })()}
+                            </span>
                           </div>
-                          <ChevronDown className={cn("w-4 h-4 transition-transform duration-300", showRecurrenceOptions && "rotate-180")} />
+                          <span className="text-[10px] text-muted-foreground/40 font-bold uppercase tracking-widest">
+                            {showRecurrenceOptions ? 'Cerrar' : 'Configurar'}
+                          </span>
                         </button>
-                        
+
                         <AnimatePresence>
                           {showRecurrenceOptions && (
                             <motion.div
-                              initial={{ height: 0, opacity: 0 }}
-                              animate={{ height: 'auto', opacity: 1 }}
-                              exit={{ height: 0, opacity: 0 }}
-                              className="overflow-hidden"
+                              initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
+                              className="overflow-hidden mt-2"
                             >
-                              <div className="pt-3 grid grid-cols-7 gap-1.5 p-1.5 rounded-[22px] bg-surface-container/30 border border-outline-variant/10">
+                              <div className="p-1.5 grid grid-cols-4 gap-1 rounded-[20px] bg-surface-container/30 border border-outline-variant/10">
                                 {[
-                                  { id: 'none', label: 'No', icon: '✕' },
-                                  { id: 'daily', label: 'C/Día', icon: '📅' },
-                                  { id: 'weekdays', label: 'Lun-Vie', icon: '💼' },
-                                  { id: 'weekly', label: 'Semanal', icon: '📆' },
-                                  { id: 'biweekly', label: '2 Sem', icon: '🔄' },
-                                  { id: 'monthly', label: 'Mensual', icon: '📅' },
-                                  { id: 'yearly', label: 'Anual', icon: '📆' },
-                                ].map((opt) => (
+                                  { id: 'none', label: 'No' },
+                                  { id: 'daily', label: 'Diario' },
+                                  { id: 'weekdays', label: 'L-V' },
+                                  { id: 'weekly', label: 'Semanal' },
+                                ].map(opt => (
                                   <button
                                     key={opt.id}
                                     type="button"
                                     onClick={() => {
                                       const val = opt.id as any;
-                                      if (isCreating) setNewEvent(prev => ({ ...prev, recurrence: val, recurrenceDays: prev.recurrenceDays || [prev.startTime?.getDay() || 0] }));
-                                      else setSelectedEvent(prev => prev ? ({ ...prev, recurrence: val, recurrenceDays: prev.recurrenceDays || [prev.startTime.getDay()] }) : null);
+                                      if (isCreating) setNewEvent(prev => ({ ...prev, recurrence: val }));
+                                      else setSelectedEvent(prev => prev ? ({ ...prev, recurrence: val }) : null);
                                       setShowRecurrenceOptions(false);
                                     }}
                                     className={cn(
-                                      "py-2 rounded-xl text-[9px] font-black uppercase transition-all flex flex-col items-center gap-0.5",
+                                      "py-2 rounded-xl text-[9px] font-bold uppercase transition-all",
                                       (isCreating ? newEvent.recurrence : selectedEvent?.recurrence) === opt.id
-                                        ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20"
-                                        : "text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5"
+                                        ? "bg-primary text-primary-foreground"
+                                        : "text-muted-foreground hover:bg-black/5"
                                     )}
                                   >
-                                    <span className="text-xs">{opt.icon}</span>
-                                    <span>{opt.label}</span>
+                                    {opt.label}
                                   </button>
                                 ))}
                               </div>
                             </motion.div>
                           )}
                         </AnimatePresence>
-
-                        <AnimatePresence>
-                          {['weekly', 'biweekly', 'monthly', 'yearly'].includes((isCreating ? newEvent.recurrence : selectedEvent?.recurrence) || '') && (
-                            <motion.div
-                              initial={{ height: 0, opacity: 0 }}
-                              animate={{ height: 'auto', opacity: 1 }}
-                              exit={{ height: 0, opacity: 0 }}
-                              className="pt-2 overflow-hidden"
-                            >
-                              <div className="flex items-center justify-between p-1.5 rounded-[22px] bg-surface-container/30 border border-outline-variant/10">
-                                {[
-                                  { id: 0, label: 'D' },
-                                  { id: 1, label: 'L' },
-                                  { id: 2, label: 'M' },
-                                  { id: 3, label: 'M' },
-                                  { id: 4, label: 'J' },
-                                  { id: 5, label: 'V' },
-                                  { id: 6, label: 'S' },
-                                ].map((day) => {
-                                  const currentDays = (isCreating ? newEvent.recurrenceDays : selectedEvent?.recurrenceDays) || [];
-                                  const isSelected = currentDays.includes(day.id);
-                                  return (
-                                    <button
-                                      key={day.id}
-                                      type="button"
-                                      onClick={() => {
-                                        const nextDays = isSelected 
-                                          ? currentDays.filter(d => d !== day.id)
-                                          : [...currentDays, day.id].sort();
-                                        
-                                        if (isCreating) {
-                                          setNewEvent(prev => ({ ...prev, recurrenceDays: nextDays }));
-                                        } else {
-                                          setSelectedEvent(prev => prev ? ({ ...prev, recurrenceDays: nextDays }) : null);
-                                        }
-                                      }}
-                                      className={cn(
-                                        "w-8 h-8 rounded-full text-[10px] font-black transition-all flex items-center justify-center",
-                                        isSelected
-                                          ? "bg-primary text-primary-foreground shadow-md shadow-primary/20 scale-110"
-                                          : "text-muted-foreground hover:bg-black/5 dark:hover:bg-white/5 hover:text-foreground"
-                                      )}
-                                    >
-                                      {day.label}
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
                       </div>
-
-                       {/* COLOR */}
-                       <div className="space-y-1">
-                         <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Color del Evento</label>
-                         <div className="flex flex-wrap gap-2.5 p-1">
-                         {[
-                           { name: 'P1', value: priorityColors.p1 },
-                           { name: 'P2', value: priorityColors.p2 },
-                           { name: 'P3', value: priorityColors.p3 },
-                           { name: 'P4', value: priorityColors.p4 },
-                           { name: 'Indigo', value: '#6366f1' },
-                           { name: 'Emerald', value: '#10b981' },
-                           { name: 'Rose', value: '#f43f5e' },
-                           { name: 'Amber', value: '#f59e0b' },
-                           { name: 'Cyan', value: '#06b6d4' },
-                           { name: 'Violet', value: '#8b5cf6' },
-                         ].map((c) => {
-                           const currentC = isCreating ? newEvent.color : selectedEvent?.color;
-                           const isSelected = currentC === c.value;
-                           return (
-                             <button
-                               key={c.value}
-                               type="button"
-                               onClick={() => {
-                                 if (isCreating) setNewEvent(prev => ({ ...prev, color: c.value }));
-                                 else setSelectedEvent(prev => prev ? ({ ...prev, color: c.value }) : null);
-                               }}
-                               className={cn(
-                                 "w-8 h-8 rounded-full transition-all duration-300 relative group flex items-center justify-center",
-                                 isSelected ? "scale-110 ring-2 ring-primary ring-offset-2 ring-offset-background" : "hover:scale-110"
-                               )}
-                               style={{ backgroundColor: c.value }}
-                             >
-                               {isSelected && <Check className="w-4 h-4 text-white" />}
-                               <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                                 <span className="text-[8px] font-black uppercase tracking-widest bg-black/80 text-white px-1.5 py-0.5 rounded-md">{c.name}</span>
-                               </div>
-                             </button>
-                           );
-                         })}
-                         <div className="relative group">
-                           <input
-                             type="color"
-                             className="w-8 h-8 rounded-full border-none p-0 bg-transparent cursor-pointer overflow-hidden opacity-0 absolute inset-0 z-10"
-                             onChange={(e) => {
-                               if (isCreating) setNewEvent(prev => ({ ...prev, color: e.target.value }));
-                               else setSelectedEvent(prev => prev ? ({ ...prev, color: e.target.value }) : null);
-                             }}
-                           />
-                           <div className="w-8 h-8 rounded-full border border-outline-variant/30 flex items-center justify-center bg-surface-container/50 group-hover:bg-primary/10 transition-all">
-                             <Plus className="w-3.5 h-3.5 text-muted-foreground/50 group-hover:text-primary" />
-                           </div>
-                         </div>
-                         </div>
-                       </div>
 
 
                       {/* LINKS O REFERENCIAS */}
@@ -1988,7 +1722,7 @@ export function EventManager({
                                       if (isCreating) setNewEvent(prev => ({ ...prev, links: updated }));
                                       else setSelectedEvent(prev => prev ? ({ ...prev, links: updated }) : null);
                                     }}
-                                    placeholder="https://..."
+                                    placeholder=""
                                     className="w-full text-sm bg-surface-container/30 border border-outline-variant/10 rounded-[24px] pl-12 pr-5 py-4 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all placeholder:text-muted-foreground/20"
                                   />
                                 </div>
@@ -2019,7 +1753,7 @@ export function EventManager({
                             ? setNewEvent({ ...newEvent, description: e.target.value })
                             : setSelectedEvent(prev => prev ? ({ ...prev, description: e.target.value }) : null)
                           }
-                          placeholder="Detalles adicionales..."
+                          placeholder=""
                           className="w-full text-sm bg-surface-container/30 border border-outline-variant/10 rounded-[24px] p-5 focus:outline-none focus:ring-2 focus:ring-primary/30 min-h-[100px] placeholder:text-muted-foreground/20 transition-all resize-none"
                         />
                       </div>
@@ -2061,7 +1795,7 @@ export function EventManager({
                       .filter(e => e.startTime.toDateString() === selectedDayForSheet.toDateString())
                       .map(event => {
                         const evColor = (event.color && (event.color.startsWith('#') || event.color.startsWith('var'))) ? event.color : undefined;
-                        const evBg = evColor ? `${evColor}1A` : undefined;
+                        const priorityBg = (() => { const pc = priorityColors[getPriorityKey(event.urgency || false, event.importance || false)]; return pc && pc !== 'transparent' ? `${pc}4D` : (evColor ? `${evColor}4D` : undefined); })();
                         return (
                           <div 
                             key={event.id}
@@ -2072,7 +1806,7 @@ export function EventManager({
                               setIsSheetOpen(false);
                             }}
                             className="group flex items-start gap-4 p-5 rounded-[28px] cursor-pointer transition-all duration-300 hover:bg-primary/5 border border-outline-variant/5 hover:border-primary/20"
-                            style={{ backgroundColor: evBg }}
+                            style={{ backgroundColor: priorityBg }}
                           >
                             <div 
                               className="w-10 h-10 rounded-2xl flex items-center justify-center border border-outline-variant/10 group-hover:border-primary/30 transition-colors"
@@ -2092,12 +1826,6 @@ export function EventManager({
                                   {event.title}
                                 </p>
                               </div>
-                              <span
-                                className="text-[10px] font-black uppercase tracking-widest mt-1 block opacity-60"
-                                style={{ color: evColor || 'var(--primary)' }}
-                              >
-                                {event.category || 'General'}
-                              </span>
                               {event.description && (
                                 <p className={cn(
                                   "text-[13px] font-medium text-muted-foreground/60 line-clamp-1 mt-2",
@@ -2190,6 +1918,7 @@ function TimeGridView({
   setIsDialogOpen,
   colors,
   categories,
+  openCreateDialog,
   className,
 }: {
   view: "week" | "day" | "3day"
@@ -2209,6 +1938,7 @@ function TimeGridView({
   setIsDialogOpen: (val: boolean) => void
   colors: any[]
   categories: string[]
+  openCreateDialog: (startTime: Date, endTime?: Date, cellClickDate?: Date) => void
   className?: string
 }) {
   const HOUR_HEIGHT = 120; // Revertido al largo anterior (antes 160)
@@ -2257,6 +1987,18 @@ function TimeGridView({
   
   // Track whether the user is dragging so that mouseup/click after drag doesn't open the dialog
   const isDraggingRef = useRef(false);
+
+  useEffect(() => {
+    const handleExternalDragEnd = () => {
+      // Small buffer to prevent click event after touch drag drop
+      isDraggingRef.current = true;
+      setTimeout(() => {
+        isDraggingRef.current = false;
+      }, 300);
+    };
+    window.addEventListener('adonai:external-drag-end', handleExternalDragEnd);
+    return () => window.removeEventListener('adonai:external-drag-end', handleExternalDragEnd);
+  }, []);
 
   const handleResizeStart = (e: React.MouseEvent, event: Event, isTop: boolean) => {
     e.stopPropagation();
@@ -2527,15 +2269,15 @@ function TimeGridView({
   }, [isMoving, events]);
 
   return (
-    <Card className={cn("flex flex-col h-full border-outline-variant/10 bg-surface-container/30 backdrop-blur-sm shadow-sm overflow-hidden", className)}>
+    <Card className={cn("flex flex-col h-full border-outline-variant/20 bg-card shadow-sm overflow-hidden", className)}>
       {/* Ghost is rendered via portal at body level so backdrop-blur on Card doesn't clip it */}
 
       {/* Grid Header */}
-      <div className="flex border-b border-outline-variant/5">
-        <div className="w-16 flex-shrink-0 border-r border-outline-variant/5 bg-surface-container/10" />
+      <div className="flex border-b border-outline-variant/20">
+        <div className="w-16 flex-shrink-0 border-r border-outline-variant/20 bg-surface-container/30" />
         <div className={cn("flex-1 grid", view === "week" ? "grid-cols-7" : view === "3day" ? "grid-cols-3" : "grid-cols-1")}>
           {days.map((day, idx) => (
-            <div key={idx} className="p-3 text-center border-r border-outline-variant/5 last:border-r-0">
+            <div key={idx} className="p-3 text-center border-r border-outline-variant/20 last:border-r-0">
               <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground block mb-1">
                 {format(day, "EEE")}
               </span>
@@ -2554,7 +2296,7 @@ function TimeGridView({
       <div ref={scrollContainerRef} className="flex-1 scroll-smooth">
         <div className="relative flex" style={{ height: `${24 * HOUR_HEIGHT}px` }}>
           {/* Time Labels */}
-          <div className="w-16 flex-shrink-0 border-r border-outline-variant/5 bg-surface-container/20">
+          <div className="w-16 flex-shrink-0 border-r border-outline-variant/20 bg-surface-container/30">
             {hours.map((hour) => (
               <div key={hour} className="relative" style={{ height: `${HOUR_HEIGHT}px` }}>
                 <span className="absolute -top-2 right-2 text-[9px] font-black text-muted-foreground/40 uppercase">
@@ -2569,12 +2311,12 @@ function TimeGridView({
              {/* Horizontal Grid Lines */}
              {hours.map((hour) => (
                <div key={hour} className="absolute w-full" style={{ top: `${hour * HOUR_HEIGHT}px`, height: `${HOUR_HEIGHT}px` }}>
-                 <div className="w-full h-px bg-outline-variant/5" />
+                 <div className="w-full h-px bg-outline-variant/20" />
                  {/* 15 min grid lines */}
                  {[15, 30, 45].map((mins) => (
                    <div 
                      key={mins} 
-                     className="absolute w-full h-px border-b border-outline-variant/[0.03] border-dashed" 
+                     className="absolute w-full h-px border-b border-outline-variant/10 border-dashed" 
                      style={{ top: `${(mins / 60) * HOUR_HEIGHT}px` }} 
                    />
                  ))}
@@ -2586,7 +2328,7 @@ function TimeGridView({
                <div 
                  key={dayIdx} 
                  data-day-index={dayIdx}
-                 className="relative h-full border-r border-outline-variant/5 last:border-r-0 day-column"
+                 className="relative h-full border-r border-outline-variant/20 last:border-r-0 day-column"
                >
                  {hours.map((hour) => (
                    <div
@@ -2959,6 +2701,7 @@ function ScheduleView({
   onToggleComplete: (id: string, completed: boolean) => void
   getColorClasses: (color: string) => { bg: string; text: string }
 }) {
+  const { colors: priorityColors } = usePriorityColors()
   const groupedEvents = useMemo(() => {
     const groups: Record<string, Event[]> = {}
     
@@ -3008,12 +2751,10 @@ function ScheduleView({
                       event.completed && "opacity-60"
                     )}
                     style={{ 
-                      backgroundColor: (event.color && (event.color.startsWith('#') || event.color.startsWith('var'))) 
-                        ? `color-mix(in srgb, ${event.color}, transparent 85%)` 
-                        : 'rgba(var(--surface-container-low), 0.4)',
+                      backgroundColor: (() => { const pc = priorityColors[getPriorityKey(event.urgency || false, event.importance || false)]; return pc && pc !== 'transparent' ? `${pc}4D` : (event.color && (event.color.startsWith('#') || event.color.startsWith('var')) ? `color-mix(in srgb, ${event.color}, transparent 85%)` : 'transparent'); })(),
                       borderColor: (event.color && (event.color.startsWith('#') || event.color.startsWith('var')))
-                        ? `color-mix(in srgb, ${event.color}, transparent 70%)`
-                        : 'rgba(var(--outline-variant), 0.05)'
+                        ? `color-mix(in srgb, ${event.color}, transparent 60%)`
+                        : 'rgba(var(--outline-variant), 0.08)'
                     }}
                   >
                     <div
@@ -3032,7 +2773,6 @@ function ScheduleView({
                           className={cn("w-2 h-2 rounded-full", event.color && !event.color.startsWith('#') && !event.color.startsWith('var') && getColorClasses(event.color).bg)} 
                           style={{ backgroundColor: (event.color && (event.color.startsWith('#') || event.color.startsWith('var'))) ? event.color : undefined }}
                         />
-                        <span className="text-[9px] font-black uppercase tracking-widest text-primary/60">{event.category}</span>
                       </div>
                       <h3 className={cn("text-sm font-black text-foreground truncate group-hover:text-primary transition-colors", event.completed && "line-through")}>{event.title}</h3>
                       {event.description && (

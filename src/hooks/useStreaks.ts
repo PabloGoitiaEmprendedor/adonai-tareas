@@ -31,6 +31,7 @@ export const useStreaks = () => {
       if (!user) return;
       const today = format(new Date(), 'yyyy-MM-dd');
       const yesterday = format(subDays(new Date(), 1), 'yyyy-MM-dd');
+      const twoDaysAgo = format(subDays(new Date(), 2), 'yyyy-MM-dd');
 
       // Fetch fresh metrics to avoid race conditions with hook state
       const { data: freshMetrics, error: fetchError } = await supabase
@@ -98,7 +99,11 @@ export const useStreaks = () => {
         if (newStreak > (freshMetrics.streak_max || 0)) {
           updates.streak_max = newStreak;
         }
+      } else if (freshMetrics.last_active_date === twoDaysAgo) {
+        // Grace period: streak is maintained if they missed 1 day
+        updates.streak_current = freshMetrics.streak_current;
       } else if (freshMetrics.last_active_date !== today) {
+        // Reset only if more than 2 days have passed
         updates.streak_current = 1;
       }
 

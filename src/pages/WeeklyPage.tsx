@@ -1,28 +1,20 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { useTasks } from '@/hooks/useTasks';
 import { useProfile } from '@/hooks/useProfile';
-import { useGlobalVoiceCapture } from '@/hooks/useGlobalVoiceCapture';
-import { usePriorityColors } from '@/hooks/usePriorityColors';
+import { usePriorityColors, getPriorityKey } from '@/hooks/usePriorityColors';
 import { format, startOfWeek, addDays } from 'date-fns';
 import { Lock } from 'lucide-react';
 
 import { triggerTaskCelebration, triggerDailyCelebration, triggerOnTimeCelebration } from '@/lib/celebrations';
-import FAB from '@/components/FAB';
-import TaskCaptureModal, { type TaskCaptureModalHandle } from '@/components/TaskCaptureModal';
 import TaskDetailModal from '@/components/TaskDetailModal';
 import FullscreenTimer from '@/components/FullscreenTimer';
 import { AISchedulerModal } from '@/components/AISchedulerModal';
 import AdonaiCalendarView from '@/components/calendar/AdonaiCalendarView';
-import QuickRecurrenceFlow from '@/components/QuickRecurrenceFlow';
 
 const WeeklyPage = () => {
-  const [captureOpen, setCaptureOpen] = useState(false);
-  const [captureMode, setCaptureMode] = useState<'text' | 'voice' | null>(null);
   const [selectedDay, setSelectedDay] = useState<Date>(new Date());
   const [selectedTask, setSelectedTask] = useState<any>(null);
-  const [recurrenceOpen, setRecurrenceOpen] = useState(false);
   const [timerTask, setTimerTask] = useState<any>(null);
-  const captureModalRef = useRef<TaskCaptureModalHandle>(null);
   const [completingTaskId, setCompletingTaskId] = useState<string | null>(null);
 
   const [aiModalOpen, setAiModalOpen] = useState(false);
@@ -35,21 +27,6 @@ const WeeklyPage = () => {
   const tasksFilter = useMemo(() => ({ startDate, endDate, excludeEvents: true }), [startDate, endDate]);
   const { tasks, updateTask } = useTasks(tasksFilter);
   const { profile } = useProfile();
-
-  const openCapture = useCallback(() => {
-    setCaptureOpen(true);
-    setTimeout(() => {
-      captureModalRef.current?.openInTextMode();
-    }, 10);
-  }, []);
-
-  const openCaptureInVoiceMode = useCallback(() => {
-    setCaptureOpen(true);
-    setTimeout(() => {
-      captureModalRef.current?.openInVoiceMode();
-    }, 10);
-  }, []);
-  useGlobalVoiceCapture(captureModalRef, openCapture);
 
   const getTasksForDay = (date: Date) => {
     const dateStr = format(date, 'yyyy-MM-dd');
@@ -131,30 +108,6 @@ const WeeklyPage = () => {
           />
         </section>
 
-
-
-        {/* Desktop FAB */}
-        <div className="hidden lg:block">
-          <FAB 
-            onTextClick={openCapture} 
-            onVoiceClick={openCaptureInVoiceMode} 
-            onRecurrenceClick={() => setRecurrenceOpen(true)}
-          />
-        </div>
-        <QuickRecurrenceFlow 
-          open={recurrenceOpen}
-          onClose={() => setRecurrenceOpen(false)}
-        />
-        <TaskCaptureModal 
-          ref={captureModalRef} 
-          open={captureOpen} 
-          onClose={() => {
-            setCaptureOpen(false);
-            setCaptureMode(null);
-          }} 
-          initialMode={captureMode}
-          creationSource="fab"
-        />
         <TaskDetailModal task={selectedTask} open={!!selectedTask} onClose={() => setSelectedTask(null)} />
         <FullscreenTimer task={timerTask} open={!!timerTask} onClose={() => setTimerTask(null)} />
         <AISchedulerModal 
