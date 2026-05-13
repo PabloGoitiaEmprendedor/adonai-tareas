@@ -224,7 +224,7 @@ function UseInWebButton({ variant }: { variant?: 'hero' | 'cta' }) {
 ───────────────────────────────────────────── */
 export default function LandingPage() {
   useEffect(() => {
-    document.title = "Adonai - Sistema Operativo Mental para Emprendedores LATAM";
+    document.title = "Adonai - Recupera el control de tu semana";
     const metaDescription = document.querySelector('meta[name="description"]');
     if (metaDescription) {
       metaDescription.setAttribute("content", "Estructura mental para emprendedores que se sienten sobrepasados. Claridad, calma y supervivencia ante el caos diario.");
@@ -269,29 +269,18 @@ function Hero() {
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.7, ease: "easeOut" }}
           >
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-              className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-[10px] font-black uppercase tracking-widest mb-8"
-            >
-              <Sparkles className="w-3 h-3" />
-              S.O. Mental para emprendedores
-            </motion.div>
-            
             <h1 className="text-6xl md:text-8xl font-black leading-[0.85] tracking-tight mb-8">
-              Tu mente <br />
+              Recupera el control <br />
               <span className="relative text-primary">
-                en calma
+                de tu semana
                 <svg className="absolute -bottom-2 left-0 w-full h-3 text-primary/30 -z-10" viewBox="0 0 100 10" preserveAspectRatio="none">
                   <path d="M0 5 Q 25 0, 50 5 T 100 5" fill="none" stroke="currentColor" strokeWidth="8" strokeLinecap="round" />
                 </svg>
-              </span> <br />
-              ante el caos
+              </span>
             </h1>
             
             <p className="text-xl md:text-2xl text-foreground/60 leading-relaxed max-w-lg mb-10 font-medium">
-              Estructura mental para cuando te sientes sobrepasado. Una mini-ventana que te devuelve la claridad, sin ruido.
+              Tareas, calendario y metas. Un espacio completo que te ayuda a organizar tu vida en segundos sin perder el foco.
             </p>
             
             <div className="flex flex-col sm:flex-row gap-4 mb-8">
@@ -312,18 +301,15 @@ function Hero() {
           >
             <div className="absolute -inset-4 bg-primary/20 rounded-[40px] blur-3xl animate-pulse" />
             <div className="relative overflow-hidden rounded-[32px] border-4 border-foreground/10 bg-background shadow-[0_32px_64px_-16px_rgba(0,0,0,0.2)] dark:shadow-[0_32px_64px_-16px_rgba(0,0,0,0.5)] transition-transform duration-500 hover:scale-[1.02]">
-              <div className="relative aspect-video overflow-hidden group">
+              <div className="relative aspect-video overflow-hidden">
                 <video
                   src="/videos/demo-1.mp4"
                   autoPlay
                   loop
                   muted
                   playsInline
-                  className="w-full h-full object-cover privacy-blur"
+                  className="w-full h-full object-cover"
                 />
-                <div className="privacy-blur-overlay">
-                  Contenido Privado
-                </div>
               </div>
             </div>
             
@@ -435,18 +421,15 @@ function DemoVideo({ src, title, caption }: { src: string; title: string; captio
       className="group relative overflow-hidden rounded-[32px] bg-background border-2 border-foreground/5 shadow-xl transition-all"
     >
       <div className="p-4">
-        <div className="relative aspect-video overflow-hidden group">
+        <div className="relative aspect-video overflow-hidden">
           <video
             src={src}
             autoPlay
             loop
             muted
             playsInline
-            className="w-full h-full object-cover privacy-blur"
+            className="w-full h-full object-cover"
           />
-          <div className="privacy-blur-overlay">
-            Contenido Privado
-          </div>
         </div>
       </div>
       <div className="px-8 pb-8 pt-2">
@@ -500,15 +483,12 @@ function How() {
           
           <div className="relative">
             <div className="absolute -inset-10 bg-primary/5 rounded-[60px] blur-3xl" />
-            <div className="relative rounded-[32px] overflow-hidden border border-primary/20 bg-background shadow-2xl group">
+            <div className="relative rounded-[32px] overflow-hidden border border-primary/20 bg-background shadow-2xl">
               <img 
                 src="/screenshots/mini-window.png" 
                 alt="Mini ventana" 
-                className="w-full h-auto privacy-blur"
+                className="w-full h-auto"
               />
-              <div className="privacy-blur-overlay">
-                Vista Privada
-              </div>
             </div>
           </div>
         </div>
