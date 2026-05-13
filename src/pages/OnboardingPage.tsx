@@ -231,8 +231,9 @@ const OnboardingPage = () => {
       localStorage.setItem('adonai_onboarding_done', 'true');
       navigate('/');
     } catch (e) {
-      console.error(e);
-      toast.error(`Error: ${e instanceof Error ? e.message : 'Hubo un problema al guardar tu configuración'}`);
+      console.error('[onboarding] handleFinish error:', e);
+      const msg = typeof e === 'object' && e !== null ? (e as any).message || JSON.stringify(e) : String(e);
+      toast.error(`Error: ${msg}`);
     } finally {
       setIsFinishing(false);
     }
