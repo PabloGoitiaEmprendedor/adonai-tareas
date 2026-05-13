@@ -224,10 +224,10 @@ function UseInWebButton({ variant }: { variant?: 'hero' | 'cta' }) {
 ───────────────────────────────────────────── */
 export default function LandingPage() {
   useEffect(() => {
-    document.title = "Adonai Tasks - Sistema de Gestión de Tareas Siempre Visible";
+    document.title = "Adonai - Sistema Operativo Mental para Emprendedores LATAM";
     const metaDescription = document.querySelector('meta[name="description"]');
     if (metaDescription) {
-      metaDescription.setAttribute("content", "Maximiza tu productividad con Adonai Tasks. Una mini-ventana persistente en tu escritorio para gestionar tus tareas sin distracciones. Descarga para Windows y Mac o úsalo en la web.");
+      metaDescription.setAttribute("content", "Estructura mental para emprendedores que se sienten sobrepasados. Claridad, calma y supervivencia ante el caos diario.");
     }
   }, []);
 
@@ -276,22 +276,22 @@ function Hero() {
               className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-[10px] font-black uppercase tracking-widest mb-8"
             >
               <Sparkles className="w-3 h-3" />
-              Gestión de tareas sin fricción
+              S.O. Mental para emprendedores
             </motion.div>
             
             <h1 className="text-6xl md:text-8xl font-black leading-[0.85] tracking-tight mb-8">
-              Tus tareas, <br />
-              <span className="relative">
-                siempre
+              Tu mente <br />
+              <span className="relative text-primary">
+                en calma
                 <svg className="absolute -bottom-2 left-0 w-full h-3 text-primary/30 -z-10" viewBox="0 0 100 10" preserveAspectRatio="none">
                   <path d="M0 5 Q 25 0, 50 5 T 100 5" fill="none" stroke="currentColor" strokeWidth="8" strokeLinecap="round" />
                 </svg>
               </span> <br />
-              a la vista
+              ante el caos
             </h1>
             
             <p className="text-xl md:text-2xl text-foreground/60 leading-relaxed max-w-lg mb-10 font-medium">
-              Una mini-ventana inteligente que vive en tu escritorio. Sin abrir apps, sin perder el foco.
+              Estructura mental para cuando te sientes sobrepasado. Una mini-ventana que te devuelve la claridad, sin ruido.
             </p>
             
             <div className="flex flex-col sm:flex-row gap-4 mb-8">
@@ -301,16 +301,6 @@ function Hero() {
             
             <div className="flex items-center gap-6">
               <UseInWebButton variant="hero" />
-              <div className="flex -space-x-2">
-                {[1, 2, 3].map(i => (
-                  <div key={i} className="w-8 h-8 rounded-full border-2 border-background bg-secondary flex items-center justify-center overflow-hidden">
-                    <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${i + 10}`} alt="User" />
-                  </div>
-                ))}
-                <div className="pl-4 text-xs font-bold text-foreground/40">
-                  +1,000 usuarios productivos
-                </div>
-              </div>
             </div>
           </motion.div>
 
@@ -322,14 +312,19 @@ function Hero() {
           >
             <div className="absolute -inset-4 bg-primary/20 rounded-[40px] blur-3xl animate-pulse" />
             <div className="relative overflow-hidden rounded-[32px] border-4 border-foreground/10 bg-background shadow-[0_32px_64px_-16px_rgba(0,0,0,0.2)] dark:shadow-[0_32px_64px_-16px_rgba(0,0,0,0.5)] transition-transform duration-500 hover:scale-[1.02]">
-              <video
-                src="/videos/demo-1.mp4"
-                autoPlay
-                loop
-                muted
-                playsInline
-                className="block w-full h-auto"
-              />
+              <div className="relative aspect-video overflow-hidden group">
+                <video
+                  src="/videos/demo-1.mp4"
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                  className="w-full h-full object-cover privacy-blur"
+                />
+                <div className="privacy-blur-overlay">
+                  Contenido Privado
+                </div>
+              </div>
             </div>
             
             {/* Floating badges */}
@@ -360,9 +355,9 @@ function Hero() {
  ───────────────────────────────────────────── */
 function Pain() {
   const pains = [
-    { t: "Fricción", d: "Me olvido de mis tareas porque abrir otra app cansa.", icon: "😫" },
-    { t: "Complejidad", "d": "Probé mil apps y siempre vuelvo a mi cuaderno.", icon: "📓" },
-    { t: "Distracción", "d": "Me da pereza buscar botones, menús y pantallas.", icon: "🌀" },
+    { t: "Ansiedad", d: "El caos de pendientes me genera parálisis.", icon: "😰" },
+    { t: "Sobrecarga", "d": "Siento que el día me devora y no sé por dónde empezar.", icon: "🤯" },
+    { t: "Frustración", "d": "Las apps complejas me roban más tiempo del que me ahorran.", icon: "🌀" },
   ];
   return (
     <section className="bg-foreground px-6 py-24 text-background md:py-32">
@@ -380,8 +375,8 @@ function Pain() {
             whileInView={{ opacity: 1, y: 0 }}
             className="text-4xl md:text-6xl font-black leading-tight"
           >
-            Las apps de tareas actuales <br />
-            <span className="text-primary/80">te hacen trabajar más</span>
+            La productividad genérica <br />
+            <span className="text-primary/80">no es suficiente para ti</span>
           </motion.h2>
         </div>
         
@@ -440,15 +435,18 @@ function DemoVideo({ src, title, caption }: { src: string; title: string; captio
       className="group relative overflow-hidden rounded-[32px] bg-background border-2 border-foreground/5 shadow-xl transition-all"
     >
       <div className="p-4">
-        <div className="overflow-hidden rounded-2xl aspect-[4/3] bg-secondary/50">
+        <div className="relative aspect-video overflow-hidden group">
           <video
             src={src}
             autoPlay
             loop
             muted
             playsInline
-            className="block w-full h-full object-cover"
+            className="w-full h-full object-cover privacy-blur"
           />
+          <div className="privacy-blur-overlay">
+            Contenido Privado
+          </div>
         </div>
       </div>
       <div className="px-8 pb-8 pt-2">
@@ -502,11 +500,16 @@ function How() {
           
           <div className="relative">
             <div className="absolute -inset-10 bg-primary/5 rounded-[60px] blur-3xl" />
-            <img 
-              src="/screenshots/mini-window.png" 
-              alt="Adonai Workflow" 
-              className="relative z-10 w-full h-auto rounded-[40px] shadow-2xl border-2 border-foreground/5"
-            />
+            <div className="relative rounded-[32px] overflow-hidden border border-primary/20 bg-background shadow-2xl group">
+              <img 
+                src="/screenshots/mini-window.png" 
+                alt="Mini ventana" 
+                className="w-full h-auto privacy-blur"
+              />
+              <div className="privacy-blur-overlay">
+                Vista Privada
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -579,9 +582,9 @@ function Quotes() {
       <div className="mx-auto max-w-5xl">
         <div className="text-center mb-20">
           <h2 className="text-5xl md:text-7xl font-black leading-tight tracking-tight mb-4">
-            No estás <span className="text-primary">solo</span>
+            Recupera <span className="text-primary">el control</span>
           </h2>
-          <p className="text-foreground/50 font-medium text-lg italic">Miles de personas odian las listas de tareas infinitas.</p>
+          <p className="text-foreground/50 font-medium text-lg italic">Menos ruido, más enfoque.</p>
         </div>
         
         <div className="grid gap-8 md:grid-cols-3">

@@ -138,6 +138,40 @@
   }
 }
 
+/* ── Privacy Blur ── */
+.privacy-blur {
+  filter: blur(12px);
+  transition: filter 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: help;
+}
+
+.privacy-blur:hover {
+  filter: blur(0px);
+}
+
+.privacy-blur-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.2);
+  backdrop-filter: blur(8px);
+  color: white;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  opacity: 1;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.group:hover .privacy-blur-overlay {
+  opacity: 0;
+}
+
 /* Style scrollbars globally */
 ::-webkit-scrollbar {
   width: 5px;

@@ -35,7 +35,7 @@ export default function TermsOfServicePage() {
             Términos de <span className="text-primary">Servicio</span>
           </h1>
           <p className="text-lg text-foreground/40 font-medium">
-            Última actualización: 11 de mayo de 2026. Transparencia desde el primer día.
+            Última actualización: 13 de mayo de 2026. Transparencia desde el primer día.
           </p>
         </motion.div>
       </header>

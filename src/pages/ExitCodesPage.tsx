@@ -149,10 +149,13 @@ const ExitCodesPage = () => {
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="p-8 rounded-[32px] bg-secondary/50 border border-foreground/5 text-center"
+            className="p-8 rounded-[32px] bg-secondary/50 border border-foreground/5 text-center space-y-4"
           >
             <p className="text-sm text-foreground/40 font-medium max-w-2xl mx-auto leading-relaxed">
               Esta documentación está dirigida a administradores de sistemas y usuarios avanzados que deseen automatizar el despliegue de Adonai en entornos controlados.
+            </p>
+            <p className="text-[10px] text-foreground/20 font-bold uppercase tracking-widest">
+              Nota: Los códigos de retorno son exclusivos del instalador de Windows (.exe). En macOS (.dmg), la instalación se realiza mediante el arrastre estándar a la carpeta de Aplicaciones.
             </p>
           </motion.section>
 

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown, HelpCircle, MessageCircle, Sparkles, ArrowRight, Monitor, Apple, Globe, Search, LifeBuoy } from "lucide-react";
 import { PublicNav } from "@/components/PublicNav";
+import { PublicFooter } from "@/components/PublicFooter";
 import { WIN_DOWNLOAD, MAC_DOWNLOAD } from "@/lib/download-urls";
 import { Link } from "react-router-dom";
 
@@ -57,6 +58,11 @@ const FAQ_ITEMS = [
     category: "General",
     q: "¿Cómo puedo dar feedback?",
     a: "Nos encanta escuchar a nuestros usuarios. Puedes enviarnos tus sugerencias o reportar errores directamente a través de nuestras redes sociales o el canal de soporte en la web.",
+  },
+  {
+    category: "Funciones",
+    q: "¿Cómo se integra con Google Calendar?",
+    a: "Adonai solicita permiso para leer y escribir en tu calendario. Esto permite que tus tareas con fecha aparezcan automáticamente en Google Calendar y viceversa. Solo accedemos a la información estrictamente necesaria para la sincronización y nunca compartimos estos datos con terceros.",
   },
 ];
 

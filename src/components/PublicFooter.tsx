@@ -23,7 +23,7 @@ export function PublicFooter() {
               <span className="text-2xl font-black tracking-tight">Adonai</span>
             </Link>
             <p className="text-sm text-foreground/40 max-w-xs leading-relaxed">
-              La herramienta de productividad diseñada para el enfoque extremo. Hecho simple, a propósito.
+              El sistema operativo mental diseñado para el emprendedor que busca calma y claridad ante el caos.
             </p>
           </div>
           

@@ -74,9 +74,12 @@ function FeatureBlock({
               <img
                 src={screenshot}
                 alt={tag}
-                className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105"
+                className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105 privacy-blur"
                 loading="lazy"
               />
+              <div className="privacy-blur-overlay">
+                Vista Privada
+              </div>
               <div className="absolute inset-0 bg-gradient-to-t from-background/40 via-transparent to-transparent pointer-events-none" />
             </div>
           ) : (
@@ -185,10 +188,10 @@ export default function CaracteristicasPage() {
   const statsInView = useInView(statsRef, { once: true, margin: "-50px" });
 
   useEffect(() => {
-    document.title = "Características de Adonai Tasks - Sistema de Enfoque Extremo";
+    document.title = "Funciones de Adonai - Claridad Mental para Emprendedores";
     const metaDescription = document.querySelector('meta[name="description"]');
     if (metaDescription) {
-      metaDescription.setAttribute("content", "Descubre las funciones premium de Adonai Tasks: mini-ventana persistente, racha diaria, calendario 360, organización por carpetas y gamificación para maximizar tu productividad.");
+      metaDescription.setAttribute("content", "Explora las herramientas que te devuelven el control. S.O. Mental diseñado para emprendedores LATAM que buscan claridad y enfoque.");
     }
   }, []);
 
@@ -229,8 +232,8 @@ export default function CaracteristicasPage() {
           animate={heroInView ? { opacity: 1 } : {}}
           transition={{ duration: 0.7, delay: 0.5 }}
         >
-          Adonai no es otra aplicación de listas genérica. Es un sistema de enfoque extremo 
-          diseñado para que recuperes el control de tu tiempo y tu energía.
+          Adonai es el sistema operativo mental diseñado para que recuperes el control de tu tiempo 
+          y tu energía, eliminando el ruido que te sobrepasa.
         </motion.p>
         
         <motion.div
@@ -304,9 +307,9 @@ export default function CaracteristicasPage() {
           icon={Flame}
           index={1}
           tag="Racha diaria"
-          title="Construye un hábito imparable."
-          highlight="imparable."
-          body="Visualiza tu progreso con el sistema de rachas. Cada día que completas tus tareas, tu racha crece, motivándote a no romper la cadena y mantener la inercia positiva."
+          title="Mantén la calma, paso a paso."
+          highlight="paso a paso."
+          body="Visualiza tu progreso sin presión. Cada día que completas tus tareas fundamentales, tu racha crece, recordándote que eres capaz de mantener la estructura incluso en los días difíciles."
           reversed={true}
           screenshot="/screenshots/daily-view.png"
         />
@@ -316,9 +319,9 @@ export default function CaracteristicasPage() {
           icon={Trophy}
           index={2}
           tag="Logros"
-          title="Gamifica tu productividad."
-          highlight="Gamifica"
-          body="Desbloquea logros exclusivos mientras trabajas. Adonai convierte la gestión de tareas en una experiencia gratificante donde cada meta alcanzada es celebrada."
+          title="Celebra tu supervivencia."
+          highlight="supervivencia."
+          body="Reconoce el esfuerzo de gestionar tu mente. Desbloquea hitos que no premian el 'hacer más', sino el mantener el enfoque y la consistencia en tu bienestar diario."
           reversed={false}
         />
 
@@ -326,10 +329,10 @@ export default function CaracteristicasPage() {
         <FeatureBlock
           icon={Target}
           index={3}
-          tag="Metas de Alto Impacto"
-          title="Enfócate en lo que importa."
-          highlight="lo que importa."
-          body="Define tus objetivos a largo plazo y vincula tus tareas diarias con ellos. Deja de 'estar ocupado' y empieza a ser productivo de verdad, trabajando en lo que mueve la aguja."
+          tag="Estructura para el caos"
+          title="Claridad sobre el ruido."
+          highlight="el ruido."
+          body="Define lo que realmente importa para tu paz mental. Vincula tus acciones diarias con metas que te den dirección, evitando que el día a día se convierta en una espiral de urgencias."
           reversed={true}
         />
 
@@ -349,10 +352,10 @@ export default function CaracteristicasPage() {
         <FeatureBlock
           icon={Users}
           index={5}
-          tag="Comunidad y Amigos"
-          title="La motivación es contagiosa."
-          highlight="contagiosa."
-          body="Conéctate con amigos para ver sus rachas y logros. El compromiso social es una de las herramientas más potentes para mantener la disciplina a largo plazo."
+          tag="Comunidad y Apoyo"
+          title="No estás solo en esto."
+          highlight="solo en esto."
+          body="Conéctate con otros emprendedores que entienden el reto de gestionar la mente. Comparte rachas y logros para sentir el respaldo de una comunidad que busca lo mismo que tú: calma."
           reversed={true}
         />
 
@@ -410,8 +413,8 @@ export default function CaracteristicasPage() {
             viewport={{ once: true }}
             transition={{ duration: 0.5, delay: 0.4 }}
           >
-            Únete a miles de personas que han simplificado su flujo de trabajo con Adonai. 
-            Sin suscripciones, sin trampas. Solo productividad pura.
+            Simplifica tu flujo de trabajo hoy mismo. 
+            Sin suscripciones, sin trampas. Solo claridad pura.
           </motion.p>
           
           <motion.div

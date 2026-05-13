@@ -35,7 +35,7 @@ export default function PrivacyPolicyPage() {
             Política de <span className="text-primary">Privacidad</span>
           </h1>
           <p className="text-lg text-foreground/40 font-medium">
-            Última actualización: 11 de mayo de 2026. Tu privacidad no es negociable.
+            Última actualización: 13 de mayo de 2026. Tu privacidad no es negociable.
           </p>
         </motion.div>
       </header>
