@@ -60,7 +60,7 @@ const WelcomePage = () => {
               Adonai
             </h1>
             <p className="text-on-surface-variant font-medium text-base max-w-xs mx-auto leading-relaxed">
-              Tu sistema operativo mental para emprendedores
+              Recupera el control de tu semana
             </p>
           </div>
         </div>

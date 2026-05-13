@@ -47,6 +47,27 @@ const OnboardingPage = () => {
   const [floatingActivated, setFloatingActivated] = useState(false);
   const timeScrollRefs = useRef<(HTMLDivElement | null)[]>([]);
   const durationScrollRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const lastTickRef = useRef<string>('');
+
+  const playTick = () => {
+    try {
+      if (!audioCtxRef.current) {
+        audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      }
+      const ctx = audioCtxRef.current;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.value = 600;
+      osc.type = 'sine';
+      gain.gain.setValueAtTime(0.02, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.04);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.04);
+    } catch {}
+  };
   
   // Auth state
   const [email, setEmail] = useState('');
@@ -569,6 +590,10 @@ const OnboardingPage = () => {
                                   if (Math.abs(itemCenter - centerY) < el.offsetHeight) {
                                     const val = el.getAttribute('data-value');
                                     if (val) {
+                                      if (lastTickRef.current !== `t${i}:${val}`) {
+                                        lastTickRef.current = `t${i}:${val}`;
+                                        playTick();
+                                      }
                                       setRecurringTasks(prev => {
                                         if (prev[i].time === val) return prev;
                                         const next = [...prev];
@@ -594,9 +619,9 @@ const OnboardingPage = () => {
                                   <div
                                     key={t}
                                     data-value={t}
-                                    className={`h-[31px] shrink-0 flex items-center justify-center font-bold transition-all cursor-pointer snap-center ${
+                                     className={`h-[31px] shrink-0 flex items-center justify-center font-bold transition-all cursor-pointer snap-center rounded-[10px] ${
                                       selected
-                                        ? 'text-primary text-[13px] font-black'
+                                        ? 'text-primary text-[13px] font-black bg-primary/[0.07]'
                                         : 'text-on-surface-variant/25 text-[10px] hover:text-on-surface-variant/60'
                                     }`}
                                   >
@@ -606,7 +631,6 @@ const OnboardingPage = () => {
                               })}
                               <div className="h-[62px] shrink-0" />
                             </div>
-                            <div className="pointer-events-none absolute top-1/2 -translate-y-1/2 left-1 right-1 h-[31px] rounded-[10px] border border-primary/20 bg-primary/[0.04]" />
                           </div>
                         </div>
 
@@ -635,6 +659,10 @@ const OnboardingPage = () => {
                                     const val = el.getAttribute('data-value');
                                     if (val) {
                                       const numVal = parseInt(val, 10);
+                                      if (lastTickRef.current !== `d${i}:${val}`) {
+                                        lastTickRef.current = `d${i}:${val}`;
+                                        playTick();
+                                      }
                                       setRecurringTasks(prev => {
                                         if (prev[i].duration === numVal) return prev;
                                         const next = [...prev];
@@ -663,9 +691,9 @@ const OnboardingPage = () => {
                                     <div
                                       key={item.value}
                                       data-value={item.value}
-                                      className={`h-[31px] shrink-0 flex items-center justify-center font-bold transition-all cursor-pointer snap-center ${
+                                      className={`h-[31px] shrink-0 flex items-center justify-center font-bold transition-all cursor-pointer snap-center rounded-[10px] ${
                                         selected
-                                          ? 'text-primary text-[13px] font-black'
+                                          ? 'text-primary text-[13px] font-black bg-primary/[0.07]'
                                           : 'text-on-surface-variant/25 text-[10px] hover:text-on-surface-variant/60'
                                       }`}
                                     >
@@ -676,7 +704,6 @@ const OnboardingPage = () => {
                               })()}
                               <div className="h-[62px] shrink-0" />
                             </div>
-                            <div className="pointer-events-none absolute top-1/2 -translate-y-1/2 left-1 right-1 h-[31px] rounded-[10px] border border-primary/20 bg-primary/[0.04]" />
                           </div>
                         </div>
                       </div>
