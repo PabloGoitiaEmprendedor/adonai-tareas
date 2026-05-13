@@ -144,7 +144,7 @@ const OnboardingPage = () => {
             urgency,
             priority,
             due_date: today,
-            source_type: 'onboarding_braindump',
+            source_type: 'text',
             status: 'pending',
             sort_order: i,
           };
@@ -207,8 +207,7 @@ const OnboardingPage = () => {
           description,
           recurrence_id: rule.id,
           status: 'pending',
-          source_type: 'onboarding_recurring',
-          creation_source: 'event',
+          source_type: 'text',
           estimated_minutes: task.duration,
         };
 
@@ -233,7 +232,7 @@ const OnboardingPage = () => {
       navigate('/');
     } catch (e) {
       console.error(e);
-      toast.error("Hubo un problema al guardar tu configuración.");
+      toast.error(`Error: ${e instanceof Error ? e.message : 'Hubo un problema al guardar tu configuración'}`);
     } finally {
       setIsFinishing(false);
     }
