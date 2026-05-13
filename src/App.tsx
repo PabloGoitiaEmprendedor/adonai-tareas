@@ -151,11 +151,13 @@ const AppRoutes = () => {
         <Route 
           path="/" 
           element={
-            user 
-              ? <Navigate to="/daily" replace /> 
-              : (isElectron || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname.startsWith('192.168.'))
-                ? <Navigate to="/auth" replace />
-                : <LandingPage />
+            loading 
+              ? <LoadingScreen message="Sincronizando Adonai" />
+              : user 
+                ? <Navigate to="/daily" replace /> 
+                : (isElectron || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname.startsWith('192.168.'))
+                  ? <Navigate to="/auth" replace />
+                  : <LandingPage />
           } 
         />
 

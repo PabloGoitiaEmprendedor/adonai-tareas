@@ -334,7 +334,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
           - Mobile: ALWAYS visible (top-left) when the mobile Sheet is closed
           - Desktop: only when the desktop sidebar is collapsed */}
       {!open && (
-        <div className={`fixed left-4 z-[70] flex flex-col items-center gap-2 ${
+        <div className={`fixed left-4 z-[70] flex items-center gap-2 ${
             desktopSidebarOpen ? 'lg:hidden' : ''
           } ${window.electronAPI ? 'top-12' : 'top-4'}`}>
           <button
@@ -351,6 +351,14 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
           >
             <Menu className="w-5 h-5" />
           </button>
+          {user?.is_anonymous && (
+            <button
+              onClick={() => navigate('/auth')}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-[11px] font-bold hover:bg-primary/20 transition-all active:scale-95"
+            >
+              Invitado · Iniciar sesión
+            </button>
+          )}
         </div>
       )}
 

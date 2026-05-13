@@ -21,6 +21,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const queryClient = useQueryClient();
   const userRef = useRef<User | null>(null);
+  const manualSignOutRef = useRef(false);
 
   // Keep ref in sync so beforeunload always has latest user
   useEffect(() => { userRef.current = user; }, [user]);
@@ -71,6 +72,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       if (event === 'SIGNED_OUT') {
         queryClient.clear();
+        // Auto-recover anonymous sessions that expired (not manual sign out)
+        const prevUser = userRef.current;
+        if (!manualSignOutRef.current && prevUser?.is_anonymous) {
+          supabase.auth.signInAnonymously().then(({ data }) => {
+            if (data?.session && mounted) {
+              setSession(data.session);
+              setUser(data.session.user);
+            }
+          });
+        }
+        manualSignOutRef.current = false;
       }
 
       setLoading(false);
@@ -100,36 +112,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           return;
         }
 
-        // Show UI immediately with cached session
-        if (mounted) { setSession(cached); setUser(cached.user); }
-
-        // Proactively refresh the token so all API calls use a valid token.
-        const { data: { session: fresh }, error } = await supabase.auth.refreshSession();
-
+        // Usar la sesión cachead directamente — Supabase autoRefreshToken maneja
+        // el refresco automático cuando expira. No llamamos refreshSession()
+        // porque su fallo puede sobrescribir una sesión de email válida con una anónima.
         if (mounted) {
-          if (error || !fresh) {
-            console.warn('[Auth] Session expired completely, re-signing anonymously:', error?.message);
-            const { data: anonData } = await supabase.auth.signInAnonymously();
-            if (anonData.session) {
-              setSession(anonData.session);
-              setUser(anonData.session.user);
-            } else {
-              setSession(null);
-              setUser(null);
-              queryClient.clear();
-            }
-          } else {
-            setSession(fresh);
-            setUser(fresh.user);
-            if (!sessionStorage.getItem('adonai_session_start')) {
-              supabase.from('usage_events').insert({
-                user_id: fresh.user.id,
-                event_type: 'session_start',
-                metadata: { timestamp: new Date().toISOString() },
-              }).then(() => {});
-              sessionStorage.setItem('adonai_session_start', Date.now().toString());
-            }
-          }
+          setSession(cached);
+          setUser(cached.user);
           setLoading(false);
         }
       } catch (err) {
@@ -216,6 +204,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signOut = async () => {
+    manualSignOutRef.current = true;
     try {
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
