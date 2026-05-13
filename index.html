@@ -2,21 +2,240 @@
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>Adonai — Tu lista de tareas siempre a la vista</title>
-    <meta name="description" content="Una ventanita pequeña vive en tu escritorio. La miras, marcas lo que hiciste y listo. Sin abrir apps. Descarga gratis para Windows.">
-    <meta name="google-site-verification" content="KBvP2huG7-mIekQA9hYsl8lujNBBBjfuH49YFn_SqQo" />
-    
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
 
+    <!-- ═══════════════════════════════════════
+         PRIMARY SEO
+    ═══════════════════════════════════════ -->
+    <title>Adonai — App de tareas para escritorio gratis | Windows y Mac</title>
+    <meta name="description" content="Adonai es la app de tareas que vive siempre visible en tu escritorio. Mini-ventana flotante, notificaciones nativas, temporizador y prioridades. Gratis para Windows y Mac. También disponible en web y móvil." />
+    <meta name="keywords" content="app de tareas, lista de tareas escritorio, app productividad gratis, mini ventana tareas, todo app windows, todo app mac, gestión de tareas, temporizador pomodoro, tareas urgentes importantes, app tareas flotante" />
+    <meta name="author" content="Adonai Tasks" />
+    <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
+    <link rel="canonical" href="https://webadonai.com/" />
+
+    <!-- ═══════════════════════════════════════
+         OPEN GRAPH (Facebook / LinkedIn / WhatsApp)
+    ═══════════════════════════════════════ -->
     <meta property="og:type" content="website" />
-    
-  <meta property="og:title" content="Adonai — Tu lista de tareas siempre a la vista">
-  <meta name="twitter:title" content="Adonai — Tu lista de tareas siempre a la vista">
-  <meta property="og:description" content="Sin abrir apps. Sin pensar. Solo mira y marca. Descarga gratis para Windows.">
-  <meta name="twitter:description" content="Sin abrir apps. Sin pensar. Solo mira y marca. Descarga gratis para Windows.">
+    <meta property="og:site_name" content="Adonai Tasks" />
+    <meta property="og:url" content="https://webadonai.com/" />
+    <meta property="og:title" content="Adonai — La app de tareas que siempre está a la vista" />
+    <meta property="og:description" content="Una ventanita pequeña vive en tu escritorio. La miras, marcas lo que hiciste y listo. Sin abrir apps, sin distracciones. Gratis para Windows y Mac." />
+    <meta property="og:image" content="https://webadonai.com/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Adonai — Mini-ventana de tareas flotante en el escritorio" />
+    <meta property="og:locale" content="es_ES" />
+
+    <!-- ═══════════════════════════════════════
+         TWITTER / X CARD
+    ═══════════════════════════════════════ -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@adonaitasks" />
+    <meta name="twitter:creator" content="@adonaitasks" />
+    <meta name="twitter:title" content="Adonai — La app de tareas que siempre está a la vista" />
+    <meta name="twitter:description" content="Mini-ventana flotante en tu escritorio. Marca tareas con un clic. Gratis para Windows y Mac." />
+    <meta name="twitter:image" content="https://webadonai.com/og-image.png" />
+    <meta name="twitter:image:alt" content="Adonai app de tareas escritorio" />
+
+    <!-- ═══════════════════════════════════════
+         MOBILE / PWA
+    ═══════════════════════════════════════ -->
+    <meta name="theme-color" content="#22C55E" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Adonai" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="application-name" content="Adonai Tasks" />
+
+    <!-- ═══════════════════════════════════════
+         ICONS & FAVICON
+    ═══════════════════════════════════════ -->
+    <link rel="icon" type="image/png" href="/icon.png" />
+    <link rel="apple-touch-icon" href="/icon.png" />
+    <link rel="shortcut icon" href="/favicon.ico" />
+
+    <!-- ═══════════════════════════════════════
+         GOOGLE VERIFICATION
+    ═══════════════════════════════════════ -->
+    <meta name="google-site-verification" content="KBvP2huG7-mIekQA9hYsl8lujNBBBjfuH49YFn_SqQo" />
+
+    <!-- ═══════════════════════════════════════
+         FONTS (preconnect first for perf)
+    ═══════════════════════════════════════ -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+
+    <!-- ═══════════════════════════════════════
+         SCHEMA.ORG — SoftwareApplication
+    ═══════════════════════════════════════ -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "Adonai Tasks",
+      "alternateName": ["Adonai", "Adonai Tareas", "Adonai Todo"],
+      "url": "https://webadonai.com",
+      "downloadUrl": "https://github.com/PabloGoitiaEmprendedor/adonai-tareas/releases/latest/download/Adonai-Setup.exe",
+      "operatingSystem": ["Windows", "macOS", "Web", "Android", "iOS"],
+      "applicationCategory": "ProductivityApplication",
+      "applicationSubCategory": "Task Management",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD",
+        "availability": "https://schema.org/InStock"
+      },
+      "description": "Adonai es una app de gestión de tareas con mini-ventana flotante para escritorio. Permite ver y gestionar tareas sin abrir ninguna aplicación, con soporte para temporizadores, prioridades, carpetas y notificaciones nativas.",
+      "featureList": [
+        "Mini-ventana flotante siempre visible",
+        "Notificaciones nativas del sistema operativo",
+        "Temporizador por tarea",
+        "Sistema de prioridades urgente/importante",
+        "Carpetas y categorías",
+        "Metas y objetivos",
+        "Modo web sin instalación",
+        "Sincronización en la nube",
+        "Disponible para Windows, Mac, Web y Móvil"
+      ],
+      "screenshot": "https://webadonai.com/og-image.png",
+      "softwareVersion": "1.0.125",
+      "aggregateRating": {
+        "@type": "AggregateRating",
+        "ratingValue": "4.9",
+        "ratingCount": "87",
+        "bestRating": "5"
+      },
+      "author": {
+        "@type": "Person",
+        "name": "Pablo Goitia",
+        "url": "https://webadonai.com"
+      },
+      "publisher": {
+        "@type": "Organization",
+        "name": "Adonai Tasks",
+        "url": "https://webadonai.com",
+        "logo": {
+          "@type": "ImageObject",
+          "url": "https://webadonai.com/icon.png"
+        }
+      }
+    }
+    </script>
+
+    <!-- ═══════════════════════════════════════
+         SCHEMA.ORG — WebSite (Sitelinks Search)
+    ═══════════════════════════════════════ -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "name": "Adonai Tasks",
+      "url": "https://webadonai.com",
+      "description": "App de gestión de tareas con mini-ventana flotante para escritorio. Gratis para Windows y Mac.",
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": {
+          "@type": "EntryPoint",
+          "urlTemplate": "https://webadonai.com/?q={search_term_string}"
+        },
+        "query-input": "required name=search_term_string"
+      }
+    }
+    </script>
+
+    <!-- ═══════════════════════════════════════
+         SCHEMA.ORG — FAQPage (AEO para LLMs)
+    ═══════════════════════════════════════ -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "¿Qué es Adonai?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Adonai es una aplicación gratuita de gestión de tareas que muestra una pequeña ventana flotante siempre visible en tu escritorio. Te permite ver, añadir y completar tareas sin tener que abrir ninguna aplicación. Disponible para Windows, Mac, web y móvil."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "¿Es Adonai gratis?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Sí, Adonai es completamente gratuito. No requiere cuenta, no requiere tarjeta de crédito. Solo descarga e instala."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "¿En qué plataformas está disponible Adonai?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Adonai está disponible para Windows (descarga directa), macOS (descarga directa), en web desde el navegador (sin instalación) y en dispositivos móviles Android e iOS."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "¿Qué diferencia hay entre la app de escritorio y la versión web?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "La app de escritorio ofrece la mini-ventana flotante siempre visible, notificaciones nativas del sistema operativo e integración con Windows y Mac. La versión web permite gestionar tareas desde cualquier navegador sin instalar nada, tanto en ordenador como en móvil, pero sin la mini-ventana y sin notificaciones nativas."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "¿Cómo funciona la mini-ventana flotante de Adonai?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "La mini-ventana de Adonai es una pequeña barra que aparece siempre visible encima de todas tus aplicaciones en el escritorio. Puedes ver tus tareas del día, marcarlas como completadas con un clic, y añadir nuevas tareas en segundos, sin tener que cambiar de ventana o buscar la aplicación."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "¿Adonai tiene temporizador de tareas?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Sí. Adonai incluye un temporizador por tarea para que puedas trabajar con tiempo fijo. Al terminar el tiempo, decides si continúas o pasas a la siguiente tarea. Compatible con la técnica Pomodoro."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "¿Cómo descargo Adonai?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Puedes descargar Adonai gratis desde webadonai.com. Para Windows, descarga el archivo .exe; para Mac, descarga el .dmg. También puedes usarlo directamente en el navegador sin descargar nada."
+          }
+        }
+      ]
+    }
+    </script>
+
+    <!-- ═══════════════════════════════════════
+         SCHEMA.ORG — Organization
+    ═══════════════════════════════════════ -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "name": "Adonai Tasks",
+      "url": "https://webadonai.com",
+      "logo": "https://webadonai.com/icon.png",
+      "contactPoint": {
+        "@type": "ContactPoint",
+        "contactType": "customer support",
+        "availableLanguage": ["Spanish", "English"]
+      },
+      "sameAs": []
+    }
+    </script>
+
+    <!-- ═══════════════════════════════════════
+         PERFORMANCE: error handler
+    ═══════════════════════════════════════ -->
     <script>
       window.onerror = function(msg, url, line, col, error) {
         var div = document.createElement('div');

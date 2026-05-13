@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Download, Monitor, Apple, Loader2, Globe, X, Bell, Layout, Layers, ArrowRight, Smartphone } from "lucide-react";
+import { Download, Monitor, Apple, Loader2, Globe, X, Bell, Layout, Layers, ArrowRight, Smartphone, ChevronDown, Check } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { WIN_DOWNLOAD, MAC_DOWNLOAD } from "@/lib/download-urls";
 
@@ -226,7 +226,9 @@ export default function LandingPage() {
       <Demo />
       <How />
       <Features />
+      <Comparison />
       <Quotes />
+      <FAQ />
       <FinalCTA />
       <Footer />
     </main>
@@ -523,13 +525,158 @@ function FinalCTA() {
 }
 
 /* ─────────────────────────────────────────────
+   COMPARISON TABLE
+───────────────────────────────────────────── */
+function Comparison() {
+  const rows = [
+    { feat: "Mini-ventana flotante en escritorio", adonai: true, others: false },
+    { feat: "Siempre visible sin abrir la app",     adonai: true, others: false },
+    { feat: "Notificaciones nativas del sistema",    adonai: true, others: false },
+    { feat: "Temporizador por tarea",                adonai: true, others: false },
+    { feat: "Gratis, sin tarjeta",                   adonai: true, others: false },
+    { feat: "Funciona en web y móvil",               adonai: true, others: true  },
+    { feat: "Prioridades urgente/importante",        adonai: true, others: false },
+    { feat: "Sin publicidad",                        adonai: true, others: false },
+  ];
+  return (
+    <section className="px-6 py-20 md:py-28">
+      <div className="mx-auto max-w-4xl">
+        <div className="mb-12 text-center">
+          <p className="mb-4 text-sm font-bold uppercase tracking-widest text-muted-foreground">Por qué Adonai</p>
+          <h2 className="text-4xl font-black leading-tight md:text-5xl">
+            La única app con <span className="bg-primary px-2">mini-ventana flotante</span>
+          </h2>
+          <p className="mt-5 text-lg text-muted-foreground max-w-xl mx-auto">
+            Comparado con Todoist, TickTick, Any.do y otras apps de tareas populares.
+          </p>
+        </div>
+        <div className="overflow-hidden rounded-2xl border-2 border-foreground/10">
+          <table className="w-full text-sm" role="table" aria-label="Comparativa Adonai vs otras apps de tareas">
+            <thead>
+              <tr className="bg-foreground text-background">
+                <th className="px-6 py-4 text-left font-bold text-base" scope="col">Característica</th>
+                <th className="px-6 py-4 text-center font-black text-primary text-base" scope="col">Adonai</th>
+                <th className="px-6 py-4 text-center font-bold text-base opacity-60" scope="col">Otras apps</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r, i) => (
+                <tr key={r.feat} className={i % 2 === 0 ? 'bg-background' : 'bg-secondary'}>
+                  <td className="px-6 py-4 font-medium text-foreground/80">{r.feat}</td>
+                  <td className="px-6 py-4 text-center">
+                    <Check className="w-5 h-5 text-primary mx-auto" aria-label="Sí" />
+                  </td>
+                  <td className="px-6 py-4 text-center">
+                    {r.others
+                      ? <Check className="w-5 h-5 text-muted-foreground mx-auto" aria-label="Sí" />
+                      : <span className="text-foreground/20 text-xl" aria-label="No">✕</span>
+                    }
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ─────────────────────────────────────────────
+   FAQ  (visible + Schema.org — AEO/LLM)
+───────────────────────────────────────────── */
+const FAQ_ITEMS = [
+  {
+    q: "¿Qué es Adonai?",
+    a: "Adonai es una aplicación gratuita de gestión de tareas que muestra una pequeña ventana flotante siempre visible en tu escritorio. Te permite ver, añadir y completar tareas sin tener que abrir ninguna otra aplicación. Disponible para Windows, Mac, navegador web y móvil.",
+  },
+  {
+    q: "¿Es Adonai gratis?",
+    a: "Sí, Adonai es completamente gratuito. No requiere crear una cuenta ni introducir tarjeta de crédito. Solo descarga e instala para Windows o Mac, o úsalo directamente en el navegador.",
+  },
+  {
+    q: "¿Qué diferencia hay entre la app de escritorio y la versión web?",
+    a: "La app de escritorio ofrece la mini-ventana flotante siempre visible, notificaciones nativas del sistema operativo e integración con Windows y Mac (inicio automático, barra de tareas). La versión web te permite gestionar tareas desde cualquier navegador sin instalar nada, tanto en ordenador como en móvil, pero sin la mini-ventana flotante y sin notificaciones nativas.",
+  },
+  {
+    q: "¿Cómo funciona la mini-ventana flotante de Adonai?",
+    a: "La mini-ventana de Adonai es una pequeña barra que aparece siempre encima de todas tus aplicaciones. Puedes ver tus tareas del día, marcarlas como completadas con un clic y añadir nuevas en segundos, sin cambiar de ventana ni buscar la app. Se puede ocultar o expandir con un clic.",
+  },
+  {
+    q: "¿Adonai tiene temporizador de tareas?",
+    a: "Sí. Adonai incluye un temporizador por tarea para que puedas trabajar con tiempo acotado. Al terminar el tiempo decides si continúas o pasas a la siguiente tarea. Es compatible con la técnica Pomodoro y el método de trabajo por bloques de tiempo.",
+  },
+  {
+    q: "¿En qué sistemas operativos funciona Adonai?",
+    a: "Adonai funciona en Windows (descarga .exe), macOS (descarga .dmg), en el navegador web sin instalación (Chrome, Firefox, Safari, Edge) y en dispositivos móviles Android e iOS a través del navegador.",
+  },
+  {
+    q: "¿Cómo descargo Adonai?",
+    a: "Puedes descargar Adonai gratis desde webadonai.com. Para Windows descarga el archivo .exe; para Mac descarga el .dmg. Si prefieres no instalar nada, también puedes usar Adonai directamente en el navegador desde cualquier dispositivo.",
+  },
+];
+
+function FAQ() {
+  const [open, setOpen] = useState<number | null>(null);
+  return (
+    <section
+      id="faq"
+      className="bg-secondary px-6 py-20 md:py-28"
+      aria-label="Preguntas frecuentes sobre Adonai"
+    >
+      <div className="mx-auto max-w-3xl">
+        <div className="mb-12 text-center">
+          <p className="mb-4 text-sm font-bold uppercase tracking-widest text-muted-foreground">FAQ</p>
+          <h2 className="text-4xl font-black leading-tight md:text-5xl">
+            Preguntas <span className="bg-primary px-2">frecuentes</span>
+          </h2>
+        </div>
+        <div className="space-y-3" role="list">
+          {FAQ_ITEMS.map((item, i) => (
+            <div
+              key={i}
+              role="listitem"
+              className="rounded-2xl bg-background overflow-hidden shadow-sm"
+            >
+              <button
+                onClick={() => setOpen(open === i ? null : i)}
+                aria-expanded={open === i}
+                aria-controls={`faq-answer-${i}`}
+                id={`faq-question-${i}`}
+                className="w-full flex items-center justify-between gap-4 px-6 py-5 text-left font-bold text-base hover:bg-foreground/5 transition-colors"
+              >
+                <span>{item.q}</span>
+                <ChevronDown
+                  className={`w-5 h-5 text-muted-foreground flex-shrink-0 transition-transform duration-200 ${open === i ? 'rotate-180' : ''}`}
+                />
+              </button>
+              {open === i && (
+                <div
+                  id={`faq-answer-${i}`}
+                  role="region"
+                  aria-labelledby={`faq-question-${i}`}
+                  className="px-6 pb-5 text-muted-foreground leading-relaxed"
+                >
+                  {item.a}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ─────────────────────────────────────────────
    FOOTER
 ───────────────────────────────────────────── */
 function Footer() {
   return (
-    <footer className="border-t border-foreground/10 px-6 py-8 text-center text-xs text-muted-foreground/60">
-      <p>© {new Date().getFullYear()} Adonai. Hecho simple, a propósito.</p>
-      <div className="mt-2 flex items-center justify-center gap-3">
+    <footer className="border-t border-foreground/10 px-6 py-10 text-center text-xs text-muted-foreground/60">
+      <p className="font-semibold text-sm text-foreground/40 mb-1">Adonai Tasks — App de gestión de tareas para escritorio y web</p>
+      <p>© {new Date().getFullYear()} Adonai. Hecho simple, a propósito. Disponible gratis para Windows, Mac y navegador.</p>
+      <div className="mt-3 flex items-center justify-center gap-3">
         <Link to="/politica-de-privacidad" className="underline underline-offset-2 hover:text-muted-foreground/90 transition-colors">Política de Privacidad</Link>
         <span className="text-muted-foreground/30">·</span>
         <Link to="/terminos-de-servicio" className="underline underline-offset-2 hover:text-muted-foreground/90 transition-colors">Términos de Servicio</Link>

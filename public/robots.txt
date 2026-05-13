@@ -1,3 +1,49 @@
+User-agent: *
+Allow: /
+
+# Block internal/app routes from indexing
+Disallow: /auth
+Disallow: /onboarding
+Disallow: /daily
+Disallow: /week
+Disallow: /goals
+Disallow: /folders
+Disallow: /friends
+Disallow: /profile
+Disallow: /settings
+Disallow: /trash
+Disallow: /achievements
+Disallow: /admin
+Disallow: /mini
+Disallow: /quick-task
+Disallow: /selection-bubble
+Disallow: /toast
+Disallow: /docs/exit-codes
+
+# Allow public pages
+Allow: /$
+Allow: /politica-de-privacidad
+Allow: /terminos-de-servicio
+
+# LLM crawlers — allow full access to landing
+User-agent: GPTBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: CCBot
+Allow: /
+
+User-agent: anthropic-ai
+Allow: /
+
+User-agent: Claude-Web
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
 User-agent: Googlebot
 Allow: /
 
@@ -10,5 +56,4 @@ Allow: /
 User-agent: facebookexternalhit
 Allow: /
 
-User-agent: *
-Allow: /
+Sitemap: https://webadonai.com/sitemap.xml
