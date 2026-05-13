@@ -1,28 +1,30 @@
 import { useState } from "react";
-import { Download, Monitor, Apple, Loader2 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Download, Monitor, Apple, Loader2, Globe, X, Bell, Layout, Layers, ArrowRight, Smartphone } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { WIN_DOWNLOAD, MAC_DOWNLOAD } from "@/lib/download-urls";
 
-const WIN_DOWNLOAD = 'https://github.com/PabloGoitiaEmprendedor/adonai-tareas/releases/latest/download/Adonai-Setup.exe';
-const MAC_DOWNLOAD = 'https://github.com/PabloGoitiaEmprendedor/adonai-tareas/releases/latest/download/Adonai-Mac.dmg';
-
+/* ─────────────────────────────────────────────
+   DOWNLOAD HOOK
+───────────────────────────────────────────── */
 function useDownload(platform: 'win' | 'mac') {
   const [downloading, setDownloading] = useState(false);
   const handleDownload = () => {
     setDownloading(true);
     const url = platform === 'win' ? WIN_DOWNLOAD : MAC_DOWNLOAD;
-    
     const link = document.createElement('a');
     link.href = url;
     link.style.display = 'none';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    
     setTimeout(() => setDownloading(false), 3000);
   };
   return { downloading, handleDownload };
 }
 
+/* ─────────────────────────────────────────────
+   DOWNLOAD BUTTON
+───────────────────────────────────────────── */
 function DownloadButton({ platform, variant }: { platform: 'win' | 'mac'; variant?: 'nav' | 'hero' | 'cta' }) {
   const { downloading, handleDownload } = useDownload(platform);
   const Icon = platform === 'win' ? Monitor : Apple;
@@ -65,6 +67,157 @@ function DownloadButton({ platform, variant }: { platform: 'win' | 'mac'; varian
   );
 }
 
+/* ─────────────────────────────────────────────
+   WEB APP LIMITATIONS MODAL
+───────────────────────────────────────────── */
+const WEB_LIMITATIONS = [
+  {
+    icon: Bell,
+    title: "Sin notificaciones del sistema",
+    desc: "Las alertas de escritorio y los recordatorios nativos solo funcionan en la app instalada.",
+  },
+  {
+    icon: Layout,
+    title: "Sin mini-ventana flotante",
+    desc: "La pequeña ventana que vive siempre visible en tu escritorio es exclusiva de la app.",
+  },
+  {
+    icon: Layers,
+    title: "Sin integración con el S.O.",
+    desc: "El inicio automático con Windows/Mac y la barra de tareas no están disponibles en web.",
+  },
+  {
+    icon: Smartphone,
+    title: "Móvil y escritorio web: sí",
+    desc: "Puedes gestionar tus tareas desde el navegador en cualquier dispositivo con todas las funciones de gestión.",
+  },
+];
+
+function WebLimitationsModal({ open, onClose, onContinue }: {
+  open: boolean;
+  onClose: () => void;
+  onContinue: () => void;
+}) {
+  if (!open) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-[200] flex items-center justify-center p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="web-modal-title"
+    >
+      {/* Backdrop */}
+      <div
+        className="absolute inset-0 bg-foreground/60 backdrop-blur-sm"
+        onClick={onClose}
+      />
+
+      {/* Panel */}
+      <div className="relative w-full max-w-md rounded-3xl bg-background border-2 border-foreground/10 shadow-2xl p-8 animate-in fade-in zoom-in-95 duration-200">
+        {/* Close */}
+        <button
+          onClick={onClose}
+          aria-label="Cerrar"
+          className="absolute top-4 right-4 p-2 rounded-full text-foreground/40 hover:text-foreground hover:bg-foreground/5 transition-colors"
+        >
+          <X className="w-4 h-4" />
+        </button>
+
+        {/* Header */}
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-10 h-10 rounded-2xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+            <Globe className="w-5 h-5 text-primary" />
+          </div>
+          <div>
+            <h2 id="web-modal-title" className="text-xl font-black leading-tight">
+              Usar Adonai en web
+            </h2>
+            <p className="text-sm text-foreground/50 mt-0.5">Antes de entrar, léete esto</p>
+          </div>
+        </div>
+
+        {/* Limitations list */}
+        <div className="space-y-4 mb-7">
+          {WEB_LIMITATIONS.map((item) => (
+            <div key={item.title} className="flex gap-3">
+              <div className="w-8 h-8 rounded-xl bg-foreground/5 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <item.icon className="w-4 h-4 text-foreground/50" />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-foreground leading-tight">{item.title}</p>
+                <p className="text-xs text-foreground/50 mt-0.5 leading-relaxed">{item.desc}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <p className="text-xs text-foreground/40 mb-6 leading-relaxed">
+          La versión web es perfecta para gestionar tareas desde cualquier lugar. Para la experiencia completa con mini-ventana y notificaciones nativas, descarga la app de escritorio.
+        </p>
+
+        {/* Actions */}
+        <div className="flex flex-col gap-2">
+          <button
+            onClick={onContinue}
+            className="w-full inline-flex items-center justify-center gap-2 rounded-full bg-primary px-6 py-3.5 text-sm font-bold text-primary-foreground transition hover:opacity-90"
+          >
+            Entendido, entrar a la web
+            <ArrowRight className="w-4 h-4" />
+          </button>
+          <button
+            onClick={onClose}
+            className="w-full inline-flex items-center justify-center gap-2 rounded-full border border-foreground/15 bg-transparent px-6 py-3.5 text-sm font-semibold text-foreground/70 transition hover:bg-foreground/5"
+          >
+            <Download className="w-4 h-4" />
+            Mejor descargo la app
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────
+   USE IN WEB BUTTON
+───────────────────────────────────────────── */
+function UseInWebButton({ variant }: { variant?: 'hero' | 'cta' }) {
+  const [modalOpen, setModalOpen] = useState(false);
+  const navigate = useNavigate();
+
+  const handleContinue = () => {
+    setModalOpen(false);
+    navigate('/auth');
+  };
+
+  const isCta = variant === 'cta';
+
+  return (
+    <>
+      <button
+        onClick={() => setModalOpen(true)}
+        className={
+          isCta
+            ? "w-full inline-flex items-center justify-center gap-2 rounded-full border-2 border-foreground/15 bg-transparent px-6 py-4 text-base font-bold text-foreground/80 transition hover:bg-foreground/5"
+            : "group inline-flex items-center justify-center gap-2 rounded-full border-2 border-foreground/15 bg-transparent px-8 py-4 text-lg font-bold text-foreground/80 transition hover:bg-foreground/5"
+        }
+      >
+        <Globe className="w-5 h-5" />
+        Usar en web
+      </button>
+
+      <WebLimitationsModal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        onContinue={handleContinue}
+      />
+    </>
+  );
+}
+
+/* ─────────────────────────────────────────────
+   PAGE
+───────────────────────────────────────────── */
 export default function LandingPage() {
   return (
     <main className="min-h-screen bg-background text-foreground">
@@ -80,7 +233,9 @@ export default function LandingPage() {
   );
 }
 
-/* ---------- HERO ---------- */
+/* ─────────────────────────────────────────────
+   HERO
+───────────────────────────────────────────── */
 function Hero() {
   return (
     <section className="relative overflow-hidden px-6 pt-10 pb-20 md:pt-16 md:pb-28">
@@ -94,12 +249,12 @@ function Hero() {
                   <stop offset="100%" stopColor="#16a34a" />
                 </linearGradient>
               </defs>
-              <path 
-                d="M20 50 L40 75 L85 25" 
-                fill="none" 
-                stroke="url(#logo-grad-landing)" 
-                strokeWidth="18" 
-                strokeLinecap="round" 
+              <path
+                d="M20 50 L40 75 L85 25"
+                fill="none"
+                stroke="url(#logo-grad-landing)"
+                strokeWidth="18"
+                strokeLinecap="round"
                 strokeLinejoin="round"
               />
             </svg>
@@ -121,6 +276,9 @@ function Hero() {
           <div className="mt-8 flex flex-col sm:flex-row gap-3">
             <DownloadButton platform="win" />
             <DownloadButton platform="mac" />
+          </div>
+          <div className="mt-3">
+            <UseInWebButton variant="hero" />
           </div>
           <p className="mt-4 text-sm text-foreground/60">
             Descárgala gratis. Sin cuenta. Sin tarjeta. Solo instala y empieza.
@@ -145,7 +303,9 @@ function Hero() {
   );
 }
 
-/* ---------- PAIN ---------- */
+/* ─────────────────────────────────────────────
+   PAIN
+───────────────────────────────────────────── */
 function Pain() {
   const pains = [
     "Me olvido de mis tareas porque abrir otra app cansa.",
@@ -178,7 +338,9 @@ function Pain() {
   );
 }
 
-/* ---------- DEMO ---------- */
+/* ─────────────────────────────────────────────
+   DEMO
+───────────────────────────────────────────── */
 function Demo() {
   return (
     <section className="px-6 py-20 md:py-28">
@@ -225,7 +387,9 @@ function DemoVideo({ src, caption }: { src: string; caption: string }) {
   );
 }
 
-/* ---------- HOW ---------- */
+/* ─────────────────────────────────────────────
+   HOW
+───────────────────────────────────────────── */
 function How() {
   const steps = [
     { n: "1", t: "La abres una vez", d: "Y se queda en tu escritorio." },
@@ -259,7 +423,9 @@ function How() {
   );
 }
 
-/* ---------- FEATURES ---------- */
+/* ─────────────────────────────────────────────
+   FEATURES
+───────────────────────────────────────────── */
 function Features() {
   const features = [
     { icon: "🎯", title: "¿Qué hago primero?", desc: "Te ayudamos a ordenar tus tareas con un método simple: lo urgente y lo importante. Sin pensar mucho." },
@@ -294,7 +460,9 @@ function Features() {
   );
 }
 
-/* ---------- QUOTES ---------- */
+/* ─────────────────────────────────────────────
+   QUOTES
+───────────────────────────────────────────── */
 function Quotes() {
   const quotes = [
     "Lo más pesado es abrir una app solo para anotar algo.",
@@ -326,7 +494,9 @@ function Quotes() {
   );
 }
 
-/* ---------- FINAL CTA ---------- */
+/* ─────────────────────────────────────────────
+   FINAL CTA
+───────────────────────────────────────────── */
 function FinalCTA() {
   return (
     <section id="probar" className="bg-foreground px-6 py-24 text-background md:py-32">
@@ -341,12 +511,20 @@ function FinalCTA() {
           <DownloadButton platform="win" variant="cta" />
           <DownloadButton platform="mac" variant="cta" />
         </div>
+        <div className="mt-4 max-w-lg mx-auto">
+          <UseInWebButton variant="cta" />
+        </div>
+        <p className="mt-4 text-sm text-background/40">
+          ¿Prefieres el navegador? También puedes usar Adonai en web, con algunas diferencias.
+        </p>
       </div>
     </section>
   );
 }
 
-/* ---------- FOOTER ---------- */
+/* ─────────────────────────────────────────────
+   FOOTER
+───────────────────────────────────────────── */
 function Footer() {
   return (
     <footer className="border-t border-foreground/10 px-6 py-8 text-center text-xs text-muted-foreground/60">

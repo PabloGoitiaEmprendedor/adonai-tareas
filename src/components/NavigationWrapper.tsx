@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { FolderOpen, Users, User, Calendar, LogOut, Settings, Bell, HelpCircle, Menu, Trash2, Home, Target, Trophy, BarChart3, Sun, History, Palette } from 'lucide-react';
+import { FolderOpen, Users, User, Calendar, LogOut, Settings, Bell, HelpCircle, Menu, Trash2, Home, Target, Trophy, BarChart3, Sun, History, Palette, Download, Monitor, Apple, Loader2 } from 'lucide-react';
+import { WIN_DOWNLOAD, MAC_DOWNLOAD } from '@/lib/download-urls';
 import { toast } from 'sonner';
 
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -20,6 +21,66 @@ import QuickRecurrenceFlow from '@/components/QuickRecurrenceFlow';
 import { format } from 'date-fns';
 import { useFolders } from '@/hooks/useFolders';
 import { useRef, useCallback } from 'react';
+
+// Detect if running inside Electron (desktop app)
+const isElectronEnv: boolean =
+  typeof window !== 'undefined' &&
+  (!!window.electronAPI ||
+    navigator.userAgent.toLowerCase().includes('electron') ||
+    !!(window.process && window.process.versions && window.process.versions.electron));
+
+/* ─── Persistent "Download Desktop App" banner (web-only) ─── */
+function DesktopDownloadBanner() {
+  const [winLoading, setWinLoading] = useState(false);
+  const [macLoading, setMacLoading] = useState(false);
+
+  const handleDownload = (platform: 'win' | 'mac') => {
+    const setLoading = platform === 'win' ? setWinLoading : setMacLoading;
+    setLoading(true);
+    const url = platform === 'win' ? WIN_DOWNLOAD : MAC_DOWNLOAD;
+    const link = document.createElement('a');
+    link.href = url;
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(() => setLoading(false), 3000);
+  };
+
+  return (
+    <div className="rounded-2xl bg-primary/8 border border-primary/20 p-3">
+      <div className="flex items-center gap-2 mb-2.5">
+        <Download className="w-3.5 h-3.5 text-primary flex-shrink-0" />
+        <p className="text-[11px] font-bold text-primary leading-tight">
+          App de escritorio
+        </p>
+      </div>
+      <p className="text-[10px] text-on-surface-variant leading-relaxed mb-3">
+        Descarga para tener la mini-ventana y notificaciones nativas.
+      </p>
+      <div className="flex gap-1.5">
+        <button
+          id="sidebar-download-win"
+          onClick={() => handleDownload('win')}
+          disabled={winLoading}
+          className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-primary/15 hover:bg-primary/25 text-primary text-[10px] font-bold py-2 px-2 transition-colors disabled:opacity-60"
+        >
+          {winLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Monitor className="w-3 h-3" />}
+          Windows
+        </button>
+        <button
+          id="sidebar-download-mac"
+          onClick={() => handleDownload('mac')}
+          disabled={macLoading}
+          className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-primary/15 hover:bg-primary/25 text-primary text-[10px] font-bold py-2 px-2 transition-colors disabled:opacity-60"
+        >
+          {macLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Apple className="w-3 h-3" />}
+          Mac
+        </button>
+      </div>
+    </div>
+  );
+}
 
 interface NavigationWrapperProps {
   children: React.ReactNode;
@@ -112,7 +173,12 @@ const SidebarContent = ({ user, profile, menuItems, location, handleNavigate, si
       </div>
     </div>
 
-    <div className="p-6 border-t border-outline-variant">
+    <div className="p-6 border-t border-outline-variant space-y-3">
+      {/* Download desktop app — only shown in web (hidden in Electron) */}
+      {!isElectronEnv && (
+        <DesktopDownloadBanner />
+      )}
+
       {user?.is_anonymous ? (
         <Button 
           onClick={() => handleNavigate('/auth')} 
