@@ -35,8 +35,8 @@ const OnboardingPage = () => {
   const steps: StepType[] = ['name', 'brain_dump', 'recurring_tasks', 'commitment', 'security_register', 'ready'];
   const currentStep = steps[currentStepIndex];
 
-  type UrgentTask = { title: string; link: string; priority: 'p1' | 'p2' | 'p3' | 'p4' };
-  const defaultUrgentTask = (): UrgentTask => ({ title: '', link: '', priority: 'p1' });
+  type UrgentTask = { title: string; link: string; importance: boolean; urgency: boolean };
+  const defaultUrgentTask = (): UrgentTask => ({ title: '', link: '', importance: false, urgency: false });
 
   // State
   const [name, setName] = useState('');
@@ -102,8 +102,7 @@ const OnboardingPage = () => {
       const urgentRows = urgentTasks
         .filter(t => t.title.trim())
         .map((task, i) => {
-          const importance = task.priority === 'p1' || task.priority === 'p3';
-          const urgency = task.priority === 'p1' || task.priority === 'p2';
+          const { importance, urgency } = task;
           const priority = importance && urgency ? 'high' : importance || urgency ? 'medium' : 'low';
           return {
             user_id: user.id,
@@ -357,36 +356,67 @@ const OnboardingPage = () => {
                         />
                       </div>
 
-                      <div className="flex gap-1.5 px-4 pb-3">
-                        {([
-                          { key: 'p1' as const, label: 'P1', color: 'bg-[#ff4b4b]', active: 'ring-[#ff4b4b]', desc: 'Urgente · Importante' },
-                          { key: 'p2' as const, label: 'P2', color: 'bg-[#ffb34b]', active: 'ring-[#ffb34b]', desc: 'Urgente' },
-                          { key: 'p3' as const, label: 'P3', color: 'bg-[#4b79ff]', active: 'ring-[#4b79ff]', desc: 'Importante' },
-                          { key: 'p4' as const, label: 'P4', color: 'bg-[#a3a3a3]', active: 'ring-[#a3a3a3]', desc: 'Relleno' },
-                        ]).map(p => (
+                      <div className="px-4 pb-4 space-y-2">
+                        <div className="grid grid-cols-2 gap-2">
                           <button
-                            key={p.key}
                             onClick={() => {
                               const newTasks = [...urgentTasks];
-                              newTasks[i] = { ...newTasks[i], priority: p.key };
+                              newTasks[i] = { ...newTasks[i], importance: !task.importance };
                               setUrgentTasks(newTasks);
                             }}
-                            className={`group relative flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all ${
-                              task.priority === p.key
-                                ? `${p.color}/20 text-foreground ring-2 ${p.active}/40`
-                                : 'bg-surface-container text-on-surface-variant/40 hover:bg-surface-container-high'
+                            className={`flex flex-col items-center justify-center gap-0.5 rounded-[22px] font-black uppercase tracking-widest text-[9px] transition-all border h-16 ${
+                              task.importance
+                                ? 'bg-amber-500/20 text-amber-600 border-amber-500/50 shadow-lg shadow-amber-500/10'
+                                : 'bg-surface text-muted-foreground border-outline-variant hover:bg-on-surface/5'
                             }`}
                           >
-                            <span className={`w-2.5 h-2.5 rounded-full ${p.color} ${
-                              task.priority === p.key ? 'ring-2 ring-white/30' : ''
-                            }`} />
-                            {p.label}
+                            IMPORTANTE
+                            <span className="text-[7px] lowercase tracking-normal font-medium opacity-60">Toca si es importante</span>
                           </button>
-                        ))}
+                          <button
+                            onClick={() => {
+                              const newTasks = [...urgentTasks];
+                              newTasks[i] = { ...newTasks[i], urgency: !task.urgency };
+                              setUrgentTasks(newTasks);
+                            }}
+                            className={`flex flex-col items-center justify-center gap-0.5 rounded-[22px] font-black uppercase tracking-widest text-[9px] transition-all border h-16 ${
+                              task.urgency
+                                ? 'bg-red-500/20 text-red-600 border-red-500/50 shadow-lg shadow-red-500/10'
+                                : 'bg-surface text-muted-foreground border-outline-variant hover:bg-on-surface/5'
+                            }`}
+                          >
+                            URGENTE
+                            <span className="text-[7px] lowercase tracking-normal font-medium opacity-60">Toca si es urgente</span>
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ))}
                 </div>
+
+                {/* Priority Preview */}
+                {urgentTasks.some(t => t.title.trim()) && (
+                  <div className="bg-surface-container-lowest border-2 border-outline-variant/30 rounded-[24px] p-5 space-y-3">
+                    <h3 className="text-xs font-black uppercase tracking-widest text-on-surface-variant/30">Preview de prioridad</h3>
+                    <div className="space-y-1.5">
+                      {urgentTasks.filter(t => t.title.trim()).map((task, i) => {
+                        const isHigh = task.importance && task.urgency;
+                        const isMedium = task.importance || task.urgency;
+                        const label = isHigh ? 'Alta' : isMedium ? 'Media' : 'Baja';
+                        const color = isHigh ? 'text-[#ff4b4b]' : isMedium ? 'text-[#ffb34b]' : 'text-on-surface-variant/40';
+                        const dotColor = isHigh ? 'bg-[#ff4b4b]' : isMedium ? 'bg-[#ffb34b]' : 'bg-on-surface-variant/20';
+                        return (
+                          <div key={i} className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-surface-container/50">
+                            <span className={`w-2 h-2 rounded-full ${dotColor} ring-2 ${isHigh ? 'ring-[#ff4b4b]/20' : isMedium ? 'ring-[#ffb34b]/20' : 'ring-on-surface-variant/10'}`} />
+                            <span className="flex-1 font-bold text-sm text-foreground truncate">{task.title}</span>
+                            <span className={`text-[10px] font-black uppercase tracking-wider ${color}`}>{label}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <p className="text-[9px] text-on-surface-variant/20 text-center italic">Así de fácil. Prioriza sin pensar.</p>
+                  </div>
+                )}
 
                 <button 
                   onClick={next}
