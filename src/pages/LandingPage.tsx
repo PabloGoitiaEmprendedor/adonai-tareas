@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Monitor, Apple, Loader2, Globe, ArrowRight, Check } from "lucide-react";
+import { Monitor, Apple, Loader2, Globe, ArrowRight, Check, Layout } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { WIN_DOWNLOAD, MAC_DOWNLOAD } from "@/lib/download-urls";
 import { PublicNav } from "@/components/PublicNav";
