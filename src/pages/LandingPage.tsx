@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Download, Monitor, Apple, Loader2, Globe, X, Bell, Layout, Layers, ArrowRight, Smartphone, ChevronDown, Check } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { WIN_DOWNLOAD, MAC_DOWNLOAD } from "@/lib/download-urls";
+import { PublicNav } from "@/components/PublicNav";
 
 /* ─────────────────────────────────────────────
    DOWNLOAD HOOK
@@ -220,18 +221,21 @@ function UseInWebButton({ variant }: { variant?: 'hero' | 'cta' }) {
 ───────────────────────────────────────────── */
 export default function LandingPage() {
   return (
-    <main className="min-h-screen bg-background text-foreground">
-      <Hero />
-      <Pain />
-      <Demo />
-      <How />
-      <Features />
-      <Comparison />
-      <Quotes />
-      <FAQ />
-      <FinalCTA />
-      <Footer />
-    </main>
+    <div className="min-h-screen bg-background text-foreground">
+      <PublicNav />
+      <main>
+        <Hero />
+        <Pain />
+        <Demo />
+        <How />
+        <Features />
+        <Comparison />
+        <Quotes />
+        <FAQ />
+        <FinalCTA />
+        <Footer />
+      </main>
+    </div>
   );
 }
 
