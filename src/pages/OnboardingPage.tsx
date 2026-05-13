@@ -41,10 +41,11 @@ const OnboardingPage = () => {
   // State
   const [name, setName] = useState('');
   const [urgentTasks, setUrgentTasks] = useState<UrgentTask[]>([defaultUrgentTask(), defaultUrgentTask(), defaultUrgentTask()]);
-  type RecurringTaskItem = { title: string; link: string; days: number[]; time: string; duration: number };
-  const defaultRecurringTask = (): RecurringTaskItem => ({ title: '', link: '', days: [], time: '09:00', duration: 30 });
+  type RecurringTaskItem = { title: string; link: string; days: number[]; time: string; duration: number; unit: 'min' | 'hrs' };
+  const defaultRecurringTask = (): RecurringTaskItem => ({ title: '', link: '', days: [], time: '09:00', duration: 30, unit: 'min' });
   const [recurringTasks, setRecurringTasks] = useState<RecurringTaskItem[]>([defaultRecurringTask(), defaultRecurringTask(), defaultRecurringTask()]);
   const [floatingActivated, setFloatingActivated] = useState(false);
+  const [customDurationIndex, setCustomDurationIndex] = useState<number | null>(null);
   
   // Auth state
   const [email, setEmail] = useState('');
@@ -542,43 +543,147 @@ const OnboardingPage = () => {
 
                       {/* Time + Duration */}
                       <div className="pl-11 grid grid-cols-2 gap-3">
+                        {/* Time scroll picker */}
                         <div className="space-y-1.5">
                           <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/30">Hora</p>
-                          <input
-                            type="time"
-                            value={task.time}
-                            onChange={(e) => {
-                              const newTasks = [...recurringTasks];
-                              newTasks[i] = { ...newTasks[i], time: e.target.value };
-                              setRecurringTasks(newTasks);
-                            }}
-                            className="w-full bg-surface border border-outline-variant/30 rounded-[14px] px-4 py-2.5 text-xs font-bold text-foreground focus:outline-none focus:border-primary/50 transition-all"
-                          />
+                          <div className="relative">
+                            <div
+                              className="h-[124px] overflow-y-auto rounded-[14px] bg-surface-container/40 border border-outline-variant/20"
+                              style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                            >
+                              {Array.from({ length: 48 }, (_, idx) => {
+                                const h = Math.floor(idx / 2);
+                                const m = idx % 2 === 0 ? '00' : '30';
+                                const t = `${String(h).padStart(2, '0')}:${m}`;
+                                return (
+                                  <div
+                                    key={t}
+                                    onClick={() => {
+                                      const newTasks = [...recurringTasks];
+                                      newTasks[i] = { ...newTasks[i], time: t };
+                                      setRecurringTasks(newTasks);
+                                    }}
+                                    className={`h-[31px] flex items-center justify-center text-xs font-bold transition-all cursor-pointer ${
+                                      task.time === t
+                                        ? 'text-primary bg-primary/[0.06]'
+                                        : 'text-on-surface-variant/30 hover:text-on-surface-variant/60 hover:bg-on-surface/5'
+                                    }`}
+                                  >
+                                    {t}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                            <div className="pointer-events-none absolute top-1/2 -translate-y-1/2 left-1 right-1 h-[31px] rounded-[10px] border border-primary/10 bg-primary/[0.03]" />
+                          </div>
                         </div>
+
+                        {/* Duration scroll picker */}
                         <div className="space-y-1.5">
                           <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/30">Duración</p>
-                          <div className="flex gap-1">
-                            {[
-                              { label: '15m', value: 15 },
-                              { label: '30m', value: 30 },
-                              { label: '1h', value: 60 },
-                            ].map(p => (
-                              <button
-                                key={p.value}
-                                onClick={() => {
-                                  const newTasks = [...recurringTasks];
-                                  newTasks[i] = { ...newTasks[i], duration: p.value };
-                                  setRecurringTasks(newTasks);
-                                }}
-                                className={`flex-1 py-2.5 rounded-[14px] text-[10px] font-black transition-all border ${
-                                  task.duration === p.value
-                                    ? 'bg-primary/15 text-primary border-primary/30'
-                                    : 'bg-surface text-on-surface-variant/40 border-outline-variant/30 hover:bg-surface-container'
-                                }`}
+                          <div className="relative">
+                            {customDurationIndex === i ? (
+                              <div className="h-[124px] bg-surface-container/40 border border-outline-variant/20 rounded-[14px] p-2 flex flex-col items-center justify-center gap-2">
+                                <div className="flex items-center gap-3">
+                                  <button
+                                    onClick={() => {
+                                      const newTasks = [...recurringTasks];
+                                      const step = newTasks[i].unit === 'hrs' ? 15 : 1;
+                                      newTasks[i] = { ...newTasks[i], duration: Math.max(1, newTasks[i].duration - step) };
+                                      setRecurringTasks(newTasks);
+                                    }}
+                                    className="w-8 h-8 rounded-full border border-outline-variant/30 flex items-center justify-center text-sm font-black text-on-surface-variant/40 hover:bg-on-surface/5 active:scale-90 transition-all"
+                                  >
+                                    -
+                                  </button>
+                                  <div className="text-center">
+                                    <span className="text-xl font-black text-primary min-w-[3rem] inline-block">
+                                      {task.unit === 'hrs' ? Math.round(task.duration / 60) : task.duration}
+                                    </span>
+                                  </div>
+                                  <button
+                                    onClick={() => {
+                                      const newTasks = [...recurringTasks];
+                                      const step = newTasks[i].unit === 'hrs' ? 15 : 1;
+                                      const max = newTasks[i].unit === 'hrs' ? 480 : 480;
+                                      newTasks[i] = { ...newTasks[i], duration: Math.min(max, newTasks[i].duration + step) };
+                                      setRecurringTasks(newTasks);
+                                    }}
+                                    className="w-8 h-8 rounded-full border border-outline-variant/30 flex items-center justify-center text-sm font-black text-on-surface-variant/40 hover:bg-on-surface/5 active:scale-90 transition-all"
+                                  >
+                                    +
+                                  </button>
+                                </div>
+                                <div className="flex gap-2">
+                                  <button
+                                    onClick={() => {
+                                      const newTasks = [...recurringTasks];
+                                      const currentVal = newTasks[i].unit === 'hrs' ? Math.round(newTasks[i].duration / 60) : newTasks[i].duration;
+                                      newTasks[i] = { ...newTasks[i], duration: currentVal, unit: 'min' };
+                                      setRecurringTasks(newTasks);
+                                    }}
+                                    className={`px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all border ${
+                                      task.unit === 'min'
+                                        ? 'bg-primary/15 text-primary border-primary/30'
+                                        : 'bg-surface text-on-surface-variant/40 border-outline-variant/30 hover:bg-on-surface/5'
+                                    }`}
+                                  >
+                                    Min
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      const newTasks = [...recurringTasks];
+                                      const currentVal = newTasks[i].unit === 'hrs' ? Math.round(newTasks[i].duration / 60) : newTasks[i].duration;
+                                      newTasks[i] = { ...newTasks[i], duration: currentVal * 60, unit: 'hrs' };
+                                      setRecurringTasks(newTasks);
+                                    }}
+                                    className={`px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all border ${
+                                      task.unit === 'hrs'
+                                        ? 'bg-primary/15 text-primary border-primary/30'
+                                        : 'bg-surface text-on-surface-variant/40 border-outline-variant/30 hover:bg-on-surface/5'
+                                    }`}
+                                  >
+                                    Hrs
+                                  </button>
+                                </div>
+                                <button
+                                  onClick={() => setCustomDurationIndex(null)}
+                                  className="text-[8px] font-black uppercase tracking-widest text-on-surface-variant/20 hover:text-primary transition-colors"
+                                >
+                                  ← Volver
+                                </button>
+                              </div>
+                            ) : (
+                              <div
+                                className="h-[124px] overflow-y-auto rounded-[14px] bg-surface-container/40 border border-outline-variant/20"
+                                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
                               >
-                                {p.label}
-                              </button>
-                            ))}
+                                {Array.from({ length: 60 }, (_, k) => k + 1).map(n => (
+                                  <div
+                                    key={n}
+                                    onClick={() => {
+                                      const newTasks = [...recurringTasks];
+                                      newTasks[i] = { ...newTasks[i], duration: n, unit: 'min' };
+                                      setRecurringTasks(newTasks);
+                                    }}
+                                    className={`h-[31px] flex items-center justify-center text-xs font-bold transition-all cursor-pointer ${
+                                      task.duration === n && task.unit === 'min'
+                                        ? 'text-primary bg-primary/[0.06]'
+                                        : 'text-on-surface-variant/30 hover:text-on-surface-variant/60 hover:bg-on-surface/5'
+                                    }`}
+                                  >
+                                    {n}m
+                                  </div>
+                                ))}
+                                <div
+                                  onClick={() => setCustomDurationIndex(i)}
+                                  className="h-[31px] flex items-center justify-center text-[9px] font-black uppercase tracking-wider text-on-surface-variant/20 hover:text-primary transition-colors cursor-pointer border-t border-outline-variant/10"
+                                >
+                                  Personalizar
+                                </div>
+                              </div>
+                            )}
+                            <div className="pointer-events-none absolute top-1/2 -translate-y-1/2 left-1 right-1 h-[31px] rounded-[10px] border border-primary/10 bg-primary/[0.03]" />
                           </div>
                         </div>
                       </div>
