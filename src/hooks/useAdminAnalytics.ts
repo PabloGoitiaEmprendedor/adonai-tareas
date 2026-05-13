@@ -14,6 +14,9 @@ interface UserStat {
   user_id: string;
   email: string | null;
   name: string | null;
+  is_anonymous: boolean;
+  registration_date: string | null;
+  first_event_date: string | null;
   total_tasks: number;
   completed_tasks: number;
   voice_tasks: number;

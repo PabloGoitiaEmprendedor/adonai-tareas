@@ -246,6 +246,16 @@ serve(async (req) => {
         user_id: uid,
         email: profile?.email || null,
         name: profile?.name || null,
+        is_anonymous: !profile?.email,
+        registration_date: profile?.email ? (profile.created_at?.slice(0, 10) || null) : null,
+        first_event_date: (() => {
+          let earliest: string | null = null;
+          userTasks.forEach(t => {
+            const d = t.created_at?.slice(0, 10);
+            if (d && (!earliest || d < earliest)) earliest = d;
+          });
+          return earliest;
+        })(),
         total_tasks: userTasks.length,
         completed_tasks: userTasks.filter(t => t.status === "done").length,
         voice_tasks: userTasks.filter(t => t.source_type === "voice").length,

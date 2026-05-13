@@ -632,12 +632,10 @@ const AdminPanelPage = () => {
                     >
                       <td className="py-3 px-2">
                         <div className="flex flex-col">
-                          <span className="font-bold text-foreground truncate max-w-[200px]">
+                          <span className="font-bold text-foreground truncate max-w-[200px] flex items-center gap-2">
                             {u.name || u.email?.split('@')[0] || 'Sin nombre'}
-                            {!u.email && (
-                              <span className="font-normal text-on-surface-variant/60 ml-1">
-                                "todavía no registrado"
-                              </span>
+                            {u.is_anonymous && (
+                              <span className="text-[9px] font-black uppercase tracking-wider bg-amber-500/15 text-amber-500 px-1.5 py-0.5 rounded-md">Anónimo</span>
                             )}
                           </span>
                           <span className="text-[10px] text-on-surface-variant/50">{u.email || u.user_id.slice(0, 8)}</span>
@@ -729,7 +727,11 @@ const AdminPanelPage = () => {
                             </div>
                             <div className="bg-surface-container-low rounded-xl p-3">
                               <p className="text-on-surface-variant/50 font-bold mb-1">Primer uso</p>
-                              <p className="text-sm font-black">{u.first_session_date || '—'}</p>
+                              <p className="text-sm font-black">{u.first_event_date || '—'}</p>
+                            </div>
+                            <div className="bg-surface-container-low rounded-xl p-3">
+                              <p className="text-on-surface-variant/50 font-bold mb-1">Registrado</p>
+                              <p className="text-sm font-black">{u.registration_date || 'No registrado'}</p>
                             </div>
                             <div className="bg-surface-container-low rounded-xl p-3">
                               <p className="text-on-surface-variant/50 font-bold mb-1">Última actividad</p>

@@ -49,6 +49,8 @@ const OnboardingPage = () => {
   const durationScrollRefs = useRef<(HTMLDivElement | null)[]>([]);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const lastTickRef = useRef<string>('');
+  const isMobile = typeof navigator !== 'undefined' && /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  const isElectron = typeof window !== 'undefined' && !!(window as any).electronAPI;
 
   const playTick = () => {
     try {
@@ -76,18 +78,19 @@ const OnboardingPage = () => {
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const otpInputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
-  const ensureAnonymousUser = async (): Promise<boolean> => {
-    if (user) return true;
+  const ensureAnonymousUser = async (): Promise<string | null> => {
+    if (user) return user.id;
     try {
       await signInAnonymously();
-      return true;
+      const { data } = await supabase.auth.getSession();
+      return data.session?.user?.id || null;
     } catch {
-      return false;
+      return null;
     }
   };
 
   const next = async () => {
-    if (currentStep === 'commitment') {
+    if (currentStep === 'commitment' || (isMobile && currentStep === 'recurring_tasks')) {
       await ensureAnonymousUser();
       setCurrentStepIndex(steps.indexOf('ready'));
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -102,14 +105,16 @@ const OnboardingPage = () => {
 
   const back = () => {
     if (currentStepIndex > 0) {
-      setCurrentStepIndex(prev => prev - 1);
+      let prev = currentStepIndex - 1;
+      if (isMobile && steps[prev] === 'commitment') prev--;
+      setCurrentStepIndex(prev);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
   const handleFinish = async () => {
-    const hasUser = await ensureAnonymousUser();
-    if (!hasUser) {
+    const userId = await ensureAnonymousUser();
+    if (!userId) {
       toast.error('No se pudo iniciar sesión anónima. Revisa tu conexión.');
       return;
     }
@@ -130,7 +135,7 @@ const OnboardingPage = () => {
           const { importance, urgency } = task;
           const priority = importance && urgency ? 'high' : importance || urgency ? 'medium' : 'low';
           return {
-            user_id: user.id,
+            user_id: userId,
             title: task.title,
             link: task.link.trim() || null,
             importance,
@@ -162,7 +167,7 @@ const OnboardingPage = () => {
         const { data: rule, error: ruleErr } = await supabase
           .from('recurrence_rules')
           .insert({
-            user_id: user.id,
+            user_id: userId,
             title: task.title,
             link: task.link.trim() || null,
             frequency: 'weekly',
@@ -194,7 +199,7 @@ const OnboardingPage = () => {
         const nextDateStr = `${y}-${mo}-${da}`;
 
         const taskData: any = {
-          user_id: user.id,
+          user_id: userId,
           title: task.title,
           link: task.link.trim() || null,
           description,
@@ -217,7 +222,7 @@ const OnboardingPage = () => {
 
       // 4. Log Usage
       await supabase.from('usage_events').insert({
-        user_id: user.id,
+        user_id: userId,
         event_type: 'onboarding_completed_relief',
       });
 
@@ -716,18 +721,32 @@ const OnboardingPage = () => {
                   Estas tareas aparecerán automáticamente en tu calendario con la hora y duración que elegiste.
                 </p>
 
-                <div className="flex gap-4">
-                  <button onClick={back} className="px-8 h-20 bg-surface-container-lowest border-2 border-outline-variant/30 text-on-surface-variant font-black rounded-[28px] hover:bg-surface-container-low transition-colors">
-                    Atrás
-                  </button>
-                  <button 
-                    onClick={next}
-                    disabled={recurringTasks.every(t => !t.title.trim())}
-                    className="flex-1 h-20 primary-gradient text-primary-foreground rounded-[28px] font-black text-xl flex items-center justify-center gap-3 shadow-2xl shadow-primary/30 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-30"
+                {isMobile ? (
+                  <button
+                    onClick={handleFinish}
+                    disabled={isFinishing || recurringTasks.every(t => !t.title.trim())}
+                    className="w-full h-20 primary-gradient text-primary-foreground rounded-[28px] font-black text-xl flex items-center justify-center gap-3 shadow-2xl shadow-primary/30 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-30"
                   >
-                    Fijar rutinas <Check className="w-6 h-6" />
+                    {isFinishing ? (
+                      <div className="w-6 h-6 border-3 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+                    ) : (
+                      'Listo, entrar'
+                    )}
                   </button>
-                </div>
+                ) : (
+                  <div className="flex gap-4">
+                    <button onClick={back} className="px-8 h-20 bg-surface-container-lowest border-2 border-outline-variant/30 text-on-surface-variant font-black rounded-[28px] hover:bg-surface-container-low transition-colors">
+                      Atrás
+                    </button>
+                    <button 
+                      onClick={next}
+                      disabled={recurringTasks.every(t => !t.title.trim())}
+                      className="flex-1 h-20 primary-gradient text-primary-foreground rounded-[28px] font-black text-xl flex items-center justify-center gap-3 shadow-2xl shadow-primary/30 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-30"
+                    >
+                      Fijar rutinas <Check className="w-6 h-6" />
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 
@@ -750,17 +769,27 @@ const OnboardingPage = () => {
                 </div>
 
                 <div className="space-y-4">
-                  <button 
-                    onClick={activateFloatingWindow}
-                    className={`w-full h-20 rounded-[28px] font-black text-xl flex items-center justify-center gap-3 transition-all ${
-                      floatingActivated 
-                        ? 'bg-primary/10 text-primary border-2 border-primary/40' 
-                        : 'bg-foreground text-background hover:scale-[1.02]'
-                    }`}
-                  >
-                    <Monitor className="w-6 h-6" />
-                    {floatingActivated ? 'Ventana Activada' : 'Activar Ventana Flotante'}
-                  </button>
+                  {isElectron ? (
+                    <button 
+                      onClick={activateFloatingWindow}
+                      className={`w-full h-20 rounded-[28px] font-black text-xl flex items-center justify-center gap-3 transition-all ${
+                        floatingActivated 
+                          ? 'bg-primary/10 text-primary border-2 border-primary/40' 
+                          : 'bg-foreground text-background hover:scale-[1.02]'
+                      }`}
+                    >
+                      <Monitor className="w-6 h-6" />
+                      {floatingActivated ? 'Ventana Activada' : 'Activar Ventana Flotante'}
+                    </button>
+                  ) : (
+                    <button 
+                      onClick={() => window.open('https://adonai.app', '_blank')}
+                      className="w-full h-20 rounded-[28px] font-black text-xl flex items-center justify-center gap-3 transition-all bg-foreground text-background hover:scale-[1.02]"
+                    >
+                      <Monitor className="w-6 h-6" />
+                      Descargar App
+                    </button>
+                  )}
 
                   <button 
                     onClick={next}
@@ -862,7 +891,7 @@ const OnboardingPage = () => {
                   {isFinishing ? (
                     <div className="w-8 h-8 border-4 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
                   ) : (
-                    <>Entrar al flujo <Zap className="w-8 h-8" /></>
+                    <>Entrar</>
                   )}
                 </button>
               </div>
