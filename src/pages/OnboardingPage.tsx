@@ -170,13 +170,9 @@ const OnboardingPage = () => {
           .from('recurrence_rules')
           .insert({
             user_id: userId,
-            title: task.title,
-            link: task.link.trim() || null,
             frequency: 'weekly',
             interval: 1,
             days_of_week: days,
-            start_time: startTimeStr,
-            estimated_minutes: task.duration,
             start_date: today,
           })
           .select()
