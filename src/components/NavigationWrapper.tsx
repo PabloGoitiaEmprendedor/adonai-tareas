@@ -290,7 +290,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
     setOpen(false);
   };
 
-  // For /mini popup window, Auth Page, Landing Page, or public pages — render children without any navigation chrome
+  const isWelcomePage = location.pathname === '/welcome';
   const isAuthPage = location.pathname === '/auth';
   const isMiniPage = location.pathname === '/mini';
   const isLandingPage = location.pathname === '/';
@@ -299,9 +299,9 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
   const isDocsPage = location.pathname.startsWith('/docs');
   const isCaracteristicasPage = location.pathname === '/caracteristicas';
   const isFaqPage = location.pathname === '/faq';
+  const isOnboardingPage = location.pathname === '/onboarding';
   
-  // Solo mostrar navegación si NO está cargando y NO es auth/mini/landing/privacy/terms/docs/caracteristicas/faq
-  const showNavigation = !loading && !isAuthPage && !isMiniPage && !isLandingPage && !isPrivacyPage && !isTermsPage && !isDocsPage && !isCaracteristicasPage && !isFaqPage;
+  const showNavigation = !loading && !isWelcomePage && !isAuthPage && !isMiniPage && !isLandingPage && !isPrivacyPage && !isTermsPage && !isDocsPage && !isCaracteristicasPage && !isFaqPage && !isOnboardingPage;
 
   if (!showNavigation) {
     return <>{children}</>;

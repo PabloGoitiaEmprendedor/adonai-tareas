@@ -35,9 +35,12 @@ const OnboardingPage = () => {
   const steps: StepType[] = ['name', 'brain_dump', 'recurring_tasks', 'commitment', 'security_register', 'ready'];
   const currentStep = steps[currentStepIndex];
 
+  type UrgentTask = { title: string; link: string; priority: 'p1' | 'p2' | 'p3' | 'p4' };
+  const defaultUrgentTask = (): UrgentTask => ({ title: '', link: '', priority: 'p1' });
+
   // State
   const [name, setName] = useState('');
-  const [urgentTasks, setUrgentTasks] = useState(['', '', '']);
+  const [urgentTasks, setUrgentTasks] = useState<UrgentTask[]>([defaultUrgentTask(), defaultUrgentTask(), defaultUrgentTask()]);
   const [recurringTasks, setRecurringTasks] = useState(['', '', '']);
   const [floatingActivated, setFloatingActivated] = useState(false);
   
@@ -97,15 +100,24 @@ const OnboardingPage = () => {
       // 2. Insert Urgent Tasks
       const today = new Date().toISOString().slice(0, 10);
       const urgentRows = urgentTasks
-        .filter(t => t.trim())
-        .map((title, i) => ({
-          user_id: user.id,
-          title,
-          due_date: today,
-          source_type: 'onboarding_braindump',
-          status: 'pending',
-          sort_order: i,
-        }));
+        .filter(t => t.title.trim())
+        .map((task, i) => {
+          const importance = task.priority === 'p1' || task.priority === 'p3';
+          const urgency = task.priority === 'p1' || task.priority === 'p2';
+          const priority = importance && urgency ? 'high' : importance || urgency ? 'medium' : 'low';
+          return {
+            user_id: user.id,
+            title: task.title,
+            link: task.link.trim() || null,
+            importance,
+            urgency,
+            priority,
+            due_date: today,
+            source_type: 'onboarding_braindump',
+            status: 'pending',
+            sort_order: i,
+          };
+        });
 
       if (urgentRows.length > 0) {
         await supabase.from('tasks').insert(urgentRows);
@@ -312,29 +324,73 @@ const OnboardingPage = () => {
                   </p>
                 </div>
 
-                <div className="space-y-4">
+                <div className="space-y-5">
                   {urgentTasks.map((task, i) => (
-                    <div key={i} className="relative group">
-                      <div className="absolute left-6 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-surface-container-highest flex items-center justify-center text-xs font-black text-on-surface-variant/40 group-focus-within:bg-primary/20 group-focus-within:text-primary transition-colors">
-                        {i + 1}
+                    <div key={i} className="bg-surface-container-lowest border-2 border-outline-variant/30 focus-within:border-primary/50 rounded-[24px] p-1 transition-all">
+                      <div className="flex items-center gap-3 px-4">
+                        <span className="w-8 h-8 rounded-full bg-surface-container-highest flex items-center justify-center text-xs font-black text-on-surface-variant/40 flex-shrink-0">
+                          {i + 1}
+                        </span>
+                        <input 
+                          value={task.title}
+                          onChange={(e) => {
+                            const newTasks = [...urgentTasks];
+                            newTasks[i] = { ...newTasks[i], title: e.target.value };
+                            setUrgentTasks(newTasks);
+                          }}
+                          placeholder={`Tarea urgente ${i + 1}...`}
+                          className="flex-1 bg-transparent h-14 outline-none font-bold text-lg text-foreground placeholder:text-on-surface-variant/20"
+                        />
                       </div>
-                      <input 
-                        value={task}
-                        onChange={(e) => {
-                          const newTasks = [...urgentTasks];
-                          newTasks[i] = e.target.value;
-                          setUrgentTasks(newTasks);
-                        }}
-                        placeholder={`Tarea urgente ${i + 1}...`}
-                        className="w-full bg-surface-container-lowest border-2 border-outline-variant/30 focus:border-primary/50 rounded-[24px] pl-16 pr-6 h-16 outline-none transition-all font-bold text-lg"
-                      />
+
+                      <div className="flex items-center gap-2 px-4 pb-3 pt-1">
+                        <span className="text-on-surface-variant/30 text-sm">🔗</span>
+                        <input 
+                          value={task.link}
+                          onChange={(e) => {
+                            const newTasks = [...urgentTasks];
+                            newTasks[i] = { ...newTasks[i], link: e.target.value };
+                            setUrgentTasks(newTasks);
+                          }}
+                          placeholder="Link (opcional)"
+                          className="flex-1 bg-transparent h-8 outline-none text-sm text-on-surface-variant/70 placeholder:text-on-surface-variant/20"
+                        />
+                      </div>
+
+                      <div className="flex gap-1.5 px-4 pb-3">
+                        {([
+                          { key: 'p1' as const, label: 'P1', color: 'bg-[#ff4b4b]', active: 'ring-[#ff4b4b]', desc: 'Urgente · Importante' },
+                          { key: 'p2' as const, label: 'P2', color: 'bg-[#ffb34b]', active: 'ring-[#ffb34b]', desc: 'Urgente' },
+                          { key: 'p3' as const, label: 'P3', color: 'bg-[#4b79ff]', active: 'ring-[#4b79ff]', desc: 'Importante' },
+                          { key: 'p4' as const, label: 'P4', color: 'bg-[#a3a3a3]', active: 'ring-[#a3a3a3]', desc: 'Relleno' },
+                        ]).map(p => (
+                          <button
+                            key={p.key}
+                            onClick={() => {
+                              const newTasks = [...urgentTasks];
+                              newTasks[i] = { ...newTasks[i], priority: p.key };
+                              setUrgentTasks(newTasks);
+                            }}
+                            className={`group relative flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all ${
+                              task.priority === p.key
+                                ? `${p.color}/20 text-foreground ring-2 ${p.active}/40`
+                                : 'bg-surface-container text-on-surface-variant/40 hover:bg-surface-container-high'
+                            }`}
+                          >
+                            <span className={`w-2.5 h-2.5 rounded-full ${p.color} ${
+                              task.priority === p.key ? 'ring-2 ring-white/30' : ''
+                            }`} />
+                            {p.label}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   ))}
                 </div>
 
                 <button 
                   onClick={next}
-                  disabled={urgentTasks.some(t => !t.trim())}
+                  disabled={urgentTasks.every(t => !t.title.trim())}
                   className="w-full h-20 primary-gradient text-primary-foreground rounded-[28px] font-black text-xl flex items-center justify-center gap-3 shadow-2xl shadow-primary/30 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-30"
                 >
                   Soltar carga <Zap className="w-6 h-6" />
