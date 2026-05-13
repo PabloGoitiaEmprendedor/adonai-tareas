@@ -41,11 +41,12 @@ const OnboardingPage = () => {
   // State
   const [name, setName] = useState('');
   const [urgentTasks, setUrgentTasks] = useState<UrgentTask[]>([defaultUrgentTask(), defaultUrgentTask(), defaultUrgentTask()]);
-  type RecurringTaskItem = { title: string; link: string; days: number[]; time: string; duration: number; unit: 'min' | 'hrs' };
-  const defaultRecurringTask = (): RecurringTaskItem => ({ title: '', link: '', days: [], time: '09:00', duration: 30, unit: 'min' });
+  type RecurringTaskItem = { title: string; link: string; days: number[]; time: string; duration: number };
+  const defaultRecurringTask = (): RecurringTaskItem => ({ title: '', link: '', days: [], time: '09:00', duration: 30 });
   const [recurringTasks, setRecurringTasks] = useState<RecurringTaskItem[]>([defaultRecurringTask(), defaultRecurringTask(), defaultRecurringTask()]);
   const [floatingActivated, setFloatingActivated] = useState(false);
-  const [customDurationIndex, setCustomDurationIndex] = useState<number | null>(null);
+  const timeScrollRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const durationScrollRefs = useRef<(HTMLDivElement | null)[]>([]);
   
   // Auth state
   const [email, setEmail] = useState('');
@@ -548,33 +549,64 @@ const OnboardingPage = () => {
                           <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/30">Hora</p>
                           <div className="relative">
                             <div
-                              className="h-[124px] overflow-y-auto rounded-[14px] bg-surface-container/40 border border-outline-variant/20"
+                              ref={el => {
+                                if (el && timeScrollRefs.current[i] !== el) {
+                                  timeScrollRefs.current[i] = el;
+                                  const [hh, mm] = task.time.split(':').map(Number);
+                                  const idx = hh * 2 + (mm === 30 ? 1 : 0);
+                                  el.scrollTop = idx * 31;
+                                }
+                              }}
+                              className="h-[155px] overflow-y-auto snap-y snap-mandatory rounded-[14px] bg-surface-container/40 border border-outline-variant/20"
                               style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                              onScroll={(e) => {
+                                const container = e.currentTarget;
+                                const centerY = container.scrollTop + container.clientHeight / 2;
+                                const items = container.querySelectorAll('[data-value]');
+                                for (let j = 0; j < items.length; j++) {
+                                  const el = items[j] as HTMLElement;
+                                  const itemCenter = el.offsetTop + el.offsetHeight / 2;
+                                  if (Math.abs(itemCenter - centerY) < el.offsetHeight) {
+                                    const val = el.getAttribute('data-value');
+                                    if (val) {
+                                      setRecurringTasks(prev => {
+                                        if (prev[i].time === val) return prev;
+                                        const next = [...prev];
+                                        next[i] = { ...next[i], time: val };
+                                        return next;
+                                      });
+                                    }
+                                    break;
+                                  }
+                                }
+                              }}
                             >
+                              <div className="h-[62px] shrink-0" />
                               {Array.from({ length: 48 }, (_, idx) => {
-                                const h = Math.floor(idx / 2);
-                                const m = idx % 2 === 0 ? '00' : '30';
-                                const t = `${String(h).padStart(2, '0')}:${m}`;
+                                const hh = Math.floor(idx / 2);
+                                const mm = idx % 2 === 0 ? '00' : '30';
+                                const t = `${String(hh).padStart(2, '0')}:${mm}`;
+                                const period = hh >= 12 ? 'PM' : 'AM';
+                                const h12 = hh === 0 ? 12 : hh > 12 ? hh - 12 : hh;
+                                const display = `${h12}:${mm} ${period}`;
+                                const selected = task.time === t;
                                 return (
                                   <div
                                     key={t}
-                                    onClick={() => {
-                                      const newTasks = [...recurringTasks];
-                                      newTasks[i] = { ...newTasks[i], time: t };
-                                      setRecurringTasks(newTasks);
-                                    }}
-                                    className={`h-[31px] flex items-center justify-center text-xs font-bold transition-all cursor-pointer ${
-                                      task.time === t
-                                        ? 'text-primary bg-primary/[0.06]'
-                                        : 'text-on-surface-variant/30 hover:text-on-surface-variant/60 hover:bg-on-surface/5'
+                                    data-value={t}
+                                    className={`h-[31px] shrink-0 flex items-center justify-center font-bold transition-all cursor-pointer snap-center ${
+                                      selected
+                                        ? 'text-primary text-[13px] font-black'
+                                        : 'text-on-surface-variant/25 text-[10px] hover:text-on-surface-variant/60'
                                     }`}
                                   >
-                                    {t}
+                                    {display}
                                   </div>
                                 );
                               })}
+                              <div className="h-[62px] shrink-0" />
                             </div>
-                            <div className="pointer-events-none absolute top-1/2 -translate-y-1/2 left-1 right-1 h-[31px] rounded-[10px] border border-primary/10 bg-primary/[0.03]" />
+                            <div className="pointer-events-none absolute top-1/2 -translate-y-1/2 left-1 right-1 h-[31px] rounded-[10px] border border-primary/20 bg-primary/[0.04]" />
                           </div>
                         </div>
 
@@ -582,108 +614,69 @@ const OnboardingPage = () => {
                         <div className="space-y-1.5">
                           <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/30">Duración</p>
                           <div className="relative">
-                            {customDurationIndex === i ? (
-                              <div className="h-[124px] bg-surface-container/40 border border-outline-variant/20 rounded-[14px] p-2 flex flex-col items-center justify-center gap-2">
-                                <div className="flex items-center gap-3">
-                                  <button
-                                    onClick={() => {
-                                      const newTasks = [...recurringTasks];
-                                      const step = newTasks[i].unit === 'hrs' ? 15 : 1;
-                                      newTasks[i] = { ...newTasks[i], duration: Math.max(1, newTasks[i].duration - step) };
-                                      setRecurringTasks(newTasks);
-                                    }}
-                                    className="w-8 h-8 rounded-full border border-outline-variant/30 flex items-center justify-center text-sm font-black text-on-surface-variant/40 hover:bg-on-surface/5 active:scale-90 transition-all"
-                                  >
-                                    -
-                                  </button>
-                                  <div className="text-center">
-                                    <span className="text-xl font-black text-primary min-w-[3rem] inline-block">
-                                      {task.unit === 'hrs' ? Math.round(task.duration / 60) : task.duration}
-                                    </span>
-                                  </div>
-                                  <button
-                                    onClick={() => {
-                                      const newTasks = [...recurringTasks];
-                                      const step = newTasks[i].unit === 'hrs' ? 15 : 1;
-                                      const max = newTasks[i].unit === 'hrs' ? 480 : 480;
-                                      newTasks[i] = { ...newTasks[i], duration: Math.min(max, newTasks[i].duration + step) };
-                                      setRecurringTasks(newTasks);
-                                    }}
-                                    className="w-8 h-8 rounded-full border border-outline-variant/30 flex items-center justify-center text-sm font-black text-on-surface-variant/40 hover:bg-on-surface/5 active:scale-90 transition-all"
-                                  >
-                                    +
-                                  </button>
-                                </div>
-                                <div className="flex gap-2">
-                                  <button
-                                    onClick={() => {
-                                      const newTasks = [...recurringTasks];
-                                      const currentVal = newTasks[i].unit === 'hrs' ? Math.round(newTasks[i].duration / 60) : newTasks[i].duration;
-                                      newTasks[i] = { ...newTasks[i], duration: currentVal, unit: 'min' };
-                                      setRecurringTasks(newTasks);
-                                    }}
-                                    className={`px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all border ${
-                                      task.unit === 'min'
-                                        ? 'bg-primary/15 text-primary border-primary/30'
-                                        : 'bg-surface text-on-surface-variant/40 border-outline-variant/30 hover:bg-on-surface/5'
-                                    }`}
-                                  >
-                                    Min
-                                  </button>
-                                  <button
-                                    onClick={() => {
-                                      const newTasks = [...recurringTasks];
-                                      const currentVal = newTasks[i].unit === 'hrs' ? Math.round(newTasks[i].duration / 60) : newTasks[i].duration;
-                                      newTasks[i] = { ...newTasks[i], duration: currentVal * 60, unit: 'hrs' };
-                                      setRecurringTasks(newTasks);
-                                    }}
-                                    className={`px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all border ${
-                                      task.unit === 'hrs'
-                                        ? 'bg-primary/15 text-primary border-primary/30'
-                                        : 'bg-surface text-on-surface-variant/40 border-outline-variant/30 hover:bg-on-surface/5'
-                                    }`}
-                                  >
-                                    Hrs
-                                  </button>
-                                </div>
-                                <button
-                                  onClick={() => setCustomDurationIndex(null)}
-                                  className="text-[8px] font-black uppercase tracking-widest text-on-surface-variant/20 hover:text-primary transition-colors"
-                                >
-                                  ← Volver
-                                </button>
-                              </div>
-                            ) : (
-                              <div
-                                className="h-[124px] overflow-y-auto rounded-[14px] bg-surface-container/40 border border-outline-variant/20"
-                                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-                              >
-                                {Array.from({ length: 60 }, (_, k) => k + 1).map(n => (
-                                  <div
-                                    key={n}
-                                    onClick={() => {
-                                      const newTasks = [...recurringTasks];
-                                      newTasks[i] = { ...newTasks[i], duration: n, unit: 'min' };
-                                      setRecurringTasks(newTasks);
-                                    }}
-                                    className={`h-[31px] flex items-center justify-center text-xs font-bold transition-all cursor-pointer ${
-                                      task.duration === n && task.unit === 'min'
-                                        ? 'text-primary bg-primary/[0.06]'
-                                        : 'text-on-surface-variant/30 hover:text-on-surface-variant/60 hover:bg-on-surface/5'
-                                    }`}
-                                  >
-                                    {n}m
-                                  </div>
-                                ))}
-                                <div
-                                  onClick={() => setCustomDurationIndex(i)}
-                                  className="h-[31px] flex items-center justify-center text-[9px] font-black uppercase tracking-wider text-on-surface-variant/20 hover:text-primary transition-colors cursor-pointer border-t border-outline-variant/10"
-                                >
-                                  Personalizar
-                                </div>
-                              </div>
-                            )}
-                            <div className="pointer-events-none absolute top-1/2 -translate-y-1/2 left-1 right-1 h-[31px] rounded-[10px] border border-primary/10 bg-primary/[0.03]" />
+                            <div
+                              ref={el => {
+                                if (el && durationScrollRefs.current[i] !== el) {
+                                  durationScrollRefs.current[i] = el;
+                                  const getIdx = (val: number) => val <= 60 ? val - 1 : 60 + (val - 90) / 30;
+                                  el.scrollTop = getIdx(task.duration) * 31;
+                                }
+                              }}
+                              className="h-[155px] overflow-y-auto snap-y snap-mandatory rounded-[14px] bg-surface-container/40 border border-outline-variant/20"
+                              style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                              onScroll={(e) => {
+                                const container = e.currentTarget;
+                                const centerY = container.scrollTop + container.clientHeight / 2;
+                                const items = container.querySelectorAll('[data-value]');
+                                for (let j = 0; j < items.length; j++) {
+                                  const el = items[j] as HTMLElement;
+                                  const itemCenter = el.offsetTop + el.offsetHeight / 2;
+                                  if (Math.abs(itemCenter - centerY) < el.offsetHeight) {
+                                    const val = el.getAttribute('data-value');
+                                    if (val) {
+                                      const numVal = parseInt(val, 10);
+                                      setRecurringTasks(prev => {
+                                        if (prev[i].duration === numVal) return prev;
+                                        const next = [...prev];
+                                        next[i] = { ...next[i], duration: numVal };
+                                        return next;
+                                      });
+                                    }
+                                    break;
+                                  }
+                                }
+                              }}
+                            >
+                              <div className="h-[62px] shrink-0" />
+                              {(() => {
+                                const items: { value: number; label: string }[] = [];
+                                for (let n = 1; n <= 60; n++) items.push({ value: n, label: `${n}m` });
+                                for (let n = 90; n <= 1440; n += 30) {
+                                  const h = Math.floor(n / 60);
+                                  const m = n % 60;
+                                  const label = m === 0 ? `${h}h` : `${h}h ${m}m`;
+                                  items.push({ value: n, label });
+                                }
+                                return items.map(item => {
+                                  const selected = task.duration === item.value;
+                                  return (
+                                    <div
+                                      key={item.value}
+                                      data-value={item.value}
+                                      className={`h-[31px] shrink-0 flex items-center justify-center font-bold transition-all cursor-pointer snap-center ${
+                                        selected
+                                          ? 'text-primary text-[13px] font-black'
+                                          : 'text-on-surface-variant/25 text-[10px] hover:text-on-surface-variant/60'
+                                      }`}
+                                    >
+                                      {item.label}
+                                    </div>
+                                  );
+                                });
+                              })()}
+                              <div className="h-[62px] shrink-0" />
+                            </div>
+                            <div className="pointer-events-none absolute top-1/2 -translate-y-1/2 left-1 right-1 h-[31px] rounded-[10px] border border-primary/20 bg-primary/[0.04]" />
                           </div>
                         </div>
                       </div>
