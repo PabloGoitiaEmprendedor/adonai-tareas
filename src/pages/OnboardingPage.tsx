@@ -76,21 +76,21 @@ const OnboardingPage = () => {
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const otpInputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
-  const ensureAnonymousUser = async (): Promise<string | null> => {
+  const ensureAnonymousUser = async (): Promise<string> => {
     if (user) return user.id;
-    try {
-      const { data, error } = await supabase.auth.signInAnonymously();
-      if (error) throw error;
-      return data.session?.user?.id || null;
-    } catch (err) {
-      console.error('[onboarding] ensureAnonymousUser error:', err);
-      return null;
-    }
+    const { data, error } = await supabase.auth.signInAnonymously();
+    if (error) throw new Error(error.message);
+    if (!data.session?.user?.id) throw new Error('No se pudo crear sesión anónima');
+    return data.session.user.id;
   };
 
   const next = async () => {
     if (currentStep === 'commitment' || (isMobile && currentStep === 'recurring_tasks')) {
-      await ensureAnonymousUser();
+      try {
+        await ensureAnonymousUser();
+      } catch (e: any) {
+        console.error('[onboarding] next ensureAnonymousUser error:', e);
+      }
       setCurrentStepIndex(steps.indexOf('ready'));
       window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
@@ -112,9 +112,11 @@ const OnboardingPage = () => {
   };
 
   const handleFinish = async () => {
-    const userId = await ensureAnonymousUser();
-    if (!userId) {
-      toast.error('No se pudo iniciar sesión anónima. Revisa tu conexión.');
+    let userId: string;
+    try {
+      userId = await ensureAnonymousUser();
+    } catch (e: any) {
+      toast.error(`Error: ${e.message || 'No se pudo iniciar sesión anónima'}`);
       return;
     }
     setIsFinishing(true);
