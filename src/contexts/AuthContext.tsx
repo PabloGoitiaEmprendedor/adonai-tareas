@@ -94,19 +94,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const { data: { session: cached } } = await supabase.auth.getSession();
 
         if (!cached) {
-          console.log('[Auth] No session found, signing in anonymously...');
-          const { data, error: anonError } = await supabase.auth.signInAnonymously();
-          
-          if (anonError) {
-            console.error('[Auth] Anonymous sign in error:', anonError.message);
-            if (mounted) { 
-              setSession(null); 
-              setUser(null); 
-              setLoading(false); 
-            }
-          } else if (data.session && mounted) {
-            setSession(data.session);
-            setUser(data.session.user);
+          // No hay sesión guardada — no crear anónimo automático.
+          // La pantalla de bienvenida se encargará cuando el usuario elija "No, empezar gratis".
+          console.log('[Auth] No cached session — showing welcome screen');
+          if (mounted) {
+            setSession(null);
+            setUser(null);
             setLoading(false);
           }
           return;

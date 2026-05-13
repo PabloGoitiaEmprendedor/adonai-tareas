@@ -30,6 +30,7 @@ import CaracteristicasPage from "./pages/CaracteristicasPage";
 import FAQPage from "./pages/FAQPage";
 import PrioritySettingsPage from "./pages/PrioritySettingsPage";
 import NotFound from "./pages/NotFound";
+import WelcomePage from "./pages/WelcomePage";
 import { supabase } from "@/integrations/supabase/client";
 import UpdateDialog from "@/components/UpdateDialog";
 
@@ -105,9 +106,9 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     return <LoadingScreen message="Sincronizando Adonai" />;
   }
 
-  // Si no hay usuario después de cargar, al login
+  // Si no hay usuario después de cargar, a la pantalla de bienvenida
   if (!loading && !user) {
-    return <Navigate to="/auth" replace />;
+    return <Navigate to="/welcome" replace />;
   }
 
   // No bloqueamos por profileLoading para que la UI cargue instantáneamente.
@@ -144,7 +145,8 @@ const AppRoutes = () => {
       <Routes>
         <Route path="/mini" element={<MiniTasksPage />} />
         <Route path="/toast" element={<ToastPage />} />
-        <Route path="/auth" element={user ? <Navigate to="/daily" replace /> : <AuthPage />} />
+        <Route path="/welcome" element={user ? <Navigate to="/daily" replace /> : <WelcomePage />} />
+        <Route path="/auth" element={user && !user.is_anonymous ? <Navigate to="/daily" replace /> : <AuthPage />} />
         <Route path="/onboarding" element={<OnboardingPage />} />
         {/* <Route path="/calendar-callback" element={appRouteElement(<CalendarCallback />)} /> */}
         
@@ -156,7 +158,7 @@ const AppRoutes = () => {
               : user 
                 ? <Navigate to="/daily" replace /> 
                 : (isElectron || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname.startsWith('192.168.'))
-                  ? <Navigate to="/auth" replace />
+                  ? <Navigate to="/welcome" replace />
                   : <LandingPage />
           } 
         />
