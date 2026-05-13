@@ -1,7 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useProfile } from '@/hooks/useProfile';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { 
@@ -25,8 +24,7 @@ type StepType = 'name' | 'brain_dump' | 'recurring_tasks' | 'commitment' | 'secu
 
 const OnboardingPage = () => {
   const navigate = useNavigate();
-  const { user, signInAnonymously } = useAuth();
-  const { updateProfile } = useProfile();
+  const { user } = useAuth();
 
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [isFinishing, setIsFinishing] = useState(false);
@@ -84,7 +82,8 @@ const OnboardingPage = () => {
       const { data, error } = await supabase.auth.signInAnonymously();
       if (error) throw error;
       return data.session?.user?.id || null;
-    } catch {
+    } catch (err) {
+      console.error('[onboarding] ensureAnonymousUser error:', err);
       return null;
     }
   };
@@ -122,10 +121,11 @@ const OnboardingPage = () => {
 
     try {
       // 1. Update Profile
-      await updateProfile.mutateAsync({
-        name,
-        onboarding_completed: true,
-      });
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({ name, onboarding_completed: true })
+        .eq('user_id', userId);
+      if (profileError) throw profileError;
 
       // 2. Insert Urgent Tasks
       const today = new Date().toISOString().slice(0, 10);
@@ -481,7 +481,7 @@ const OnboardingPage = () => {
 
                 <button 
                   onClick={next}
-                  disabled={urgentTasks.every(t => !t.title.trim())}
+                  disabled={urgentTasks.some(t => !t.title.trim())}
                   className="w-full h-20 primary-gradient text-primary-foreground rounded-[28px] font-black text-xl flex items-center justify-center gap-3 shadow-2xl shadow-primary/30 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-30"
                 >
                   Soltar carga <Zap className="w-6 h-6" />
@@ -724,7 +724,7 @@ const OnboardingPage = () => {
                 {isMobile ? (
                   <button
                     onClick={handleFinish}
-                    disabled={isFinishing || recurringTasks.every(t => !t.title.trim())}
+                    disabled={isFinishing || recurringTasks.some(t => !t.title.trim())}
                     className="w-full h-20 primary-gradient text-primary-foreground rounded-[28px] font-black text-xl flex items-center justify-center gap-3 shadow-2xl shadow-primary/30 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-30"
                   >
                     {isFinishing ? (
@@ -740,7 +740,7 @@ const OnboardingPage = () => {
                     </button>
                     <button 
                       onClick={next}
-                      disabled={recurringTasks.every(t => !t.title.trim())}
+                      disabled={recurringTasks.some(t => !t.title.trim())}
                       className="flex-1 h-20 primary-gradient text-primary-foreground rounded-[28px] font-black text-xl flex items-center justify-center gap-3 shadow-2xl shadow-primary/30 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-30"
                     >
                       Fijar rutinas <Check className="w-6 h-6" />
