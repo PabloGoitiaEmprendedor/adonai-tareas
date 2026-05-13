@@ -4,6 +4,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { WIN_DOWNLOAD, MAC_DOWNLOAD } from "@/lib/download-urls";
 import { PublicNav } from "@/components/PublicNav";
 import { PublicFooter } from "@/components/PublicFooter";
+import { Comparison } from "@/components/Comparison";
 import { motion } from "framer-motion";
 
 /* ─────────────────────────────────────────────
@@ -243,7 +244,7 @@ export default function LandingPage() {
         <Quotes />
         <FAQSummary />
         <FinalCTA />
-        <Footer />
+        <PublicFooter />
       </main>
     </div>
   );
