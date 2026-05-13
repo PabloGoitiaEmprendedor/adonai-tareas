@@ -81,8 +81,8 @@ const OnboardingPage = () => {
   const ensureAnonymousUser = async (): Promise<string | null> => {
     if (user) return user.id;
     try {
-      await signInAnonymously();
-      const { data } = await supabase.auth.getSession();
+      const { data, error } = await supabase.auth.signInAnonymously();
+      if (error) throw error;
       return data.session?.user?.id || null;
     } catch {
       return null;
