@@ -25,7 +25,7 @@ type StepType = 'name' | 'brain_dump' | 'recurring_tasks' | 'commitment' | 'secu
 
 const OnboardingPage = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, signInAnonymously } = useAuth();
   const { updateProfile } = useProfile();
 
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
@@ -48,11 +48,22 @@ const OnboardingPage = () => {
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const otpInputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
-  const next = () => {
-    // If we are at commitment and user is already logged in, skip register
-    if (currentStep === 'commitment' && user) {
-        setCurrentStepIndex(steps.indexOf('ready'));
-        return;
+  const ensureAnonymousUser = async (): Promise<boolean> => {
+    if (user) return true;
+    try {
+      await signInAnonymously();
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  const next = async () => {
+    if (currentStep === 'commitment') {
+      await ensureAnonymousUser();
+      setCurrentStepIndex(steps.indexOf('ready'));
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
     }
 
     if (currentStepIndex < steps.length - 1) {
@@ -62,11 +73,6 @@ const OnboardingPage = () => {
   };
 
   const back = () => {
-    if (currentStep === 'ready' && !user) {
-        setCurrentStepIndex(steps.indexOf('security_register'));
-        return;
-    }
-
     if (currentStepIndex > 0) {
       setCurrentStepIndex(prev => prev - 1);
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -74,11 +80,10 @@ const OnboardingPage = () => {
   };
 
   const handleFinish = async () => {
-    if (!user) {
-        // If not logged in, we should have been caught by security_register, 
-        // but just in case, go back to it
-        setCurrentStepIndex(steps.indexOf('security_register'));
-        return;
+    const hasUser = await ensureAnonymousUser();
+    if (!hasUser) {
+      toast.error('No se pudo iniciar sesión anónima. Revisa tu conexión.');
+      return;
     }
     setIsFinishing(true);
 

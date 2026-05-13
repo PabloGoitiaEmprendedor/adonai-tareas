@@ -13,10 +13,11 @@ const WelcomePage = () => {
     setLoading(true);
     try {
       await signInAnonymously();
-      navigate('/onboarding', { replace: true });
     } catch {
-      navigate('/auth', { replace: true });
+      // Si falla la creación anónima, igual va al onboarding.
+      // El onboarding mismo lo intentará de nuevo al finalizar.
     }
+    navigate('/onboarding', { replace: true });
   };
 
   return (
