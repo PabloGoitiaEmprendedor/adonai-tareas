@@ -74,10 +74,6 @@ const WeeklyPage = () => {
 
   return (
       <div className="max-w-full mx-auto px-4 pt-2 pb-10 space-y-4">
-              {/* Sticky Header Container */}
-        <div className="bg-background/60 backdrop-blur-3xl pb-4 -mx-6 px-6 pt-4 border-b border-outline-variant/5">
-        </div>
-
         <section id="weekly-calendar-main" className="space-y-4 pt-2">
           {/* Adonai 360 Calendar — fully interactive, persists to Supabase */}
           <AdonaiCalendarView

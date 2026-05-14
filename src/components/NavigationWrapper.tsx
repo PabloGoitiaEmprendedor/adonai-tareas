@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { FolderOpen, Users, User, Calendar, LogOut, Settings, Bell, HelpCircle, Menu, Trash2, Home, Target, Trophy, BarChart3, Sun, History, Palette, Download, Monitor, Apple, Loader2 } from 'lucide-react';
+import { FolderOpen, Users, User, Calendar, LogOut, Settings, Bell, HelpCircle, Menu, Trash2, Home, Target, Trophy, BarChart3, Sun, History, Palette, Download, Monitor, Apple, Loader2, X, Clock } from 'lucide-react';
 import { WIN_DOWNLOAD, MAC_DOWNLOAD } from '@/lib/download-urls';
 import { toast } from 'sonner';
 
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import AppTutorial from './AppTutorial';
@@ -18,7 +19,7 @@ import { MobileDynamicIsland } from '@/components/ui/mobile-task-island';
 import FAB from '@/components/FAB';
 import TaskCaptureModal, { type TaskCaptureModalHandle } from '@/components/TaskCaptureModal';
 import QuickRecurrenceFlow from '@/components/QuickRecurrenceFlow';
-import { format } from 'date-fns';
+import { format, addMinutes } from 'date-fns';
 import { useFolders } from '@/hooks/useFolders';
 import { useRef, useCallback } from 'react';
 
@@ -211,6 +212,44 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
     return saved === null ? true : saved === '1';
   });
 
+  const [draftActive, setDraftActive] = useState(false);
+  const [detailActive, setDetailActive] = useState(false);
+
+  const fabHidden = draftActive || detailActive
+
+  useEffect(() => {
+    const handler = (e: Event) => setDraftActive((e as CustomEvent).detail.active)
+    window.addEventListener('adonai:draft-state-change', handler)
+    return () => window.removeEventListener('adonai:draft-state-change', handler)
+  }, [])
+
+  useEffect(() => {
+    const handler = (e: Event) => setDetailActive((e as CustomEvent).detail.active)
+    window.addEventListener('adonai:dialog-state-change', handler)
+    window.addEventListener('adonai:detail-state-change', handler)
+    return () => {
+      window.removeEventListener('adonai:dialog-state-change', handler)
+      window.removeEventListener('adonai:detail-state-change', handler)
+    }
+  }, [])
+
+  useEffect(() => {
+    const handler = () => {
+      if (window.location.pathname !== '/week') {
+        setEvTitle('')
+        setEvDate(format(new Date(), 'yyyy-MM-dd'))
+        const now = new Date()
+        setEvHour(now.getHours())
+        setEvMin(Math.ceil(now.getMinutes() / 30) * 30)
+        setEvDuration(30)
+        setEvColor('#6366f1')
+        setEventCreateOpen(true)
+      }
+    }
+    window.addEventListener('adonai:open-create-event', handler)
+    return () => window.removeEventListener('adonai:open-create-event', handler)
+  }, [])
+
   useEffect(() => {
     localStorage.setItem('adonai_sidebar_open', desktopSidebarOpen ? '1' : '0');
   }, [desktopSidebarOpen]);
@@ -229,15 +268,23 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
   const { profile } = useProfile();
   const navigate = useNavigate();
   const location = useLocation();
+  const isWeeklyPage = location.pathname === '/week';
 
   // Task capture state
   const [captureOpen, setCaptureOpen] = useState(false);
   const [recurrenceOpen, setRecurrenceOpen] = useState(false);
+  const [eventCreateOpen, setEventCreateOpen] = useState(false);
+  const [evTitle, setEvTitle] = useState('');
+  const [evDate, setEvDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [evHour, setEvHour] = useState(new Date().getHours());
+  const [evMin, setEvMin] = useState(Math.ceil(new Date().getMinutes() / 30) * 30);
+  const [evDuration, setEvDuration] = useState(30);
+  const [evColor, setEvColor] = useState('#6366f1');
   const [targetContext, setTargetContext] = useState<{ goalId?: string; folderId?: string }>({});
   const captureModalRef = useRef<TaskCaptureModalHandle>(null);
 
   const today = format(new Date(), 'yyyy-MM-dd');
-  const { tasks } = useTasks({ date: today });
+  const { tasks, createTask } = useTasks({ date: today });
   const { folders } = useFolders();
   const { colors: priorityColors } = usePriorityColors();
 
@@ -306,8 +353,6 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
   if (!showNavigation) {
     return <>{children}</>;
   }
-
-  const isWeeklyPage = location.pathname === '/week';
 
   return (
     <div className="min-h-screen bg-background">
@@ -394,7 +439,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
       <div className="relative z-[60]">
         {/* Mobile logic: Island on week page, FAB elsewhere */}
         <div className="lg:hidden">
-          {isWeeklyPage ? (
+          {isWeeklyPage && !draftActive ? (
             <MobileDynamicIsland
               tasks={tasks}
               currentDate={new Date()}
@@ -406,23 +451,45 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
               getPriorityKey={getPriorityKey}
               folders={folders}
             />
-          ) : (
+          ) : !isWeeklyPage && !fabHidden ? (
             <FAB 
               onTextClick={() => openCapture()} 
               onVoiceClick={() => openCaptureInVoiceMode()} 
               onRecurrenceClick={() => setRecurrenceOpen(true)}
+               onEventClick={() => {
+                setEvTitle('')
+                setEvDate(format(new Date(), 'yyyy-MM-dd'))
+                const now = new Date()
+                setEvHour(now.getHours())
+                setEvMin(Math.ceil(now.getMinutes() / 30) * 30)
+                setEvDuration(30)
+                setEvColor('#6366f1')
+                window.dispatchEvent(new CustomEvent('adonai:open-create-event'))
+              }}
             />
-          )}
+          ) : null}
         </div>
 
-        {/* Desktop logic: FAB is always present */}
+        {/* Desktop logic: FAB visible unless draft or detail is open */}
+        {!fabHidden && (
         <div className="hidden lg:block">
           <FAB 
             onTextClick={() => openCapture()} 
             onVoiceClick={() => openCaptureInVoiceMode()} 
             onRecurrenceClick={() => setRecurrenceOpen(true)}
+              onEventClick={() => {
+                setEvTitle('')
+                setEvDate(format(new Date(), 'yyyy-MM-dd'))
+                const now = new Date()
+                setEvHour(now.getHours())
+                setEvMin(Math.ceil(now.getMinutes() / 30) * 30)
+                setEvDuration(30)
+                setEvColor('#6366f1')
+                window.dispatchEvent(new CustomEvent('adonai:open-create-event'))
+              }}
           />
         </div>
+        )}
       </div>
 
       <TaskCaptureModal 
@@ -436,6 +503,108 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
         folderId={targetContext.folderId}
         creationSource="global-fab" 
       />
+
+      <Dialog open={eventCreateOpen} onOpenChange={(open) => { if (!open) setEventCreateOpen(false) }}>
+        <DialogContent className="sm:max-w-md p-0 gap-0 overflow-hidden rounded-2xl">
+          <div className="p-5 space-y-5">
+            <div className="flex items-center justify-between">
+              <h2 className="text-base font-black">Nuevo Evento</h2>
+              <button onClick={() => setEventCreateOpen(false)} className="p-1.5 rounded-xl hover:bg-surface-container transition-colors">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <input
+              value={evTitle}
+              onChange={(e) => setEvTitle(e.target.value)}
+              placeholder="Título del evento"
+              className="w-full text-sm font-bold bg-surface-container/30 border border-outline-variant/20 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary/30"
+              autoFocus
+            />
+
+            <div className="flex items-center gap-2">
+              <input
+                type="date"
+                value={evDate}
+                onChange={(e) => setEvDate(e.target.value)}
+                className="flex-1 h-10 text-xs font-bold bg-surface-container/30 border border-outline-variant/20 rounded-xl px-3 focus:outline-none focus:ring-2 focus:ring-primary/30"
+              />
+              <input
+                type="time"
+                value={`${String(evHour).padStart(2, '0')}:${String(evMin).padStart(2, '0')}`}
+                onChange={(e) => {
+                  const [h, m] = e.target.value.split(':').map(Number);
+                  setEvHour(h); setEvMin(m);
+                }}
+                className="h-10 text-xs font-bold bg-surface-container/30 border border-outline-variant/20 rounded-xl px-3 focus:outline-none focus:ring-2 focus:ring-primary/30"
+              />
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-muted-foreground/60">Duración:</span>
+              <select
+                value={evDuration}
+                onChange={(e) => setEvDuration(Number(e.target.value))}
+                className="flex-1 h-10 text-xs font-bold bg-surface-container/30 border border-outline-variant/20 rounded-xl px-3 focus:outline-none focus:ring-2 focus:ring-primary/30"
+              >
+                <option value={15}>15 min</option>
+                <option value={30}>30 min</option>
+                <option value={45}>45 min</option>
+                <option value={60}>1 hora</option>
+                <option value={90}>1:30 hora</option>
+                <option value={120}>2 horas</option>
+              </select>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-muted-foreground/60">Color:</span>
+              <div className="flex gap-1.5">
+                {['#6366f1', '#ef4444', '#f59e0b', '#22c55e'].map(c => (
+                  <button
+                    key={c}
+                    onClick={() => setEvColor(c)}
+                    className={`w-7 h-7 rounded-full transition-all ${evColor === c ? 'ring-2 ring-offset-2 ring-foreground scale-110' : ''}`}
+                    style={{ backgroundColor: c }}
+                  />
+                ))}
+                <label className="relative w-7 h-7 rounded-full flex items-center justify-center border-2 border-dashed border-muted-foreground/30 cursor-pointer">
+                  <span className="text-xs font-bold text-muted-foreground/50">+</span>
+                  <input type="color" value={evColor} onChange={(e) => setEvColor(e.target.value)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                </label>
+              </div>
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <button
+                onClick={() => setEventCreateOpen(false)}
+                className="flex-1 py-3 rounded-xl bg-surface-container text-xs font-bold hover:bg-surface-container-high transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => {
+                  if (!evTitle.trim()) return;
+                  const start = new Date(`${evDate}T${String(evHour).padStart(2, '0')}:${String(evMin).padStart(2, '0')}:00`);
+                  const end = addMinutes(start, evDuration);
+                  const desc = `[T:${format(start, 'HH:mm')}-${format(end, 'HH:mm')}][C:${evColor}]`;
+                  createTask.mutate({
+                    title: evTitle.trim(),
+                    description: desc,
+                    due_date: evDate,
+                    status: 'pending',
+                    creation_source: 'event',
+                  });
+                  toast.success('Evento creado');
+                  setEventCreateOpen(false);
+                }}
+                className="flex-1 py-3 rounded-xl bg-primary text-primary-foreground text-xs font-bold shadow-lg shadow-primary/20 hover:opacity-90 transition-opacity"
+              >
+                Crear Evento
+              </button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <QuickRecurrenceFlow 
         open={recurrenceOpen}

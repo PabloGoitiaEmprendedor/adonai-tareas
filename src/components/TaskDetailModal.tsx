@@ -77,6 +77,10 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
     }
   }, [task, open]);
 
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('adonai:detail-state-change', { detail: { active: open } }))
+  }, [open])
+
   const markChanged = () => setHasChanges(true);
 
   const toggleWeekDay = (day: number) => {

@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
 import { motion, AnimatePresence } from "framer-motion"
-import { Calendar, Clock, LayoutGrid, List, Folder, FolderOpen, Plus, Search, Filter, X, ChevronLeft, ChevronRight, ChevronDown, Check, MoreHorizontal, Link as LinkIcon, Trash2, Repeat, Zap, Menu, GripHorizontal } from "lucide-react"
+import { Calendar, Clock, LayoutGrid, List, Folder, FolderOpen, Plus, Search, Filter, X, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Check, MoreHorizontal, Link as LinkIcon, Trash2, Repeat, Zap, Menu, GripHorizontal, GripVertical } from "lucide-react"
 import ScrollableTimePicker from "./scrollable-time-picker"
 import { usePriorityColors, getPriorityKey } from "@/hooks/usePriorityColors"
 import { cn } from "@/lib/utils"
@@ -264,6 +264,14 @@ export function EventManager({
   const updateDraftTime = useCallback((startTime: Date, endTime: Date) => {
     setDraftEvent(prev => prev ? { ...prev, startTime, endTime } : null)
   }, [])
+
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('adonai:draft-state-change', { detail: { active: !!draftEvent } }))
+  }, [draftEvent])
+
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('adonai:dialog-state-change', { detail: { active: isDialogOpen } }))
+  }, [isDialogOpen])
 
   const toggleFolder = (folder: string) => {
     const newExpanded = new Set(expandedFolders);
@@ -828,6 +836,17 @@ export function EventManager({
     };
   }, [globalDragEvent, dropEventOnCalendar]);
 
+  useEffect(() => {
+    const handler = () => {
+      const now = new Date();
+      now.setMinutes(Math.ceil(now.getMinutes() / 30) * 30, 0, 0)
+      const end = addMinutes(now, 30)
+      openCreateDialog(now, end)
+    }
+    window.addEventListener('adonai:open-create-event', handler)
+    return () => window.removeEventListener('adonai:open-create-event', handler)
+  }, [openCreateDialog])
+
   const handleDrop = useCallback(
     (date: Date, hour?: number, minutes: number = 0) => {
       if (!draggedEvent) return
@@ -948,87 +967,98 @@ export function EventManager({
     }
   }
 
+  const [searchOpen, setSearchOpen] = useState(false)
+  const searchInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (searchOpen && searchInputRef.current) {
+      setTimeout(() => searchInputRef.current?.focus(), 100)
+    }
+  }, [searchOpen])
+
   return (
     <div data-calendar-grid className={cn("flex flex-col gap-4", className)}>
-      {/* Header - Static & Refined */}
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between px-2 py-6 mb-2">
-        <div className="flex items-center justify-between w-full lg:w-auto gap-8">
-          <div className="flex flex-col">
-            <h2 className="text-[28px] font-black font-headline tracking-tighter text-foreground leading-none">
-              {view === "month" &&
-                currentDate.toLocaleDateString("es-ES", {
-                  month: "long",
-                })}
-              {(view === "week" || view === "day" || view === "3day") && 
-                currentDate.toLocaleDateString("es-ES", {
-                  month: "long",
-                })}
-              {view === "schedule" && "Agenda"}
-            </h2>
-          </div>
-          <div className="flex items-center gap-1.5">
+      {/* Sticky Header - Google-like */}
+      <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-xl border-b border-outline-variant/10 px-2 py-3 -mx-0 mb-2 shadow-sm">
+        <div className="flex items-center justify-between">
+          {/* Left: Month name + date (opens date picker) */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <button type="button" className="flex flex-col items-start text-left hover:opacity-80 transition-opacity">
+                <span className="text-lg font-black tracking-tight text-foreground leading-tight">
+                  {currentDate.toLocaleDateString("es-ES", { month: "long" }).charAt(0).toUpperCase() + currentDate.toLocaleDateString("es-ES", { month: "long" }).slice(1)}
+                </span>
+                <span className="text-[10px] font-bold text-muted-foreground/60 mt-px">
+                  {currentDate.toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" }).charAt(0).toUpperCase() + currentDate.toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" }).slice(1)}
+                </span>
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0 border-outline-variant/10 bg-surface-container/95 backdrop-blur-3xl shadow-2xl" align="start">
+              <div className="p-2 border-b border-outline-variant/5 flex items-center justify-between">
+                <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground px-2">Seleccionar Fecha</span>
+                <Button variant="ghost" size="sm" onClick={() => setCurrentDate(new Date())} className="text-[9px] font-black uppercase tracking-widest h-7 px-2 rounded-md hover:bg-primary/10 text-primary">
+                  Ir a Hoy
+                </Button>
+              </div>
+              <CalendarPicker mode="single" selected={currentDate} onSelect={(date) => date && setCurrentDate(date)} initialFocus className="p-3" />
+            </PopoverContent>
+          </Popover>
+
+          {/* Right: Search + Nav arrows */}
+          <div className="flex items-center gap-1">
+            {/* Search toggle */}
+            <button
+              type="button"
+              onClick={() => setSearchOpen(!searchOpen)}
+              className="h-8 w-8 flex items-center justify-center rounded-lg text-muted-foreground/60 hover:text-foreground hover:bg-surface-container/80 transition-all"
+            >
+              <Search className="w-4 h-4" />
+            </button>
+            {/* Prev */}
             <Button variant="ghost" size="icon" onClick={() => navigateDate("prev")} className="h-8 w-8 rounded-lg hover:bg-primary/10 hover:text-primary">
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="ghost" size="sm" className="text-[11px] font-black uppercase tracking-widest h-8 px-3 rounded-lg hover:bg-primary/10 hover:text-primary flex items-center gap-1">
-                  Hoy
-                  <ChevronDown className="w-2.5 h-2.5 opacity-50" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0 border-outline-variant/10 bg-surface-container/95 backdrop-blur-3xl shadow-2xl" align="center">
-                <div className="p-2 border-b border-outline-variant/5 flex items-center justify-between">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground px-2">Seleccionar Fecha</span>
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    onClick={() => setCurrentDate(new Date())}
-                    className="text-[9px] font-black uppercase tracking-widest h-7 px-2 rounded-md hover:bg-primary/10 text-primary"
-                  >
-                    Ir a Hoy
-                  </Button>
-                </div>
-                <CalendarPicker
-                  mode="single"
-                  selected={currentDate}
-                  onSelect={(date) => date && setCurrentDate(date)}
-                  initialFocus
-                  className="p-3"
-                />
-              </PopoverContent>
-            </Popover>
+            {/* Next */}
             <Button variant="ghost" size="icon" onClick={() => navigateDate("next")} className="h-8 w-8 rounded-lg hover:bg-primary/10 hover:text-primary">
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
         </div>
 
-        <div className="flex bg-surface-container-low/80 rounded-[18px] p-1 border border-outline-variant/10 overflow-x-auto no-scrollbar">
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            onClick={() => setView("day")} 
-            className={cn("text-[9px] font-black uppercase tracking-widest h-8 px-4 rounded-xl transition-all shrink-0", view === "day" ? "bg-white dark:bg-surface-container-high shadow-lg text-primary" : "opacity-40 hover:opacity-100")}
-          >
-            Día
-          </Button>
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            onClick={() => setView("week")} 
-            className={cn("text-[9px] font-black uppercase tracking-widest h-8 px-4 rounded-xl transition-all shrink-0", view === "week" ? "bg-white dark:bg-surface-container-high shadow-lg text-primary" : "opacity-40 hover:opacity-100")}
-          >
-            Semana
-          </Button>
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            onClick={() => setView("month")} 
-            className={cn("text-[9px] font-black uppercase tracking-widest h-8 px-4 rounded-xl transition-all shrink-0", view === "month" ? "bg-white dark:bg-surface-container-high shadow-lg text-primary" : "opacity-40 hover:opacity-100")}
-          >
-            Mes
-          </Button>
+        {/* Search bar (expandable) */}
+        {searchOpen && (
+          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden mt-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/30 pointer-events-none" />
+              <input
+                ref={searchInputRef}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Buscar eventos..."
+                className="w-full h-9 text-sm bg-surface-container/50 border border-outline-variant/20 rounded-xl pl-10 pr-10 focus:outline-none focus:ring-2 focus:ring-primary/30"
+              />
+              {searchQuery && (
+                <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/40 hover:text-foreground">
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+          </motion.div>
+        )}
+
+        {/* View toggle */}
+        <div className="flex items-center justify-center mt-3">
+          <div className="flex bg-surface-container-low/80 rounded-[18px] p-0.5 border border-outline-variant/10 overflow-x-auto no-scrollbar">
+            <Button variant="ghost" size="sm" onClick={() => setView("day")} className={cn("text-[9px] font-black uppercase tracking-widest h-7 px-4 rounded-xl transition-all shrink-0", view === "day" ? "bg-white dark:bg-surface-container-high shadow-lg text-primary" : "opacity-40 hover:opacity-100")}>
+              Día
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => setView("week")} className={cn("text-[9px] font-black uppercase tracking-widest h-7 px-4 rounded-xl transition-all shrink-0", view === "week" ? "bg-white dark:bg-surface-container-high shadow-lg text-primary" : "opacity-40 hover:opacity-100")}>
+              Semana
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => setView("month")} className={cn("text-[9px] font-black uppercase tracking-widest h-7 px-4 rounded-xl transition-all shrink-0", view === "month" ? "bg-white dark:bg-surface-container-high shadow-lg text-primary" : "opacity-40 hover:opacity-100")}>
+              Mes
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -2048,11 +2078,10 @@ export function EventManager({
       {draftEvent && (
         <>
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
-            className="fixed inset-0 z-50 bg-black/20"
-            onClick={cancelDraft}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-40 bg-black/10 pointer-events-none"
           />
           <motion.div
             initial={{ opacity: 0, y: 40 }}
@@ -2219,7 +2248,18 @@ function TimeGridView({
   const [initialDuration, setInitialDuration] = useState(0);
   const [draftResizing, setDraftResizing] = useState(false);
   const [draftResizingTop, setDraftResizingTop] = useState(false);
+  const [draftHintVisible, setDraftHintVisible] = useState(false);
   
+  useEffect(() => {
+    if (draftEvent) {
+      setDraftHintVisible(true);
+      const timer = setTimeout(() => setDraftHintVisible(false), 5000);
+      return () => clearTimeout(timer);
+    } else {
+      setDraftHintVisible(false);
+    }
+  }, [draftEvent])
+
   const ghostRef = useRef<HTMLDivElement>(null);
   const isHoveringSidebarRef = useRef<boolean>(false);
   
@@ -2627,17 +2667,31 @@ function TimeGridView({
                            onDrop(day, hour, mins);
                            setTimeout(() => { isDraggingRef.current = false; }, 150);
                          }}
-                          onClick={(e) => {
-                            if (isDraggingRef.current) return;
-                            const d = new Date(day)
-                            d.setHours(hour, mins, 0, 0)
-                            if (onCellClick) onCellClick(d)
-                            if (startDraft) {
-                              startDraft(d, addMinutes(d, 30))
-                            } else {
-                              openCreateDialog(d, addMinutes(d, 30), d)
-                            }
-                           }}
+                           onClick={(e) => {
+                             if (isDraggingRef.current) return;
+                             const d = new Date(day)
+                             d.setHours(hour, mins, 0, 0)
+                             if (onCellClick) onCellClick(d)
+                             if (startDraft) {
+                               const dayEvents = events.filter(ev => isSameDay(ev.startTime, day) && ev.startTime >= startOfDay(day) && ev.startTime < endOfDay(day))
+                               const sorted = [...dayEvents].sort((a, b) => a.startTime.getTime() - b.startTime.getTime())
+                               let slotStart = new Date(d)
+                               for (const ev of sorted) {
+                                 if (d >= ev.startTime && d < ev.endTime) {
+                                   slotStart = new Date(ev.endTime)
+                                   break
+                                 }
+                               }
+                               let slotEnd = addMinutes(slotStart, 30)
+                               const nextEvent = sorted.find(ev => ev.startTime >= slotStart)
+                               if (nextEvent) {
+                                 slotEnd = new Date(Math.min(slotEnd.getTime(), nextEvent.startTime.getTime()))
+                               }
+                               startDraft(slotStart, slotEnd)
+                             } else {
+                               openCreateDialog(d, addMinutes(d, 30), d)
+                             }
+                            }}
                         >
                           {/* subtle hint on hover */}
                          <div className="absolute inset-0 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-all pointer-events-none">
@@ -2719,7 +2773,6 @@ function TimeGridView({
                               duration <= 0.25 ? "h-1" : "h-2"
                             )}
                             onMouseDown={(e) => {
-                              if (dragDisabled) return;
                               e.stopPropagation();
                               isDraggingRef.current = false;
                               setIsResizing(event.id);
@@ -2731,8 +2784,6 @@ function TimeGridView({
                           >
                             <div className="w-8 h-1 rounded-full bg-white/80 shadow-md" />
                           </div>
-
-
 
                           <div className="flex flex-col h-full py-1 px-1 pointer-events-none">
                             <p className={cn("truncate font-black select-none leading-tight", event.completed && "line-through")}>{event.title}</p>
@@ -2750,7 +2801,6 @@ function TimeGridView({
                               duration <= 0.25 ? "h-1" : "h-2"
                             )}
                             onMouseDown={(e) => {
-                              if (dragDisabled) return;
                               e.stopPropagation();
                               isDraggingRef.current = false;
                               setIsResizing(event.id);
@@ -2767,18 +2817,40 @@ function TimeGridView({
                   })}
                   {/* Draft Event Block */}
                   {draftEvent && isSameDay(draftEvent.startTime, day) && (
-                    <div className="absolute inset-x-1 z-20 rounded-xl border-2 border-dashed border-gray-400 bg-gray-500/10 group"
+                    <motion.div
+                      initial={{ opacity: 0, scaleY: 0.8 }}
+                      animate={{ opacity: 1, scaleY: 1 }}
+                      className="absolute inset-x-1 z-20 rounded-xl border-2 border-dashed border-gray-400 bg-gray-500/10 shadow-sm"
                       style={{
                         top: `${(draftEvent.startTime.getHours() + draftEvent.startTime.getMinutes() / 60) * HOUR_HEIGHT + 2}px`,
                         height: `${Math.max(0.5, (draftEvent.endTime.getTime() - draftEvent.startTime.getTime()) / (1000 * 60 * 60)) * HOUR_HEIGHT - 4}px`,
                       }}
                     >
-                      <div className="flex flex-col h-full py-1 px-1 justify-center">
-                        <p className="truncate font-black text-[10px] text-gray-400 italic text-center">{draftTitle || 'Nuevo evento...'}</p>
+                      {draftHintVisible && (
+                        <motion.div
+                          initial={{ opacity: 0, y: -10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0 }}
+                          className="absolute -top-7 left-1/2 -translate-x-1/2 whitespace-nowrap z-40"
+                        >
+                          <div className="bg-foreground text-background text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg shadow-lg">
+                            Arrastra los bordes ↕
+                          </div>
+                        </motion.div>
+                      )}
+                      <div className="flex flex-col h-full py-2 px-2">
+                        <p className="truncate font-bold text-[11px] text-gray-400 leading-tight">
+                          {draftTitle || 'Nuevo evento...'}
+                        </p>
+                        <div className="flex-1 flex items-center justify-center">
+                          <span className="text-[9px] font-bold text-gray-500">
+                            {Math.round((draftEvent.endTime.getTime() - draftEvent.startTime.getTime()) / 60000)} min
+                          </span>
+                        </div>
                       </div>
                       {/* Top Resize Handle */}
                       <div
-                        className="absolute top-0 inset-x-0 cursor-ns-resize z-30 flex items-start pt-0.5 justify-center opacity-0 group-hover:opacity-100 transition-opacity h-2"
+                        className="absolute top-0 inset-x-0 cursor-ns-resize z-30 flex items-start justify-center h-4"
                         onMouseDown={(e) => {
                           e.stopPropagation()
                           e.preventDefault()
@@ -2789,11 +2861,19 @@ function TimeGridView({
                           setInitialEndTime(new Date(draftEvent.endTime))
                         }}
                       >
-                        <div className="w-8 h-1 rounded-full bg-gray-400/60 shadow-md" />
+                        <motion.div
+                          animate={{ opacity: [0.5, 1, 0.5], scale: [1, 1.1, 1] }}
+                          transition={{ repeat: Infinity, duration: 2.5, ease: "easeInOut" }}
+                          className="flex items-center justify-center gap-px px-1.5 py-0.5 rounded-full bg-gray-500/20 border border-gray-400/40 shadow-sm"
+                        >
+                          <ChevronUp className="w-2 h-2 text-gray-400" />
+                          <GripHorizontal className="w-2.5 h-2.5 text-gray-400" />
+                          <ChevronUp className="w-2 h-2 text-gray-400" />
+                        </motion.div>
                       </div>
                       {/* Bottom Resize Handle */}
                       <div
-                        className="absolute bottom-0 inset-x-0 cursor-ns-resize z-30 flex items-end pb-0.5 justify-center opacity-0 group-hover:opacity-100 transition-opacity h-2"
+                        className="absolute bottom-0 inset-x-0 cursor-ns-resize z-30 flex items-end justify-center h-4"
                         onMouseDown={(e) => {
                           e.stopPropagation()
                           e.preventDefault()
@@ -2804,9 +2884,17 @@ function TimeGridView({
                           setInitialEndTime(new Date(draftEvent.endTime))
                         }}
                       >
-                        <div className="w-8 h-1 rounded-full bg-gray-400/60 shadow-md" />
+                        <motion.div
+                          animate={{ opacity: [0.5, 1, 0.5], scale: [1, 1.1, 1] }}
+                          transition={{ repeat: Infinity, duration: 2.5, ease: "easeInOut", delay: 0.3 }}
+                          className="flex items-center justify-center gap-px px-1.5 py-0.5 rounded-full bg-gray-500/20 border border-gray-400/40 shadow-sm"
+                        >
+                          <ChevronDown className="w-2 h-2 text-gray-400" />
+                          <GripHorizontal className="w-2.5 h-2.5 text-gray-400" />
+                          <ChevronDown className="w-2 h-2 text-gray-400" />
+                        </motion.div>
                       </div>
-                    </div>
+                    </motion.div>
                   )}
               </div>
             ))}
