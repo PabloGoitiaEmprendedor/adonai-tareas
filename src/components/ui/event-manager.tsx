@@ -21,7 +21,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { motion, AnimatePresence } from "framer-motion"
 import { Calendar, Clock, LayoutGrid, List, Folder, FolderOpen, Plus, Search, Filter, X, ChevronLeft, ChevronRight, ChevronDown, Check, MoreHorizontal, Link as LinkIcon, Trash2, Repeat, Zap, Menu, GripHorizontal } from "lucide-react"
-import PremiumTimePicker from "./premium-time-picker"
+import ScrollableTimePicker from "./scrollable-time-picker"
 import { usePriorityColors, getPriorityKey } from "@/hooks/usePriorityColors"
 import { cn } from "@/lib/utils"
 import {
@@ -82,6 +82,7 @@ export interface EventManagerProps {
   recurrenceExceptions?: Set<string>
   availableTags?: string[]
   onEventClick?: (event: Event) => void
+  dragDisabled?: boolean
 }
 
 const defaultColors = [
@@ -106,6 +107,7 @@ export function EventManager({
   className,
   availableTags = ["Important", "Urgent", "Work", "Personal", "Team", "Client"],
   recurrenceExceptions,
+  dragDisabled = false,
 }: EventManagerProps) {
   const { colors: priorityColors } = usePriorityColors()
   const [events, setEvents] = useState<Event[]>(initialEvents)
@@ -213,6 +215,55 @@ export function EventManager({
   const [showRecurrenceOptions, setShowRecurrenceOptions] = useState(false);
   const [showCustomRec, setShowCustomRec] = useState(false)
   const [isRecPopoverOpen, setIsRecPopoverOpen] = useState(false)
+  const [recDays, setRecDays] = useState<number[]>([])
+  const [recInterval, setRecInterval] = useState(2)
+  const [recUnit, setRecUnit] = useState<'days' | 'weeks' | 'months' | 'years'>('weeks')
+  const [recEndType, setRecEndType] = useState<'never' | 'count' | 'date'>('never')
+  const [recEndCount, setRecEndCount] = useState(5)
+  const [recEndDate, setRecEndDate] = useState('')
+  const [recSummary, setRecSummary] = useState('')
+  const [draftEvent, setDraftEvent] = useState<Event | null>(null)
+  const [draftTitle, setDraftTitle] = useState('')
+  const draftInputRef = useRef<HTMLInputElement>(null)
+
+  const startDraft = useCallback((startTime: Date, endTime?: Date) => {
+    const end = endTime || addMinutes(startTime, 30)
+    setDraftEvent({
+      id: `draft-${Date.now()}`,
+      title: '',
+      startTime: startTime,
+      endTime: end,
+      color: '#9e9e9e',
+      isAllDay: false,
+      isEvent: true,
+    })
+    setDraftTitle('')
+    setTimeout(() => draftInputRef.current?.focus(), 100)
+  }, [])
+
+  const confirmDraft = useCallback(() => {
+    if (!draftEvent || !draftTitle.trim()) return
+    const event: Event = {
+      ...draftEvent,
+      title: draftTitle.trim(),
+      color: '#9e9e9e',
+    }
+    pendingDropsRef.current.set(event.id, event)
+    setTimeout(() => { pendingDropsRef.current.delete(event.id) }, 5000)
+    setEvents(prev => [...prev, event])
+    onEventCreate?.(event)
+    setDraftEvent(null)
+    setDraftTitle('')
+  }, [draftEvent, draftTitle, onEventCreate])
+
+  const cancelDraft = useCallback(() => {
+    setDraftEvent(null)
+    setDraftTitle('')
+  }, [])
+
+  const updateDraftTime = useCallback((startTime: Date, endTime: Date) => {
+    setDraftEvent(prev => prev ? { ...prev, startTime, endTime } : null)
+  }, [])
 
   const toggleFolder = (folder: string) => {
     const newExpanded = new Set(expandedFolders);
@@ -233,6 +284,25 @@ export function EventManager({
       setShowCustomRec(false)
     }
   }, [isRecPopoverOpen, selectedEvent?.recurrence, newEvent.recurrence, isCreating])
+
+  // Initialize recSummary from event recurrence data when dialog opens
+  useEffect(() => {
+    if (!isDialogOpen) return;
+    const event = isCreating ? newEvent : selectedEvent;
+    const days = event?.recurrenceDays;
+    if (days && days.length > 0) {
+      const dayLabels = ['D', 'L', 'M', 'M', 'J', 'V', 'S'];
+      const selectedLabels = [...days].sort().map(d => dayLabels[d]).join(', ');
+      const interval = (event as any)?.recurrenceInterval || 1;
+      const unit = (event as any)?.recurrenceUnit || 'weeks';
+      const unitMap: Record<string, string> = { days: interval === 1 ? 'día' : 'días', weeks: interval === 1 ? 'semana' : 'semanas', months: interval === 1 ? 'mes' : 'meses', years: interval === 1 ? 'año' : 'años' };
+      let text = `Cada ${interval} ${unitMap[unit] || unit}`;
+      if (unit === 'weeks') text += ` en ${selectedLabels}`;
+      setRecSummary(text);
+    } else {
+      setRecSummary('');
+    }
+  }, [isDialogOpen, isCreating, selectedEvent, newEvent.recurrenceDays])
 
   // Sync view state with defaultView prop
   useEffect(() => {
@@ -823,6 +893,35 @@ export function EventManager({
     [view],
   )
 
+  // Mobile swipe navigation
+  const touchStartXRef = useRef<number | null>(null)
+  const touchStartYRef = useRef<number | null>(null)
+  useEffect(() => {
+    const el = document.querySelector('[data-calendar-grid]') || document.body
+    const onTouchStart = (e: TouchEvent) => {
+      const target = e.target as HTMLElement
+      if (target.closest('[data-no-swipe]')) return
+      touchStartXRef.current = e.touches[0].clientX
+      touchStartYRef.current = e.touches[0].clientY
+    }
+    const onTouchEnd = (e: TouchEvent) => {
+      if (touchStartXRef.current === null || touchStartYRef.current === null) return
+      const dx = e.changedTouches[0].clientX - touchStartXRef.current
+      const dy = e.changedTouches[0].clientY - touchStartYRef.current
+      if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+        navigateDate(dx > 0 ? 'prev' : 'next')
+      }
+      touchStartXRef.current = null
+      touchStartYRef.current = null
+    }
+    el.addEventListener('touchstart', onTouchStart, { passive: true })
+    el.addEventListener('touchend', onTouchEnd, { passive: true })
+    return () => {
+      el.removeEventListener('touchstart', onTouchStart)
+      el.removeEventListener('touchend', onTouchEnd)
+    }
+  }, [navigateDate])
+
   const getColorClasses = useCallback(
     (colorValue: string) => {
       const color = colors.find((c) => c.value === colorValue)
@@ -850,7 +949,7 @@ export function EventManager({
   }
 
   return (
-    <div className={cn("flex flex-col gap-4", className)}>
+    <div data-calendar-grid className={cn("flex flex-col gap-4", className)}>
       {/* Header - Static & Refined */}
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between px-2 py-6 mb-2">
         <div className="flex items-center justify-between w-full lg:w-auto gap-8">
@@ -967,6 +1066,7 @@ export function EventManager({
                 getColorClasses={getColorClasses}
                 hoveredDay={hoveredDay}
                 onHoverDay={setHoveredDay}
+                dragDisabled={dragDisabled}
               />
             )}
             {(view === "week" || view === "day" || view === "3day") && (
@@ -1212,6 +1312,14 @@ export function EventManager({
                     colors={colors}
                     categories={categories}
                     openCreateDialog={openCreateDialog}
+                    dragDisabled={dragDisabled}
+                    draftEvent={draftEvent}
+                    draftTitle={draftTitle}
+                    setDraftTitle={setDraftTitle}
+                    startDraft={startDraft}
+                    confirmDraft={confirmDraft}
+                    cancelDraft={cancelDraft}
+                    updateDraftTime={updateDraftTime}
                   />
                 </div>
               </div>
@@ -1385,7 +1493,7 @@ export function EventManager({
                           <div className="space-y-2">
                              <label className="text-[11px] font-bold text-muted-foreground/60 uppercase tracking-wider ml-1">Horario</label>
                              <div className="flex flex-col gap-1.5">
-                                <PremiumTimePicker
+                                <ScrollableTimePicker
                                   value={format(selectedEvent?.startTime || new Date(), 'HH:mm')}
                                   onChange={(val) => {
                                     const [h, m] = val.split(':').map(Number);
@@ -1400,7 +1508,7 @@ export function EventManager({
                         ) : (
                           <div className="space-y-2">
                             <label className="text-[11px] font-bold text-muted-foreground/60 uppercase tracking-wider ml-1">Hora inicio</label>
-                            <PremiumTimePicker
+                            <ScrollableTimePicker
                               value={format(newEvent.startTime || new Date(), 'HH:mm')}
                               onChange={(val) => {
                                 const [h, m] = val.split(':').map(Number);
@@ -1500,80 +1608,65 @@ export function EventManager({
                         </div>
                       )}
 
-                       {!isCreating && (
-                          <div className="space-y-4">
-                             <div className="space-y-2">
-                               <label className="text-[11px] font-bold text-muted-foreground/60 uppercase tracking-wider ml-1">Hora fin (Duración)</label>
-                               <PremiumTimePicker
-                                  value={format(selectedEvent?.endTime || new Date(), 'HH:mm')}
-                                  onChange={(val) => {
-                                    const [h, m] = val.split(':').map(Number);
-                                    const d = new Date(selectedEvent?.endTime || new Date());
-                                    d.setHours(h, m);
-                                    setSelectedEvent(prev => prev ? ({ ...prev, endTime: d }) : null);
-                                  }}
-                                  className="w-full h-11"
-                                />
+                       {/* PRIORIDAD (Two-state high-end buttons) */}
+                        {isTask && (
+                          <div className="space-y-3 pt-2">
+                             <label className="text-[11px] font-bold text-muted-foreground/60 uppercase tracking-wider ml-1">Importancia y Urgencia</label>
+                             <div className="grid grid-cols-2 gap-3">
+                               <button
+                                 type="button"
+                                 onClick={() => {
+                                   const nextVal = !importanceVal;
+                                   const newUrgency = isCreating ? newEvent.urgency : selectedEvent?.urgency;
+                                   const autoColor = priorityColors[getPriorityKey(!!newUrgency, nextVal)];
+                                   if (isCreating) {
+                                     setNewEvent(prev => ({ ...prev, importance: nextVal, color: autoColor }));
+                                   } else {
+                                     setSelectedEvent(prev => prev ? ({ ...prev, importance: nextVal, color: autoColor }) : null);
+                                   }
+                                 }}
+                                 className={cn(
+                                   "flex items-center justify-center gap-2 rounded-[20px] font-bold uppercase tracking-wider text-[10px] transition-all border h-14",
+                                   importanceVal
+                                     ? 'bg-amber-500/10 text-amber-600 border-amber-500/30 shadow-sm'
+                                     : 'bg-surface-container/20 text-muted-foreground border-outline-variant/10'
+                                 )}
+                               >
+                                 <div className={cn("w-2 h-2 rounded-full", importanceVal ? "bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]" : "bg-muted-foreground/30")} />
+                                 IMPORTANTE
+                               </button>
+                               <button
+                                 type="button"
+                                 onClick={() => {
+                                   const nextVal = !urgencyVal;
+                                   const newImportance = isCreating ? newEvent.importance : selectedEvent?.importance;
+                                   const autoColor = priorityColors[getPriorityKey(nextVal, !!newImportance)];
+                                   if (isCreating) {
+                                     setNewEvent(prev => ({ ...prev, urgency: nextVal, color: autoColor }));
+                                   } else {
+                                     setSelectedEvent(prev => prev ? ({ ...prev, urgency: nextVal, color: autoColor }) : null);
+                                   }
+                                 }}
+                                 className={cn(
+                                   "flex items-center justify-center gap-2 rounded-[20px] font-bold uppercase tracking-wider text-[10px] transition-all border h-14",
+                                   urgencyVal
+                                     ? 'bg-red-500/10 text-red-600 border-red-500/30 shadow-sm'
+                                     : 'bg-surface-container/20 text-muted-foreground border-outline-variant/10'
+                                 )}
+                               >
+                                 <div className={cn("w-2 h-2 rounded-full", urgencyVal ? "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]" : "bg-muted-foreground/30")} />
+                                 URGENTE
+                               </button>
                              </div>
                           </div>
                         )}
 
-                       {/* PRIORIDAD (Two-state high-end buttons) */}
-                       {isTask && (
-                         <div className="space-y-3 pt-2">
-                            <label className="text-[11px] font-bold text-muted-foreground/60 uppercase tracking-wider ml-1">Importancia y Urgencia</label>
-                            <div className="grid grid-cols-2 gap-3">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const nextVal = !importanceVal;
-                                  if (isCreating) {
-                                    setNewEvent(prev => ({ ...prev, importance: nextVal }));
-                                  } else {
-                                    setSelectedEvent(prev => prev ? ({ ...prev, importance: nextVal }) : null);
-                                  }
-                                }}
-                                className={cn(
-                                  "flex items-center justify-center gap-2 rounded-[20px] font-bold uppercase tracking-wider text-[10px] transition-all border h-14",
-                                  importanceVal
-                                    ? 'bg-amber-500/10 text-amber-600 border-amber-500/30 shadow-sm'
-                                    : 'bg-surface-container/20 text-muted-foreground border-outline-variant/10'
-                                )}
-                              >
-                                <div className={cn("w-2 h-2 rounded-full", importanceVal ? "bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]" : "bg-muted-foreground/30")} />
-                                IMPORTANTE
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const nextVal = !urgencyVal;
-                                  if (isCreating) {
-                                    setNewEvent(prev => ({ ...prev, urgency: nextVal }));
-                                  } else {
-                                    setSelectedEvent(prev => prev ? ({ ...prev, urgency: nextVal }) : null);
-                                  }
-                                }}
-                                className={cn(
-                                  "flex items-center justify-center gap-2 rounded-[20px] font-bold uppercase tracking-wider text-[10px] transition-all border h-14",
-                                  urgencyVal
-                                    ? 'bg-red-500/10 text-red-600 border-red-500/30 shadow-sm'
-                                    : 'bg-surface-container/20 text-muted-foreground border-outline-variant/10'
-                                )}
-                              >
-                                <div className={cn("w-2 h-2 rounded-full", urgencyVal ? "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]" : "bg-muted-foreground/30")} />
-                                URGENTE
-                              </button>
-                            </div>
-                         </div>
-                       )}
-
-                      {/* COLOR SELECTION (Compact circles) */}
+                       {/* COLOR SELECTION - 4 priority colors + custom + */}
                       <div className="space-y-3">
                          <label className="text-[11px] font-bold text-muted-foreground/60 uppercase tracking-wider ml-1">Color de identificación</label>
                          <div className="flex items-center gap-3 overflow-x-auto no-scrollbar py-1">
                            {[
                              priorityColors.p1, priorityColors.p2, priorityColors.p3, priorityColors.p4,
-                             '#6366f1', '#10b981', '#f43f5e', '#8b5cf6', '#06b6d4'
                            ].map((c) => {
                              const currentC = isCreating ? newEvent.color : selectedEvent?.color;
                              const isSelected = currentC === c;
@@ -1595,77 +1688,158 @@ export function EventManager({
                                </button>
                              );
                            })}
+                           {/* Custom color + button */}
+                           <div className="relative">
+                             <input
+                               type="color"
+                               id="custom-color-input"
+                               value={isCreating ? (newEvent.color || '#6366f1') : (selectedEvent?.color || '#6366f1')}
+                               onChange={(e) => {
+                                 if (isCreating) setNewEvent(prev => ({ ...prev, color: e.target.value }));
+                                 else setSelectedEvent(prev => prev ? ({ ...prev, color: e.target.value }) : null);
+                               }}
+                               className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                             />
+                             <label htmlFor="custom-color-input" className={cn(
+                               "w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center border-2 border-dashed border-muted-foreground/30 cursor-pointer transition-all hover:border-primary/50",
+                             )}>
+                               <span className="text-xs font-bold text-muted-foreground/50">+</span>
+                             </label>
+                           </div>
                          </div>
                       </div>
 
-                      {/* REPETICIÓN (Simple toggle) */}
-                      <div className="pt-2">
-                        <button 
-                          type="button"
-                          onClick={() => setShowRecurrenceOptions(!showRecurrenceOptions)}
-                          className={cn(
-                            "w-full rounded-[20px] border px-5 py-4 flex items-center justify-between transition-all bg-surface-container/20 border-outline-variant/10",
-                            (isCreating ? newEvent.recurrence : selectedEvent?.recurrence) !== 'none' && "bg-primary/5 border-primary/20"
-                          )}
-                        >
-                          <div className="flex items-center gap-3">
-                            <Repeat className={cn("w-4 h-4", (isCreating ? newEvent.recurrence : selectedEvent?.recurrence) !== 'none' ? "text-primary" : "text-muted-foreground/40")} />
-                            <span className="text-[11px] font-bold uppercase tracking-widest text-primary">
-                               {(() => {
-                                  const val = isCreating ? newEvent.recurrence : selectedEvent?.recurrence;
-                                  if (val === 'none') return 'Repetir tarea...';
-                                  switch(val) {
-                                    case 'daily': return 'Cada día';
-                                    case 'weekdays': return 'Días laborales';
-                                    case 'weekly': return 'Cada semana';
-                                    case 'biweekly': return 'Cada 2 semanas';
-                                    case 'monthly': return 'Cada mes';
-                                    default: return 'Recurrente';
-                                  }
-                               })()}
-                            </span>
-                          </div>
-                          <span className="text-[10px] text-muted-foreground/40 font-bold uppercase tracking-widest">
-                            {showRecurrenceOptions ? 'Cerrar' : 'Configurar'}
-                          </span>
-                        </button>
-
-                        <AnimatePresence>
-                          {showRecurrenceOptions && (
-                            <motion.div
-                              initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
-                              className="overflow-hidden mt-2"
-                            >
-                              <div className="p-1.5 grid grid-cols-4 gap-1 rounded-[20px] bg-surface-container/30 border border-outline-variant/10">
-                                {[
-                                  { id: 'none', label: 'No' },
-                                  { id: 'daily', label: 'Diario' },
-                                  { id: 'weekdays', label: 'L-V' },
-                                  { id: 'weekly', label: 'Semanal' },
-                                ].map(opt => (
-                                  <button
-                                    key={opt.id}
-                                    type="button"
-                                    onClick={() => {
-                                      const val = opt.id as any;
-                                      if (isCreating) setNewEvent(prev => ({ ...prev, recurrence: val }));
-                                      else setSelectedEvent(prev => prev ? ({ ...prev, recurrence: val }) : null);
-                                      setShowRecurrenceOptions(false);
-                                    }}
-                                    className={cn(
-                                      "py-2 rounded-xl text-[9px] font-bold uppercase transition-all",
-                                      (isCreating ? newEvent.recurrence : selectedEvent?.recurrence) === opt.id
-                                        ? "bg-primary text-primary-foreground"
-                                        : "text-muted-foreground hover:bg-black/5"
-                                    )}
+                      {/* REPETICIÓN - Personalizar popover con días + resumen */}
+                      <div className="space-y-3 pt-2">
+                        <div className="flex items-center justify-between px-1">
+                          <label className="text-[11px] font-bold text-muted-foreground/60 uppercase tracking-wider">Repetición</label>
+                          <Popover open={isRecPopoverOpen} onOpenChange={setIsRecPopoverOpen}>
+                            <PopoverTrigger asChild>
+                              <button
+                                type="button"
+                                className="text-[10px] font-black uppercase tracking-widest text-primary/70 hover:text-primary transition-colors"
+                              >
+                                Personalizar
+                              </button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-72 p-4 border-outline-variant/10 bg-surface-container/95 backdrop-blur-3xl shadow-2xl rounded-2xl" align="end">
+                              <div className="space-y-4">
+                                <h4 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Personalizar recurrencia</h4>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-[11px] font-bold text-muted-foreground/60">Cada</span>
+                                  <input
+                                    type="number"
+                                    min={1}
+                                    value={recInterval}
+                                    onChange={(e) => setRecInterval(Math.max(1, parseInt(e.target.value) || 1))}
+                                    className="w-14 h-8 text-center text-[11px] font-bold bg-surface/50 border border-outline-variant/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30"
+                                  />
+                                  <select
+                                    value={recUnit}
+                                    onChange={(e) => setRecUnit(e.target.value as any)}
+                                    className="flex-1 h-8 text-[11px] font-bold bg-surface/50 border border-outline-variant/30 rounded-lg px-2 focus:outline-none focus:ring-2 focus:ring-primary/30"
                                   >
-                                    {opt.label}
-                                  </button>
-                                ))}
+                                    <option value="days">días</option>
+                                    <option value="weeks">semanas</option>
+                                    <option value="months">meses</option>
+                                    <option value="years">años</option>
+                                  </select>
+                                </div>
+                                <div className="space-y-2">
+                                  <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Días de la semana</span>
+                                  <div className="flex gap-1.5 overflow-x-auto no-scrollbar">
+                                    {[
+                                      { key: 1, label: 'L' },
+                                      { key: 2, label: 'M' },
+                                      { key: 3, label: 'M' },
+                                      { key: 4, label: 'J' },
+                                      { key: 5, label: 'V' },
+                                      { key: 6, label: 'S' },
+                                      { key: 0, label: 'D' },
+                                    ].map(d => {
+                                      const isActive = recDays.includes(d.key);
+                                      return (
+                                        <button
+                                          key={d.key}
+                                          type="button"
+                                          onClick={() => {
+                                            const next = isActive ? recDays.filter(k => k !== d.key) : [...recDays, d.key];
+                                            setRecDays(next);
+                                          }}
+                                          className={cn(
+                                            "w-9 h-9 rounded-full text-[11px] font-black transition-all flex items-center justify-center",
+                                            isActive
+                                              ? "bg-primary text-primary-foreground shadow-md"
+                                              : "bg-surface-container/50 text-muted-foreground/50 hover:bg-surface-container hover:text-foreground"
+                                          )}
+                                        >
+                                          {d.label}
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-[11px] font-bold text-muted-foreground/60">Finaliza</span>
+                                  <select
+                                    value={recEndType}
+                                    onChange={(e) => setRecEndType(e.target.value as any)}
+                                    className="flex-1 h-8 text-[11px] font-bold bg-surface/50 border border-outline-variant/30 rounded-lg px-2 focus:outline-none focus:ring-2 focus:ring-primary/30"
+                                  >
+                                    <option value="never">Nunca</option>
+                                    <option value="count">Después de X eventos</option>
+                                    <option value="date">En fecha específica</option>
+                                  </select>
+                                </div>
+                                {recEndType === 'count' && (
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-[11px] font-bold text-muted-foreground/60">Eventos</span>
+                                    <input
+                                      type="number"
+                                      min={1}
+                                      value={recEndCount}
+                                      onChange={(e) => setRecEndCount(Math.max(1, parseInt(e.target.value) || 1))}
+                                      className="w-14 h-8 text-center text-[11px] font-bold bg-surface/50 border border-outline-variant/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30"
+                                    />
+                                  </div>
+                                )}
+                                {recEndType === 'date' && (
+                                  <input
+                                    type="date"
+                                    value={recEndDate}
+                                    onChange={(e) => setRecEndDate(e.target.value)}
+                                    className="w-full h-8 text-[11px] font-bold bg-surface/50 border border-outline-variant/30 rounded-lg px-2 focus:outline-none focus:ring-2 focus:ring-primary/30"
+                                  />
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const days = recDays.slice();
+                                    const dayLabels = ['D', 'L', 'M', 'M', 'J', 'V', 'S'];
+                                    const selectedLabels = [...days].sort().map(dk => dayLabels[dk]).join(', ');
+                                    const unitMap: Record<string, string> = { days: recInterval === 1 ? 'día' : 'días', weeks: recInterval === 1 ? 'semana' : 'semanas', months: recInterval === 1 ? 'mes' : 'meses', years: recInterval === 1 ? 'año' : 'años' };
+                                    let summary = `Cada ${recInterval} ${unitMap[recUnit] || recUnit}`;
+                                    if (recUnit === 'weeks' && selectedLabels) summary += ` en ${selectedLabels}`;
+                                    if (recEndType === 'count') summary += ` · ${recEndCount} eventos`;
+                                    else if (recEndType === 'date' && recEndDate) summary += ` · hasta ${recEndDate}`;
+                                    setRecSummary(summary);
+                                    if (isCreating) setNewEvent(prev => ({ ...prev, recurrence: recInterval > 1 || recUnit !== 'weeks' ? 'custom' : 'weekly', recurrenceDays: days }));
+                                    else setSelectedEvent(prev => prev ? ({ ...prev, recurrence: recInterval > 1 || recUnit !== 'weeks' ? 'custom' : 'weekly', recurrenceDays: days, recurrenceInterval: recInterval, recurrenceUnit: recUnit }) : null);
+                                    setIsRecPopoverOpen(false);
+                                  }}
+                                  className="w-full py-2 rounded-xl text-[10px] font-black uppercase tracking-widest bg-primary text-primary-foreground shadow-lg"
+                                >
+                                  Aplicar
+                                </button>
                               </div>
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+                        {recSummary && (
+                          <div className="px-1 py-1">
+                            <span className="text-xs font-bold text-foreground/70">Tu recurrencia: {recSummary}</span>
+                          </div>
+                        )}
                       </div>
 
 
@@ -1870,6 +2044,52 @@ export function EventManager({
         </DialogContent>
       </Dialog>
 
+      {/* Floating input bar for draft events */}
+      {draftEvent && (
+        <>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            className="fixed inset-0 z-50 bg-black/20"
+            onClick={cancelDraft}
+          />
+          <motion.div
+            initial={{ opacity: 0, y: 40 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 40 }}
+            className="fixed bottom-0 left-0 right-0 z-50 p-4 pb-8 lg:bottom-8 lg:left-1/2 lg:-translate-x-1/2 lg:max-w-md"
+          >
+            <div className="bg-background border border-border rounded-2xl shadow-2xl p-4 flex items-center gap-3">
+              <input
+                ref={draftInputRef}
+                value={draftTitle}
+                onChange={(e) => setDraftTitle(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') confirmDraft()
+                  if (e.key === 'Escape') cancelDraft()
+                }}
+                placeholder="Nombre del evento..."
+                className="flex-1 bg-transparent text-base font-bold outline-none placeholder:text-muted-foreground/30"
+                autoFocus
+              />
+              <button
+                onClick={confirmDraft}
+                className="px-4 py-2 rounded-xl bg-primary text-primary-foreground text-[10px] font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:scale-[1.03] active:scale-95 transition-all"
+              >
+                Guardar
+              </button>
+              <button
+                onClick={cancelDraft}
+                className="p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 transition-all text-muted-foreground"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </motion.div>
+        </>
+      )}
+
       {/* Global ghost for sidebar drag previews */}
       <div
         ref={globalGhostRef}
@@ -1920,6 +2140,14 @@ function TimeGridView({
   categories,
   openCreateDialog,
   className,
+  dragDisabled = false,
+  draftEvent,
+  draftTitle,
+  setDraftTitle,
+  startDraft,
+  confirmDraft,
+  cancelDraft,
+  updateDraftTime,
 }: {
   view: "week" | "day" | "3day"
   currentDate: Date
@@ -1940,6 +2168,14 @@ function TimeGridView({
   categories: string[]
   openCreateDialog: (startTime: Date, endTime?: Date, cellClickDate?: Date) => void
   className?: string
+  dragDisabled?: boolean
+  draftEvent?: Event | null
+  draftTitle?: string
+  setDraftTitle?: React.Dispatch<React.SetStateAction<string>>
+  startDraft?: (startTime: Date, endTime?: Date) => void
+  confirmDraft?: () => void
+  cancelDraft?: () => void
+  updateDraftTime?: (startTime: Date, endTime: Date) => void
 }) {
   const HOUR_HEIGHT = 120; // Revertido al largo anterior (antes 160)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
@@ -1981,6 +2217,8 @@ function TimeGridView({
   const [initialStartTime, setInitialStartTime] = useState<Date | null>(null);
   const [initialEndTime, setInitialEndTime] = useState<Date | null>(null);
   const [initialDuration, setInitialDuration] = useState(0);
+  const [draftResizing, setDraftResizing] = useState(false);
+  const [draftResizingTop, setDraftResizingTop] = useState(false);
   
   const ghostRef = useRef<HTMLDivElement>(null);
   const isHoveringSidebarRef = useRef<boolean>(false);
@@ -2264,16 +2502,52 @@ function TimeGridView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isResizing, isMoving, initialMouseX, initialMouseY, initialStartTime, initialEndTime, initialDuration, onEventUpdate, HOUR_HEIGHT, days]);
 
+  // Draft resize handler - uses refs to avoid re-creating effect on each position update
+  const draftEventRef = useRef(draftEvent)
+  draftEventRef.current = draftEvent
+  useEffect(() => {
+    if (!draftResizing || !draftEventRef.current || !initialStartTime || !initialEndTime) return
+    document.body.style.userSelect = 'none'
+    const handleMouseMove = (e: MouseEvent) => {
+      const de = draftEventRef.current
+      if (!de) return
+      const deltaY = e.pageY - initialMouseY
+      const minutesDiff = Math.round((deltaY / HOUR_HEIGHT) * 60 / 5) * 5
+      if (draftResizingTop) {
+        let newStart = new Date(initialStartTime.getTime() + minutesDiff * 60000)
+        const maxStart = new Date(initialEndTime.getTime() - 5 * 60000)
+        if (newStart > maxStart) newStart = maxStart
+        if (updateDraftTime) updateDraftTime(newStart, de.endTime)
+      } else {
+        let newEnd = new Date(initialEndTime.getTime() + minutesDiff * 60000)
+        const minEnd = new Date(initialStartTime.getTime() + 5 * 60000)
+        if (newEnd < minEnd) newEnd = minEnd
+        if (updateDraftTime) updateDraftTime(de.startTime, newEnd)
+      }
+    }
+    const handleMouseUp = () => {
+      setDraftResizing(false)
+      document.body.style.userSelect = ''
+    }
+    window.addEventListener('mousemove', handleMouseMove)
+    window.addEventListener('mouseup', handleMouseUp)
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('mouseup', handleMouseUp)
+      document.body.style.userSelect = ''
+    }
+  }, [draftResizing, draftResizingTop, initialMouseY, initialStartTime, initialEndTime, updateDraftTime, HOUR_HEIGHT])
+
   const movingEventObj = useMemo(() => {
     return isMoving ? events.find(e => e.id === isMoving) : null;
   }, [isMoving, events]);
 
   return (
-    <Card className={cn("flex flex-col h-full border-outline-variant/20 bg-card shadow-sm overflow-hidden", className)}>
+    <Card className={cn("flex flex-col h-full border-outline-variant/20 bg-card shadow-sm", className)}>
       {/* Ghost is rendered via portal at body level so backdrop-blur on Card doesn't clip it */}
 
-      {/* Grid Header */}
-      <div className="flex border-b border-outline-variant/20">
+      {/* Grid Header - Sticky */}
+      <div className="sticky top-0 z-10 bg-background/90 backdrop-blur-sm flex border-b border-outline-variant/20 shadow-sm">
         <div className="w-16 flex-shrink-0 border-r border-outline-variant/20 bg-surface-container/30" />
         <div className={cn("flex-1 grid", view === "week" ? "grid-cols-7" : view === "3day" ? "grid-cols-3" : "grid-cols-1")}>
           {days.map((day, idx) => (
@@ -2353,14 +2627,17 @@ function TimeGridView({
                            onDrop(day, hour, mins);
                            setTimeout(() => { isDraggingRef.current = false; }, 150);
                          }}
-                         onClick={(e) => {
-                           if (isDraggingRef.current) return;
-                           const d = new Date(day)
-                           d.setHours(hour, mins, 0, 0)
-                           if (onCellClick) onCellClick(d)
-                           
-                            openCreateDialog(d, addMinutes(d, 30), d)
-                          }}
+                          onClick={(e) => {
+                            if (isDraggingRef.current) return;
+                            const d = new Date(day)
+                            d.setHours(hour, mins, 0, 0)
+                            if (onCellClick) onCellClick(d)
+                            if (startDraft) {
+                              startDraft(d, addMinutes(d, 30))
+                            } else {
+                              openCreateDialog(d, addMinutes(d, 30), d)
+                            }
+                           }}
                         >
                           {/* subtle hint on hover */}
                          <div className="absolute inset-0 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-all pointer-events-none">
@@ -2424,9 +2701,10 @@ function TimeGridView({
                           userSelect: 'none',
                         }}
                         onMouseDown={(e) => {
-                          if (e.button !== 0) return; // Only left click
+                          if (e.button !== 0) return;
+                          if (dragDisabled) return;
                           e.stopPropagation();
-                          isDraggingRef.current = false; // Start as false, set to true on move
+                          isDraggingRef.current = false;
                           setIsMoving(event.id);
                           setInitialMouseY(e.pageY);
                           setInitialMouseX(e.pageX);
@@ -2441,6 +2719,7 @@ function TimeGridView({
                               duration <= 0.25 ? "h-1" : "h-2"
                             )}
                             onMouseDown={(e) => {
+                              if (dragDisabled) return;
                               e.stopPropagation();
                               isDraggingRef.current = false;
                               setIsResizing(event.id);
@@ -2471,6 +2750,7 @@ function TimeGridView({
                               duration <= 0.25 ? "h-1" : "h-2"
                             )}
                             onMouseDown={(e) => {
+                              if (dragDisabled) return;
                               e.stopPropagation();
                               isDraggingRef.current = false;
                               setIsResizing(event.id);
@@ -2485,6 +2765,49 @@ function TimeGridView({
                       </div>
                     )
                   })}
+                  {/* Draft Event Block */}
+                  {draftEvent && isSameDay(draftEvent.startTime, day) && (
+                    <div className="absolute inset-x-1 z-20 rounded-xl border-2 border-dashed border-gray-400 bg-gray-500/10 group"
+                      style={{
+                        top: `${(draftEvent.startTime.getHours() + draftEvent.startTime.getMinutes() / 60) * HOUR_HEIGHT + 2}px`,
+                        height: `${Math.max(0.5, (draftEvent.endTime.getTime() - draftEvent.startTime.getTime()) / (1000 * 60 * 60)) * HOUR_HEIGHT - 4}px`,
+                      }}
+                    >
+                      <div className="flex flex-col h-full py-1 px-1 justify-center">
+                        <p className="truncate font-black text-[10px] text-gray-400 italic text-center">{draftTitle || 'Nuevo evento...'}</p>
+                      </div>
+                      {/* Top Resize Handle */}
+                      <div
+                        className="absolute top-0 inset-x-0 cursor-ns-resize z-30 flex items-start pt-0.5 justify-center opacity-0 group-hover:opacity-100 transition-opacity h-2"
+                        onMouseDown={(e) => {
+                          e.stopPropagation()
+                          e.preventDefault()
+                          setDraftResizing(true)
+                          setDraftResizingTop(true)
+                          setInitialMouseY(e.pageY)
+                          setInitialStartTime(new Date(draftEvent.startTime))
+                          setInitialEndTime(new Date(draftEvent.endTime))
+                        }}
+                      >
+                        <div className="w-8 h-1 rounded-full bg-gray-400/60 shadow-md" />
+                      </div>
+                      {/* Bottom Resize Handle */}
+                      <div
+                        className="absolute bottom-0 inset-x-0 cursor-ns-resize z-30 flex items-end pb-0.5 justify-center opacity-0 group-hover:opacity-100 transition-opacity h-2"
+                        onMouseDown={(e) => {
+                          e.stopPropagation()
+                          e.preventDefault()
+                          setDraftResizing(true)
+                          setDraftResizingTop(false)
+                          setInitialMouseY(e.pageY)
+                          setInitialStartTime(new Date(draftEvent.startTime))
+                          setInitialEndTime(new Date(draftEvent.endTime))
+                        }}
+                      >
+                        <div className="w-8 h-1 rounded-full bg-gray-400/60 shadow-md" />
+                      </div>
+                    </div>
+                  )}
               </div>
             ))}
 
@@ -2548,6 +2871,7 @@ function MonthView({
   getColorClasses,
   hoveredDay: externalHoveredDay,
   onHoverDay: externalOnHoverDay,
+  dragDisabled = false,
 }: {
   currentDate: Date
   events: Event[]
@@ -2559,6 +2883,7 @@ function MonthView({
   getColorClasses: (color: string) => { bg: string; text: string }
   hoveredDay?: Date | null
   onHoverDay?: (date: Date | null) => void
+  dragDisabled?: boolean
 }) {
   const [internalHoveredDay, setInternalHoveredDay] = useState<Date | null>(null);
   const hoveredDay = externalHoveredDay !== undefined ? externalHoveredDay : internalHoveredDay;
@@ -2640,8 +2965,9 @@ function MonthView({
                 {dayEvents.slice(0, 3).map(event => (
                   <div 
                     key={event.id}
-                    draggable={true}
+                    draggable={!dragDisabled}
                     onDragStart={(e) => {
+                      if (dragDisabled) return
                       e.stopPropagation()
                       onDragStart?.(event)
                     }}

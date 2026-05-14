@@ -15,6 +15,7 @@ interface AdonaiCalendarViewProps {
   selectedDate: Date;
   onSelectDate: (date: Date) => void;
   viewMode?: 'day' | 'week' | 'month';
+  dragDisabled?: boolean;
 }
 
 const TIME_PREFIX_REGEX = /^\[T:(\d{2}:\d{2})-(\d{2}:\d{2})\]/;
@@ -57,7 +58,7 @@ const rebuildDescription = (startTime: Date | null, endTime: Date | null, color:
   return parts.join(' ').trim();
 };
 
-const AdonaiCalendarView: React.FC<AdonaiCalendarViewProps> = ({ selectedDate, onSelectDate, viewMode = 'day' }) => {
+const AdonaiCalendarView: React.FC<AdonaiCalendarViewProps> = ({ selectedDate, onSelectDate, viewMode = 'day', dragDisabled = false }) => {
   const { user } = useAuth();
   const dateStr = format(selectedDate, 'yyyy-MM-dd');
   
@@ -581,6 +582,7 @@ const handleEventUpdate = async (id: string, updates: Partial<Event>) => {
           defaultView={viewMode}
           className="min-h-[600px]"
           recurrenceExceptions={recurrenceExceptions}
+          dragDisabled={dragDisabled}
         />
       </div>
 

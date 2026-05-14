@@ -57,11 +57,17 @@ serve(async (req) => {
     const profiles = (profilesData || []).filter(p => p.user_id !== adminUserId && !excludedUserIds.includes(p.user_id));
     const profileMap = new Map(profiles.map(p => [p.user_id, p]));
 
+    // Fetch auth users (authoritative source for email)
+    const { data: authData } = await supabase.auth.admin.listUsers();
+    const authUserMap = new Map(
+      (authData?.users || []).map(u => [u.id, u])
+    );
+
     // Fetch all tasks
     const { data: allTasks, error: tasksError } = await supabase
       .from("tasks")
       .select("id, user_id, status, source_type, importance, urgency, goal_id, recurrence_id, created_at, completed_at, due_date")
-      .neq("status", "deleted");
+      .is("deleted_at", null);
     if (tasksError) throw new Error(`tasks: ${tasksError.message}`);
 
     const tasks = (allTasks || []).filter(t => t.user_id !== adminUserId && !excludedUserIds.includes(t.user_id));
@@ -244,10 +250,10 @@ serve(async (req) => {
 
       return {
         user_id: uid,
-        email: profile?.email || null,
+        email: authUserMap.get(uid)?.email || profile?.email || null,
         name: profile?.name || null,
-        is_anonymous: !profile?.email,
-        registration_date: profile?.email ? (profile.created_at?.slice(0, 10) || null) : null,
+        is_anonymous: !authUserMap.get(uid)?.email,
+        registration_date: authUserMap.get(uid)?.email ? (authUserMap.get(uid)?.created_at?.slice(0, 10) || null) : null,
         first_event_date: (() => {
           let earliest: string | null = null;
           userTasks.forEach(t => {

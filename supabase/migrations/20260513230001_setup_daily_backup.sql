@@ -1,0 +1,50 @@
+-- ============================================================
+-- Setup: Backups bucket + scheduled daily backup via pg_cron
+-- ============================================================
+
+-- 1. Create the backups storage bucket (if it doesn't exist)
+--    This must be done via the Supabase dashboard Storage UI or API.
+--    SQL cannot create storage buckets directly.
+--    Instructions:
+--       1. Go to Supabase Dashboard → Storage → Create a new bucket
+--       2. Name: "backups"
+--       3. Public: OFF (private)
+--       4. Click "Create bucket"
+
+-- 2. Schedule daily backup via pg_cron
+--    IMPORTANT: The pg_cron extension must be enabled.
+--    If not already enabled, run:
+--    CREATE EXTENSION IF NOT EXISTS pg_cron;
+--
+--    Then schedule the backup Edge Function to run daily at 04:00 AM UTC.
+--
+--    Since Edge Functions are called via HTTP, we use pg_cron's http extension.
+--    This requires:
+--      - The backup-database Edge Function to be deployed
+--      - A service role token (JWT) for authorization
+--      - The pg_net extension for making HTTP requests
+--
+--    Alternative (simpler): Use an external cron service like:
+--      - GitHub Actions (recommended: see .github/workflows/backup.yml)
+--      - Cron-job.org (free)
+--      - Supabase Dashboard → Database → Webhooks
+
+-- NOTE: This migration is informational. The actual scheduling
+-- is done via GitHub Actions (see .github/workflows/backup.yml).
+-- 
+-- To enable pg_cron scheduling instead:
+--   1. Go to Supabase Dashboard → SQL Editor
+--   2. Run: CREATE EXTENSION IF NOT EXISTS pg_cron;
+--   3. Run: CREATE EXTENSION IF NOT EXISTS pg_net;
+--   4. Schedule: 
+--      SELECT cron.schedule(
+--        'daily-database-backup',
+--        '0 4 * * *',
+--        $$
+--        SELECT net.http_post(
+--          url := 'https://bpckgibqjrqdxzbvtiyn.supabase.co/functions/v1/backup-database',
+--          headers := '{"Authorization": "Bearer <SERVICE_ROLE_KEY>"}'::jsonb,
+--          body := '{}'::jsonb
+--        );
+--        $$
+--      );
