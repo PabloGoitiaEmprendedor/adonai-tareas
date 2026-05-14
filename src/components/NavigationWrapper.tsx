@@ -214,8 +214,9 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
 
   const [draftActive, setDraftActive] = useState(false);
   const [detailActive, setDetailActive] = useState(false);
+  const [eventCreateOpen, setEventCreateOpen] = useState(false);
 
-  const fabHidden = draftActive || detailActive
+  const fabHidden = draftActive || detailActive || eventCreateOpen;
 
   useEffect(() => {
     const handler = (e: Event) => setDraftActive((e as CustomEvent).detail.active)
@@ -273,7 +274,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
   // Task capture state
   const [captureOpen, setCaptureOpen] = useState(false);
   const [recurrenceOpen, setRecurrenceOpen] = useState(false);
-  const [eventCreateOpen, setEventCreateOpen] = useState(false);
+
   const [evTitle, setEvTitle] = useState('');
   const [evDate, setEvDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [evHour, setEvHour] = useState(new Date().getHours());
@@ -381,7 +382,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
       {!open && (
         <div className={`fixed left-4 z-[70] flex items-center gap-2 ${
             desktopSidebarOpen ? 'lg:hidden' : ''
-          } ${window.electronAPI ? 'top-12' : 'top-4'}`}>
+          } ${window.electronAPI ? 'top-16' : 'top-10'}`}>
           <button
             id="global-menu-trigger"
             onClick={() => {
@@ -430,7 +431,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
           desktopSidebarOpen ? 'lg:pl-72' : 'lg:pl-0'
         }`}
       >
-        <div className={`max-w-7xl mx-auto px-0 lg:px-4 ${window.electronAPI ? 'pt-12' : 'pt-10'}`}>
+        <div className={`max-w-7xl mx-auto px-0 lg:px-4 ${window.electronAPI ? 'pt-20' : 'pt-16'}`}>
           {children}
         </div>
       </main>
@@ -592,7 +593,6 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
                     description: desc,
                     due_date: evDate,
                     status: 'pending',
-                    creation_source: 'event',
                   });
                   toast.success('Evento creado');
                   setEventCreateOpen(false);

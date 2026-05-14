@@ -207,7 +207,7 @@ function createMainWindow() {
   logToFile(`Loading main window: ${indexPath}`);
 
   if (!app.isPackaged) {
-    mainWindow.loadURL('http://localhost:8080').catch(err => {
+    mainWindow.loadURL('http://localhost:5173').catch(err => {
       logToFile(`Failed to load dev URL: ${err}`);
     });
   } else {
@@ -322,7 +322,7 @@ function createMiniWindow() {
   logToFile(`Loading mini window: ${indexPath}`);
 
   if (!app.isPackaged) {
-    miniWindow.loadURL('http://localhost:8080/#/mini').catch(err => {
+    miniWindow.loadURL('http://localhost:5173/#/mini').catch(err => {
       logToFile(`Failed to load mini dev URL: ${err}`);
     });
   } else {
@@ -656,7 +656,7 @@ function createSelectionBubbleWindow() {
   logToFile(`Loading bubble window: ${indexPath}`);
 
   if (!app.isPackaged) {
-    bubbleWindow.loadURL('http://localhost:8080/#/selection-bubble').catch(err => {
+    bubbleWindow.loadURL('http://localhost:5173/#/selection-bubble').catch(err => {
       logToFile(`Failed to load bubble dev URL: ${err}`);
     });
   } else {
@@ -695,7 +695,7 @@ function createQuickTaskWindow(initialText = '') {
   logToFile(`Loading quick task window: ${indexPath}`);
 
   if (!app.isPackaged) {
-    quickTaskWindow.loadURL(`http://localhost:8080/#/quick-task?text=${encodeURIComponent(initialText)}`).catch(err => {
+    quickTaskWindow.loadURL(`http://localhost:5173/#/quick-task?text=${encodeURIComponent(initialText)}`).catch(err => {
       logToFile(`Failed to load quick-task dev URL: ${err}`);
     });
   } else {
@@ -792,7 +792,7 @@ function createToastWindow(data) {
 
   const startUrl = app.isPackaged
     ? `file://${path.join(__dirname, '../dist/index.html')}#/toast`
-    : 'http://localhost:8080/#/toast';
+    : 'http://localhost:5173/#/toast';
 
   toastWindow.loadURL(startUrl);
 
