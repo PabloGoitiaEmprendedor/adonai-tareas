@@ -1669,7 +1669,6 @@ export function EventManager({
                       {/* PRIORIDAD */}
                       <div className="space-y-2">
                         <label className="text-[11px] font-bold text-muted-foreground/60 uppercase tracking-wider ml-1">Prioridad</label>
-                        <div className="flex gap-2">
                         <div className="grid grid-cols-2 gap-3">
                           <button
                             type="button"
