@@ -79,7 +79,7 @@ const WeeklyPage = () => {
           <AdonaiCalendarView
             selectedDate={selectedDay}
             onSelectDate={setSelectedDay}
-            dragDisabled={true}
+            dragDisabled={false}
           />
         </section>
 

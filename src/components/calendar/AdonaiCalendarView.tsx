@@ -293,7 +293,7 @@ tasks?.forEach((task) => {
             priority: (urgency ? 2 : 0) + (importance ? 1 : 0),
             isAllDay: !scheduledTime,
             completed: task.status === 'done',
-            isEvent: task.creation_source === 'event',
+            isEvent: (task.metadata as any)?.creation_source === 'event',
             recurrence: taskRecurrence,
             recurrenceDays: taskRecurrenceDays,
           });
@@ -311,7 +311,7 @@ const handleEventUpdate = async (id: string, updates: Partial<Event>) => {
       const dueDate = recMatch[2];
       const anchorTask = tasks?.find((t: any) => t.id === anchorTaskId);
       // Events (creation_source='event') don't get checked off
-      if (anchorTask?.creation_source === 'event') return;
+      if ((anchorTask?.metadata as any)?.creation_source === 'event') return;
       if (anchorTask && anchorTask.recurrence_id) {
         const { error } = await supabase.from('tasks').insert({
           user_id: user?.id,
@@ -325,7 +325,7 @@ const handleEventUpdate = async (id: string, updates: Partial<Event>) => {
           importance: anchorTask.importance || false,
           urgency: anchorTask.urgency || false,
           source_type: 'text',
-          creation_source: 'calendar',
+          metadata: { creation_source: 'calendar' },
         });
         if (error) {
           console.error('[calendar] Error saving recurrence completion:', error);
@@ -378,7 +378,8 @@ const handleEventUpdate = async (id: string, updates: Partial<Event>) => {
       const isAllDay = updates.isAllDay ?? (existingTime === null);
       const noTimesProvided = !updates.startTime && !updates.endTime;
       if (isAllDay === true && noTimesProvided) {
-        updateData.description = rebuildDescription(null, null, newColor, cleanText) || undefined;
+        const newDesc = rebuildDescription(null, null, newColor, cleanText);
+        updateData.description = newDesc === "" ? null : newDesc;
       } else {
         let startTime = newStartTime;
         let endTime = newEndTime;
@@ -539,7 +540,7 @@ const handleEventUpdate = async (id: string, updates: Partial<Event>) => {
         importance: anchorTask.importance || false,
         urgency: anchorTask.urgency || false,
         source_type: 'text',
-        creation_source: 'calendar',
+        metadata: { creation_source: 'calendar' },
       });
       if (!error) {
         window.dispatchEvent(new CustomEvent('adonai:notify', {

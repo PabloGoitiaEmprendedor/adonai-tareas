@@ -89,11 +89,11 @@ export default {
       },
       borderRadius: {
         lg: "var(--radius)",
-        md: "calc(var(--radius) - 4px)",
-        sm: "calc(var(--radius) - 8px)",
-        xl: "1.5rem",
-        "2xl": "2rem",
-        "3xl": "2.5rem",
+        md: "calc(var(--radius) - 2px)",
+        sm: "calc(var(--radius) - 4px)",
+        xl: "0.65rem",
+        "2xl": "0.85rem",
+        "3xl": "1rem",
         DEFAULT: "var(--radius)",
       },
       fontFamily: {

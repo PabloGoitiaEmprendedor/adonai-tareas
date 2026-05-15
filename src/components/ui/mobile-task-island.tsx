@@ -1,7 +1,6 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  Zap, 
   Plus, 
   ChevronDown, 
   Search, 
@@ -9,7 +8,6 @@ import {
   Folder, 
   FolderOpen, 
   Users,
-  List, 
   GripHorizontal 
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -120,8 +118,9 @@ export const MobileDynamicIsland = ({
       const matchesSearch = title.toLowerCase().includes(searchQuery.toLowerCase());
       
       const taskDate = t.startTime || t.start_time || (t.date ? new Date(t.date) : new Date());
+      const isCompleted = t.completed || t.status === 'done';
       const inTimeRange = isSameDay(taskDate, currentDate) || 
-                         (taskDate < startOfDay(currentDate) && t.status !== 'done');
+                         (taskDate < startOfDay(currentDate) && !isCompleted);
       
       let matchesFolder = true;
       if (selectedFolderId === 'shared') {
@@ -317,16 +316,11 @@ export const MobileDynamicIsland = ({
           )}
         >
           <div className="flex items-center gap-2">
-            {isOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <Zap className="w-3.5 h-3.5 fill-current" />}
+            <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isOpen ? '' : 'rotate-180'}`} />
             <span className="text-[11px] font-black uppercase tracking-widest">
               {isOpen ? "Cerrar" : "Tareas"}
             </span>
           </div>
-          {!isOpen && (
-            <div className="bg-primary-foreground/20 rounded-full px-2 py-0.5 text-[10px] font-black">
-              {filteredTasks.length}
-            </div>
-          )}
         </motion.button>
 
       </div>

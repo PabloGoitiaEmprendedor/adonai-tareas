@@ -59,8 +59,10 @@ export interface Event {
   attendees?: string[]
   tags?: string[]
   priority?: number
-  recurrence?: 'none' | 'daily' | 'weekdays' | 'weekly' | 'biweekly' | 'monthly' | 'yearly'
+  recurrence?: 'none' | 'daily' | 'weekdays' | 'weekly' | 'biweekly' | 'monthly' | 'yearly' | 'custom'
   recurrenceDays?: number[]
+  recurrenceInterval?: number
+  recurrenceUnit?: 'days' | 'weeks' | 'months' | 'years'
   urgency?: boolean
   importance?: boolean
   links?: string[]
@@ -299,7 +301,7 @@ export function EventManager({
     const event = isCreating ? newEvent : selectedEvent;
     const days = event?.recurrenceDays;
     if (days && days.length > 0) {
-      const dayLabels = ['D', 'L', 'M', 'M', 'J', 'V', 'S'];
+      const dayLabels = ['D', 'L', 'M', 'X', 'J', 'V', 'S'];
       const selectedLabels = [...days].sort().map(d => dayLabels[d]).join(', ');
       const interval = (event as any)?.recurrenceInterval || 1;
       const unit = (event as any)?.recurrenceUnit || 'weeks';
@@ -438,6 +440,31 @@ export function EventManager({
           case 'yearly':
             matches = monthOfYear === anchorDate.getMonth() && dayOfMonth === anchorDate.getDate()
             break
+          case 'custom': {
+            // Custom recurrence with interval and unit
+            const interval = (event as any)?.recurrenceInterval || 1;
+            const unit = (event as any)?.recurrenceUnit || 'weeks';
+            if (unit === 'days') {
+              const daysSinceAnchor = Math.floor((dayStart.getTime() - anchorDayStart.getTime()) / (24 * 60 * 60 * 1000));
+              matches = daysSinceAnchor % interval === 0;
+            } else if (unit === 'weeks') {
+              const weeksSinceAnchor = Math.floor((dayStart.getTime() - anchorDayStart.getTime()) / (7 * 24 * 60 * 60 * 1000));
+              if (weeksSinceAnchor % interval === 0) {
+                if (event.recurrenceDays && event.recurrenceDays.length > 0) {
+                  matches = event.recurrenceDays.includes(dayOfWeek);
+                } else {
+                  matches = dayOfWeek === anchorDate.getDay();
+                }
+              }
+            } else if (unit === 'months') {
+              const monthsSinceAnchor = (day.getFullYear() - anchorDate.getFullYear()) * 12 + (day.getMonth() - anchorDate.getMonth());
+              matches = monthsSinceAnchor > 0 && monthsSinceAnchor % interval === 0 && dayOfMonth === anchorDate.getDate();
+            } else if (unit === 'years') {
+              const yearsSinceAnchor = day.getFullYear() - anchorDate.getFullYear();
+              matches = yearsSinceAnchor > 0 && yearsSinceAnchor % interval === 0 && monthOfYear === anchorDate.getMonth() && dayOfMonth === anchorDate.getDate();
+            }
+            break;
+          }
           default:
             break
         }
@@ -584,6 +611,9 @@ export function EventManager({
       attendees: newEvent.attendees,
       tags: newEvent.tags || [],
       recurrence: newEvent.recurrence || 'none',
+      recurrenceDays: newEvent.recurrenceDays || [],
+      recurrenceInterval: newEvent.recurrenceInterval,
+      recurrenceUnit: newEvent.recurrenceUnit,
       links: newEvent.links || [],
       urgency: newEvent.urgency,
       importance: newEvent.importance,
@@ -979,17 +1009,15 @@ export function EventManager({
   return (
     <div data-calendar-grid className={cn("flex flex-col gap-4", className)}>
       {/* Sticky Header - Google-like */}
-      <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-xl border-b border-outline-variant/10 px-2 py-3 -mx-0 mb-2 shadow-sm">
-        <div className="flex items-center justify-between">
-          {/* Left: Month name + date (opens date picker) */}
+      <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-xl border-b border-outline-variant/10 px-2 pb-3 pt-6 lg:pt-3 -mx-0 mb-2 shadow-sm">
+        {/* Single-line header: Month + Day + Nav + View tabs */}
+        <div className="flex items-center gap-2 pl-12 lg:pl-0">
+          {/* Month name (opens date picker) */}
           <Popover>
             <PopoverTrigger asChild>
-              <button type="button" className="flex flex-col items-start text-left hover:opacity-80 transition-opacity">
-                <span className="text-lg font-black tracking-tight text-foreground leading-tight">
-                  {currentDate.toLocaleDateString("es-ES", { month: "long" }).charAt(0).toUpperCase() + currentDate.toLocaleDateString("es-ES", { month: "long" }).slice(1)}
-                </span>
-                <span className="text-[10px] font-bold text-muted-foreground/60 mt-px">
-                  {currentDate.toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" }).charAt(0).toUpperCase() + currentDate.toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" }).slice(1)}
+              <button type="button" className="flex items-center gap-3 text-left hover:opacity-80 transition-opacity shrink-0">
+                <span className="text-2xl lg:text-3xl font-black tracking-tight text-foreground leading-none flex items-center gap-2">
+                  {format(currentDate, "MMMM", { locale: es }).charAt(0).toUpperCase() + format(currentDate, "MMMM", { locale: es }).slice(1)}
                 </span>
               </button>
             </PopoverTrigger>
@@ -1004,30 +1032,45 @@ export function EventManager({
             </PopoverContent>
           </Popover>
 
-          {/* Right: Search + Nav arrows */}
-          <div className="flex items-center gap-1">
-            {/* Search toggle */}
-            <button
-              type="button"
-              onClick={() => setSearchOpen(!searchOpen)}
-              className="h-8 w-8 flex items-center justify-center rounded-lg text-muted-foreground/60 hover:text-foreground hover:bg-surface-container/80 transition-all"
-            >
-              <Search className="w-4 h-4" />
-            </button>
-            {/* Prev */}
-            <Button variant="ghost" size="icon" onClick={() => navigateDate("prev")} className="h-8 w-8 rounded-lg hover:bg-primary/10 hover:text-primary">
+          {/* Nav arrows */}
+          <div className="flex items-center gap-0.5 shrink-0">
+            <Button variant="ghost" size="icon" onClick={() => navigateDate("prev")} className="h-7 w-7 rounded-lg hover:bg-primary/10 hover:text-primary">
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            {/* Next */}
-            <Button variant="ghost" size="icon" onClick={() => navigateDate("next")} className="h-8 w-8 rounded-lg hover:bg-primary/10 hover:text-primary">
+            <Button variant="ghost" size="icon" onClick={() => navigateDate("next")} className="h-7 w-7 rounded-lg hover:bg-primary/10 hover:text-primary">
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
+
+          {/* Spacer */}
+          <div className="flex-1 min-w-0" />
+
+          {/* View toggle */}
+          <div className="flex bg-surface-container-low/80 rounded-xl p-0.5 border border-outline-variant/10 shrink-0">
+            <Button variant="ghost" size="sm" onClick={() => setView("day")} className={cn("text-[9px] font-black uppercase tracking-widest h-6 px-3 rounded-xl transition-all shrink-0", view === "day" ? "bg-white dark:bg-surface-container-high shadow-lg text-primary" : "opacity-40 hover:opacity-100")}>
+              Día
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => setView("week")} className={cn("text-[9px] font-black uppercase tracking-widest h-6 px-3 rounded-xl transition-all shrink-0", view === "week" ? "bg-white dark:bg-surface-container-high shadow-lg text-primary" : "opacity-40 hover:opacity-100")}>
+              Semana
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => setView("month")} className={cn("text-[9px] font-black uppercase tracking-widest h-6 px-3 rounded-xl transition-all shrink-0", view === "month" ? "bg-white dark:bg-surface-container-high shadow-lg text-primary" : "opacity-40 hover:opacity-100")}>
+              Mes
+            </Button>
+          </div>
+
+          {/* Search toggle */}
+          <button
+            type="button"
+            onClick={() => setSearchOpen(!searchOpen)}
+            className="h-7 w-7 flex items-center justify-center rounded-lg text-muted-foreground/60 hover:text-foreground hover:bg-surface-container/80 transition-all shrink-0"
+          >
+            <Search className="w-4 h-4" />
+          </button>
         </div>
 
         {/* Search bar (expandable) */}
         {searchOpen && (
-          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden mt-3">
+          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden mt-2 pl-10 lg:pl-0">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/30 pointer-events-none" />
               <input
@@ -1045,21 +1088,6 @@ export function EventManager({
             </div>
           </motion.div>
         )}
-
-        {/* View toggle */}
-        <div className="flex items-center justify-center mt-3">
-          <div className="flex bg-surface-container-low/80 rounded-[18px] p-0.5 border border-outline-variant/10 overflow-x-auto no-scrollbar">
-            <Button variant="ghost" size="sm" onClick={() => setView("day")} className={cn("text-[9px] font-black uppercase tracking-widest h-7 px-4 rounded-xl transition-all shrink-0", view === "day" ? "bg-white dark:bg-surface-container-high shadow-lg text-primary" : "opacity-40 hover:opacity-100")}>
-              Día
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => setView("week")} className={cn("text-[9px] font-black uppercase tracking-widest h-7 px-4 rounded-xl transition-all shrink-0", view === "week" ? "bg-white dark:bg-surface-container-high shadow-lg text-primary" : "opacity-40 hover:opacity-100")}>
-              Semana
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => setView("month")} className={cn("text-[9px] font-black uppercase tracking-widest h-7 px-4 rounded-xl transition-all shrink-0", view === "month" ? "bg-white dark:bg-surface-container-high shadow-lg text-primary" : "opacity-40 hover:opacity-100")}>
-              Mes
-            </Button>
-          </div>
-        </div>
       </div>
 
       {/* Main Content */}
@@ -1105,7 +1133,7 @@ export function EventManager({
                   <Card 
                     data-sidebar-droptarget="true"
 
-                    className="hidden lg:flex w-64 flex-shrink-0 flex-col border-outline-variant/10 bg-surface-container/30 backdrop-blur-sm shadow-sm overflow-hidden sticky top-4 z-10 h-[calc(100vh-100px)]"
+                    className="hidden lg:flex w-64 flex-shrink-0 flex-col border-outline-variant/10 bg-surface-container/30 backdrop-blur-sm shadow-sm overflow-hidden sticky top-[4.5rem] z-10 h-[calc(100vh-140px)]"
                     onDragOver={(e) => {
                       e.preventDefault();
                       e.dataTransfer.dropEffect = "move";
@@ -1638,240 +1666,109 @@ export function EventManager({
                         </div>
                       )}
 
-                       {/* PRIORIDAD (Two-state high-end buttons) */}
-                        {isTask && (
-                          <div className="space-y-3 pt-2">
-                             <label className="text-[11px] font-bold text-muted-foreground/60 uppercase tracking-wider ml-1">Importancia y Urgencia</label>
-                             <div className="grid grid-cols-2 gap-3">
-                               <button
-                                 type="button"
-                                 onClick={() => {
-                                   const nextVal = !importanceVal;
-                                   const newUrgency = isCreating ? newEvent.urgency : selectedEvent?.urgency;
-                                   const autoColor = priorityColors[getPriorityKey(!!newUrgency, nextVal)];
-                                   if (isCreating) {
-                                     setNewEvent(prev => ({ ...prev, importance: nextVal, color: autoColor }));
-                                   } else {
-                                     setSelectedEvent(prev => prev ? ({ ...prev, importance: nextVal, color: autoColor }) : null);
-                                   }
-                                 }}
-                                 className={cn(
-                                   "flex items-center justify-center gap-2 rounded-[20px] font-bold uppercase tracking-wider text-[10px] transition-all border h-14",
-                                   importanceVal
-                                     ? 'bg-amber-500/10 text-amber-600 border-amber-500/30 shadow-sm'
-                                     : 'bg-surface-container/20 text-muted-foreground border-outline-variant/10'
-                                 )}
-                               >
-                                 <div className={cn("w-2 h-2 rounded-full", importanceVal ? "bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]" : "bg-muted-foreground/30")} />
-                                 IMPORTANTE
-                               </button>
-                               <button
-                                 type="button"
-                                 onClick={() => {
-                                   const nextVal = !urgencyVal;
-                                   const newImportance = isCreating ? newEvent.importance : selectedEvent?.importance;
-                                   const autoColor = priorityColors[getPriorityKey(nextVal, !!newImportance)];
-                                   if (isCreating) {
-                                     setNewEvent(prev => ({ ...prev, urgency: nextVal, color: autoColor }));
-                                   } else {
-                                     setSelectedEvent(prev => prev ? ({ ...prev, urgency: nextVal, color: autoColor }) : null);
-                                   }
-                                 }}
-                                 className={cn(
-                                   "flex items-center justify-center gap-2 rounded-[20px] font-bold uppercase tracking-wider text-[10px] transition-all border h-14",
-                                   urgencyVal
-                                     ? 'bg-red-500/10 text-red-600 border-red-500/30 shadow-sm'
-                                     : 'bg-surface-container/20 text-muted-foreground border-outline-variant/10'
-                                 )}
-                               >
-                                 <div className={cn("w-2 h-2 rounded-full", urgencyVal ? "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]" : "bg-muted-foreground/30")} />
-                                 URGENTE
-                               </button>
-                             </div>
-                          </div>
-                        )}
-
-                       {/* COLOR SELECTION - 4 priority colors + custom + */}
-                      <div className="space-y-3">
-                         <label className="text-[11px] font-bold text-muted-foreground/60 uppercase tracking-wider ml-1">Color de identificación</label>
-                         <div className="flex items-center gap-3 overflow-x-auto no-scrollbar py-1">
-                           {[
-                             priorityColors.p1, priorityColors.p2, priorityColors.p3, priorityColors.p4,
-                           ].map((c) => {
-                             const currentC = isCreating ? newEvent.color : selectedEvent?.color;
-                             const isSelected = currentC === c;
-                             return (
-                               <button
-                                 key={c}
-                                 type="button"
-                                 onClick={() => {
-                                   if (isCreating) setNewEvent(prev => ({ ...prev, color: c }));
-                                   else setSelectedEvent(prev => prev ? ({ ...prev, color: c }) : null);
-                                 }}
-                                 className={cn(
-                                   "w-7 h-7 rounded-full flex-shrink-0 transition-all duration-300 relative",
-                                   isSelected ? "scale-125 ring-2 ring-primary/40 ring-offset-2 ring-offset-background shadow-lg" : "hover:scale-110 opacity-70 hover:opacity-100"
-                                 )}
-                                 style={{ backgroundColor: c }}
-                               >
-                                 {isSelected && <Check className="w-3.5 h-3.5 text-white absolute inset-0 m-auto" />}
-                               </button>
-                             );
-                           })}
-                           {/* Custom color + button */}
-                           <div className="relative">
-                             <input
-                               type="color"
-                               id="custom-color-input"
-                               value={isCreating ? (newEvent.color || '#6366f1') : (selectedEvent?.color || '#6366f1')}
-                               onChange={(e) => {
-                                 if (isCreating) setNewEvent(prev => ({ ...prev, color: e.target.value }));
-                                 else setSelectedEvent(prev => prev ? ({ ...prev, color: e.target.value }) : null);
-                               }}
-                               className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                             />
-                             <label htmlFor="custom-color-input" className={cn(
-                               "w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center border-2 border-dashed border-muted-foreground/30 cursor-pointer transition-all hover:border-primary/50",
-                             )}>
-                               <span className="text-xs font-bold text-muted-foreground/50">+</span>
-                             </label>
-                           </div>
-                         </div>
-                      </div>
-
-                      {/* REPETICIÓN - Personalizar popover con días + resumen */}
-                      <div className="space-y-3 pt-2">
-                        <div className="flex items-center justify-between px-1">
-                          <label className="text-[11px] font-bold text-muted-foreground/60 uppercase tracking-wider">Repetición</label>
-                          <Popover open={isRecPopoverOpen} onOpenChange={setIsRecPopoverOpen}>
-                            <PopoverTrigger asChild>
-                              <button
-                                type="button"
-                                className="text-[10px] font-black uppercase tracking-widest text-primary/70 hover:text-primary transition-colors"
-                              >
-                                Personalizar
-                              </button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-72 p-4 border-outline-variant/10 bg-surface-container/95 backdrop-blur-3xl shadow-2xl rounded-2xl" align="end">
-                              <div className="space-y-4">
-                                <h4 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Personalizar recurrencia</h4>
-                                <div className="flex items-center gap-2">
-                                  <span className="text-[11px] font-bold text-muted-foreground/60">Cada</span>
-                                  <input
-                                    type="number"
-                                    min={1}
-                                    value={recInterval}
-                                    onChange={(e) => setRecInterval(Math.max(1, parseInt(e.target.value) || 1))}
-                                    className="w-14 h-8 text-center text-[11px] font-bold bg-surface/50 border border-outline-variant/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30"
-                                  />
-                                  <select
-                                    value={recUnit}
-                                    onChange={(e) => setRecUnit(e.target.value as any)}
-                                    className="flex-1 h-8 text-[11px] font-bold bg-surface/50 border border-outline-variant/30 rounded-lg px-2 focus:outline-none focus:ring-2 focus:ring-primary/30"
-                                  >
-                                    <option value="days">días</option>
-                                    <option value="weeks">semanas</option>
-                                    <option value="months">meses</option>
-                                    <option value="years">años</option>
-                                  </select>
-                                </div>
-                                <div className="space-y-2">
-                                  <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Días de la semana</span>
-                                  <div className="flex gap-1.5 overflow-x-auto no-scrollbar">
-                                    {[
-                                      { key: 1, label: 'L' },
-                                      { key: 2, label: 'M' },
-                                      { key: 3, label: 'M' },
-                                      { key: 4, label: 'J' },
-                                      { key: 5, label: 'V' },
-                                      { key: 6, label: 'S' },
-                                      { key: 0, label: 'D' },
-                                    ].map(d => {
-                                      const isActive = recDays.includes(d.key);
-                                      return (
-                                        <button
-                                          key={d.key}
-                                          type="button"
-                                          onClick={() => {
-                                            const next = isActive ? recDays.filter(k => k !== d.key) : [...recDays, d.key];
-                                            setRecDays(next);
-                                          }}
-                                          className={cn(
-                                            "w-9 h-9 rounded-full text-[11px] font-black transition-all flex items-center justify-center",
-                                            isActive
-                                              ? "bg-primary text-primary-foreground shadow-md"
-                                              : "bg-surface-container/50 text-muted-foreground/50 hover:bg-surface-container hover:text-foreground"
-                                          )}
-                                        >
-                                          {d.label}
-                                        </button>
-                                      );
-                                    })}
-                                  </div>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <span className="text-[11px] font-bold text-muted-foreground/60">Finaliza</span>
-                                  <select
-                                    value={recEndType}
-                                    onChange={(e) => setRecEndType(e.target.value as any)}
-                                    className="flex-1 h-8 text-[11px] font-bold bg-surface/50 border border-outline-variant/30 rounded-lg px-2 focus:outline-none focus:ring-2 focus:ring-primary/30"
-                                  >
-                                    <option value="never">Nunca</option>
-                                    <option value="count">Después de X eventos</option>
-                                    <option value="date">En fecha específica</option>
-                                  </select>
-                                </div>
-                                {recEndType === 'count' && (
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-[11px] font-bold text-muted-foreground/60">Eventos</span>
-                                    <input
-                                      type="number"
-                                      min={1}
-                                      value={recEndCount}
-                                      onChange={(e) => setRecEndCount(Math.max(1, parseInt(e.target.value) || 1))}
-                                      className="w-14 h-8 text-center text-[11px] font-bold bg-surface/50 border border-outline-variant/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30"
-                                    />
-                                  </div>
-                                )}
-                                {recEndType === 'date' && (
-                                  <input
-                                    type="date"
-                                    value={recEndDate}
-                                    onChange={(e) => setRecEndDate(e.target.value)}
-                                    className="w-full h-8 text-[11px] font-bold bg-surface/50 border border-outline-variant/30 rounded-lg px-2 focus:outline-none focus:ring-2 focus:ring-primary/30"
-                                  />
-                                )}
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    const days = recDays.slice();
-                                    const dayLabels = ['D', 'L', 'M', 'M', 'J', 'V', 'S'];
-                                    const selectedLabels = [...days].sort().map(dk => dayLabels[dk]).join(', ');
-                                    const unitMap: Record<string, string> = { days: recInterval === 1 ? 'día' : 'días', weeks: recInterval === 1 ? 'semana' : 'semanas', months: recInterval === 1 ? 'mes' : 'meses', years: recInterval === 1 ? 'año' : 'años' };
-                                    let summary = `Cada ${recInterval} ${unitMap[recUnit] || recUnit}`;
-                                    if (recUnit === 'weeks' && selectedLabels) summary += ` en ${selectedLabels}`;
-                                    if (recEndType === 'count') summary += ` · ${recEndCount} eventos`;
-                                    else if (recEndType === 'date' && recEndDate) summary += ` · hasta ${recEndDate}`;
-                                    setRecSummary(summary);
-                                    if (isCreating) setNewEvent(prev => ({ ...prev, recurrence: recInterval > 1 || recUnit !== 'weeks' ? 'custom' : 'weekly', recurrenceDays: days }));
-                                    else setSelectedEvent(prev => prev ? ({ ...prev, recurrence: recInterval > 1 || recUnit !== 'weeks' ? 'custom' : 'weekly', recurrenceDays: days, recurrenceInterval: recInterval, recurrenceUnit: recUnit }) : null);
-                                    setIsRecPopoverOpen(false);
-                                  }}
-                                  className="w-full py-2 rounded-xl text-[10px] font-black uppercase tracking-widest bg-primary text-primary-foreground shadow-lg"
-                                >
-                                  Aplicar
-                                </button>
-                              </div>
-                            </PopoverContent>
-                          </Popover>
+                      {/* PRIORIDAD */}
+                      <div className="space-y-2">
+                        <label className="text-[11px] font-bold text-muted-foreground/60 uppercase tracking-wider ml-1">Prioridad</label>
+                        <div className="flex gap-2">
+                        <div className="grid grid-cols-2 gap-3">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (isCreating) setNewEvent(prev => ({ ...prev, importance: !prev.importance }))
+                              else setSelectedEvent(prev => prev ? ({ ...prev, importance: !prev.importance }) : null)
+                            }}
+                            className={cn(
+                              "flex flex-col items-center justify-center gap-1 rounded-[22px] font-black uppercase tracking-widest text-[9px] transition-all border h-14",
+                              importanceVal 
+                                ? "bg-amber-500/10 text-amber-500 border-amber-500/30 shadow-lg shadow-amber-500/5" 
+                                : "bg-surface-container/30 text-muted-foreground border-outline-variant/10 hover:bg-surface-container/50"
+                            )}
+                          >
+                            <span>IMPORTANTE</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (isCreating) setNewEvent(prev => ({ ...prev, urgency: !prev.urgency }))
+                              else setSelectedEvent(prev => prev ? ({ ...prev, urgency: !prev.urgency }) : null)
+                            }}
+                            className={cn(
+                              "flex flex-col items-center justify-center gap-1 rounded-[22px] font-black uppercase tracking-widest text-[9px] transition-all border h-14",
+                              urgencyVal 
+                                ? "bg-red-500/10 text-red-500 border-red-500/30 shadow-lg shadow-red-500/5" 
+                                : "bg-surface-container/30 text-muted-foreground border-outline-variant/10 hover:bg-surface-container/50"
+                            )}
+                          >
+                            <span>URGENTE</span>
+                          </button>
                         </div>
-                        {recSummary && (
-                          <div className="px-1 py-1">
-                            <span className="text-xs font-bold text-foreground/70">Tu recurrencia: {recSummary}</span>
-                          </div>
-                        )}
                       </div>
 
+                      {/* REPETICIÓN */}
+                      <div className="space-y-2">
+                        <label className="text-[11px] font-bold text-muted-foreground/60 uppercase tracking-wider ml-1">Repetición</label>
+                        <Popover open={isRecPopoverOpen} onOpenChange={setIsRecPopoverOpen}>
+                          <PopoverTrigger asChild>
+                            <div className="flex items-center justify-between bg-surface/50 border border-outline-variant/30 rounded-[18px] px-4 py-3.5 cursor-pointer hover:border-primary/40 hover:bg-surface transition-all shadow-sm group">
+                              <div className="flex items-center gap-3">
+                                <Repeat className="w-4 h-4 text-primary/40 group-hover:text-primary transition-colors" />
+                                <span className="text-[11px] font-bold text-primary">
+                                  {isCreating ? (newEvent.recurrence === 'none' || !newEvent.recurrence ? 'No se repite' : 
+                                    newEvent.recurrence === 'daily' ? 'Diario' : 
+                                    newEvent.recurrence === 'weekly' ? 'Semanal' : 
+                                    newEvent.recurrence === 'monthly' ? 'Mensual' : 
+                                    newEvent.recurrence === 'weekdays' ? 'Días laborales' : 
+                                    newEvent.recurrence === 'biweekly' ? 'Quincenal' : 
+                                    newEvent.recurrence === 'yearly' ? 'Anual' : 
+                                    newEvent.recurrence === 'custom' ? (recSummary || 'Personalizado') : 'Personalizado') : 
+                                    (selectedEvent?.recurrence === 'none' || !selectedEvent?.recurrence ? 'No se repite' : 
+                                    selectedEvent?.recurrence === 'daily' ? 'Diario' : 
+                                    selectedEvent?.recurrence === 'weekly' ? 'Semanal' : 
+                                    selectedEvent?.recurrence === 'monthly' ? 'Mensual' : 
+                                    selectedEvent?.recurrence === 'weekdays' ? 'Días laborales' : 
+                                    selectedEvent?.recurrence === 'biweekly' ? 'Quincenal' : 
+                                    selectedEvent?.recurrence === 'yearly' ? 'Anual' : 
+                                    selectedEvent?.recurrence === 'custom' ? (recSummary || 'Personalizado') : 'Personalizado')}
+                                </span>
+                              </div>
+                              <ChevronRight className="w-3 h-3 text-muted-foreground/30" />
+                            </div>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-64 p-2 rounded-[24px] bg-background border-outline-variant/10 shadow-2xl" align="start">
+                            <div className="flex flex-col gap-1">
+                              {[
+                                { id: 'none', label: 'No se repite' },
+                                { id: 'daily', label: 'Diario' },
+                                { id: 'weekly', label: 'Semanal' },
+                                { id: 'monthly', label: 'Mensual' },
+                                { id: 'weekdays', label: 'Días laborales' },
+                                { id: 'biweekly', label: 'Quincenal' },
+                                { id: 'yearly', label: 'Anual' },
+                                { id: 'custom', label: 'Personalizado...' },
+                              ].map(opt => (
+                                <button
+                                  key={opt.id}
+                                  onClick={() => {
+                                    const val = opt.id as any
+                                    if (isCreating) setNewEvent(prev => ({ ...prev, recurrence: val }))
+                                    else setSelectedEvent(prev => prev ? ({ ...prev, recurrence: val }) : null)
+                                    if (val !== 'custom') setIsRecPopoverOpen(false)
+                                  }}
+                                  className={cn(
+                                    "flex items-center justify-between px-3 py-2.5 rounded-[14px] text-[11px] font-bold transition-all",
+                                    (isCreating ? newEvent.recurrence : selectedEvent?.recurrence) === opt.id
+                                      ? "bg-primary/10 text-primary"
+                                      : "text-muted-foreground hover:bg-black/5 dark:hover:bg-white/5"
+                                  )}
+                                >
+                                  {opt.label}
+                                  {(isCreating ? newEvent.recurrence : selectedEvent?.recurrence) === opt.id && <Check className="w-3 h-3" />}
+                                </button>
+                              ))}
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                      </div>
 
                       {/* LINKS O REFERENCIAS */}
                       <div className="space-y-1">
@@ -2064,7 +1961,7 @@ export function EventManager({
                     setIsSheetOpen(false);
                   }
                 }}
-                className="w-full h-14 rounded-[24px] font-black uppercase tracking-widest text-[11px] bg-primary text-primary-foreground shadow-2xl hover:scale-[1.01] transition-all"
+                className="w-full h-14 rounded-2xl font-black uppercase tracking-widest text-[11px] bg-primary text-primary-foreground shadow-2xl hover:scale-[1.01] transition-all"
               >
                 <Plus className="w-4 h-4 mr-3" />
                 Nueva Tarea
@@ -2262,6 +2159,7 @@ function TimeGridView({
 
   const ghostRef = useRef<HTMLDivElement>(null);
   const isHoveringSidebarRef = useRef<boolean>(false);
+  const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
   
   // Track whether the user is dragging so that mouseup/click after drag doesn't open the dialog
   const isDraggingRef = useRef(false);
@@ -2294,13 +2192,23 @@ function TimeGridView({
   }, [events]);
 
   useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
+    const handleMouseMove = (e: MouseEvent | TouchEvent) => {
+      // Prevent scrolling when dragging on mobile
+      if ('touches' in e && (isResizing || isMoving) && e.cancelable) {
+        e.preventDefault();
+      }
+
+      const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+      const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+      const pageX = 'touches' in e ? e.touches[0].pageX : e.pageX;
+      const pageY = 'touches' in e ? e.touches[0].pageY : e.pageY;
+
       // Use initialEventsRef.current for all collision logic to prevent infinite render loops and compounding errors
       const baseEvents = initialEventsRef.current.length > 0 ? initialEventsRef.current : events;
 
       if (isResizing && initialStartTime && initialEndTime) {
         isDraggingRef.current = true;
-        const deltaY = e.pageY - initialMouseY;
+        const deltaY = pageY - initialMouseY;
         const minutesDiff = Math.round((deltaY / HOUR_HEIGHT) * 60 / 5) * 5;
         
         const event = baseEvents.find(ev => ev.id === isResizing);
@@ -2368,8 +2276,8 @@ function TimeGridView({
           }
         }
       } else if (isMoving && initialStartTime) {
-        const deltaY = e.pageY - initialMouseY;
-        const deltaX = Math.abs(e.pageX - initialMouseX);
+        const deltaY = pageY - initialMouseY;
+        const deltaX = Math.abs(pageX - initialMouseX);
         
         if (Math.abs(deltaY) > 3 || deltaX > 3) {
           isDraggingRef.current = true;
@@ -2379,7 +2287,7 @@ function TimeGridView({
 
         // Ghost logic — always visible while dragging calendar events
         if (isMoving && ghostRef.current) {
-          ghostRef.current.style.transform = `translate(${e.clientX - 70}px, ${e.clientY - 20}px)`;
+          ghostRef.current.style.transform = `translate(${clientX - 70}px, ${clientY - 20}px)`;
           ghostRef.current.style.display = 'flex';
           ghostRef.current.style.opacity = '1';
 
@@ -2387,9 +2295,9 @@ function TimeGridView({
           const sidebarEl = document.querySelector('[data-sidebar-droptarget]') as HTMLElement;
           if (sidebarEl) {
             const sidebarRect = sidebarEl.getBoundingClientRect();
-            isHoveringSidebarRef.current = e.clientX >= sidebarRect.left && e.clientX <= sidebarRect.right && e.clientY >= sidebarRect.top && e.clientY <= sidebarRect.bottom;
+            isHoveringSidebarRef.current = clientX >= sidebarRect.left && clientX <= sidebarRect.right && clientY >= sidebarRect.top && clientY <= sidebarRect.bottom;
           } else {
-            isHoveringSidebarRef.current = e.clientX < 320;
+            isHoveringSidebarRef.current = clientX < 320;
           }
 
           // Dim original event element while dragging
@@ -2407,7 +2315,7 @@ function TimeGridView({
         
         columns.forEach((col) => {
           const rect = col.getBoundingClientRect();
-          if (e.clientX >= rect.left && e.clientX <= rect.right) {
+          if (clientX >= rect.left && clientX <= rect.right) {
             const index = col.getAttribute('data-day-index');
             if (index !== null) targetDayIndex = parseInt(index);
           }
@@ -2468,7 +2376,7 @@ function TimeGridView({
       }
     };
 
-    const handleMouseUp = (e: MouseEvent) => {
+    const handleMouseUp = (e: MouseEvent | TouchEvent) => {
       if (isResizing || isMoving) {
         if (isMoving && isHoveringSidebarRef.current) {
           // Drop on sidebar - unschedule the event (convert to allDay task)
@@ -2531,6 +2439,9 @@ function TimeGridView({
       document.body.style.userSelect = 'none';
       window.addEventListener('mousemove', handleMouseMove);
       window.addEventListener('mouseup', handleMouseUp);
+      window.addEventListener('touchmove', handleMouseMove, { passive: false });
+      window.addEventListener('touchend', handleMouseUp);
+      window.addEventListener('touchcancel', handleMouseUp);
     } else {
       document.body.style.userSelect = '';
     }
@@ -2538,6 +2449,9 @@ function TimeGridView({
       document.body.style.userSelect = '';
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('touchmove', handleMouseMove);
+      window.removeEventListener('touchend', handleMouseUp);
+      window.removeEventListener('touchcancel', handleMouseUp);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isResizing, isMoving, initialMouseX, initialMouseY, initialStartTime, initialEndTime, initialDuration, onEventUpdate, HOUR_HEIGHT, days]);
@@ -2587,13 +2501,13 @@ function TimeGridView({
       {/* Ghost is rendered via portal at body level so backdrop-blur on Card doesn't clip it */}
 
       {/* Grid Header - Sticky */}
-      <div className="sticky top-0 z-10 bg-background/90 backdrop-blur-sm flex border-b border-outline-variant/20 shadow-sm">
-        <div className="w-16 flex-shrink-0 border-r border-outline-variant/20 bg-surface-container/30" />
+      <div className="sticky top-[64px] z-20 bg-background/95 backdrop-blur-md flex border-b border-outline-variant/20 shadow-sm">
+        <div className="w-16 flex-shrink-0 border-r border-outline-variant/20 bg-surface-container/50 sticky left-0 z-30" />
         <div className={cn("flex-1 grid", view === "week" ? "grid-cols-7" : view === "3day" ? "grid-cols-3" : "grid-cols-1")}>
           {days.map((day, idx) => (
             <div key={idx} className="p-3 text-center border-r border-outline-variant/20 last:border-r-0">
               <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground block mb-1">
-                {format(day, "EEE")}
+                {format(day, "EEE", { locale: es }).toUpperCase().replace('.', '')}
               </span>
               <span className={cn(
                 "inline-flex items-center justify-center w-8 h-8 rounded-xl text-sm font-black transition-all",
@@ -2607,14 +2521,14 @@ function TimeGridView({
       </div>
 
       {/* Grid Body */}
-      <div ref={scrollContainerRef} className="flex-1 scroll-smooth">
+      <div ref={scrollContainerRef} className="flex-1 scroll-smooth overflow-x-auto">
         <div className="relative flex" style={{ height: `${24 * HOUR_HEIGHT}px` }}>
-          {/* Time Labels */}
-          <div className="w-16 flex-shrink-0 border-r border-outline-variant/20 bg-surface-container/30">
+          {/* Time Labels - Sticky Left */}
+          <div className="w-16 flex-shrink-0 border-r border-outline-variant/20 bg-surface-container/50 sticky left-0 z-20 backdrop-blur-sm">
             {hours.map((hour) => (
               <div key={hour} className="relative" style={{ height: `${HOUR_HEIGHT}px` }}>
-                <span className="absolute -top-2 right-2 text-[9px] font-black text-muted-foreground/40 uppercase">
-                  {hour === 0 ? "" : format(new Date().setHours(hour, 0, 0, 0), "h a")}
+                <span className="absolute -top-2 right-2 text-[11px] font-black text-foreground uppercase tracking-tighter drop-shadow-sm">
+                  {hour === 0 ? "" : format(new Date().setHours(hour, 0, 0, 0), "h a", { locale: es })}
                 </span>
               </div>
             ))}
@@ -2765,6 +2679,41 @@ function TimeGridView({
                           setInitialStartTime(new Date(event.startTime));
                           setInitialDuration((event.endTime.getTime() - event.startTime.getTime()) / 60000);
                         }}
+                        onTouchStart={(e) => {
+                          if (dragDisabled) return;
+                          e.stopPropagation();
+                          const touch = e.touches[0];
+                          const startX = touch.pageX;
+                          const startY = touch.pageY;
+                          
+                          // Long press for mobile dragging
+                          longPressTimerRef.current = setTimeout(() => {
+                            isDraggingRef.current = false;
+                            setIsMoving(event.id);
+                            setInitialMouseY(startY);
+                            setInitialMouseX(startX);
+                            setInitialStartTime(new Date(event.startTime));
+                            setInitialDuration((event.endTime.getTime() - event.startTime.getTime()) / 60000);
+                            
+                            // Vibrate if supported for haptic feedback
+                            if (window.navigator && window.navigator.vibrate) {
+                              window.navigator.vibrate(50);
+                            }
+                          }, 500); // 500ms for long press
+                        }}
+                        onTouchEnd={() => {
+                          if (longPressTimerRef.current) {
+                            clearTimeout(longPressTimerRef.current);
+                            longPressTimerRef.current = null;
+                          }
+                        }}
+                        onTouchMove={() => {
+                          // If moved too much before long press, cancel it
+                          if (!isMoving && longPressTimerRef.current) {
+                            clearTimeout(longPressTimerRef.current);
+                            longPressTimerRef.current = null;
+                          }
+                        }}
                       >
                           {/* Top Resize Handle */}
                           <div 
@@ -2789,7 +2738,7 @@ function TimeGridView({
                             <p className={cn("truncate font-black select-none leading-tight", event.completed && "line-through")}>{event.title}</p>
                             {duration > 0.4 && (
                               <p className="opacity-70 text-[8px] font-medium mt-0.5 select-none">
-                                {format(event.startTime, "h:mm a")} - {format(event.endTime, "h:mm a")}
+                                {format(event.startTime, "h:mm a", { locale: es })} - {format(event.endTime, "h:mm a", { locale: es })}
                               </p>
                             )}
                           </div>
@@ -2911,7 +2860,7 @@ function TimeGridView({
                 </div>
                 <div className="flex-1 h-0.5 bg-gradient-to-r from-red-500 to-transparent opacity-40" />
                 <span className="text-[8px] font-black text-red-500 bg-white dark:bg-surface-container-high px-1.5 py-0.5 rounded-full ml-2 shadow-sm border border-red-500/10">
-                  {format(new Date(), "h:mm a")}
+                  {format(new Date(), "h:mm a", { locale: es })}
                 </span>
               </div>
             )}
@@ -3005,10 +2954,10 @@ function MonthView({
 
   return (
     <Card className="overflow-hidden border-outline-variant/10 bg-surface-container/30 backdrop-blur-sm shadow-sm">
-      <div className="grid grid-cols-7 border-b border-outline-variant/5">
+      <div className="grid grid-cols-7 border-b border-outline-variant/5 sticky top-[64px] z-10 bg-background/95 backdrop-blur-md">
         {["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"].map((day) => (
-          <div key={day} className="p-3 text-center text-xs font-bold uppercase tracking-widest text-muted-foreground">
-            {day}
+          <div key={day} className="p-3 text-center text-xs font-black uppercase tracking-widest text-muted-foreground">
+            {day.toUpperCase()}
           </div>
         ))}
       </div>

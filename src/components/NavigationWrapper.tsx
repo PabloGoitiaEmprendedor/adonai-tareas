@@ -49,7 +49,7 @@ function DesktopDownloadBanner() {
   };
 
   return (
-    <div className="rounded-2xl bg-primary/8 border border-primary/20 p-3">
+    <div className="rounded-xl bg-primary/8 border border-primary/20 p-3">
       <div className="flex items-center gap-2 mb-2.5">
         <Download className="w-3.5 h-3.5 text-primary flex-shrink-0" />
         <p className="text-[11px] font-bold text-primary leading-tight">
@@ -382,7 +382,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
       {!open && (
         <div className={`fixed left-4 z-[70] flex items-center gap-2 ${
             desktopSidebarOpen ? 'lg:hidden' : ''
-          } ${window.electronAPI ? 'top-16' : 'top-10'}`}>
+          } ${window.electronAPI ? 'top-[4.5rem]' : 'top-[3.25rem]'}`}>
           <button
             id="global-menu-trigger"
             onClick={() => {
@@ -431,16 +431,16 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
           desktopSidebarOpen ? 'lg:pl-72' : 'lg:pl-0'
         }`}
       >
-        <div className={`max-w-7xl mx-auto px-0 lg:px-4 ${window.electronAPI ? 'pt-20' : 'pt-16'}`}>
+        <div className={`max-w-7xl mx-auto px-0 lg:px-4 ${window.electronAPI ? 'pt-24' : 'pt-[4.5rem]'}`}>
           {children}
         </div>
       </main>
 
       {/* Universal Task Capture UI */}
       <div className="relative z-[60]">
-        {/* Mobile logic: Island on week page, FAB elsewhere */}
+        {/* Mobile logic: Island on week page + FAB everywhere (hidden during draft/detail/event-create) */}
         <div className="lg:hidden">
-          {isWeeklyPage && !draftActive ? (
+          {isWeeklyPage && !draftActive && (
             <MobileDynamicIsland
               tasks={tasks}
               currentDate={new Date()}
@@ -452,7 +452,8 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
               getPriorityKey={getPriorityKey}
               folders={folders}
             />
-          ) : !isWeeklyPage && !fabHidden ? (
+          )}
+          {!fabHidden && (
             <FAB 
               onTextClick={() => openCapture()} 
               onVoiceClick={() => openCaptureInVoiceMode()} 
@@ -468,7 +469,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
                 window.dispatchEvent(new CustomEvent('adonai:open-create-event'))
               }}
             />
-          ) : null}
+          )}
         </div>
 
         {/* Desktop logic: FAB visible unless draft or detail is open */}

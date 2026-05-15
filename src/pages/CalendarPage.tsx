@@ -32,7 +32,7 @@ const CalendarPage = () => {
           selectedDate={selectedDate}
           onSelectDate={setSelectedDate}
           viewMode={viewMode}
-          dragDisabled={true}
+          dragDisabled={false}
         />
 
       </div>
