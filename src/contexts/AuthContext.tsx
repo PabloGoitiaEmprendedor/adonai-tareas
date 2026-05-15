@@ -26,6 +26,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // Keep ref in sync so beforeunload always has latest user
   useEffect(() => { userRef.current = user; }, [user]);
 
+  // ── Helpers for session persistence tracking ──────────────────────
+  const saveSessionFlags = (session: Session | null) => {
+    if (session?.user) {
+      localStorage.setItem('adonai_had_session', 'true');
+      localStorage.setItem('adonai_session_type', session.user.is_anonymous ? 'anonymous' : 'email');
+    } else {
+      localStorage.removeItem('adonai_had_session');
+      localStorage.removeItem('adonai_session_type');
+    }
+  };
+
+  const clearSessionFlags = () => {
+    localStorage.removeItem('adonai_had_session');
+    localStorage.removeItem('adonai_session_type');
+  };
+
   useEffect(() => {
     let mounted = true;
 
@@ -39,9 +55,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       if (event === 'TOKEN_REFRESHED') {
         console.log('[Auth] Token refreshed');
+        saveSessionFlags(newSession);
       }
 
       if (event === 'SIGNED_IN') {
+        saveSessionFlags(newSession);
         if (newSession?.provider_token) {
           console.log('[Auth] Google provider token detected, saving for calendar sync');
           const expiresAt = new Date(Date.now() + 3500 * 1000).toISOString();
@@ -79,8 +97,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             if (data?.session && mounted) {
               setSession(data.session);
               setUser(data.session.user);
+              saveSessionFlags(data.session);
             }
           });
+        }
+        if (!manualSignOutRef.current) {
+          clearSessionFlags();
         }
         manualSignOutRef.current = false;
       }
@@ -88,14 +110,32 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setLoading(false);
     });
 
-    // ── 2. Initialize: get cached session or sign in anonymously ───
+    // ── 2. Initialize: get cached session or recover ───
     const initAuth = async () => {
       try {
         const { data: { session: cached } } = await supabase.auth.getSession();
 
         if (!cached) {
-          // No hay sesión guardada — no crear anónimo automático.
-          // La pantalla de bienvenida se encargará cuando el usuario elija "No, empezar gratis".
+          const hadSession = localStorage.getItem('adonai_had_session') === 'true';
+          const sessionType = localStorage.getItem('adonai_session_type');
+
+          if (hadSession && sessionType === 'anonymous') {
+            // El usuario tenía una sesión anónima que expiró — recuperar automáticamente
+            console.log('[Auth] Recovering expired anonymous session');
+            try {
+              const { data } = await supabase.auth.signInAnonymously();
+              if (data?.session && mounted) {
+                setSession(data.session);
+                setUser(data.session.user);
+                saveSessionFlags(data.session);
+                setLoading(false);
+                return;
+              }
+            } catch {
+              console.log('[Auth] Anonymous recovery failed, showing welcome');
+            }
+          }
+
           console.log('[Auth] No cached session — showing welcome screen');
           if (mounted) {
             setSession(null);
@@ -105,12 +145,30 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           return;
         }
 
-        // Usar la sesión cachead directamente — Supabase autoRefreshToken maneja
-        // el refresco automático cuando expira. No llamamos refreshSession()
-        // porque su fallo puede sobrescribir una sesión de email válida con una anónima.
+        // Sesión cachead existente — intentar refresh inmediato si está por expirar
+        if (cached.expires_at) {
+          const expiresMs = cached.expires_at * 1000;
+          if (expiresMs - Date.now() < 60 * 1000) {
+            console.log('[Auth] Session expiring soon on init, refreshing...');
+            try {
+              const { data: refreshed } = await supabase.auth.refreshSession();
+              if (refreshed?.session && mounted) {
+                setSession(refreshed.session);
+                setUser(refreshed.session.user);
+                saveSessionFlags(refreshed.session);
+                setLoading(false);
+                return;
+              }
+            } catch {
+              console.log('[Auth] Refresh on init failed, using cached');
+            }
+          }
+        }
+
         if (mounted) {
           setSession(cached);
           setUser(cached.user);
+          saveSessionFlags(cached);
           setLoading(false);
         }
       } catch (err) {
@@ -129,11 +187,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           const expiresMs = s.expires_at * 1000;
           if (expiresMs - Date.now() < 5 * 60 * 1000) {
             console.log('[Auth] Proactive refresh — token expiring soon');
-            await supabase.auth.refreshSession();
+            const { data: refreshed } = await supabase.auth.refreshSession();
+            if (refreshed?.session) {
+              saveSessionFlags(refreshed.session);
+            }
           }
         }
       } catch (_) { /* silent */ }
-    }, 4 * 60 * 1000);
+    }, 2 * 60 * 1000); // Cada 2 minutos en lugar de 4
 
     // ── 4. Session end tracking ──────────────────────────────────────
     const handleBeforeUnload = () => {
@@ -190,6 +251,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (error) {
       setLoading(false);
       throw error;
+    }
+    if (data.session) {
+      saveSessionFlags(data.session);
     }
     setSession(data.session);
     setUser(data.session?.user ?? null);

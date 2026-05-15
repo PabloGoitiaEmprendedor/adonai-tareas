@@ -2,14 +2,17 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
 
 const WelcomePage = () => {
   const navigate = useNavigate();
-  const { signInAnonymously } = useAuth();
+  const { user, signInAnonymously } = useAuth();
   const [loading, setLoading] = useState(false);
 
   const handleStartAsGuest = async () => {
+    if (user) {
+      navigate('/onboarding', { replace: true });
+      return;
+    }
     setLoading(true);
     try {
       await signInAnonymously();
