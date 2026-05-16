@@ -125,7 +125,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
-// import CalendarCallback from "./pages/CalendarCallback";
+import CalendarCallback from "./pages/CalendarCallback";
 
 const AppRoutes = () => {
   const { user, loading } = useAuth();
@@ -177,7 +177,7 @@ const AppRoutes = () => {
         } />
         <Route path="/auth" element={user && !user.is_anonymous ? <Navigate to="/daily" replace /> : <AuthPage />} />
         <Route path="/onboarding" element={<OnboardingPage />} />
-        {/* <Route path="/calendar-callback" element={appRouteElement(<CalendarCallback />)} /> */}
+        <Route path="/calendar-callback" element={appRouteElement(<CalendarCallback />)} />
         
         <Route 
           path="/" 

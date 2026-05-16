@@ -320,11 +320,9 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
     return () => window.removeEventListener('adonai:open-capture' as any, handleOpenCapture);
   }, [openCapture, openCaptureInVoiceMode]);
 
-  const isAdmin = user?.email === 'pablogoitiaemprendedor@gmail.com';
-
   const menuItems = [
     { label: 'Hoy', icon: Sun, path: '/daily' },
-    { label: isAdmin ? 'Calendario' : 'Calendario (Pronto)', icon: Calendar, path: isAdmin ? '/week' : '#' },
+    { label: 'Calendario', icon: Calendar, path: '/week' },
     { label: 'Metas', icon: Target, path: '/goals' },
     { label: 'Carpetas', icon: FolderOpen, path: '/folders' },
     { label: 'Logros', icon: Trophy, path: '/achievements' },

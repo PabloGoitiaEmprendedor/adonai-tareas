@@ -10,7 +10,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useAuth } from '@/contexts/AuthContext';
 import { Menu, PanelLeftClose, PanelLeft, Calendar as CalendarIconUI } from 'lucide-react';
 
 interface GoogleCalendarViewProps {
@@ -28,8 +27,6 @@ const GoogleCalendarView: React.FC<GoogleCalendarViewProps> = ({
   onConnect,
   isConnected 
 }) => {
-  const { user } = useAuth();
-  const isAdmin = user?.email === 'pablogoitiaemprendedor@gmail.com';
   
   const [viewMode, setViewMode] = useState<'day' | 'week'>('day');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);

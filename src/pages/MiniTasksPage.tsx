@@ -378,7 +378,6 @@ function useDragWindow() {
 // ─── Main component ──────────────────────────────────────────────────────────
 const MiniTaskList = () => {
   const { user, loading } = useAuth();
-  const isAdmin = user?.email === 'pablogoitiaemprendedor@gmail.com';
   const [viewDate, setViewDate] = useState(new Date());
   const { tasks, updateTask, createTask, isLoading } = useTasks({ 
     date: format(viewDate, 'yyyy-MM-dd'), 
@@ -934,36 +933,35 @@ const MiniTaskList = () => {
     >
     {/* TAB: Put it BEFORE the Inner panel in JSX so it naturally renders 'behind' but is still interactive */}
     <motion.div
-      onMouseEnter={isAdmin ? handleCalendarEnter : undefined}
-      onMouseLeave={isAdmin ? handleCalendarLeave : undefined}
+      onMouseEnter={handleCalendarEnter}
+      onMouseLeave={handleCalendarLeave}
       animate={{ 
         opacity: calendarOpen ? 0 : 1, 
         x: calendarOpen ? 12 : 0 
       }}
-      whileHover={isAdmin ? { 
+      whileHover={{ 
         scale: 1.05,
         boxShadow: `0 0 25px rgba(34, 197, 94, 0.4)`,
         borderColor: '#4ADE80'
-      } : {}}
+      }}
       transition={{ type: 'spring', stiffness: 300, damping: 25 }}
       style={{
         position: 'absolute',
-        // Protrude relative to the TASK PANEL edge
         left: PANEL_W - 24,
         top: '50%',
         transform: 'translateY(-50%)',
         width: 48, height: 48, 
         borderRadius: '50%',
-        background: isAdmin ? 'linear-gradient(135deg, #064E3B 0%, #065F46 100%)' : 'linear-gradient(135deg, #374151 0%, #1F2937 100%)', // Premium dark emerald or gray
-        border: `1.5px solid ${isAdmin ? '#10B981' : '#4B5563'}`, // Vibrant emerald border or gray
+        background: 'linear-gradient(135deg, #064E3B 0%, #065F46 100%)',
+        border: '1.5px solid #10B981',
         boxShadow: '4px 0 16px rgba(0,0,0,0.5)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        cursor: isAdmin ? 'pointer' : 'not-allowed', 
+        cursor: 'pointer', 
         pointerEvents: calendarOpen ? 'none' : 'auto',
       }}
-      title={isAdmin ? "Ver calendario" : "Calendario (Pronto)"}
+      title="Ver calendario"
     >
-      <CalendarDays style={{ width: 22, height: 22, color: isAdmin ? '#4ADE80' : '#9CA3AF', marginLeft: 12 }} />
+      <CalendarDays style={{ width: 22, height: 22, color: '#4ADE80', marginLeft: 12 }} />
     </motion.div>
 
     {/* INNER: visual panel with clipping */}
