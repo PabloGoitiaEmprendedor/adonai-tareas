@@ -114,11 +114,12 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   // No bloqueamos por profileLoading para que la UI cargue instantáneamente.
   // El perfil se actualizará en la sidebar y en el contenido cuando llegue.
   
-  // Si el perfil ya cargó y el onboarding no está completo, redirigir
+  // Si el perfil ya cargó y el onboarding no está completo, redirigir (solo admin)
   // Añadimos check de localStorage para evitar bucles si el perfil tarda en refrescarse
   const localOnboardingDone = localStorage.getItem('adonai_onboarding_done') === 'true';
+  const isAdmin = user?.email === 'pablogoitiaemprendedor@gmail.com';
   
-  if (profile && !profile.onboarding_completed && !localOnboardingDone) {
+  if (isAdmin && profile && !profile.onboarding_completed && !localOnboardingDone) {
     return <Navigate to="/onboarding" replace />;
   }
 

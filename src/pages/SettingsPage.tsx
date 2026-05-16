@@ -165,6 +165,7 @@ const SettingsPage = () => {
         <section className="space-y-4">
             <div className="flex items-center justify-between px-2">
                 <h3 className="text-xs font-black text-on-surface-variant uppercase tracking-[0.2em]">Configuración</h3>
+                {currentUser?.email === 'pablogoitiaemprendedor@gmail.com' && (
                 <button 
                     onClick={() => window.dispatchEvent(new CustomEvent('restart-adonai-tour'))}
                     className="flex items-center gap-2 text-[10px] font-black text-primary uppercase tracking-widest bg-primary/10 px-3 py-1.5 rounded-full hover:bg-primary/20 transition-all"
@@ -172,6 +173,7 @@ const SettingsPage = () => {
                     <Play className="w-3 h-3" />
                     Probar Tutorial
                 </button>
+                )}
             </div>
             <div className="bg-surface-container-low border border-outline-variant/10 rounded-[32px] overflow-hidden">
                 {/* Theme */}
