@@ -10,12 +10,16 @@ import { EventManager, Event } from '@/components/ui/event-manager';
 import { format, parseISO, startOfMonth, endOfMonth, addMonths, startOfDay, addHours, differenceInMinutes, addMinutes, isSameDay, eachDayOfInterval } from 'date-fns';
 import { Sparkles, Calendar as CalendarIcon, Plus } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
+import { cn } from '@/lib/utils';
 
 interface AdonaiCalendarViewProps {
   selectedDate: Date;
   onSelectDate: (date: Date) => void;
   viewMode?: 'day' | 'week' | 'month';
   dragDisabled?: boolean;
+  className?: string;
+  hideSidebar?: boolean;
+  fillHeight?: boolean;
 }
 
 const TIME_PREFIX_REGEX = /^\[T:(\d{2}:\d{2})-(\d{2}:\d{2})\]/;
@@ -104,7 +108,7 @@ const getCountBasedEndDate = (
   return null;
 };
 
-const AdonaiCalendarView: React.FC<AdonaiCalendarViewProps> = ({ selectedDate, onSelectDate, viewMode = 'day', dragDisabled = false }) => {
+const AdonaiCalendarView: React.FC<AdonaiCalendarViewProps> = ({ selectedDate, onSelectDate, viewMode = 'day', dragDisabled = false, className, hideSidebar = false, fillHeight = false }) => {
   const { user } = useAuth();
   const dateStr = format(selectedDate, 'yyyy-MM-dd');
   
@@ -159,6 +163,56 @@ const AdonaiCalendarView: React.FC<AdonaiCalendarViewProps> = ({ selectedDate, o
   // Map everything to EventManager
   const calendarEvents = useMemo(() => {
     const events: Event[] = [];
+
+    const getTaskRecurrence = (recurrenceId?: string | null) => {
+      const rule = recurrenceId ? recurrenceRules.find(r => r.id === recurrenceId) : undefined;
+      let recurrence: Event['recurrence'] = 'none';
+      let recurrenceDays: number[] | undefined = undefined;
+      let recurrenceInterval: number | undefined = undefined;
+      let recurrenceUnit: Event['recurrenceUnit'] | undefined = undefined;
+
+      if (!rule) {
+        return { recurrence, recurrenceDays, recurrenceInterval, recurrenceUnit, recurrenceEndDate: undefined };
+      }
+
+      recurrenceInterval = rule.interval || 1;
+
+      if (rule.frequency === 'daily') {
+        recurrence = recurrenceInterval > 1 ? 'custom' : 'daily';
+        recurrenceUnit = recurrence === 'custom' ? 'days' : undefined;
+      } else if (rule.frequency === 'weekly') {
+        const days = rule.days_of_week || [];
+        const allWeekdays = [1, 2, 3, 4, 5];
+        const isAllWeekdays = days.length === 5 && allWeekdays.every(d => days.includes(d));
+        if (recurrenceInterval === 2) {
+          recurrence = 'biweekly';
+          recurrenceDays = days.length > 0 ? days : undefined;
+        } else if (recurrenceInterval > 1) {
+          recurrence = 'custom';
+          recurrenceUnit = 'weeks';
+          recurrenceDays = days.length > 0 ? days : undefined;
+        } else if (isAllWeekdays) {
+          recurrence = 'weekdays';
+        } else {
+          recurrence = 'weekly';
+          recurrenceDays = days.length > 0 ? days : undefined;
+        }
+      } else if (rule.frequency === 'monthly') {
+        recurrence = recurrenceInterval > 1 ? 'custom' : 'monthly';
+        recurrenceUnit = recurrence === 'custom' ? 'months' : undefined;
+      } else if (rule.frequency === 'yearly') {
+        recurrence = recurrenceInterval > 1 ? 'custom' : 'yearly';
+        recurrenceUnit = recurrence === 'custom' ? 'years' : undefined;
+      }
+
+      return {
+        recurrence,
+        recurrenceDays,
+        recurrenceInterval,
+        recurrenceUnit,
+        recurrenceEndDate: rule.end_date || undefined,
+      };
+    };
 
     // Helper to find the next occurrence of a specific day from a start date
     const findNextDay = (from: Date, targetDay: number): Date => {
@@ -235,10 +289,11 @@ const AdonaiCalendarView: React.FC<AdonaiCalendarViewProps> = ({ selectedDate, o
 
 tasks?.forEach((task) => {
        // Show tasks that match the current month range or have no date (though useTasks filters)
-       if (task.status !== 'done') {
+       if (task.status !== 'done' && task.status !== 'deleted') {
          const taskDateStr = task.due_date || dateStr;
          const scheduledTime = parseTimeFromDescription(task.description);
          const parsedColor = parseColorFromDescription(task.description);
+         const recurrenceConfig = getTaskRecurrence(task.recurrence_id);
          
          // Default time or parsed time
          const start = scheduledTime 
@@ -294,39 +349,6 @@ tasks?.forEach((task) => {
            if (color === 'transparent') color = 'var(--primary)';
          }
 
-          // Resolve recurrence from task's recurrence_id -> recurrence_rules
-          let taskRecurrence: Event['recurrence'] = 'none';
-          let taskRecurrenceDays: number[] | undefined = undefined;
-          let taskRecurrenceEndDate: string | undefined = undefined;
-          if (task.recurrence_id && recurrenceRules) {
-            const rule = recurrenceRules.find(r => r.id === task.recurrence_id);
-            if (rule) {
-              taskRecurrenceEndDate = rule.end_date || undefined;
-              if (rule.frequency === 'daily') {
-                taskRecurrence = 'daily';
-              } else if (rule.frequency === 'weekly') {
-                const days = rule.days_of_week || [];
-                const allWeekdays = [1, 2, 3, 4, 5];
-                const isAllWeekdays = days.length === 5 && allWeekdays.every(d => days.includes(d));
-                if (rule.interval === 2) {
-                  taskRecurrence = 'biweekly';
-                  if (days.length > 0) taskRecurrenceDays = days;
-                } else if (isAllWeekdays) {
-                  taskRecurrence = 'weekdays';
-                } else if (days.length > 0) {
-                  taskRecurrence = 'weekly';
-                  taskRecurrenceDays = days;
-                } else {
-                  taskRecurrence = 'weekly';
-                }
-              } else if (rule.frequency === 'monthly') {
-                taskRecurrence = 'monthly';
-              } else if (rule.frequency === 'yearly') {
-                taskRecurrence = 'yearly';
-              }
-            }
-          }
-
           events.push({
             id: `task-${task.id}`,
             title: task.title,
@@ -342,10 +364,13 @@ tasks?.forEach((task) => {
             isAllDay: !scheduledTime,
             completed: task.status === 'done',
             isEvent: (task.metadata as any)?.creation_source === 'event',
-           recurrence: taskRecurrence,
-            recurrenceDays: taskRecurrenceDays,
-            recurrenceEndType: taskRecurrenceEndDate ? 'date' : 'never',
-            recurrenceEndDate: taskRecurrenceEndDate,
+            recurrence: recurrenceConfig.recurrence,
+            recurrenceDays: recurrenceConfig.recurrenceDays,
+            recurrenceInterval: recurrenceConfig.recurrenceInterval,
+            recurrenceUnit: recurrenceConfig.recurrenceUnit,
+            recurrenceEndType: recurrenceConfig.recurrenceEndDate ? 'date' : 'never',
+            recurrenceEndDate: recurrenceConfig.recurrenceEndDate,
+            expandRecurrence: false,
             reminderEnabled: !!(task.metadata as any)?.event_reminder?.enabled,
             reminderMinutesBefore: (task.metadata as any)?.event_reminder?.minutes_before,
             reminderCustomValue: (task.metadata as any)?.event_reminder?.custom_value,
@@ -701,9 +726,9 @@ const handleEventUpdate = async (id: string, updates: Partial<Event>) => {
   };
 
   return (
-    <div className="relative space-y-6">
+    <div className={cn(fillHeight ? "relative flex h-full min-h-0 flex-1 flex-col gap-6 overflow-hidden" : "relative space-y-6", className)}>
 
-      <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
+      <div className={cn(fillHeight ? "flex-1 min-h-0 animate-in fade-in slide-in-from-bottom-4 duration-700" : "animate-in fade-in slide-in-from-bottom-4 duration-700")}>
         <EventManager
           events={calendarEvents}
           onEventUpdate={handleEventUpdate}
@@ -723,9 +748,13 @@ const handleEventUpdate = async (id: string, updates: Partial<Event>) => {
             { name: "Púrpura", value: "purple", bg: "bg-purple-500", text: "text-purple-600 dark:text-purple-400" },
           ]}
           defaultView={viewMode}
-          className="min-h-[600px]"
+          focusedDate={selectedDate}
+          onDateChange={onSelectDate}
+          className={fillHeight ? "h-full min-h-0" : "min-h-[640px] lg:min-h-[720px]"}
           recurrenceExceptions={recurrenceExceptions}
           dragDisabled={dragDisabled}
+          hideSidebar={hideSidebar}
+          containedScroll={fillHeight}
         />
       </div>
 

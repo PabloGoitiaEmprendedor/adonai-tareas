@@ -91,9 +91,9 @@ export const triggerOnTimeCelebration = (taskTitle: string, userName: string = '
 
   fire(0.25, { spread: 26, startVelocity: 55, colors: ['#FFD700', '#FFA500', '#FF8C00'] });
   fire(0.2, { spread: 60, colors: ['#FFD700', '#FFEC8B', '#FFA500'] });
-  fire(0.35, { spread: 100, decay: 0.91, scalar: 0.8, colors: ['#FFD700', '#22c55e', '#4ade80'] });
+  fire(0.35, { spread: 100, decay: 0.91, scalar: 0.8, colors: ['#F4B860', '#5B7CFA', '#6FCF97'] });
   fire(0.1, { spread: 120, startVelocity: 25, decay: 0.92, scalar: 1.2, colors: ['#FFD700', '#FFA500'] });
-  fire(0.1, { spread: 120, startVelocity: 45, colors: ['#22c55e', '#4ade80', '#FFD700'] });
+  fire(0.1, { spread: 120, startVelocity: 45, colors: ['#5B7CFA', '#6FCF97', '#F4B860'] });
 
   const randomIndex = Math.floor(Math.random() * ON_TIME_MESSAGES.length);
   return ON_TIME_MESSAGES[randomIndex]
@@ -109,7 +109,7 @@ export const triggerDailyCelebration = (userName: string = 'Emprendedor') => {
     particleCount: 150,
     spread: 70,
     origin: { y: 0.6 },
-    colors: ['#22c55e', '#16a34a', '#4ade80']
+    colors: ['#5B7CFA', '#4F6EE8', '#6FCF97']
   });
 
   const randomIndex = Math.floor(Math.random() * DAILY_FINISH_MESSAGES.length);

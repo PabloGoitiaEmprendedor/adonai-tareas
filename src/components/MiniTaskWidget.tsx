@@ -4,10 +4,11 @@ import { useTasks } from '@/hooks/useTasks';
 import { useFolders } from '@/hooks/useFolders';
 import { format, parseISO, addMinutes } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Check, Flame, X, Folder, Link as LinkIcon, Paperclip } from 'lucide-react';
+import { Flame, X, Folder, Link as LinkIcon, Paperclip, GripHorizontal } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { usePriorityColors } from '@/hooks/usePriorityColors';
-import { MiniDayView, type DayEvent } from './MiniDayView';
+import AdonaiCalendarView from '@/components/calendar/AdonaiCalendarView';
+import { TaskCheckbox } from '@/components/TaskCheckbox';
 
 interface MiniTaskWidgetProps {
   isOpen: boolean;
@@ -15,12 +16,12 @@ interface MiniTaskWidgetProps {
 }
 
 export const MiniTaskWidget = ({ isOpen, onClose }: MiniTaskWidgetProps) => {
-  const today = format(new Date(), 'yyyy-MM-dd');
+  const [selectedDate, setSelectedDate] = useState(() => new Date());
+  const today = format(selectedDate, 'yyyy-MM-dd');
   const { tasks, updateTask } = useTasks({ date: today });
   const { folders } = useFolders();
   const { colors: priorityColors } = usePriorityColors();
   const [completingId, setCompletingId] = useState<string | null>(null);
-  const [currentTime, setCurrentTime] = useState(new Date());
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [showFolderBar, setShowFolderBar] = useState(true);
   const [calendarOpen, setCalendarOpen] = useState(false);
@@ -35,37 +36,45 @@ export const MiniTaskWidget = ({ isOpen, onClose }: MiniTaskWidgetProps) => {
     return { start: match[1], end: match[2] };
   };
 
-  const calendarEvents = useMemo((): DayEvent[] => {
-    return tasks
-      .filter((t: any) => t.status !== 'done')
-      .map((t: any) => {
-        const parsed = parseTimeFromDescription(t.description);
-        const dateStr = t.due_date || format(new Date(), 'yyyy-MM-dd');
-        const startTime = parsed
-          ? parseISO(`${dateStr}T${parsed.start}:00`)
-          : parseISO(`${dateStr}T08:00:00`);
-        const endTime = parsed
-          ? parseISO(`${dateStr}T${parsed.end}:00`)
-          : addMinutes(startTime, 30);
+  const buildCalendarEvent = useCallback((task: any) => {
+    const parsed = parseTimeFromDescription(task.description);
+    const dateStr = task.due_date || format(selectedDate, 'yyyy-MM-dd');
+    const startTime = parsed
+      ? parseISO(`${dateStr}T${parsed.start}:00`)
+      : parseISO(`${dateStr}T08:00:00`);
+    const endTime = parsed
+      ? parseISO(`${dateStr}T${parsed.end}:00`)
+      : addMinutes(startTime, 30);
 
-        let color = priorityColors.p4;
-        if (t.urgency && t.importance) color = priorityColors.p1;
-        else if (t.urgency && !t.importance) color = priorityColors.p2;
-        else if (!t.urgency && t.importance) color = priorityColors.p3;
+    let color = priorityColors.p4;
+    if (task.urgency && task.importance) color = priorityColors.p1;
+    else if (task.urgency && !task.importance) color = priorityColors.p2;
+    else if (!task.urgency && task.importance) color = priorityColors.p3;
 
-        return {
-          id: t.id,
-          title: t.title,
-          startTime,
-          endTime,
-          color: color === 'transparent' ? 'var(--primary)' : color,
-        };
-      });
-  }, [tasks, priorityColors]);
+    return {
+      id: task.id,
+      title: task.title,
+      startTime,
+      endTime,
+      color: color === 'transparent' ? 'var(--primary)' : color,
+      isAllDay: false,
+    };
+  }, [priorityColors, selectedDate]);
 
-  useEffect(() => {
-    const t = setInterval(() => setCurrentTime(new Date()), 60_000);
-    return () => clearInterval(t);
+  const dispatchExternalDragStart = useCallback((task: any, x: number, y: number) => {
+    window.dispatchEvent(new CustomEvent('adonai:external-drag-start', {
+      detail: { task: buildCalendarEvent(task), x, y }
+    }));
+  }, [buildCalendarEvent]);
+
+  const dispatchExternalDragMove = useCallback((x: number, y: number) => {
+    window.dispatchEvent(new CustomEvent('adonai:external-drag-move', {
+      detail: { x, y }
+    }));
+  }, []);
+
+  const dispatchExternalDragEnd = useCallback(() => {
+    window.dispatchEvent(new CustomEvent('adonai:external-drag-end'));
   }, []);
 
   const filteredTasks = useMemo(() => {
@@ -114,18 +123,98 @@ export const MiniTaskWidget = ({ isOpen, onClose }: MiniTaskWidgetProps) => {
     }, 400);
   }, []);
 
+  const handleTaskMouseDown = useCallback((e: React.MouseEvent, task: any) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!calendarOpen) setCalendarOpen(true);
+
+    const startX = e.clientX;
+    const startY = e.clientY;
+    let dragging = false;
+
+    const onMove = (ev: MouseEvent) => {
+      if (!dragging && (Math.abs(ev.clientX - startX) > 5 || Math.abs(ev.clientY - startY) > 5)) {
+        dragging = true;
+        dispatchExternalDragStart(task, startX, startY);
+      }
+      if (dragging) {
+        dispatchExternalDragMove(ev.clientX, ev.clientY);
+      }
+    };
+
+    const onUp = (ev: MouseEvent) => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+      if (dragging) {
+        dispatchExternalDragMove(ev.clientX, ev.clientY);
+        dispatchExternalDragEnd();
+      }
+    };
+
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  }, [calendarOpen, dispatchExternalDragEnd, dispatchExternalDragMove, dispatchExternalDragStart]);
+
+  const handleTaskTouchStart = useCallback((e: React.TouchEvent, task: any) => {
+    const touch = e.touches[0];
+    if (!touch) return;
+    if (!calendarOpen) setCalendarOpen(true);
+
+    const startX = touch.clientX;
+    const startY = touch.clientY;
+    let dragging = false;
+    let longPressTimer: ReturnType<typeof setTimeout> | null = setTimeout(() => {
+      dragging = true;
+      dispatchExternalDragStart(task, startX, startY);
+      if ('vibrate' in navigator) navigator.vibrate(30);
+    }, 220);
+
+    const onMove = (ev: TouchEvent) => {
+      const currentTouch = ev.touches[0];
+      if (!currentTouch) return;
+
+      if (!dragging) {
+        const moveX = Math.abs(currentTouch.clientX - startX);
+        const moveY = Math.abs(currentTouch.clientY - startY);
+        if (moveX > 10 || moveY > 10) {
+          if (longPressTimer) clearTimeout(longPressTimer);
+          longPressTimer = null;
+        }
+        return;
+      }
+
+      if (ev.cancelable) ev.preventDefault();
+      dispatchExternalDragMove(currentTouch.clientX, currentTouch.clientY);
+    };
+
+    const onEnd = (ev: TouchEvent) => {
+      window.removeEventListener('touchmove', onMove);
+      window.removeEventListener('touchend', onEnd);
+      window.removeEventListener('touchcancel', onEnd);
+      if (longPressTimer) clearTimeout(longPressTimer);
+      if (dragging) {
+        const endTouch = ev.changedTouches[0];
+        if (endTouch) dispatchExternalDragMove(endTouch.clientX, endTouch.clientY);
+        dispatchExternalDragEnd();
+      }
+    };
+
+    window.addEventListener('touchmove', onMove, { passive: false });
+    window.addEventListener('touchend', onEnd);
+    window.addEventListener('touchcancel', onEnd);
+  }, [calendarOpen, dispatchExternalDragEnd, dispatchExternalDragMove, dispatchExternalDragStart]);
+
   if (!isOpen) return null;
 
   return createPortal(
     <div
-      onMouseLeave={handleCalendarLeave}
       className="fixed bottom-6 right-6 z-[9999]"
-      style={{ width: calendarOpen ? 780 : 380 }}
+      style={{ width: calendarOpen ? 980 : 380, height: calendarOpen ? 680 : 580 }}
       onClick={(e) => e.stopPropagation()}
     >
-      <div className="flex max-h-[580px] bg-background border border-outline-variant/20 rounded-[32px] shadow-2xl overflow-hidden">
+      <div className="flex h-full bg-background border border-outline-variant/20 rounded-[32px] shadow-2xl overflow-hidden">
         {/* Left panel: tasks */}
-        <div className="flex flex-col flex-shrink-0" style={{ width: 380 }}>
+        <div className="flex flex-col flex-shrink-0 h-full" style={{ width: 380 }} data-sidebar-droptarget="true">
       {/* Header & Folders */}
       <div className="flex flex-col bg-background/95 backdrop-blur-md border-b border-outline-variant/10">
         <div className="w-12 h-1.5 bg-on-surface-variant/10 rounded-full mx-auto mt-3 mb-2" />
@@ -140,7 +229,7 @@ export const MiniTaskWidget = ({ isOpen, onClose }: MiniTaskWidgetProps) => {
                 Mi Día
               </span>
               <span className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant/40">
-                {format(currentTime, "EEEE d MMMM", { locale: es })}
+                {format(selectedDate, "EEEE d MMMM", { locale: es })}
               </span>
             </div>
           </div>
@@ -217,7 +306,7 @@ export const MiniTaskWidget = ({ isOpen, onClose }: MiniTaskWidgetProps) => {
       </div>
 
       {/* Task list */}
-      <div className="flex-1 overflow-y-auto px-4 py-5 space-y-2.5 custom-scrollbar bg-surface/30">
+      <div className="flex-1 overflow-y-auto px-4 py-5 space-y-2.5 custom-scrollbar bg-surface/30 focus:outline-none focus:ring-2 focus:ring-primary/20" data-sidebar-droptarget="true" tabIndex={0}>
         {sortedTasks.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <div className="w-16 h-16 rounded-[24px] bg-surface-container flex items-center justify-center mb-4">
@@ -262,32 +351,22 @@ export const MiniTaskWidget = ({ isOpen, onClose }: MiniTaskWidgetProps) => {
                   }`}
                 >
                   <div className="flex-shrink-0">
-                    {isDone || isCompleting ? (
-                      <motion.div
-                        initial={{ scale: 0, rotate: -45 }}
-                        animate={{ scale: 1, rotate: 0 }}
-                        transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                        className="w-8 h-8 rounded-xl flex items-center justify-center"
-                        style={{ backgroundColor: taskPriorityColor === 'transparent' ? 'var(--primary)' : taskPriorityColor }}
-                      >
-                        <Check className="w-4 h-4 text-primary-foreground stroke-[3]" />
-                      </motion.div>
-                    ) : (
-                      <div 
-                        className="w-8 h-8 rounded-xl border-2 flex items-center justify-center bg-surface group-hover:bg-primary/5 transition-all"
-                        style={{ borderColor: taskPriorityColor === 'transparent' ? 'var(--outline-variant)' : taskPriorityColor }}
-                      >
-                        <div 
-                          className="w-3 h-3 rounded-md scale-0 group-hover:scale-100 transition-all duration-300" 
-                          style={{ backgroundColor: taskPriorityColor === 'transparent' ? 'var(--primary)' : taskPriorityColor }}
-                        />
-                      </div>
-                    )}
+                    <motion.div
+                      initial={isDone || isCompleting ? { scale: 0, rotate: -45 } : false}
+                      animate={{ scale: 1, rotate: 0 }}
+                      transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                    >
+                      <TaskCheckbox
+                        checked={isDone || isCompleting}
+                        priorityColor={taskPriorityColor}
+                        size="md"
+                      />
+                    </motion.div>
                   </div>
 
                   <div className="flex-1 min-w-0">
                     <span
-                      className={`block text-sm font-bold tracking-tight leading-snug transition-all ${
+                      className={`block text-sm font-semibold tracking-normal leading-snug transition-all ${
                         isDone || isCompleting
                           ? 'text-on-surface-variant line-through'
                           : 'text-foreground'
@@ -328,6 +407,19 @@ export const MiniTaskWidget = ({ isOpen, onClose }: MiniTaskWidgetProps) => {
                       })}
                     </div>
                   )}
+
+                  {!isDone && !isCompleting && (
+                    <button
+                      type="button"
+                      title="Arrastrar al calendario"
+                      onMouseDown={(e) => handleTaskMouseDown(e, task)}
+                      onTouchStart={(e) => handleTaskTouchStart(e, task)}
+                      onClick={(e) => e.stopPropagation()}
+                      className="ml-1 flex h-7 w-7 items-center justify-center rounded-lg text-on-surface-variant/25 opacity-0 transition-all hover:bg-primary/10 hover:text-primary hover:opacity-100 group-hover:opacity-60 active:scale-95 cursor-grab active:cursor-grabbing touch-none focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    >
+                      <GripHorizontal className="h-3.5 w-3.5" />
+                    </button>
+                  )}
                 </motion.div>
               );
             })}
@@ -352,6 +444,7 @@ export const MiniTaskWidget = ({ isOpen, onClose }: MiniTaskWidgetProps) => {
         {/* Hot zone / calendar toggle */}
         <div
           onMouseEnter={handleCalendarEnter}
+          onMouseLeave={handleCalendarLeave}
           className="relative flex-shrink-0 w-4 cursor-pointer flex items-center justify-center hover:bg-primary/5 transition-colors"
         >
           <div className="w-0.5 h-8 rounded-full bg-outline-variant/20 group-hover:bg-primary/30 transition-colors" />
@@ -359,17 +452,26 @@ export const MiniTaskWidget = ({ isOpen, onClose }: MiniTaskWidgetProps) => {
 
         {/* Right panel: day calendar */}
         <AnimatePresence>
-          {calendarOpen && (
+        {calendarOpen && (
             <motion.div
               initial={{ width: 0, opacity: 0 }}
-              animate={{ width: 400, opacity: 1 }}
+              animate={{ width: 600, opacity: 1 }}
               exit={{ width: 0, opacity: 0 }}
-              transition={{ duration: 0.25, ease: 'easeInOut' }}
+            transition={{ duration: 0.25, ease: 'easeInOut' }}
               className="border-l border-outline-variant/10 overflow-hidden flex-shrink-0"
               onMouseEnter={handleCalendarEnter}
+              onMouseLeave={handleCalendarLeave}
             >
-              <div className="w-[400px] h-full">
-                <MiniDayView events={calendarEvents} currentDate={currentTime} />
+              <div className="w-[600px] h-full min-h-0 overflow-hidden">
+                <AdonaiCalendarView
+                  selectedDate={selectedDate}
+                  onSelectDate={setSelectedDate}
+                  viewMode="day"
+                  dragDisabled={false}
+                  className="h-full min-h-0 overflow-hidden"
+                  hideSidebar
+                  fillHeight
+                />
               </div>
             </motion.div>
           )}

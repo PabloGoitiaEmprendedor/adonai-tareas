@@ -6,117 +6,121 @@
 
 @layer base {
   :root {
-    /* Elegant Soft Light Mode (Anti-Glare) */
-    --background: 210 16% 93%; /* Noticeable soft cool gray (No glare) */
-    --foreground: 210 15% 20%; /* Deep cool gray text */
+    /* Adonai task palette - Light */
+    --background: 220 17% 97%; /* #F7F8FA */
+    --foreground: 215 28% 17%; /* #1F2937 */
     
-    --card: 0 0% 100%; /* Pure white for maximum contrast against background */
-    --card-foreground: 210 15% 20%;
+    --card: 0 0% 100%; /* #FFFFFF */
+    --card-foreground: 215 28% 17%;
     
     --popover: 0 0% 100%;
-    --popover-foreground: 210 15% 20%;
+    --popover-foreground: 215 28% 17%;
     
-    /* Normal buttons - Reverting to Green as requested for vibrancy */
-    --primary: 112 98% 44%;
-    --primary-foreground: 210 15% 15%;
-    --primary-container: 101 64% 34%;
+    --primary: 229 94% 67%; /* #5B7CFA */
+    --primary-foreground: 0 0% 100%;
+    --primary-container: 228 77% 61%; /* #4F6EE8 */
 
-    /* Mega Important */
-    --brand: 112 98% 44%;
-    --brand-foreground: 210 15% 15%;
+    --brand: 229 94% 67%;
+    --brand-foreground: 0 0% 100%;
     
-    --secondary: 210 16% 85%;
-    --secondary-foreground: 210 15% 20%;
-    --secondary-container: 210 16% 87%;
+    --secondary: 220 13% 91%; /* #E5E7EB */
+    --secondary-foreground: 215 28% 17%;
+    --secondary-container: 219 100% 95%; /* #E8F0FF */
     
-    --muted: 210 16% 87%;
-    --muted-foreground: 210 15% 35%; /* Darkened for better readability */
+    --muted: 220 13% 91%;
+    --muted-foreground: 220 9% 46%; /* #6B7280 */
     
-    --accent: 210 16% 87%;
-    --accent-foreground: 210 15% 20%;
+    --accent: 219 100% 95%; /* #E8F0FF */
+    --accent-foreground: 229 94% 67%;
     
-    --destructive: 350 80% 60%;
+    --destructive: 0 79% 63%; /* #EB5757 */
     --destructive-foreground: 0 0% 100%;
     
-    --border: 210 16% 75%; /* Darker border for better definition */
-    --input: 210 16% 87%;
-    --ring: 210 100% 60%;
+    --border: 220 13% 91%; /* #E5E7EB */
+    --input: 220 13% 91%;
+    --ring: 229 94% 67%;
     
     --radius: 0.35rem; 
 
     --surface: 0 0% 100%;
-    --surface-dim: 210 16% 87%;
+    --surface-dim: 220 13% 91%;
     --surface-container-lowest: 0 0% 100%;
-    --surface-container-low: 210 20% 96%;
-    --surface-container: 210 16% 92%;
-    --surface-container-high: 210 16% 87%;
-    --surface-container-highest: 210 16% 82%;
-    
-    --on-surface: 210 15% 20%;
-    --on-surface-variant: 210 15% 35%; /* Darkened for better readability */
-    --outline: 210 16% 70%; /* Darker outline for stronger edges */
-    --outline-variant: 210 16% 75%;
+    --surface-container-low: 220 17% 97%;
+    --surface-container: 220 13% 91%;
+    --surface-container-high: 220 13% 88%;
+    --surface-container-highest: 220 13% 84%;
 
-    --error: 350 80% 60%;
-    --error-container: 350 80% 96%;
+    --on-surface: 215 28% 17%;
+    --on-surface-variant: 220 9% 46%;
+    --outline: 220 13% 85%;
+    --outline-variant: 220 13% 91%;
+
+    --error: 0 79% 63%; /* #EB5757 */
+    --error-container: 0 79% 96%;
     --on-error: 0 0% 100%;
 
-    --tertiary: 148 32% 39%;
-    --tertiary-container: 111 25% 94%;
+    --tertiary: 145 52% 62%; /* #6FCF97 */
+    --tertiary-container: 145 52% 94%;
+
+    --success: 145 52% 62%; /* #6FCF97 */
+    --warning: 36 89% 62%; /* #F4B860 */
+    --info: 229 94% 67%; /* #5B7CFA */
   }
 
   .dark {
-    /* Notion Dark Mode */
-    --background: 202 8% 20%; /* #2F3437 Default Bg */
-    --foreground: 0 0% 92%; /* #EBEBEB Default Text */
+    /* Adonai task palette - Dark */
+    --background: 222 17% 7%; /* #0F1115 */
+    --foreground: 220 14% 96%; /* #F3F4F6 */
     
-    --card: 202 8% 20%; /* #2F3437 Default Bg */
-    --card-foreground: 0 0% 92%; /* #EBEBEB Default Text */
+    --card: 220 18% 11%; /* #171A21 */
+    --card-foreground: 220 14% 96%;
     
-    --popover: 200 6% 29%; /* #454B4E Gray Bg */
-    --popover-foreground: 0 0% 92%; /* #EBEBEB Default Text */
+    --popover: 220 18% 11%;
+    --popover-foreground: 220 14% 96%;
     
-    /* Normal buttons */
-    --primary: 112 98% 44%;
-    --primary-foreground: 202 8% 20%; /* #2F3437 Default Bg */
-    --primary-container: 101 64% 34%;
+    --primary: 227 100% 74%; /* #7C97FF */
+    --primary-foreground: 222 17% 7%;
+    --primary-container: 228 90% 68%; /* #6583F7 */
 
-    /* Mega Important */
-    --brand: 112 98% 44%; /* Green */
-    --brand-foreground: 202 8% 20%; /* Dark text */
+    --brand: 227 100% 74%;
+    --brand-foreground: 222 17% 7%;
     
-    --secondary: 200 6% 29%; /* #454B4E Gray Bg */
-    --secondary-foreground: 0 0% 92%; /* #EBEBEB Default Text */
+    --secondary: 223 29% 16%; /* #1E2536 */
+    --secondary-foreground: 220 14% 96%;
     
-    --muted: 200 6% 29%; /* #454B4E Gray Bg */
-    --muted-foreground: 45 2% 60%; /* #9B9A97 Gray Text */
+    --muted: 223 29% 16%;
+    --muted-foreground: 218 11% 65%; /* #9CA3AF */
     
-    --accent: 200 6% 29%; /* #454B4E Gray Bg */
-    --accent-foreground: 0 0% 92%; /* #EBEBEB Default Text */
+    --accent: 223 29% 16%; /* #1E2536 */
+    --accent-foreground: 227 100% 74%;
     
-    --border: 200 6% 35%; /* Slightly lighter for visibility */
-    --input: 200 6% 29%; /* #454B4E Gray Bg */
-    --ring: 203 54% 55%; /* #529CCA Blue Text */
+    --border: 220 16% 20%; /* #2A2F3A */
+    --input: 220 16% 20%;
+    --ring: 227 100% 74%;
 
-    --surface: 202 8% 20%; /* #2F3437 Default Bg */
-    --surface-dim: 200 6% 29%; /* #454B4E Gray Bg */
-    --surface-container-lowest: 200 8% 15%;
-    --surface-container-low: 202 8% 20%;
-    --surface-container: 200 6% 29%; /* #454B4E Gray Bg */
-    --surface-container-high: 200 6% 35%;
-    --surface-container-highest: 200 6% 40%;
+    --surface: 220 18% 11%; /* #171A21 */
+    --surface-dim: 222 17% 7%; /* #0F1115 */
+    --surface-container-lowest: 222 17% 7%;
+    --surface-container-low: 220 18% 11%;
+    --surface-container: 223 29% 16%; /* #1E2536 */
+    --surface-container-high: 220 16% 20%; /* #2A2F3A */
+    --surface-container-highest: 220 16% 25%;
     
-    --on-surface: 0 0% 92%; /* #EBEBEB Default Text */
-    --on-surface-variant: 45 2% 60%; /* #9B9A97 Gray Text */
-    --outline: 200 6% 29%; /* #454B4E Gray Bg */
-    --outline-variant: 200 6% 35%;
+    --on-surface: 220 14% 96%; /* #F3F4F6 */
+    --on-surface-variant: 218 11% 65%; /* #9CA3AF */
+    --outline: 220 16% 20%; /* #2A2F3A */
+    --outline-variant: 220 16% 20%;
 
-    --error: 4 100% 70%; /* #FF7369 Red Text */
-    --error-container: 0 15% 30%; /* #594141 Red Bg */
-    --on-error: 202 8% 20%; /* #2F3437 Default Bg */
+    --error: 0 79% 63%; /* #EB5757 */
+    --error-container: 0 44% 18%;
+    --on-error: 220 14% 96%;
     
-    --tertiary: 169 38% 49%; /* #4DAB9A Green Text */
-    --tertiary-container: 177 18% 25%; /* #354C4B Green Bg */
+    --tertiary: 145 52% 62%; /* #6FCF97 */
+    --tertiary-container: 145 32% 20%;
+
+    --success: 145 52% 62%; /* #6FCF97 */
+    --warning: 36 89% 62%; /* #F4B860 */
+    --info: 227 100% 74%; /* #7C97FF */
   }
 }
 
@@ -142,18 +146,41 @@
 
 /* Style scrollbars globally */
 ::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
+  width: 8px;
+  height: 8px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
+  border-radius: 999px;
 }
 ::-webkit-scrollbar-thumb {
-  background: hsla(var(--on-surface-variant), 0.15);
-  border-radius: 10px;
+  background: transparent;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  border-radius: 999px;
+}
+*:hover::-webkit-scrollbar-thumb,
+*:focus::-webkit-scrollbar-thumb,
+*:focus-within::-webkit-scrollbar-thumb {
+  background: hsl(var(--on-surface-variant) / 0.32);
+  border: 2px solid transparent;
+  background-clip: padding-box;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: hsla(var(--primary), 0.3);
+  background: hsl(var(--primary) / 0.45);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+* {
+  scrollbar-color: transparent transparent;
+  scrollbar-width: thin;
+}
+
+*:hover,
+*:focus,
+*:focus-within {
+  scrollbar-color: hsl(var(--on-surface-variant) / 0.28) transparent;
 }
 
 @layer utilities {
@@ -170,7 +197,7 @@
   .glass-sheet {
     background: hsl(var(--surface));
     border: 1px solid hsl(var(--outline-variant));
-    box-shadow: 0 20px 60px -10px hsla(140, 95%, 8%, 0.1);
+    box-shadow: 0 20px 60px -10px hsl(var(--primary) / 0.12);
   }
   .pb-safe {
     padding-bottom: env(safe-area-inset-bottom);
@@ -194,6 +221,10 @@
   }
   .animate-shimmer {
     animation: shimmer 2s infinite linear;
+  }
+
+  .page-title {
+    @apply pl-10 lg:pl-0 text-xl sm:text-2xl lg:text-3xl font-black tracking-tight leading-none font-headline text-foreground;
   }
 }
 

@@ -40,6 +40,7 @@ import ToastPage from './pages/ToastPage';
 import ExitCodesPage from './pages/ExitCodesPage';
 import NotificationManager from './components/NotificationManager';
 import { AdonaiNotifier } from '@/components/ui/adonai-notifier';
+import DownloadGuideOverlay from '@/components/DownloadGuideOverlay';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -281,6 +282,7 @@ const App = () => {
               <NavigationWrapper>
                 <AppRoutes />
               </NavigationWrapper>
+              <DownloadGuideOverlay />
             </AuthProvider>
           </HashRouter>
         </TooltipProvider>

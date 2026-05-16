@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { FolderOpen, Users, User, Calendar, LogOut, Settings, Bell, HelpCircle, Menu, Trash2, Home, Target, Trophy, BarChart3, Sun, History, Palette, Download, Monitor, Apple, Loader2, X, Clock } from 'lucide-react';
-import { WIN_DOWNLOAD, MAC_DOWNLOAD } from '@/lib/download-urls';
 import { toast } from 'sonner';
+import { startGuidedDownload } from '@/lib/downloadGuide';
 
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -38,13 +38,7 @@ function DesktopDownloadBanner() {
   const handleDownload = (platform: 'win' | 'mac') => {
     const setLoading = platform === 'win' ? setWinLoading : setMacLoading;
     setLoading(true);
-    const url = platform === 'win' ? WIN_DOWNLOAD : MAC_DOWNLOAD;
-    const link = document.createElement('a');
-    link.href = url;
-    link.style.display = 'none';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    startGuidedDownload(platform);
     setTimeout(() => setLoading(false), 3000);
   };
 
@@ -243,7 +237,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
         setEvHour(now.getHours())
         setEvMin(Math.ceil(now.getMinutes() / 30) * 30)
         setEvDuration(30)
-        setEvColor('#6366f1')
+        setEvColor('#5B7CFA')
         setEventCreateOpen(true)
       }
     }
@@ -280,7 +274,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
   const [evHour, setEvHour] = useState(new Date().getHours());
   const [evMin, setEvMin] = useState(Math.ceil(new Date().getMinutes() / 30) * 30);
   const [evDuration, setEvDuration] = useState(30);
-  const [evColor, setEvColor] = useState('#6366f1');
+  const [evColor, setEvColor] = useState('#5B7CFA');
   const [targetContext, setTargetContext] = useState<{ goalId?: string; folderId?: string }>({});
   const captureModalRef = useRef<TaskCaptureModalHandle>(null);
 
@@ -339,6 +333,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
   const isWelcomePage = location.pathname === '/welcome';
   const isAuthPage = location.pathname === '/auth';
   const isMiniPage = location.pathname === '/mini';
+  const isCalendarPage = location.pathname === '/calendar';
   const isLandingPage = location.pathname === '/' || location.pathname === '/landing';
   const isPrivacyPage = location.pathname === '/politica-de-privacidad';
   const isTermsPage = location.pathname === '/terminos-de-servicio';
@@ -378,9 +373,9 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
           - Mobile: ALWAYS visible (top-left) when the mobile Sheet is closed
           - Desktop: only when the desktop sidebar is collapsed */}
       {!open && (
-        <div className={`fixed left-4 z-[70] flex items-center gap-2 ${
+        <div className={`fixed left-3 z-[70] flex items-center gap-2 sm:left-4 ${
             desktopSidebarOpen ? 'lg:hidden' : ''
-          } ${window.electronAPI ? 'top-12' : 'top-4'}`}>
+          } ${window.electronAPI ? 'top-12' : 'top-3 sm:top-4'}`}>
           <button
             id="global-menu-trigger"
             onClick={() => {
@@ -391,7 +386,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
               }
             }}
             aria-label="Mostrar menú"
-            className="w-10 h-10 rounded-xl text-on-surface-variant/70 hover:text-foreground transition-all active:scale-90 flex items-center justify-center"
+            className="w-10 h-10 rounded-xl bg-background/80 text-on-surface-variant/70 shadow-lg shadow-black/5 backdrop-blur-xl border border-outline-variant/10 hover:text-foreground transition-all active:scale-90 flex items-center justify-center"
           >
             <Menu className="w-5 h-5" />
           </button>
@@ -407,7 +402,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
       )}
 
       <aside
-        className={`hidden lg:flex fixed left-0 top-0 bottom-0 w-72 bg-surface border-r border-outline-variant z-40 flex-col shadow-xl transition-transform duration-300 ${
+        className={`hidden lg:flex fixed left-0 ${window.electronAPI ? 'top-9' : 'top-0'} bottom-0 w-72 bg-surface border-r border-outline-variant z-40 flex-col shadow-xl transition-transform duration-300 ${
           desktopSidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
@@ -429,7 +424,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
           desktopSidebarOpen ? 'lg:pl-72' : 'lg:pl-0'
         }`}
       >
-        <div className={`max-w-7xl mx-auto px-0 lg:px-4 ${window.electronAPI ? 'pt-24' : 'pt-[4.5rem]'} pl-14 lg:pl-4`}>
+        <div className={`mx-auto w-full max-w-7xl px-0 lg:px-4 ${window.electronAPI ? 'pt-20' : 'pt-[4.5rem]'}`}>
           {children}
         </div>
       </main>
@@ -438,7 +433,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
       <div className="relative z-[60]">
         {/* Mobile logic: Island on week page + FAB everywhere (hidden during draft/detail/event-create) */}
         <div className="lg:hidden">
-          {isWeeklyPage && !draftActive && (
+          {(isWeeklyPage || isCalendarPage) && !draftActive && (
             <MobileDynamicIsland
               tasks={tasks}
               currentDate={new Date()}
@@ -463,7 +458,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
                 setEvHour(now.getHours())
                 setEvMin(Math.ceil(now.getMinutes() / 30) * 30)
                 setEvDuration(30)
-                setEvColor('#6366f1')
+                setEvColor('#5B7CFA')
                 window.dispatchEvent(new CustomEvent('adonai:open-create-event'))
               }}
             />
@@ -484,7 +479,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
                 setEvHour(now.getHours())
                 setEvMin(Math.ceil(now.getMinutes() / 30) * 30)
                 setEvDuration(30)
-                setEvColor('#6366f1')
+                setEvColor('#5B7CFA')
                 window.dispatchEvent(new CustomEvent('adonai:open-create-event'))
               }}
           />
@@ -559,7 +554,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
             <div className="flex items-center gap-2">
               <span className="text-xs font-bold text-muted-foreground/60">Color:</span>
               <div className="flex gap-1.5">
-                {['#6366f1', '#ef4444', '#f59e0b', '#22c55e'].map(c => (
+                {['#5B7CFA', '#EB5757', '#F4B860', '#6FCF97'].map(c => (
                   <button
                     key={c}
                     onClick={() => setEvColor(c)}

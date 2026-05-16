@@ -107,7 +107,7 @@ export function Comparison() {
                   </td>
                   <td className="py-6 px-6 border-t border-foreground/5 text-center">
                     <div className="flex justify-center">
-                      {row.web ? <Check className="w-6 h-6 text-green-500" /> : <X className="w-6 h-6 text-foreground/10" />}
+                      {row.web ? <Check className="w-6 h-6 text-[hsl(var(--success))]" /> : <X className="w-6 h-6 text-foreground/10" />}
                     </div>
                   </td>
                   <td className="py-6 px-6 border-t border-foreground/5 text-center relative">
@@ -118,7 +118,7 @@ export function Comparison() {
                   </td>
                   <td className="py-6 px-6 border-t border-foreground/5 text-center">
                     <div className="flex justify-center">
-                      {row.mobile ? <Check className="w-6 h-6 text-green-500" /> : <X className="w-6 h-6 text-foreground/10" />}
+                      {row.mobile ? <Check className="w-6 h-6 text-[hsl(var(--success))]" /> : <X className="w-6 h-6 text-foreground/10" />}
                     </div>
                   </td>
                 </motion.tr>

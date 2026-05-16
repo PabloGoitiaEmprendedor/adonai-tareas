@@ -25,8 +25,8 @@ const CalendarPage = () => {
   );
 
   return (
-    <div className="min-h-screen bg-background pb-24 lg:pl-20 lg:pb-6">
-      <div className="max-w-[430px] lg:max-w-[1400px] mx-auto px-5 pt-2 space-y-2">
+    <div className="min-h-screen bg-background pb-20 lg:pl-20 lg:pb-6">
+      <div className="mx-auto w-full max-w-none px-0 pt-0 lg:max-w-[1400px] lg:px-5 lg:pt-2">
         
       <AdonaiCalendarView 
           selectedDate={selectedDate}

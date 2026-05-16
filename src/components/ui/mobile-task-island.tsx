@@ -13,6 +13,7 @@ import {
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { isSameDay, startOfDay } from 'date-fns';
+import { TaskCheckbox } from '@/components/TaskCheckbox';
 
 interface MobileDynamicIslandProps {
   tasks: any[];
@@ -44,9 +45,27 @@ export const MobileDynamicIsland = ({
 
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
   const [draggedTask, setDraggedTask] = useState<any>(null);
+  const [isDraggingTask, setIsDraggingTask] = useState(false);
+  const draggedTaskRef = useRef<any>(null);
   const dragStarted = useRef(false);
 
   const startPos = useRef({ x: 0, y: 0 });
+
+  const buildCalendarDragTask = (task: any) => {
+    const startTime = task.startTime || task.start_time || new Date(currentDate);
+    const endTime = task.endTime || task.end_time || new Date(new Date(startTime).getTime() + 30 * 60 * 1000);
+    const priorityKey = getPriorityKey(task.urgency || false, task.importance || false);
+
+    return {
+      ...task,
+      id: String(task.id || '').startsWith('task-') ? task.id : `task-${task.id}`,
+      title: task.title,
+      startTime: new Date(startTime),
+      endTime: new Date(endTime),
+      color: priorityColors?.[priorityKey] || 'hsl(var(--primary))',
+      isAllDay: true,
+    };
+  };
 
   const handleTouchStart = (e: React.TouchEvent, task: any) => {
     if (dragStarted.current) return;
@@ -56,19 +75,22 @@ export const MobileDynamicIsland = ({
     
     longPressTimer.current = setTimeout(() => {
       dragStarted.current = true;
-      setDraggedTask(task);
+      const dragTask = buildCalendarDragTask(task);
+      setDraggedTask(dragTask);
+      draggedTaskRef.current = dragTask;
+      setIsDraggingTask(true);
       if ('vibrate' in navigator) navigator.vibrate(50);
-      
-      window.dispatchEvent(new CustomEvent('adonai:external-drag-start', { 
-        detail: { task, x: startPos.current.x, y: startPos.current.y } 
+
+      window.dispatchEvent(new CustomEvent('adonai:external-drag-start', {
+        detail: { task: dragTask, x: startPos.current.x, y: startPos.current.y }
       }));
-    }, 2000);
+    }, 280);
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
     const touch = e.touches[0];
     
-    if (dragStarted.current && draggedTask) {
+    if (dragStarted.current && (draggedTask || draggedTaskRef.current)) {
       // Prevent scrolling while dragging
       if (e.cancelable) e.preventDefault();
       window.dispatchEvent(new CustomEvent('adonai:external-drag-move', { 
@@ -97,6 +119,8 @@ export const MobileDynamicIsland = ({
       window.dispatchEvent(new CustomEvent('adonai:external-drag-end'));
       dragStarted.current = false;
       setDraggedTask(null);
+      draggedTaskRef.current = null;
+      setIsDraggingTask(false);
     }
   };
 
@@ -166,10 +190,11 @@ export const MobileDynamicIsland = ({
         {isOpen && (
           <motion.div
             initial={{ opacity: 0, y: 20, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
+            animate={isDraggingTask ? { opacity: 0, y: 28, scale: 0.96 } : { opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
             className="w-full bg-surface-container/95 backdrop-blur-2xl border border-outline-variant/10 rounded-[28px] shadow-2xl overflow-hidden flex flex-col mb-3 pointer-events-auto max-h-[45vh]"
+            style={{ pointerEvents: isDraggingTask ? 'none' : 'auto' }}
           >
             <div className="p-5 flex flex-col gap-4 overflow-hidden h-full">
               <div className="flex items-center justify-between">
@@ -273,6 +298,7 @@ export const MobileDynamicIsland = ({
                               onTouchStart={(e) => handleTouchStart(e, task)}
                               onTouchMove={handleTouchMove}
                               onTouchEnd={handleTouchEnd}
+                              onTouchCancel={handleTouchEnd}
                               onClick={() => !dragStarted.current && onTaskClick(task)}
                               className="group flex items-start gap-4 p-4 rounded-[24px] bg-surface-container-high/50 border border-transparent hover:border-primary/20 transition-all active:scale-[0.98] cursor-grab active:cursor-grabbing touch-pan-y"
                               style={{ 
@@ -281,12 +307,19 @@ export const MobileDynamicIsland = ({
                                   : 'transparent',
                               }}
                             >
-                              <div
-                                className="w-2.5 h-2.5 rounded-full mt-1.5 shrink-0 shadow-[0_0_8px_rgba(var(--primary-rgb),0.4)]"
-                                style={{ backgroundColor: priorityColors?.[priorityKey] || '#ccc' }}
-                              />
+                              <div onClick={(e) => e.stopPropagation()} className="shrink-0">
+                                <TaskCheckbox
+                                  checked={task.status === 'done' || task.completed}
+                                  size="sm"
+                                  priorityColor={priorityColors?.[priorityKey]}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onTaskClick(task);
+                                  }}
+                                />
+                              </div>
                               <div className={cn("flex-1 min-w-0", task.status === 'done' && "opacity-40")}>
-                                <span className={cn("text-[13px] font-black leading-tight block text-foreground", task.status === 'done' && "line-through")}>{task.title}</span>
+                                <span className={cn("block text-[13px] font-semibold leading-snug tracking-normal text-foreground", task.status === 'done' && "line-through")}>{task.title}</span>
                               </div>
                               <GripHorizontal className="w-4 h-4 text-muted-foreground/30 self-center" />
                             </motion.div>

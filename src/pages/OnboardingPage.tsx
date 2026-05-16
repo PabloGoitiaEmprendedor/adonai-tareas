@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { useRef } from 'react';
 import { toast } from 'sonner';
+import { startGuidedDownload } from '@/lib/downloadGuide';
 
 type StepType = 'name' | 'brain_dump' | 'recurring_tasks' | 'commitment' | 'security_register' | 'ready';
 
@@ -339,7 +340,7 @@ const OnboardingPage = () => {
                   <div className="w-16 h-16 rounded-[24px] bg-primary/10 flex items-center justify-center mb-6">
                     <User className="w-8 h-8 text-primary" />
                   </div>
-                  <h1 className="text-4xl font-black tracking-tight leading-tight text-foreground">
+                  <h1 className="page-title leading-tight text-foreground">
                     Hola. <br />
                     <span className="text-foreground/70">¿Cómo te llamas?</span>
                   </h1>
@@ -785,7 +786,7 @@ const OnboardingPage = () => {
                     </button>
                   ) : (
                     <button 
-                      onClick={() => window.open('https://adonai.app', '_blank')}
+                      onClick={() => startGuidedDownload('win')}
                       className="w-full h-20 rounded-[28px] font-black text-xl flex items-center justify-center gap-3 transition-all bg-foreground text-background hover:scale-[1.02]"
                     >
                       <Monitor className="w-6 h-6" />

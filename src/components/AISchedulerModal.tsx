@@ -266,7 +266,7 @@ export const AISchedulerModal = ({ open, onClose, selectedDate }: AISchedulerMod
                       repeat: Infinity,
                       ease: "linear"
                     }}
-                    className="relative w-24 h-24 rounded-full bg-gradient-to-tr from-primary via-blue-400 to-emerald-400 shadow-[0_0_40px_rgba(var(--primary),0.5)] flex items-center justify-center"
+                    className="relative w-24 h-24 rounded-full bg-gradient-to-tr from-primary via-[hsl(var(--primary-container))] to-[hsl(var(--success))] shadow-[0_0_40px_hsl(var(--primary)_/_0.35)] flex items-center justify-center"
                   >
                     <div className="absolute inset-1 bg-black/10 rounded-full backdrop-blur-sm" />
                     <Sparkles className="w-10 h-10 text-white relative z-10" />

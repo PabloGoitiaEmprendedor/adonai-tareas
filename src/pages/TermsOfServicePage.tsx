@@ -31,7 +31,7 @@ export default function TermsOfServicePage() {
             <Scale className="w-3.5 h-3.5" />
             Condiciones
           </div>
-          <h1 className="text-5xl md:text-7xl font-black tracking-tight mb-6">
+          <h1 className="page-title mb-6">
             Términos de <span className="text-primary">Servicio</span>
           </h1>
           <p className="text-lg text-foreground/40 font-medium">

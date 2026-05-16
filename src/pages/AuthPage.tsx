@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { ArrowLeft, Mail, ShieldCheck } from 'lucide-react';
+import { BrandLogo } from '@/components/BrandLogo';
 
 const AuthPage = () => {
   const [step, setStep] = useState<'email' | 'code'>('email');
@@ -175,33 +176,9 @@ const AuthPage = () => {
           >
             <div className="text-center space-y-4">
               <div className="flex items-center justify-center mx-auto mb-6">
-                <div className="w-20 h-20 relative">
-                  <svg viewBox="0 0 100 100" className="w-full h-full drop-shadow-[0_0_15px_rgba(34,197,94,0.3)]">
-                    <defs>
-                      <linearGradient id="logo-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stopColor="#22C55E" />
-                        <stop offset="100%" stopColor="#16a34a" />
-                      </linearGradient>
-                    </defs>
-                    <path 
-                      d="M20 50 L40 75 L85 25" 
-                      fill="none" 
-                      stroke="url(#logo-grad)" 
-                      strokeWidth="16" 
-                      strokeLinecap="round" 
-                      strokeLinejoin="round"
-                    />
-                    <path 
-                      d="M40 75 L30 65" 
-                      fill="none" 
-                      stroke="rgba(0,0,0,0.15)" 
-                      strokeWidth="16" 
-                      strokeLinecap="round"
-                    />
-                  </svg>
-                </div>
+                <BrandLogo className="h-20 w-20 drop-shadow-[0_0_15px_rgba(91,124,250,0.3)]" />
               </div>
-              <h1 className="text-5xl font-black tracking-tighter text-foreground font-headline">Adonai</h1>
+              <h1 className="page-title">Adonai</h1>
               <p className="text-on-surface-variant font-medium text-lg opacity-80">
                 Ingresa tu email para recibir un código
               </p>
@@ -241,33 +218,9 @@ const AuthPage = () => {
           >
             <div className="text-center space-y-4">
               <div className="flex items-center justify-center mx-auto mb-6">
-                <div className="w-20 h-20 relative">
-                  <svg viewBox="0 0 100 100" className="w-full h-full drop-shadow-[0_0_15px_rgba(34,197,94,0.3)]">
-                    <defs>
-                      <linearGradient id="logo-grad-2" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stopColor="#22C55E" />
-                        <stop offset="100%" stopColor="#16a34a" />
-                      </linearGradient>
-                    </defs>
-                    <path 
-                      d="M20 50 L40 75 L85 25" 
-                      fill="none" 
-                      stroke="url(#logo-grad-2)" 
-                      strokeWidth="16" 
-                      strokeLinecap="round" 
-                      strokeLinejoin="round"
-                    />
-                    <path 
-                      d="M40 75 L30 65" 
-                      fill="none" 
-                      stroke="rgba(0,0,0,0.15)" 
-                      strokeWidth="16" 
-                      strokeLinecap="round"
-                    />
-                  </svg>
-                </div>
+                <BrandLogo className="h-20 w-20 drop-shadow-[0_0_15px_rgba(91,124,250,0.3)]" />
               </div>
-              <h1 className="text-5xl font-black tracking-tighter text-foreground font-headline">Verifica</h1>
+              <h1 className="page-title">Verifica</h1>
               <p className="text-on-surface-variant font-medium text-lg opacity-80">
                 Ingresa el código enviado a
               </p>

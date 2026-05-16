@@ -345,7 +345,7 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
                           {folders.map((folder) => (
                             <button key={folder.id} onClick={() => { setFolderId(folder.id === folderId ? null : folder.id); markChanged(); }}
                               className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border ${folderId === folder.id ? 'border-transparent shadow-lg text-black' : 'bg-surface-container/30 text-muted-foreground border-outline-variant/10 hover:bg-surface-container/50'}`}
-                              style={folderId === folder.id ? { backgroundColor: (folder.color || '#4BE277'), shadowColor: (folder.color || '#4BE277') + '40' } : {}}>
+                              style={folderId === folder.id ? { backgroundColor: (folder.color || '#5B7CFA'), shadowColor: (folder.color || '#5B7CFA') + '40' } : {}}>
                               {folder.name}
                             </button>
                           ))}

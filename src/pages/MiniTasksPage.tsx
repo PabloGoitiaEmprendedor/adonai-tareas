@@ -2,32 +2,35 @@
  * MiniTasksPage — Adaptive floating pill widget.
  * - Pill (collapsed): small window, draggable ANYWHERE freely
  * - Expanded: panel that adapts direction based on screen position
- * - Inline per-task timer with green accent
- * - When timer active: pill shows running time with green numbers
+ * - Inline per-task timer with primary accent
+ * - When timer active: pill shows running time with primary numbers
  */
 import { useState, useEffect, useMemo, useRef, useCallback, memo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTasks } from '@/hooks/useTasks';
 import { useFolders } from '@/hooks/useFolders';
 import { useSubtasks } from '@/hooks/useSubtasks';
-import { format, parseISO, addMinutes, differenceInMinutes } from 'date-fns';
+import { format, parseISO, addMinutes } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Check, MoreHorizontal, ChevronRight, CalendarDays, Clock, Pause, Plus, Mic, Repeat, Paperclip, Folder, FolderOpen, X, Users as UsersIcon } from 'lucide-react';
+import { Check, MoreHorizontal, ChevronRight, CalendarDays, Plus, Mic, Repeat, Paperclip, Folder, FolderOpen, X, Users as UsersIcon, GripHorizontal } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import TaskCaptureModal, { type TaskCaptureModalHandle } from '@/components/TaskCaptureModal';
 import TaskDetailModal from '@/components/TaskDetailModal';
 import QuickRecurrenceFlow from '@/components/QuickRecurrenceFlow';
+import { TaskCheckbox } from '@/components/TaskCheckbox';
+import { TaskDurationBadge, TaskTimerButton } from '@/components/TaskTime';
 import { useGamification } from '@/hooks/useGamification';
 import { triggerTaskCelebration, triggerDailyCelebration, triggerOnTimeCelebration } from '@/lib/celebrations';
 import { useProfile } from '@/hooks/useProfile';
 import { usePriorityColors } from '@/hooks/usePriorityColors';
-import { MiniDayView, type DayEvent } from '@/components/MiniDayView';
+import AdonaiCalendarView from '@/components/calendar/AdonaiCalendarView';
 import '../index.css';
 
-const FOLDER_COLORS = ['#C3F53C', '#4BE277', '#6B9FFF', '#FF8B7C', '#FFB86C', '#BD93F9', '#FF79C6', '#C7C6C6'];
+const FOLDER_COLORS = ['#5B7CFA', '#4F6EE8', '#6FCF97', '#F4B860', '#EB5757', '#7C97FF', '#9CA3AF', '#E5E7EB'];
 
 const PANEL_W = 340;
 const PANEL_H = 500;
+const CALENDAR_W = 600;
 const PILL_W = 100;
 const PILL_H = 52;
 const PILL_TIMER_W = 130;
@@ -73,13 +76,8 @@ const SubtaskRowRaw = ({ sub, onToggle, onUpdate }: { sub: any; onToggle: (sub: 
       padding: '6px 8px 6px 28px', borderRadius: 8, cursor: isEditing ? 'default' : 'pointer',
       background: C.subBg, marginBottom: 2, opacity: isDone ? 0.45 : 1,
     }}>
-      <div onClick={(e) => { e.stopPropagation(); onToggle(sub); }} style={{
-        width: 18, height: 18, borderRadius: 5, flexShrink: 0, cursor: 'pointer',
-        background: isDone ? C.accent : 'transparent',
-        border: `2px solid ${isDone ? C.accent : 'rgba(1, 38, 14, 0.15)'}`,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-      }}>
-        {isDone && <Check style={{ width: 10, height: 10, color: '#F2F2F2', strokeWidth: 3 }} />}
+      <div onClick={(e) => { e.stopPropagation(); onToggle(sub); }} style={{ flexShrink: 0, cursor: 'pointer' }}>
+        <TaskCheckbox checked={isDone} size="sm" />
       </div>
       {isEditing ? (
         <input
@@ -120,10 +118,10 @@ const SubtaskRowRaw = ({ sub, onToggle, onUpdate }: { sub: any; onToggle: (sub: 
 const SubtaskRow = memo(SubtaskRowRaw);
 
 // ─── Task Row ────────────────────────────────────────────────────────────────
-const TaskRowRaw = ({ task, onToggle, onDetail, activeTimerId, onTimerToggle, updateTask, folders }: {
+const TaskRowRaw = ({ task, onToggle, onDetail, activeTimerId, onTimerToggle, updateTask, folders, currentDate, ensureCalendarOpen }: {
   task: any; onToggle: (task: any) => void; onDetail: (task: any) => void;
   activeTimerId: string | null; onTimerToggle: (taskId: string, estimatedMinutes?: number) => void;
-  updateTask: any; folders: any[];
+  updateTask: any; folders: any[]; currentDate: Date; ensureCalendarOpen?: () => void;
 }) => {
   const isDone = task.status === 'done';
   const [open, setOpen] = useState(false);
@@ -154,8 +152,123 @@ const TaskRowRaw = ({ task, onToggle, onDetail, activeTimerId, onTimerToggle, up
   const baseBg = priorityColor === 'transparent' ? C.taskBg : `${priorityColor}4D`;
 
   const actualSeconds = task.actual_duration_seconds || 0;
-  const estimatedSeconds = (task.estimated_minutes || 0) * 60;
-  const isOverTime = actualSeconds > estimatedSeconds && estimatedSeconds > 0;
+
+  const TIME_PREFIX_REGEX = /^\[T:(\d{2}:\d{2})-(\d{2}:\d{2})\]/;
+  const parseTimeFromDescription = (desc: string | null) => {
+    if (!desc) return null;
+    const match = desc.match(TIME_PREFIX_REGEX);
+    if (!match) return null;
+    return { start: match[1], end: match[2] };
+  };
+
+  const buildCalendarEvent = useCallback(() => {
+    const parsed = parseTimeFromDescription(task.description);
+    const dateStr = task.due_date || format(currentDate, 'yyyy-MM-dd');
+    const startTime = parsed
+      ? parseISO(`${dateStr}T${parsed.start}:00`)
+      : parseISO(`${dateStr}T08:00:00`);
+    const endTime = parsed
+      ? parseISO(`${dateStr}T${parsed.end}:00`)
+      : addMinutes(startTime, 30);
+
+    return {
+      id: task.id,
+      title: task.title,
+      startTime,
+      endTime,
+      color: priorityColor === 'transparent' ? 'var(--primary)' : priorityColor,
+      isAllDay: false,
+    };
+  }, [currentDate, priorityColor, task.description, task.due_date, task.id, task.title]);
+
+  const startExternalDrag = useCallback((x: number, y: number) => {
+    window.dispatchEvent(new CustomEvent('adonai:external-drag-start', {
+      detail: { task: buildCalendarEvent(), x, y }
+    }));
+  }, [buildCalendarEvent]);
+
+  const moveExternalDrag = useCallback((x: number, y: number) => {
+    window.dispatchEvent(new CustomEvent('adonai:external-drag-move', { detail: { x, y } }));
+  }, []);
+
+  const endExternalDrag = useCallback(() => {
+    window.dispatchEvent(new CustomEvent('adonai:external-drag-end'));
+  }, []);
+
+  const handleMouseDownDrag = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    ensureCalendarOpen?.();
+    const startX = e.clientX;
+    const startY = e.clientY;
+    let dragging = false;
+
+    const onMove = (ev: MouseEvent) => {
+      if (!dragging && (Math.abs(ev.clientX - startX) > 5 || Math.abs(ev.clientY - startY) > 5)) {
+        dragging = true;
+        startExternalDrag(startX, startY);
+      }
+      if (dragging) moveExternalDrag(ev.clientX, ev.clientY);
+    };
+
+    const onUp = (ev: MouseEvent) => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+      if (dragging) {
+        moveExternalDrag(ev.clientX, ev.clientY);
+        endExternalDrag();
+      }
+    };
+
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  }, [endExternalDrag, ensureCalendarOpen, moveExternalDrag, startExternalDrag]);
+
+  const handleTouchStartDrag = useCallback((e: React.TouchEvent) => {
+    const touch = e.touches[0];
+    if (!touch) return;
+    ensureCalendarOpen?.();
+    const startX = touch.clientX;
+    const startY = touch.clientY;
+    let dragging = false;
+    let timer: ReturnType<typeof setTimeout> | null = setTimeout(() => {
+      dragging = true;
+      startExternalDrag(startX, startY);
+      if ('vibrate' in navigator) navigator.vibrate(30);
+    }, 220);
+
+    const onMove = (ev: TouchEvent) => {
+      const current = ev.touches[0];
+      if (!current) return;
+      if (!dragging) {
+        const moveX = Math.abs(current.clientX - startX);
+        const moveY = Math.abs(current.clientY - startY);
+        if (moveX > 10 || moveY > 10) {
+          if (timer) clearTimeout(timer);
+          timer = null;
+        }
+        return;
+      }
+      if (ev.cancelable) ev.preventDefault();
+      moveExternalDrag(current.clientX, current.clientY);
+    };
+
+    const onEnd = (ev: TouchEvent) => {
+      window.removeEventListener('touchmove', onMove);
+      window.removeEventListener('touchend', onEnd);
+      window.removeEventListener('touchcancel', onEnd);
+      if (timer) clearTimeout(timer);
+      if (dragging) {
+        const endTouch = ev.changedTouches[0];
+        if (endTouch) moveExternalDrag(endTouch.clientX, endTouch.clientY);
+        endExternalDrag();
+      }
+    };
+
+    window.addEventListener('touchmove', onMove, { passive: false });
+    window.addEventListener('touchend', onEnd);
+    window.addEventListener('touchcancel', onEnd);
+  }, [endExternalDrag, ensureCalendarOpen, moveExternalDrag, startExternalDrag]);
 
   return (
     <motion.div layout initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
@@ -165,21 +278,16 @@ const TaskRowRaw = ({ task, onToggle, onDetail, activeTimerId, onTimerToggle, up
         style={{
           display: 'flex', alignItems: 'center', gap: 10, padding: '10px',
           borderRadius: 12, cursor: 'pointer',
-          background: isDone ? 'transparent' : isTimerActive ? 'rgba(33, 217, 4, 0.06)' : baseBg,
-          border: `1px solid ${isDone ? 'transparent' : isTimerActive ? 'rgba(33, 217, 4, 0.15)' : C.taskBorder}`,
+          background: isDone ? 'transparent' : isTimerActive ? 'hsl(var(--primary) / 0.08)' : baseBg,
+          border: `1px solid ${isDone ? 'transparent' : isTimerActive ? 'hsl(var(--primary) / 0.18)' : C.taskBorder}`,
           opacity: isDone ? 0.45 : 1,
         }}
       >
         <div 
           onClick={(e) => { e.stopPropagation(); onToggle(task); }} 
-          style={{
-            width: 26, height: 26, borderRadius: 8, flexShrink: 0,
-            background: isDone ? C.accent : 'transparent',
-            border: `2px solid ${isDone ? C.accent : 'rgba(1, 38, 14, 0.15)'}`,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}
+          style={{ flexShrink: 0 }}
         >
-          {isDone && <Check style={{ width: 13, height: 13, color: '#F2F2F2', strokeWidth: 3 }} />}
+          <TaskCheckbox checked={isDone} priorityColor={priorityColor} size="sm" />
         </div>
         
         {hasSubtasks && (
@@ -230,7 +338,7 @@ const TaskRowRaw = ({ task, onToggle, onDetail, activeTimerId, onTimerToggle, up
               onClick={(e) => { e.stopPropagation(); setIsEditing(true); setDraftTitle(task.title); }}
               title="Haz clic para editar"
               style={{
-                display: 'block', fontSize: 13, fontWeight: 600, lineHeight: 1.3,
+                display: 'block', fontSize: 13, fontWeight: 550, lineHeight: 1.35,
                 color: isDone ? C.muted : C.text,
                 textDecoration: isDone ? 'line-through' : 'none',
                 cursor: 'text'
@@ -246,22 +354,7 @@ const TaskRowRaw = ({ task, onToggle, onDetail, activeTimerId, onTimerToggle, up
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           {isDone ? (
             actualSeconds > 0 && (
-                <div style={{
-                  fontSize: 11, fontWeight: 800,
-                  color: isOverTime ? '#F87171' : '#A3E635',
-                  fontFamily: 'monospace',
-                  padding: '2px 8px',
-                  borderRadius: 999,
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  minWidth: '46px',
-                  lineHeight: '1',
-                  background: isOverTime ? 'rgba(248,113,113,0.2)' : 'rgba(163,230,53,0.2)',
-                  border: `1px solid ${isOverTime ? 'rgba(248,113,113,0.3)' : 'rgba(163,230,53,0.3)'}`
-                }}>
-                {formatTimer(actualSeconds)}
-              </div>
+              <TaskDurationBadge seconds={actualSeconds} estimatedMinutes={task.estimated_minutes} compact />
             )
           ) : (
             <>
@@ -306,22 +399,32 @@ const TaskRowRaw = ({ task, onToggle, onDetail, activeTimerId, onTimerToggle, up
                   <Check style={{ width: 12, height: 12, color: '#000', strokeWidth: 3 }} />
                 </div>
               ) : (
-                <div
+                <TaskTimerButton
+                  active={isTimerActive}
+                  priorityColor={priorityColor}
+                  size="sm"
                   onClick={(e) => { e.stopPropagation(); onTimerToggle(task.id, task.estimated_minutes || 30); }}
+                />
+              )}
+
+              {!isDone && (
+                <button
+                  type="button"
+                  title="Arrastrar al calendario"
+                  onMouseDown={handleMouseDownDrag}
+                  onTouchStart={handleTouchStartDrag}
+                  onClick={(e) => e.stopPropagation()}
                   style={{
                     width: 24, height: 24, borderRadius: 6, flexShrink: 0,
-                    background: isTimerActive ? (priorityColor === 'transparent' ? 'var(--primary)' : priorityColor) : C.subBg,
-                    border: `1px solid ${isTimerActive ? 'transparent' : C.border}`,
+                    background: 'transparent',
+                    border: '1px solid transparent',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    cursor: 'pointer',
-                    boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+                    cursor: 'grab',
+                    opacity: 0.48,
                   }}
                 >
-                  {isTimerActive
-                    ? <Pause style={{ width: 12, height: 12, color: '#000' }} />
-                    : <Clock style={{ width: 12, height: 12, color: priorityColor === 'transparent' ? 'var(--primary)' : priorityColor }} />
-                  }
-                </div>
+                  <GripHorizontal style={{ width: 11, height: 11, color: C.muted }} />
+                </button>
               )}
             </>
           )}
@@ -386,7 +489,6 @@ const MiniTaskList = () => {
   const { folders, createFolder } = useFolders();
   const { checkAndUnlock } = useGamification();
   const { profile } = useProfile();
-  const { colors } = usePriorityColors();
   const [completingId, setCompletingId] = useState<string | null>(null);
   const [isExpanded, setIsExpanded] = useState(false);
   const [isReady, setIsReady] = useState(false);
@@ -413,6 +515,20 @@ const MiniTaskList = () => {
   const sessionStartRef = useRef<number>(0);
   const captureModalRef = useRef<TaskCaptureModalHandle>(null);
 
+  const openTextCapture = useCallback(() => {
+    setCaptureMode('text');
+    setCaptureCreationSource('mini_plus');
+    setCaptureOpen(true);
+    captureModalRef.current?.openInTextMode(format(viewDate, 'yyyy-MM-dd'));
+  }, [viewDate]);
+
+  const openVoiceCapture = useCallback(() => {
+    setCaptureMode('voice');
+    setCaptureCreationSource('mini_voice');
+    setCaptureOpen(true);
+    void captureModalRef.current?.openInVoiceMode();
+  }, []);
+
   const { onMouseDown: onDragMouseDown, hasMovedRef, isDraggingRef: isDraggingWindowRef } = useDragWindow();
 
   // Store original pill position before expanding (to restore on collapse)
@@ -423,44 +539,9 @@ const MiniTaskList = () => {
   const hasInteractedRef = useRef(false);
 
   const [calendarOpen, setCalendarOpen] = useState(false);
-  const [isCalendarInteracting, setIsCalendarInteracting] = useState(false);
   const calendarTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const TIME_PREFIX_REGEX = /^\[T:(\d{2}:\d{2})-(\d{2}:\d{2})\]/;
-  const parseTimeFromDescription = (desc: string | null) => {
-    if (!desc) return null;
-    const match = desc.match(TIME_PREFIX_REGEX);
-    if (!match) return null;
-    return { start: match[1], end: match[2] };
-  };
-
-  const calendarEvents = useMemo((): DayEvent[] => {
-    return tasks
-      .filter((t: any) => t.status !== 'done')
-      .map((t: any) => {
-        const parsed = parseTimeFromDescription(t.description);
-        const dateStr = t.due_date || format(new Date(), 'yyyy-MM-dd');
-        const startTime = parsed
-          ? parseISO(`${dateStr}T${parsed.start}:00`)
-          : parseISO(`${dateStr}T08:00:00`);
-        const endTime = parsed
-          ? parseISO(`${dateStr}T${parsed.end}:00`)
-          : addMinutes(startTime, 30);
-
-        let color = colors.p4;
-        if (t.urgency && t.importance) color = colors.p1;
-        else if (t.urgency && !t.importance) color = colors.p2;
-        else if (!t.urgency && t.importance) color = colors.p3;
-
-        return {
-          id: t.id,
-          title: t.title,
-          startTime,
-          endTime,
-          color: color === 'transparent' ? 'var(--primary)' : color,
-        };
-      });
-  }, [tasks, colors]);
+  const calendarHoverRef = useRef(false);
+  const calendarBusyRef = useRef(false);
 
   // Timer logic
   const handleTimerToggle = useCallback((taskId: string, estimatedMinutes: number = 30) => {
@@ -572,7 +653,21 @@ const MiniTaskList = () => {
     }
   }, [isExpanded, hasMovedRef, activeTimerId]);
 
-  const handleCalendarEnter = useCallback(async () => {
+  const closeCalendarPanel = useCallback(async () => {
+    setCalendarOpen(false);
+    calendarTimerRef.current = null;
+
+    const api = (window as any).electronAPI;
+    if (api?.getMiniPosition && api?.setMiniBounds) {
+      const pos = await api.getMiniPosition();
+      if (pos && pos.w >= 700) {
+        const newX = pos.x + Math.round((pos.w - (PANEL_W + 32)) / 2);
+        api.setMiniBounds({ x: newX, y: pos.y, w: PANEL_W + 32, h: PANEL_H });
+      }
+    }
+  }, []);
+
+  const openCalendarPanel = useCallback(async () => {
     if (calendarTimerRef.current) {
       clearTimeout(calendarTimerRef.current);
       calendarTimerRef.current = null;
@@ -589,62 +684,58 @@ const MiniTaskList = () => {
     }
   }, []);
 
-  const updateDescriptionWithTime = (currentDesc: string | null, start: Date, end: Date) => {
-    const startStr = format(start, 'HH:mm');
-    const endStr = format(end, 'HH:mm');
-    const newPrefix = `[T:${startStr}-${endStr}]`;
-    let newDesc = currentDesc || '';
-    if (TIME_PREFIX_REGEX.test(newDesc)) {
-      return newDesc.replace(TIME_PREFIX_REGEX, newPrefix);
-    } else {
-      return `${newPrefix} ${newDesc}`.trim();
-    }
-  };
-
-  const handleGridClick = useCallback((startTime: Date) => {
-    const end = addMinutes(startTime, 30);
-    const startStr = format(startTime, 'HH:mm');
-    const endStr = format(end, 'HH:mm');
-    setCaptureOpen(true);
-    setCaptureMode('text');
-    setCaptureCreationSource('mini_plus');
-    setTimeout(() => {
-      captureModalRef.current?.openInTextMode(
-        format(viewDate, 'yyyy-MM-dd'),
-        '', // Title empty
-        '', // Description empty
-        `[T:${startStr}-${endStr}]` // Time prefix passed as internal metadata
-      );
-    }, 100);
-  }, []);
+  const handleCalendarEnter = useCallback(() => {
+    calendarHoverRef.current = true;
+    openCalendarPanel();
+  }, [openCalendarPanel]);
 
   const handleCalendarLeave = useCallback(() => {
-    // DO NOT CLOSE if user is dragging an event, if the detail modal is open, or if capture modal is open
-    if (isCalendarInteracting || detailOpen || captureOpen) return;
+    calendarHoverRef.current = false;
+    if (detailOpen || captureOpen || calendarBusyRef.current) return;
 
-    // 3000ms delay for a very generous grace period
-    calendarTimerRef.current = setTimeout(async () => {
-      // Final double-check before closing
-      if (isCalendarInteracting || detailOpen || captureOpen) return;
-
-      setCalendarOpen(false);
-      calendarTimerRef.current = null;
-      
-      const api = (window as any).electronAPI;
-      if (api?.getMiniPosition && api?.setMiniBounds) {
-        const pos = await api.getMiniPosition();
-        if (pos && pos.w >= 700) {
-          const newX = pos.x + Math.round((pos.w - (PANEL_W + 32)) / 2);
-          api.setMiniBounds({ x: newX, y: pos.y, w: PANEL_W + 32, h: PANEL_H });
-        }
-      }
-    }, 3000);
-  }, [isCalendarInteracting, detailOpen, captureOpen]);
+    calendarTimerRef.current = setTimeout(() => {
+      if (calendarHoverRef.current || detailOpen || captureOpen || calendarBusyRef.current) return;
+      closeCalendarPanel();
+    }, 450);
+  }, [detailOpen, captureOpen, closeCalendarPanel]);
 
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 30000);
     return () => clearInterval(t);
   }, []);
+
+  useEffect(() => {
+    const handleDragStart = () => {
+      calendarBusyRef.current = true;
+      openCalendarPanel();
+    };
+    const handleDragEnd = () => {
+      calendarBusyRef.current = false;
+      if (!calendarHoverRef.current && !detailOpen && !captureOpen) {
+        calendarTimerRef.current = setTimeout(() => {
+          if (!calendarHoverRef.current && !calendarBusyRef.current) closeCalendarPanel();
+        }, 650);
+      }
+    };
+    const handleDialogState = (event: Event) => {
+      const active = !!(event as CustomEvent).detail?.active;
+      calendarBusyRef.current = active;
+      if (!active && !calendarHoverRef.current && !detailOpen && !captureOpen) {
+        calendarTimerRef.current = setTimeout(() => {
+          if (!calendarHoverRef.current && !calendarBusyRef.current) closeCalendarPanel();
+        }, 650);
+      }
+    };
+
+    window.addEventListener('adonai:external-drag-start', handleDragStart);
+    window.addEventListener('adonai:external-drag-end', handleDragEnd);
+    window.addEventListener('adonai:dialog-state-change', handleDialogState);
+    return () => {
+      window.removeEventListener('adonai:external-drag-start', handleDragStart);
+      window.removeEventListener('adonai:external-drag-end', handleDragEnd);
+      window.removeEventListener('adonai:dialog-state-change', handleDialogState);
+    };
+  }, [captureOpen, closeCalendarPanel, detailOpen, openCalendarPanel]);
 
   useEffect(() => {
     document.documentElement.style.cssText += ';background:transparent!important';
@@ -852,12 +943,12 @@ const MiniTaskList = () => {
             width: activeTimerId ? 'auto' : 64,
             minWidth: activeTimerId ? 110 : 64,
             background: C.bg,
-            border: `1px solid ${activeTimerId ? (timerSeconds < 0 ? 'rgba(248,113,113,0.25)' : 'rgba(33, 217, 4, 0.25)') : C.border}`,
+            border: `1px solid ${activeTimerId ? (timerSeconds < 0 ? 'rgba(235,87,87,0.25)' : 'hsl(var(--primary) / 0.25)') : C.border}`,
             boxShadow: showLedGlow
-              ? '0 0 0 0 rgba(33, 217, 4, 0.4), 0 0 20px 4px rgba(33, 217, 4, 0.3), 0 0 40px 8px rgba(33, 217, 4, 0.15), inset 0 0 8px rgba(33, 217, 4, 0.1)'
+              ? '0 0 0 0 hsl(var(--primary) / 0.4), 0 0 20px 4px hsl(var(--primary) / 0.3), 0 0 40px 8px hsl(var(--primary) / 0.15), inset 0 0 8px hsl(var(--primary) / 0.1)'
               : activeTimerId
-                ? (timerSeconds < 0 ? '0 4px 20px rgba(248,113,113,0.15)' : '0 4px 20px rgba(33, 217, 4, 0.15)')
-                : '0 4px 20px rgba(1, 38, 14, 0.1)',
+                ? (timerSeconds < 0 ? '0 4px 20px rgba(235,87,87,0.15)' : '0 4px 20px hsl(var(--primary) / 0.15)')
+                : '0 4px 20px hsl(var(--foreground) / 0.1)',
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
             userSelect: 'none', cursor: 'grab',
             position: 'relative',
@@ -868,7 +959,7 @@ const MiniTaskList = () => {
           {showLedGlow && (
             <div style={{
               position: 'absolute', inset: -3, borderRadius: 999,
-              border: `2px solid rgba(33, 217, 4, 0.5)`,
+              border: `2px solid hsl(var(--primary) / 0.5)`,
               animation: 'ledBorder 2s ease-in-out infinite',
               pointerEvents: 'none',
             }} />
@@ -877,13 +968,13 @@ const MiniTaskList = () => {
             <>
               <div style={{
                 width: 8, height: 8, borderRadius: '50%',
-                background: timerSeconds < 0 ? '#F87171' : C.accent, animation: 'pulse 1.5s ease-in-out infinite',
+                background: timerSeconds < 0 ? '#EB5757' : C.accent, animation: 'pulse 1.5s ease-in-out infinite',
               }} />
               <span style={{
                 fontSize: 16, fontWeight: 900, 
-                color: timerSeconds < 0 ? '#F87171' : C.accent,
+                color: timerSeconds < 0 ? '#EB5757' : C.accent,
                 fontFamily: 'monospace', letterSpacing: '0.05em',
-                textShadow: '0 0 10px rgba(33, 217, 4, 0.3)'
+                textShadow: '0 0 10px hsl(var(--primary) / 0.3)'
               }}>
                 {formatTimer(timerSeconds)}
               </span>
@@ -907,11 +998,6 @@ const MiniTaskList = () => {
     <div
       onMouseEnter={() => {
         handleMouseEnterUI();
-        // Clear any pending calendar close timer when mouse enters the interface
-        if (calendarTimerRef.current) {
-          clearTimeout(calendarTimerRef.current);
-          calendarTimerRef.current = null;
-        }
       }}
       onMouseLeave={(e) => {
         if (showLedGlow && !hasInteractedRef.current) {
@@ -919,12 +1005,11 @@ const MiniTaskList = () => {
           setShowLedGlow(false);
         }
         handleMouseLeaveUI(e as any);
-        handleCalendarLeave();
       }}
       style={{
         position: isElectron ? 'fixed' : 'relative',
         inset: isElectron ? 0 : undefined,
-        width: isElectron ? undefined : (calendarOpen ? PANEL_W + 410 : PANEL_W + 32),
+        width: isElectron ? undefined : (calendarOpen ? PANEL_W + CALENDAR_W : PANEL_W + 32),
         height: isElectron ? undefined : '100%',
         fontFamily: 'system-ui, -apple-system, sans-serif',
         color: C.text,
@@ -941,10 +1026,10 @@ const MiniTaskList = () => {
       }}
       whileHover={{ 
         scale: 1.05,
-        boxShadow: `0 0 25px rgba(34, 197, 94, 0.4)`,
-        borderColor: '#4ADE80'
+        boxShadow: `0 0 25px hsl(var(--primary) / 0.35)`,
+        borderColor: 'hsl(var(--primary))'
       }}
-      transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+      transition={{ type: 'spring', stiffness: 420, damping: 30, mass: 0.8 }}
       style={{
         position: 'absolute',
         left: PANEL_W - 24,
@@ -952,8 +1037,8 @@ const MiniTaskList = () => {
         transform: 'translateY(-50%)',
         width: 48, height: 48, 
         borderRadius: '50%',
-        background: 'linear-gradient(135deg, #064E3B 0%, #065F46 100%)',
-        border: '1.5px solid #10B981',
+        background: 'linear-gradient(135deg, hsl(var(--primary-container)) 0%, hsl(var(--primary)) 100%)',
+        border: '1.5px solid hsl(var(--primary))',
         boxShadow: '4px 0 16px rgba(0,0,0,0.5)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         cursor: 'pointer', 
@@ -961,21 +1046,21 @@ const MiniTaskList = () => {
       }}
       title="Ver calendario"
     >
-      <CalendarDays style={{ width: 22, height: 22, color: '#4ADE80', marginLeft: 12 }} />
+      <CalendarDays style={{ width: 22, height: 22, color: 'hsl(var(--primary-foreground))', marginLeft: 12 }} />
     </motion.div>
 
     {/* INNER: visual panel with clipping */}
     <div style={{
       position: 'absolute',
       left: 0, top: 0, bottom: 0,
-      width: calendarOpen ? PANEL_W + 410 : PANEL_W,
+      width: calendarOpen ? PANEL_W + CALENDAR_W : PANEL_W,
       background: C.bg, borderRadius: isElectron ? 20 : 18,
       border: `1px solid ${C.border}`,
       boxShadow: '0 12px 48px rgba(0,0,0,0.6)',
       display: 'flex', flexDirection: 'row',
       overflow: 'hidden',
       boxSizing: 'border-box',
-      transition: 'width 0.3s ease', // Smoothly match the window expansion
+      transition: 'width 0.34s cubic-bezier(0.16, 1, 0.3, 1)',
     }}>
       {/* Left panel: tasks */}
       <div style={{ width: PANEL_W, display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
@@ -992,19 +1077,19 @@ const MiniTaskList = () => {
             padding: activeTimerId ? '0 10px' : '0',
             width: activeTimerId ? 'auto' : 52,
             minWidth: activeTimerId ? 90 : 52,
-            background: activeTimerId ? 'rgba(33, 217, 4, 0.1)' : C.subBg,
-            border: `1px solid ${activeTimerId ? 'rgba(33, 217, 4, 0.2)' : C.border}`,
+            background: activeTimerId ? 'hsl(var(--primary) / 0.1)' : C.subBg,
+            border: `1px solid ${activeTimerId ? 'hsl(var(--primary) / 0.2)' : C.border}`,
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
             cursor: 'pointer',
           }} title="Colapsar">
             {activeTimerId ? (
               <>
-                <div style={{ width: 6, height: 6, borderRadius: '50%', background: timerSeconds < 0 ? '#F87171' : C.accent, animation: 'pulse 1.5s ease-in-out infinite' }} />
-                <span style={{ 
-                  fontSize: 13, fontWeight: 900, 
-                  color: timerSeconds < 0 ? '#F87171' : C.accent, 
+                <div style={{ width: 6, height: 6, borderRadius: '50%', background: timerSeconds < 0 ? '#EB5757' : C.accent, animation: 'pulse 1.5s ease-in-out infinite' }} />
+                <span style={{
+                  fontSize: 13, fontWeight: 900,
+                  color: timerSeconds < 0 ? '#EB5757' : C.accent,
                   fontFamily: 'monospace',
-                  textShadow: '0 0 8px rgba(33, 217, 4, 0.2)'
+                  textShadow: '0 0 8px hsl(var(--primary) / 0.2)'
                 }}>
                   {formatTimer(timerSeconds)}
                 </span>
@@ -1016,7 +1101,7 @@ const MiniTaskList = () => {
 
           {/* 1. TEXT button — + icon */}
           <div
-            onClick={(e) => { e.stopPropagation(); setCaptureMode('text'); setCaptureCreationSource('mini_plus'); setCaptureOpen(true); }}
+            onClick={(e) => { e.stopPropagation(); openTextCapture(); }}
             style={{
               width: 34, height: 28, borderRadius: 10,
               background: C.subBg,
@@ -1032,17 +1117,18 @@ const MiniTaskList = () => {
 
           {/* 2. VOICE button — Audio icon */}
           <div
-            onClick={(e) => { e.stopPropagation(); setCaptureMode('voice'); setCaptureCreationSource('mini_voice'); setCaptureOpen(true); }}
+            onClick={(e) => { e.stopPropagation(); openVoiceCapture(); }}
             style={{
               width: 34, height: 28, borderRadius: 10,
-              background: C.accent,
+              background: C.subBg,
+              border: `1px solid ${C.border}`,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               cursor: 'pointer', flexShrink: 0,
-              boxShadow: '0 4px 12px rgba(33, 217, 4, 0.3)',
+              transition: 'all 0.2s ease',
             }}
             title="Añadir por voz"
           >
-            <Mic style={{ width: 15, height: 15, color: C.bg }} />
+            <Mic style={{ width: 15, height: 15, color: C.text }} />
           </div>
 
           {/* 3. FOLDERS Toggle Button */}
@@ -1249,11 +1335,11 @@ const MiniTaskList = () => {
         )}
       </AnimatePresence>
 
-      <div style={{ flex: 1, overflowY: 'auto', padding: '6px 10px 10px' }}>
+      <div style={{ flex: 1, overflowY: 'auto', padding: '6px 10px 10px' }} data-sidebar-droptarget="true" tabIndex={0}>
         {selectedFolderId && (
           <div style={{ padding: '0 8px', marginBottom: 12, display: 'flex', gap: 8 }}>
             <button
-              onClick={() => { setCaptureMode('text'); setCaptureCreationSource('mini_plus'); setCaptureOpen(true); }}
+              onClick={openTextCapture}
               style={{
                 flex: 1, height: 36, borderRadius: 12,
                 background: 'rgba(255,255,255,0.03)', border: `1px solid ${C.border}`,
@@ -1265,7 +1351,7 @@ const MiniTaskList = () => {
               <Plus style={{ width: 14, height: 14, color: C.muted }} /> Texto
             </button>
             <button
-              onClick={() => { setCaptureMode('voice'); setCaptureCreationSource('mini_voice'); setCaptureOpen(true); }}
+              onClick={openVoiceCapture}
               style={{
                 flex: 1, height: 36, borderRadius: 12,
                 background: 'rgba(255,255,255,0.03)', border: `1px solid ${C.border}`,
@@ -1304,7 +1390,9 @@ const MiniTaskList = () => {
                   activeTimerId={activeTimerId}
                   onTimerToggle={handleTimerToggle}
                   updateTask={updateTask}
-                  folders={folders} 
+                  folders={folders}
+                  currentDate={viewDate}
+                  ensureCalendarOpen={openCalendarPanel}
                 />
               ))}
             </AnimatePresence>
@@ -1325,11 +1413,11 @@ const MiniTaskList = () => {
 
       <AnimatePresence>
         {calendarOpen && (
-          <motion.div
-            initial={{ width: 0, opacity: 0, x: 40, scale: 0.96 }}
-            animate={{ width: 410, opacity: 1, x: 0, scale: 1 }}
-            exit={{ width: 0, opacity: 0, x: 40, scale: 0.96 }}
-            transition={{ type: 'spring', stiffness: 380, damping: 32, mass: 1 }}
+            <motion.div
+              initial={{ width: 0, opacity: 0, x: 28, scale: 0.985, filter: 'blur(6px)' }}
+              animate={{ width: CALENDAR_W, opacity: 1, x: 0, scale: 1, filter: 'blur(0px)' }}
+            exit={{ width: 0, opacity: 0, x: 24, scale: 0.985, filter: 'blur(6px)' }}
+            transition={{ type: 'spring', stiffness: 360, damping: 34, mass: 0.85 }}
             style={{ 
               flexShrink: 0, 
               borderLeft: `1px solid rgba(255,255,255,0.06)`, 
@@ -1341,49 +1429,29 @@ const MiniTaskList = () => {
             }}
             onMouseEnter={handleCalendarEnter}
             onMouseLeave={handleCalendarLeave}
-          >
-            <div 
-              style={{ width: 410, height: '100%', flex: 1, minWidth: 410 }}
-              onMouseEnter={() => {
-                if (calendarTimerRef.current) {
-                  clearTimeout(calendarTimerRef.current);
-                  calendarTimerRef.current = null;
-                }
-              }}
             >
-              <MiniDayView 
-                events={calendarEvents} 
-                currentDate={viewDate} 
-                onDateChange={setViewDate}
-                onEventClick={(id) => {
-                  const task = tasks.find((t: any) => t.id === id);
-                  if (task) handleDetail(task);
+              <div
+                style={{ width: CALENDAR_W, height: '100%', flex: 1, minWidth: CALENDAR_W }}
+                onMouseEnter={() => {
+                  if (calendarTimerRef.current) {
+                    clearTimeout(calendarTimerRef.current);
+                    calendarTimerRef.current = null;
+                  }
                 }}
-                onEventUpdate={(id, newStart) => {
-                  const task = tasks.find((t: any) => t.id === id);
-                  if (!task) return;
-                  const event = calendarEvents.find(e => e.id === id);
-                  if (!event) return;
-                  const duration = differenceInMinutes(event.endTime, event.startTime);
-                  const newEnd = addMinutes(newStart, duration);
-                  const newDesc = updateDescriptionWithTime(task.description, newStart, newEnd);
-                  updateTask.mutate({ id, description: newDesc });
-                }}
-                onEventResize={(id, newEnd) => {
-                  const task = tasks.find((t: any) => t.id === id);
-                  if (!task) return;
-                  const event = calendarEvents.find(e => e.id === id);
-                  if (!event) return;
-                  const newDesc = updateDescriptionWithTime(task.description, event.startTime, newEnd);
-                  updateTask.mutate({ id, description: newDesc });
-                }}
-                onGridClick={handleGridClick}
-                onInteractionChange={setIsCalendarInteracting}
-              />
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+              >
+                <AdonaiCalendarView
+                  selectedDate={viewDate}
+                  onSelectDate={setViewDate}
+                  viewMode="day"
+                  dragDisabled={false}
+                  className="h-full"
+                  hideSidebar
+                  fillHeight
+                />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
     </div> {/* close INNER visual panel */}
     </div> {/* close OUTER position context */}
 
@@ -1422,7 +1490,7 @@ const MiniTaskList = () => {
 
       {/* Simulated window — overflow visible so tab protrudes */}
       <div style={{
-        width: PANEL_W + (calendarOpen ? 410 + 16 : 0),
+        width: PANEL_W + (calendarOpen ? CALENDAR_W + 16 : 0),
         height: PANEL_H,
         position: 'relative',
         transition: 'width 0.3s ease',

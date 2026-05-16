@@ -91,7 +91,7 @@ function fireConfetti() {
   confetti({ ...defaults, particleCount: 80, origin: { x: 0.5, y: 0.4 } });
   confetti({ ...defaults, particleCount: 40, origin: { x: 0.2, y: 0.5 }, angle: 60 });
   confetti({ ...defaults, particleCount: 40, origin: { x: 0.8, y: 0.5 }, angle: 120 });
-  setTimeout(() => confetti({ ...defaults, particleCount: 60, origin: { x: 0.5, y: 0.3 }, colors: ['#fbbf24', '#ef4444', '#22c55e', '#3b82f6'] }), 300);
+  setTimeout(() => confetti({ ...defaults, particleCount: 60, origin: { x: 0.5, y: 0.3 }, colors: ['#F4B860', '#EB5757', '#6FCF97', '#5B7CFA'] }), 300);
 }
 
 const GoalsPage = () => {
@@ -252,7 +252,7 @@ const GoalsPage = () => {
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-black tracking-tight">Metas</h1>
+            <h1 className="page-title">Metas</h1>
             <p className="text-sm text-on-surface-variant/50 mt-1">
               {activeGoals.length} activa{activeGoals.length !== 1 && 's'} · {completedGoals.length} completa{completedGoals.length !== 1 && 's'}
             </p>

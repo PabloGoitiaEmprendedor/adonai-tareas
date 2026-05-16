@@ -6,14 +6,14 @@ import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 
 const AVAILABLE_COLORS = [
-  { name: 'Red', value: '#EF4444' },
-  { name: 'Orange', value: '#F97316' },
-  { name: 'Yellow', value: '#EAB308' },
-  { name: 'Green', value: '#22C55E' },
-  { name: 'Blue', value: '#3B82F6' },
-  { name: 'Purple', value: '#A855F7' },
-  { name: 'Pink', value: '#EC4899' },
-  { name: 'Gray', value: '#9CA3AF' },
+  { name: 'Primario', value: '#5B7CFA' },
+  { name: 'Primario Hover', value: '#4F6EE8' },
+  { name: 'Acento suave', value: '#E8F0FF' },
+  { name: 'Exito', value: '#6FCF97' },
+  { name: 'Advertencia', value: '#F4B860' },
+  { name: 'Error', value: '#EB5757' },
+  { name: 'Texto secundario', value: '#6B7280' },
+  { name: 'Borde', value: '#E5E7EB' },
 ];
 
 export default function PrioritySettingsPage() {
@@ -108,7 +108,7 @@ export default function PrioritySettingsPage() {
             <Palette className="w-6 h-6 text-primary" />
           </div>
           <div>
-            <h1 className="text-2xl font-black tracking-tight">Colores de Prioridad</h1>
+            <h1 className="page-title">Colores de Prioridad</h1>
             <p className="text-sm text-on-surface-variant">Personaliza cómo se ven tus tareas según su cuadrante</p>
           </div>
         </div>

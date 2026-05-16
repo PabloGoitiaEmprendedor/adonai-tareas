@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
+import { BrandLogo } from '@/components/BrandLogo';
 
 const WelcomePage = () => {
   const navigate = useNavigate();
@@ -38,28 +39,11 @@ const WelcomePage = () => {
       >
         <div className="text-center space-y-6">
           <div className="flex items-center justify-center mx-auto">
-            <div className="w-24 h-24 relative">
-              <svg viewBox="0 0 100 100" className="w-full h-full drop-shadow-[0_0_20px_rgba(34,197,94,0.3)]">
-                <defs>
-                  <linearGradient id="welcome-logo" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stopColor="#22C55E" />
-                    <stop offset="100%" stopColor="#16a34a" />
-                  </linearGradient>
-                </defs>
-                <path 
-                  d="M20 50 L40 75 L85 25" 
-                  fill="none" 
-                  stroke="url(#welcome-logo)" 
-                  strokeWidth="16" 
-                  strokeLinecap="round" 
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </div>
+            <BrandLogo className="h-24 w-24 drop-shadow-[0_0_20px_rgba(91,124,250,0.3)]" />
           </div>
 
           <div className="space-y-3">
-            <h1 className="text-5xl font-black tracking-tighter text-foreground font-headline">
+            <h1 className="page-title">
               Adonai
             </h1>
             <p className="text-on-surface-variant font-medium text-base max-w-xs mx-auto leading-relaxed">

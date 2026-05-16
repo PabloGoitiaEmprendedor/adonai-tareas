@@ -4,12 +4,14 @@ import { useTasks, useEisenhowerSort } from '@/hooks/useTasks';
 import { useGoals } from '@/hooks/useGoals';
 import { useStreaks } from '@/hooks/useStreaks';
 import { format } from 'date-fns';
-import { Check, Target, Plus, GripVertical, Timer } from 'lucide-react';
+import { Target, Plus, GripVertical } from 'lucide-react';
 import { motion } from 'framer-motion';
 import TaskDetailModal from '@/components/TaskDetailModal';
 import FullscreenTimer from '@/components/FullscreenTimer';
 import { usePriorityColors, getPriorityKey } from '@/hooks/usePriorityColors';
 import { TUTORIAL_CLOSE_CAPTURE_MODAL_EVENT } from '@/lib/tutorialEvents';
+import { TaskCheckbox } from '@/components/TaskCheckbox';
+import { TaskTimerButton } from '@/components/TaskTime';
 
 const getGreeting = () => {
   const h = new Date().getHours();
@@ -26,7 +28,7 @@ const DashboardPage = () => {
   const { tasks, updateTask } = useTasks({ date: today, excludeEvents: true });
   const [selectedTask, setSelectedTask] = useState<any>(null);
   const [timerTask, setTimerTask] = useState<any>(null);
-  const { priorityColors } = usePriorityColors();
+  const { colors: priorityColors } = usePriorityColors();
   const [orderedTasks, setOrderedTasks] = useState<any[]>([]);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
 
@@ -147,7 +149,7 @@ const DashboardPage = () => {
         {/* Content starts below the global header */}
         <div className="space-y-1 py-2">
           <p className="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest">{getGreeting()}</p>
-          <h1 className="text-xl font-extrabold tracking-tight text-foreground">
+          <h1 className="page-title text-foreground">
             {profile?.name || 'Emprendedor'}
           </h1>
         </div>
@@ -175,6 +177,7 @@ const DashboardPage = () => {
           <div className="space-y-1.5">
             {orderedTasks.map((task, idx) => {
               const isDone = task.status === 'done';
+              const priorityColor = priorityColors[getPriorityKey(task.urgency || false, task.importance || false)];
               return (
                 <motion.div
                   key={task.id}
@@ -195,26 +198,25 @@ const DashboardPage = () => {
                   {!isDone && (
                     <GripVertical className="w-4 h-4 text-on-surface-variant/30 flex-shrink-0 cursor-grab active:cursor-grabbing" />
                   )}
-                  {isDone ? (
-                    <div className="w-5 h-5 rounded bg-primary flex items-center justify-center flex-shrink-0">
-                      <Check className="w-3 h-3 text-primary-foreground" />
-                    </div>
-                  ) : (
-                    <button
-                      onClick={(e) => handleComplete(task.id, e)}
-                      className="w-5 h-5 rounded border-2 border-outline-variant flex items-center justify-center hover:border-primary flex-shrink-0"
-                    />
-                  )}
+                  <TaskCheckbox
+                    checked={isDone}
+                    priorityColor={priorityColor}
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (!isDone) handleComplete(task.id, e);
+                    }}
+                  />
                   <div className="flex-1 min-w-0">
-                    <h4 className={`text-sm font-semibold truncate ${isDone ? 'text-on-surface-variant line-through' : 'text-foreground'}`}>
+                    <h4 className={`truncate text-sm font-medium leading-snug tracking-normal ${isDone ? 'text-on-surface-variant line-through' : 'text-foreground'}`}>
                       {task.title}
                     </h4>
                   </div>
                   {!isDone && (
-                    <button onClick={(e) => handleStartTimer(task, e)}
-                      className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center hover:bg-primary/20 flex-shrink-0 transition-colors">
-                      <Timer className="w-3.5 h-3.5 text-primary" />
-                    </button>
+                    <TaskTimerButton
+                      priorityColor={priorityColor}
+                      onClick={(e) => handleStartTimer(task, e)}
+                    />
                   )}
                 </motion.div>
               );

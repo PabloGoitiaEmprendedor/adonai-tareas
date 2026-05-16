@@ -129,6 +129,7 @@ export const useVoiceCapture = () => {
       return true;
     } catch (err) {
       console.error('[voice] Failed to start SpeechRecognition:', err);
+      recognitionRef.current = null;
       return false;
     }
   }, []);
@@ -237,7 +238,12 @@ export const useVoiceCapture = () => {
     // Fallback to server transcription (primary for Electron)
     console.log('[voice] Using server transcription' + (isElectron ? ' (Electron)' : ' (browser fallback)'));
     const ok = await startServerTranscription();
-    if (ok) dispatchMicPermissionGranted();
+    if (ok) {
+      dispatchMicPermissionGranted();
+    } else {
+      isRecordingRef.current = false;
+      setIsRecording(false);
+    }
     return ok;
   }, [ensureMicPermission, startBrowserRecognition, startServerTranscription]);
 

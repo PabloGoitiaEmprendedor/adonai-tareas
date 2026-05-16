@@ -125,7 +125,7 @@ const DailyTrendsChart = ({ data }: { data: any[] }) => (
         />
         <Legend wrapperStyle={{ fontSize: '12px' }} />
         <Bar dataKey="tasks_created" name="Creadas" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-        <Bar dataKey="tasks_completed" name="Completadas" fill="#22c55e" radius={[4, 4, 0, 0]} />
+        <Bar dataKey="tasks_completed" name="Completadas" fill="hsl(var(--success))" radius={[4, 4, 0, 0]} />
       </BarChart>
     </ResponsiveContainer>
   </div>
@@ -481,9 +481,9 @@ const AdminPanelPage = () => {
             <p className="text-3xl font-black tabular-nums text-indigo-400">{analytics.retentionD7 ?? 0}%</p>
             <p className="text-[10px] text-on-surface-variant/50 mt-1">Salud semanal</p>
           </div>
-          <div className="bg-card rounded-2xl p-5 border border-emerald-500/20 shadow-sm">
-            <p className="text-[10px] font-black uppercase tracking-widest text-emerald-400/70 mb-1">WAU (7 días)</p>
-            <p className="text-3xl font-black tabular-nums text-emerald-400">{analytics.wau ?? 0}</p>
+          <div className="bg-card rounded-2xl p-5 border border-[hsl(var(--success))]/20 shadow-sm">
+            <p className="text-[10px] font-black uppercase tracking-widest text-[hsl(var(--success))]/70 mb-1">WAU (7 días)</p>
+            <p className="text-3xl font-black tabular-nums text-[hsl(var(--success))]">{analytics.wau ?? 0}</p>
             <p className="text-[10px] text-on-surface-variant/50 mt-1">Usuarios activos últimos 7d</p>
           </div>
         </section>

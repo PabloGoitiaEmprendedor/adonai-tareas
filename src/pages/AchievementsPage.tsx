@@ -54,18 +54,18 @@ const AchievementsPage = () => {
 
   return (
     <div className="min-h-screen bg-background selection:bg-primary/30 pb-32 overflow-x-hidden">
-      <div className="max-w-6xl mx-auto px-6 pt-12 space-y-16">
+      <div className="mx-auto max-w-6xl px-4 pt-8 space-y-9 sm:px-6 sm:pt-12 sm:space-y-16">
         
         {/* Premium Header */}
-        <header className="flex flex-col md:flex-row md:items-end justify-between gap-8">
-          <div className="space-y-4">
+        <header className="flex flex-col md:flex-row md:items-end justify-between gap-5 md:gap-8">
+          <div className="space-y-3 sm:space-y-4">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-1 bg-primary rounded-full shadow-[0_0_12px_rgba(var(--primary),0.5)]" />
-              <span className="text-[11px] font-black uppercase tracking-[0.4em] text-primary">
+              <div className="h-1 w-8 rounded-full bg-primary shadow-[0_0_12px_hsl(var(--primary)/0.35)] sm:w-12" />
+              <span className="text-[10px] font-black uppercase tracking-[0.24em] text-primary sm:text-[11px] sm:tracking-[0.4em]">
                 Sistema de Honor
               </span>
             </div>
-            <h1 className="text-5xl md:text-7xl font-black tracking-[-0.05em] font-headline leading-none">
+            <h1 className="text-[46px] font-black leading-[0.92] tracking-tight text-foreground sm:text-6xl sm:leading-none lg:text-7xl">
               Tus <span className="opacity-10">Logros.</span>
             </h1>
           </div>
@@ -76,8 +76,8 @@ const AchievementsPage = () => {
             className="relative group cursor-default"
           >
             <div className="absolute inset-0 bg-primary/20 blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-            <div className="relative bg-surface-container/40 backdrop-blur-md px-8 py-5 rounded-[28px] border border-outline-variant/30 flex items-center gap-4">
-              <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center">
+            <div className="relative flex items-center gap-4 rounded-[24px] border border-outline-variant/20 bg-surface-container/45 px-5 py-4 backdrop-blur-md sm:rounded-[28px] sm:px-8 sm:py-5">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/10 sm:h-12 sm:w-12">
                 <Trophy className="w-6 h-6 text-primary" />
               </div>
               <div>
@@ -89,31 +89,31 @@ const AchievementsPage = () => {
         </header>
 
         {/* Bento Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+        <div className="grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-12">
           
           {/* Main Level Card */}
-          <Card className="md:col-span-8 bg-surface-container/30 backdrop-blur-sm border-outline-variant/20 p-10 rounded-[40px] flex flex-col justify-between gap-12 relative overflow-hidden group hover:border-primary/30 transition-all duration-700">
+          <Card className="group relative flex flex-col justify-between gap-8 overflow-hidden rounded-[28px] border-outline-variant/20 bg-surface-container/30 p-5 backdrop-blur-sm transition-all duration-700 hover:border-primary/30 sm:rounded-[40px] sm:p-10 sm:gap-12 md:col-span-8">
             <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-primary/5 blur-[100px] rounded-full -translate-y-1/2 translate-x-1/3" />
             
-            <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-8">
+            <div className="relative z-10 flex flex-col justify-between gap-6 md:flex-row md:items-center md:gap-8">
               <div className="space-y-2">
                 <div className="flex items-center gap-2 text-primary">
                   <Star className="w-4 h-4 fill-current" />
                   <span className="text-[10px] uppercase font-black tracking-[0.3em]">Rango de Maestría</span>
                 </div>
                 <div className="flex items-baseline gap-2">
-                  <p className="text-8xl font-black tabular-nums tracking-[-0.08em] leading-none text-foreground group-hover:scale-105 transition-transform duration-700">
+                  <p className="text-[72px] font-black tabular-nums tracking-[-0.08em] leading-none text-foreground transition-transform duration-700 group-hover:scale-105 sm:text-8xl">
                     {level}
                   </p>
                   <span className="text-xl font-black text-on-surface-variant/20 uppercase tracking-widest">Nvl</span>
                 </div>
               </div>
 
-              <div className="flex flex-col items-end gap-2">
+              <div className="flex flex-row items-end justify-between gap-2 md:flex-col md:justify-start">
                 <p className="text-[12px] font-black text-on-surface-variant/40 uppercase tracking-[0.2em] tabular-nums">
                   XP ACUMULADA
                 </p>
-                <p className="text-4xl font-black tabular-nums text-foreground">{xp.toLocaleString()}</p>
+                <p className="text-3xl font-black tabular-nums text-foreground sm:text-4xl">{xp.toLocaleString()}</p>
               </div>
             </div>
             
@@ -140,7 +140,7 @@ const AchievementsPage = () => {
           </Card>
 
           {/* Racha Card */}
-          <Card className="md:col-span-4 bg-orange-500/5 border-orange-500/10 p-10 rounded-[40px] flex flex-col justify-between relative overflow-hidden group hover:border-orange-500/30 transition-all duration-700">
+          <Card className="group relative flex min-h-[220px] flex-col justify-between overflow-hidden rounded-[28px] border-orange-500/10 bg-orange-500/5 p-5 transition-all duration-700 hover:border-orange-500/30 sm:rounded-[40px] sm:p-10 md:col-span-4">
             <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-orange-500/10 blur-[60px] rounded-full" />
             
             <div className="flex items-center gap-3 text-orange-500 relative z-10">
@@ -149,7 +149,7 @@ const AchievementsPage = () => {
             </div>
             
             <div className="relative z-10 space-y-4">
-              <p className="text-7xl font-black tabular-nums tracking-tighter leading-none group-hover:scale-110 transition-transform duration-700">
+              <p className="text-[64px] font-black tabular-nums tracking-tighter leading-none transition-transform duration-700 group-hover:scale-110 sm:text-7xl">
                 {streak}
               </p>
               <div className="flex flex-col gap-1">
@@ -166,32 +166,32 @@ const AchievementsPage = () => {
           </Card>
 
           {/* Total Tasks Card */}
-          <Card className="md:col-span-4 bg-surface-container/20 border-outline-variant/10 p-10 rounded-[40px] flex flex-col justify-between relative overflow-hidden group hover:border-primary/20 transition-all duration-700">
+          <Card className="group relative flex min-h-[190px] flex-col justify-between overflow-hidden rounded-[28px] border-outline-variant/10 bg-surface-container/20 p-5 transition-all duration-700 hover:border-primary/20 sm:rounded-[40px] sm:p-10 md:col-span-4">
             <div className="flex items-center gap-3 text-primary relative z-10">
               <ShieldCheck className="w-6 h-6" />
               <span className="text-[11px] uppercase font-black tracking-[0.3em]">Compromiso</span>
             </div>
             
             <div className="relative z-10">
-              <p className="text-6xl font-black tabular-nums tracking-tighter leading-none">{tasksTotal}</p>
+              <p className="text-[56px] font-black tabular-nums tracking-tighter leading-none sm:text-6xl">{tasksTotal}</p>
               <p className="text-[10px] font-black text-on-surface-variant/30 uppercase tracking-[0.3em] mt-4">TAREAS CONQUISTADAS</p>
             </div>
           </Card>
 
           {/* Elite Insights Card */}
-          <Card className="md:col-span-8 bg-foreground text-background p-1 p-[1px] rounded-[40px] overflow-hidden group">
-            <div className="bg-foreground w-full h-full p-10 rounded-[39px] flex items-center justify-between relative overflow-hidden">
+          <Card className="group overflow-hidden rounded-[28px] bg-foreground p-[1px] text-background sm:rounded-[40px] md:col-span-8">
+            <div className="relative flex h-full w-full items-center justify-between overflow-hidden rounded-[27px] bg-foreground p-5 sm:rounded-[39px] sm:p-10">
               <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-transparent opacity-30" />
               
-              <div className="flex items-center gap-8 relative z-10">
-                <div className="w-20 h-20 bg-primary text-primary-foreground rounded-3xl flex items-center justify-center shrink-0 shadow-[0_20px_50px_rgba(var(--primary),0.3)] group-hover:rotate-6 group-hover:scale-110 transition-all duration-500">
-                  <Rocket className="w-10 h-10 fill-current" />
+              <div className="relative z-10 flex items-center gap-4 sm:gap-8">
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-[0_20px_50px_hsl(var(--primary)/0.24)] transition-all duration-500 group-hover:rotate-6 group-hover:scale-110 sm:h-20 sm:w-20 sm:rounded-3xl">
+                  <Rocket className="h-7 w-7 fill-current sm:h-10 sm:w-10" />
                 </div>
                 <div className="space-y-2">
-                  <h3 className="text-3xl font-black font-headline tracking-tight leading-tight italic">
+                  <h3 className="text-xl font-black font-headline tracking-tight leading-tight italic sm:text-3xl">
                     Élite del <span className="text-primary">Enfoque</span>
                   </h3>
-                  <p className="text-base text-background/50 leading-relaxed font-medium max-w-md">
+                  <p className="max-w-md text-sm font-medium leading-relaxed text-background/55 sm:text-base">
                     Tu disciplina es superior a la mayoría. Mantén el ritmo para desbloquear insignias secretas.
                   </p>
                 </div>
@@ -212,7 +212,7 @@ const AchievementsPage = () => {
         </div>
 
         {/* Achievements Sections */}
-        <div className="space-y-24 pt-12">
+        <div className="space-y-14 pt-4 sm:space-y-24 sm:pt-12">
           {Object.entries(byCategory).map(([cat, list]: [string, any]) => (
             <motion.section 
               key={cat}
@@ -220,17 +220,17 @@ const AchievementsPage = () => {
               initial="hidden"
               whileInView="visible"
               viewport={{ once: true, margin: "-100px" }}
-              className="space-y-12"
+              className="space-y-7 sm:space-y-12"
             >
-              <div className="flex items-center gap-6">
+              <div className="flex items-center gap-4 sm:gap-6">
                 <div className="w-3 h-3 rounded-full bg-primary shadow-[0_0_10px_rgba(var(--primary),0.5)]" />
-                <h2 className="text-[13px] uppercase font-black tracking-[0.5em] text-foreground/40">
+                <h2 className="text-[11px] uppercase font-black tracking-[0.28em] text-foreground/45 sm:text-[13px] sm:tracking-[0.5em]">
                   {CATEGORY_LABELS[cat] || cat}
                 </h2>
                 <div className="h-px flex-1 bg-gradient-to-r from-outline-variant/30 to-transparent" />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              <div className="grid grid-cols-1 gap-4 sm:gap-8 md:grid-cols-2 lg:grid-cols-3">
                 {list.map((ach: any) => {
                   const Icon = ICONS[ach.icon] || Trophy;
                   const isUnlocked = unlockedCodes.has(ach.code);
@@ -241,14 +241,14 @@ const AchievementsPage = () => {
                       key={ach.id}
                       variants={itemVariants}
                       whileHover={{ y: -8 }}
-                      className={`group relative p-10 rounded-[44px] border transition-all duration-700 ${
+                      className={`group relative rounded-[28px] border p-5 transition-all duration-700 sm:rounded-[44px] sm:p-10 ${
                         isUnlocked
                           ? 'bg-surface-container border-primary/20 shadow-2xl shadow-primary/5 hover:border-primary/40'
                           : 'bg-surface/20 border-outline-variant/20 grayscale opacity-40 hover:grayscale-0 hover:opacity-100 hover:bg-surface-container/50'
                       }`}
                     >
-                      <div className="flex items-start justify-between gap-4 mb-8">
-                        <div className={`w-16 h-16 rounded-[22px] flex items-center justify-center flex-shrink-0 transition-all duration-700 ${
+                      <div className="mb-6 flex items-start justify-between gap-4 sm:mb-8">
+                        <div className={`flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-[18px] transition-all duration-700 sm:h-16 sm:w-16 sm:rounded-[22px] ${
                           isUnlocked 
                             ? 'bg-primary text-primary-foreground shadow-[0_15px_35px_rgba(var(--primary),0.3)] group-hover:scale-110 group-hover:rotate-3' 
                             : 'bg-surface-container-highest text-on-surface-variant/20'
@@ -259,7 +259,7 @@ const AchievementsPage = () => {
                            <motion.div 
                             initial={{ scale: 0.9 }}
                             animate={{ scale: 1 }}
-                            className="text-[11px] font-black bg-primary/10 text-primary px-4 py-2 rounded-2xl uppercase tracking-widest shadow-inner shadow-primary/5"
+                            className="rounded-2xl bg-primary/10 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-primary shadow-inner shadow-primary/5 sm:px-4 sm:text-[11px]"
                            >
                             +{ach.xp_reward} XP
                           </motion.div>
@@ -267,10 +267,10 @@ const AchievementsPage = () => {
                       </div>
 
                       <div className="space-y-3">
-                        <p className={`text-2xl font-black leading-tight tracking-tight font-headline italic ${isUnlocked ? 'text-foreground' : 'text-on-surface-variant/60'}`}>
+                        <p className={`text-xl font-black leading-tight tracking-tight font-headline italic sm:text-2xl ${isUnlocked ? 'text-foreground' : 'text-on-surface-variant/60'}`}>
                           {ach.name}
                         </p>
-                        <p className="text-base text-on-surface-variant/50 font-medium leading-relaxed">
+                        <p className="text-sm font-medium leading-relaxed text-on-surface-variant/55 sm:text-base">
                           {ach.description}
                         </p>
                       </div>
@@ -280,7 +280,7 @@ const AchievementsPage = () => {
                           <motion.div 
                             initial={{ opacity: 0, height: 0 }}
                             animate={{ opacity: 1, height: 'auto' }}
-                            className="mt-10 pt-8 border-t border-outline-variant/30 flex items-center justify-between"
+                            className="mt-7 flex items-center justify-between border-t border-outline-variant/30 pt-5 sm:mt-10 sm:pt-8"
                           >
                             <div className="space-y-1">
                               <p className="text-[9px] font-black text-on-surface-variant/30 uppercase tracking-[0.3em]">

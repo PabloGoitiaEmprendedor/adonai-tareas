@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, ChevronRight } from 'lucide-react';
 import { useSubtasks } from '@/hooks/useSubtasks';
-import { Check } from 'lucide-react';
+import { TaskCheckbox } from './TaskCheckbox';
 
 interface Props {
   parentTaskId: string | null | undefined;
@@ -86,34 +86,20 @@ export const SubtasksSection = ({ parentTaskId, defaultOpen = false, compact = f
       >
         {/* Checkbox */}
         <div className="relative flex-shrink-0">
-          {done ? (
-            <motion.div 
-              initial={{ scale: 0, rotate: -45 }}
-              animate={{ scale: 1, rotate: 0 }}
-              transition={{ type: "spring", stiffness: 500, damping: 30 }}
-              className="w-10 h-10 rounded-[14px] bg-primary flex items-center justify-center cursor-pointer shadow-lg shadow-primary/20"
+          <motion.div
+            initial={done ? { scale: 0, rotate: -45 } : false}
+            animate={{ scale: 1, rotate: 0 }}
+            transition={{ type: "spring", stiffness: 500, damping: 30 }}
+          >
+            <TaskCheckbox
+              checked={done}
+              size="lg"
               onClick={(e) => {
                 e.stopPropagation();
                 toggleSubtask.mutate({ id: st.id, done: !done });
               }}
-            >
-              <Check className="w-5 h-5 text-black stroke-[4]" />
-            </motion.div>
-          ) : (
-            <button 
-              onClick={(e) => {
-                e.stopPropagation();
-                toggleSubtask.mutate({ id: st.id, done: !done });
-              }}
-              className="w-10 h-10 rounded-[14px] border-2 flex items-center justify-center transition-all active:scale-75 group/check bg-zinc-900/50 backdrop-blur-sm"
-              style={{ 
-                borderColor: 'rgba(255,255,255,0.08)',
-                backgroundColor: 'transparent'
-              }}
-            >
-              <div className="w-3.5 h-3.5 rounded-[6px] bg-primary scale-0 group-hover/check:scale-100 transition-all duration-300 shadow-[0_0_12px_rgba(163,230,53,0.4)]" />
-            </button>
-          )}
+            />
+          </motion.div>
         </div>
 
         {/* Task text */}

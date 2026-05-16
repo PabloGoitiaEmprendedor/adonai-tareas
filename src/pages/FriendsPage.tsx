@@ -172,23 +172,23 @@ const FriendsPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-32">
-      <div className="max-w-[430px] lg:max-w-6xl mx-auto px-6 pt-12 space-y-10">
+    <div className="min-h-screen bg-background pb-32 overflow-x-hidden">
+      <div className="mx-auto w-full max-w-[460px] px-4 pt-8 space-y-7 sm:px-6 sm:pt-12 sm:space-y-10 lg:max-w-6xl">
 
         {/* Header */}
-        <header className="space-y-6">
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-            <div className="space-y-2">
+        <header className="space-y-5">
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-5 md:gap-6">
+            <div className="space-y-2.5">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-1 bg-primary rounded-full" />
-                <span className="text-[11px] font-black uppercase tracking-[0.2em] text-primary/60">
+                <div className="h-1 w-8 rounded-full bg-primary sm:w-10" />
+                <span className="text-[10px] font-black uppercase tracking-[0.18em] text-primary/60 sm:text-[11px] sm:tracking-[0.2em]">
                   Tu Comunidad
                 </span>
               </div>
-              <h1 className="text-3xl md:text-5xl font-black tracking-tight leading-tight">
+              <h1 className="text-[42px] font-black leading-[0.95] tracking-tight text-foreground sm:text-6xl sm:leading-tight lg:text-7xl">
                 Amigos de <span className="text-primary">Enfoque</span>
               </h1>
-              <p className="text-sm text-on-surface-variant/60 max-w-sm">
+              <p className="max-w-sm text-[13px] font-medium leading-relaxed text-on-surface-variant/65 sm:text-sm">
                 Comparte tu progreso, mira el de tus amigos y crezcan juntos.
               </p>
             </div>
@@ -200,7 +200,7 @@ const FriendsPage = () => {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Buscar por nombre o email..."
-                className="w-full bg-surface-container rounded-xl pl-12 pr-4 py-3.5 text-foreground font-medium text-sm outline-none focus:ring-2 focus:ring-primary/20 transition-all border border-outline-variant/30"
+                className="w-full rounded-2xl border border-outline-variant/20 bg-surface-container px-4 py-3.5 pl-12 text-sm font-semibold text-foreground outline-none transition-all focus:ring-2 focus:ring-primary/20"
                 onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
               />
               {searching && (
@@ -219,7 +219,7 @@ const FriendsPage = () => {
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              className="bg-surface-container/80 backdrop-blur-xl border border-outline-variant/30 rounded-2xl p-2 space-y-1 shadow-2xl overflow-hidden"
+              className="overflow-hidden rounded-[24px] border border-outline-variant/20 bg-surface-container/85 p-2 shadow-2xl backdrop-blur-xl sm:rounded-2xl"
             >
               {searchResults.length > 0 && (
                 <div className="p-4 border-b border-outline-variant/10 flex items-center justify-between">
@@ -237,7 +237,7 @@ const FriendsPage = () => {
                 const alreadyFriend = friendUserIds.includes(p.user_id);
                 const alreadySent = pendingSent.some((f) => f.addressee_id === p.user_id);
                 return (
-                  <div key={p.user_id} className="flex items-center gap-4 p-4 rounded-2xl hover:bg-surface-container transition-colors">
+                  <div key={p.user_id} className="flex items-center gap-3 rounded-2xl p-3 transition-colors hover:bg-surface-container sm:gap-4 sm:p-4">
                     <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-lg font-black text-primary flex-shrink-0">
                       {(p.name || 'U')[0].toUpperCase()}
                     </div>
@@ -252,7 +252,7 @@ const FriendsPage = () => {
                     ) : (
                       <button
                         onClick={() => handleSendRequest(p.user_id)}
-                        className="px-6 py-3 rounded-xl bg-primary text-primary-foreground text-[10px] font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:scale-105 transition-all flex-shrink-0"
+                        className="shrink-0 rounded-xl bg-primary px-4 py-3 text-[10px] font-black uppercase tracking-widest text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:scale-105 sm:px-6"
                       >
                         Conectar
                       </button>
@@ -263,9 +263,9 @@ const FriendsPage = () => {
 
               {/* Explicit Invite Section when searching or explicitly triggered */}
               {(showInviteBox || (searchResults.length === 0 && searchQuery.includes('@'))) && (
-                <div className="p-5 bg-primary/5 rounded-2xl m-2 border border-primary/10 space-y-4">
-                  <div className="flex items-start justify-between">
-                    <div className="flex gap-3">
+                <div className="m-1 space-y-4 rounded-[22px] border border-primary/10 bg-primary/5 p-4 sm:m-2 sm:p-5">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex gap-3 min-w-0">
                       <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
                         <Mail className="w-5 h-5 text-primary" />
                       </div>
@@ -283,7 +283,7 @@ const FriendsPage = () => {
                     )}
                   </div>
 
-                  <div className="flex gap-3">
+                  <div className="flex flex-col gap-3 sm:flex-row">
                     <div className="relative flex-1">
                       <input
                         autoFocus
@@ -298,7 +298,7 @@ const FriendsPage = () => {
                     <button
                       onClick={handleSendInviteEmail}
                       disabled={inviteSending || !inviteEmail.includes('@')}
-                      className="px-6 py-3 rounded-xl bg-primary text-primary-foreground font-black text-[10px] uppercase tracking-widest shadow-lg shadow-primary/20 hover:scale-105 transition-all disabled:opacity-30 flex-shrink-0 flex items-center gap-2"
+                      className="flex shrink-0 items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3 text-[10px] font-black uppercase tracking-widest text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:scale-105 disabled:opacity-30"
                     >
                       {inviteSending ? (
                         <div className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
@@ -315,18 +315,18 @@ const FriendsPage = () => {
         </AnimatePresence>
 
         {/* Tabs */}
-        <div className="space-y-8">
-          <div className="flex items-center justify-between">
-            <div className="flex bg-surface-container rounded-2xl p-1.5 w-fit border border-outline-variant/30">
+        <div className="space-y-6 sm:space-y-8">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="grid w-full grid-cols-2 rounded-2xl border border-outline-variant/20 bg-surface-container p-1.5 sm:flex sm:w-fit">
               <button
                 onClick={() => setTab('friends')}
-                className={`px-8 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${tab === 'friends' ? 'bg-background text-foreground shadow-sm' : 'text-on-surface-variant/40 hover:text-foreground'}`}
+                className={`rounded-xl px-4 py-3 text-[10px] font-black uppercase tracking-widest transition-all sm:px-8 ${tab === 'friends' ? 'bg-background text-foreground shadow-sm' : 'text-on-surface-variant/40 hover:text-foreground'}`}
               >
                 Amigos ({friends.length})
               </button>
               <button
                 onClick={() => setTab('requests')}
-                className={`px-8 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all relative ${tab === 'requests' ? 'bg-background text-foreground shadow-sm' : 'text-on-surface-variant/40 hover:text-foreground'}`}
+                className={`relative rounded-xl px-4 py-3 text-[10px] font-black uppercase tracking-widest transition-all sm:px-8 ${tab === 'requests' ? 'bg-background text-foreground shadow-sm' : 'text-on-surface-variant/40 hover:text-foreground'}`}
               >
                 Solicitudes
                 {pendingReceived.length > 0 && (
@@ -340,7 +340,7 @@ const FriendsPage = () => {
             {/* Quick invite button */}
             <button
               onClick={() => { setShowInviteBox(true); setSearchResults([]); }}
-              className="flex items-center gap-2 px-5 py-3 rounded-xl bg-primary/10 text-primary font-black text-[10px] uppercase tracking-widest hover:bg-primary/20 transition-all border border-primary/20"
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-primary/20 bg-primary/10 px-5 py-3 text-[10px] font-black uppercase tracking-widest text-primary transition-all hover:bg-primary/20 sm:w-auto"
             >
               <UserPlus className="w-4 h-4" /> Invitar
             </button>
@@ -355,7 +355,7 @@ const FriendsPage = () => {
             {/* Friends List */}
             {tab === 'friends' && (
               friends.length === 0 ? (
-                <motion.div variants={itemVariants} className="col-span-full py-20 bg-surface/30 border border-dashed border-outline-variant/20 rounded-2xl text-center flex flex-col items-center gap-4">
+                <motion.div variants={itemVariants} className="col-span-full flex flex-col items-center gap-4 rounded-[28px] border border-dashed border-outline-variant/20 bg-surface/30 px-5 py-14 text-center sm:rounded-2xl sm:py-20">
                   <div className="w-16 h-16 rounded-2xl bg-surface-container flex items-center justify-center">
                     <Sparkles className="w-8 h-8 text-primary/30" />
                   </div>
@@ -381,7 +381,7 @@ const FriendsPage = () => {
                       key={friendship.id}
                       variants={itemVariants}
                       onClick={() => navigate(`/profile/${friendId}`)}
-                      className="group p-5 rounded-2xl bg-surface-container/50 border-2 border-outline-variant/15 hover:border-primary/40 transition-all duration-200 cursor-pointer relative overflow-hidden hover:-translate-y-0.5 active:translate-y-0"
+                    className="group relative cursor-pointer overflow-hidden rounded-[26px] border border-outline-variant/15 bg-surface-container/55 p-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 active:translate-y-0 sm:rounded-2xl sm:border-2"
                     >
                       <div className="relative z-10 space-y-4">
                         <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-lg font-black text-primary group-hover:scale-110 transition-transform duration-300">
@@ -406,7 +406,7 @@ const FriendsPage = () => {
             {/* Requests List */}
             {tab === 'requests' && (
               pendingReceived.length === 0 ? (
-                <motion.div variants={itemVariants} className="col-span-full py-20 bg-surface/30 border border-dashed border-outline-variant/20 rounded-2xl text-center flex flex-col items-center">
+                <motion.div variants={itemVariants} className="col-span-full flex flex-col items-center rounded-[28px] border border-dashed border-outline-variant/20 bg-surface/30 px-5 py-14 text-center sm:rounded-2xl sm:py-20">
                   <p className="text-sm text-on-surface-variant/40 font-black uppercase tracking-[0.2em]">Sin solicitudes pendientes</p>
                 </motion.div>
               ) : (
@@ -416,7 +416,7 @@ const FriendsPage = () => {
                     <motion.div
                       key={req.id}
                       variants={itemVariants}
-                      className="p-5 rounded-2xl bg-surface-container/50 border-2 border-outline-variant/15 space-y-4"
+                      className="space-y-4 rounded-[26px] border border-outline-variant/15 bg-surface-container/55 p-5 sm:rounded-2xl sm:border-2"
                     >
                       <div className="flex items-center gap-4">
                         <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-lg font-black text-primary">

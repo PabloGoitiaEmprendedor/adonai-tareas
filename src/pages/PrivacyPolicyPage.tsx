@@ -31,7 +31,7 @@ export default function PrivacyPolicyPage() {
             <Shield className="w-3.5 h-3.5" />
             Legal
           </div>
-          <h1 className="text-5xl md:text-7xl font-black tracking-tight mb-6">
+          <h1 className="page-title mb-6">
             Política de <span className="text-primary">Privacidad</span>
           </h1>
           <p className="text-lg text-foreground/40 font-medium">

@@ -13,18 +13,35 @@ export type CustomColor = {
 };
 
 const DEFAULT_COLORS: PriorityColors = {
-  p1: '#ff4b4b', // Urgent & Important (Red)
-  p2: '#ffb34b', // Urgent & Not Important (Orange)
-  p3: '#4b79ff', // Not Urgent & Important (Blue)
-  p4: '#a3a3a3', // Not Urgent & Not Important (Gray)
+  p1: '#EB5757', // Urgent & Important
+  p2: '#F4B860', // Urgent & Not Important
+  p3: '#5B7CFA', // Not Urgent & Important
+  p4: '#E5E7EB', // Not Urgent & Not Important
 };
+
+const LEGACY_DEFAULT_COLORS: PriorityColors = {
+  p1: '#ff4b4b',
+  p2: '#ffb34b',
+  p3: '#4b79ff',
+  p4: '#a3a3a3',
+};
+
+const matchesLegacyDefaults = (colors: PriorityColors) =>
+  (Object.keys(LEGACY_DEFAULT_COLORS) as Array<keyof PriorityColors>).every(
+    (key) => colors[key]?.toLowerCase() === LEGACY_DEFAULT_COLORS[key].toLowerCase()
+  );
 
 export const usePriorityColors = () => {
   const [colors, setColors] = useState<PriorityColors>(() => {
     const saved = localStorage.getItem('adonai_priority_colors');
     if (!saved) return DEFAULT_COLORS;
     try {
-      return JSON.parse(saved);
+      const parsed = JSON.parse(saved);
+      if (matchesLegacyDefaults(parsed)) {
+        localStorage.setItem('adonai_priority_colors', JSON.stringify(DEFAULT_COLORS));
+        return DEFAULT_COLORS;
+      }
+      return parsed;
     } catch (e) {
       console.error('Error parsing priority colors:', e);
       return DEFAULT_COLORS;

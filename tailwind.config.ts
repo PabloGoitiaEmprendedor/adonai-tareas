@@ -79,12 +79,15 @@ export default {
           DEFAULT: "hsl(var(--tertiary))",
           container: "hsl(var(--tertiary-container))",
         },
-        // Notioneers inspired palette
-        notion: {
-          lime: "#C3F53C",
-          forest: "#405143",
-          cream: "#F5F0D9",
-          mint: "#E9F7EF",
+        adonai: {
+          blue: "#5B7CFA",
+          "blue-hover": "#4F6EE8",
+          "blue-soft": "#E8F0FF",
+          success: "#6FCF97",
+          warning: "#F4B860",
+          error: "#EB5757",
+          ink: "#1F2937",
+          slate: "#6B7280",
         }
       },
       borderRadius: {

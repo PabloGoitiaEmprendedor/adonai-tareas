@@ -28,7 +28,7 @@ const injectTutorialStyles = () => {
     }
     .tutorial-activate {
       animation: tutorial-subtle-jump 2s ease-in-out infinite !important;
-      border-color: #C3F53C !important;
+      border-color: #5B7CFA !important;
       box-shadow: 0 0 15px rgba(195, 245, 60, 0.4) !important;
       z-index: 999999 !important;
       position: relative !important;
@@ -344,7 +344,7 @@ const PriorityHighlighter = ({ content }: { content: string }) => {
                 opacity: [0.7, 1, 0.7]
               }}
               transition={{ repeat: Infinity, duration: 2.5 }}
-              className={`w-2 h-2 rounded-full shrink-0 ${isCompleted ? 'bg-primary shadow-[0_0_10px_#C3F53C]' : 'bg-red-500 shadow-[0_0_10px_#ef4444]'}`} 
+              className={`w-2 h-2 rounded-full shrink-0 ${isCompleted ? 'bg-primary shadow-[0_0_10px_#5B7CFA]' : 'bg-red-500 shadow-[0_0_10px_#EB5757]'}`}
             />
             <p className={`text-[12.5px] font-extrabold tracking-tight relative z-10 ${isCompleted ? 'text-primary' : 'text-red-400'}`}>
               {priorityInstruction || (index === 2 ? 'Escribe algo para continuar...' : 'Completa el paso para continuar...')}

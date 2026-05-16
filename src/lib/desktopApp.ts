@@ -1,3 +1,5 @@
+import { startGuidedDownload } from "@/lib/downloadGuide";
+
 /**
  * Single source of truth for the desktop (Windows) app installer.
  * Uses GitHub's "latest release" redirect so it always points to the newest version.
@@ -9,7 +11,7 @@ export const DESKTOP_APP_VERSION = "latest";
 
 /** Trigger the .exe download in any browser. */
 export function downloadDesktopApp() {
-  window.location.href = DESKTOP_APP_DOWNLOAD_URL;
+  startGuidedDownload("win");
 }
 
 /**
@@ -20,5 +22,5 @@ export function downloadDesktopApp() {
 export const OPEN_DOWNLOAD_DIALOG_EVENT = "adonai:open-download-dialog";
 
 export function openDownloadDialog() {
-  window.dispatchEvent(new CustomEvent(OPEN_DOWNLOAD_DIALOG_EVENT));
+  startGuidedDownload("win");
 }

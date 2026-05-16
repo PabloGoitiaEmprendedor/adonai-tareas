@@ -77,12 +77,12 @@ const UpdateBanner = () => {
                 animate={{ rotate: 360 }}
                 transition={{ repeat: Infinity, duration: 2, ease: 'linear' }}
               >
-                <Download style={{ width: 18, height: 18, color: '#A3E635' }} />
+                <Download style={{ width: 18, height: 18, color: 'hsl(var(--primary))' }} />
               </motion.div>
             ) : update.status === 'ready' ? (
-              <Check style={{ width: 18, height: 18, color: '#A3E635' }} />
+              <Check style={{ width: 18, height: 18, color: 'hsl(var(--success))' }} />
             ) : update.status === 'available' ? (
-              <Download style={{ width: 18, height: 18, color: '#A3E635' }} />
+              <Download style={{ width: 18, height: 18, color: 'hsl(var(--primary))' }} />
             ) : (
               <X style={{ width: 18, height: 18, color: '#ef4444' }} />
             )}
@@ -148,7 +148,7 @@ const UpdateBanner = () => {
                 transition={{ duration: 0.3 }}
                 style={{
                   height: '100%',
-                  background: 'linear-gradient(90deg, #A3E635, #65a30d)',
+                  background: 'linear-gradient(90deg, hsl(var(--primary-container)), hsl(var(--primary)))',
                   borderRadius: 999,
                 }}
               />
@@ -164,8 +164,8 @@ const UpdateBanner = () => {
                 padding: '8px 0',
                 borderRadius: 10,
                 border: 'none',
-                background: 'linear-gradient(135deg, #A3E635, #65a30d)',
-                color: '#000',
+                background: 'linear-gradient(135deg, hsl(var(--primary-container)), hsl(var(--primary)))',
+                color: 'hsl(var(--primary-foreground))',
                 fontSize: 12,
                 fontWeight: 800,
                 cursor: 'pointer',

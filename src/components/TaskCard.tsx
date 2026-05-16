@@ -1,10 +1,12 @@
 import { useState, memo } from 'react';
 import { motion } from 'framer-motion';
-import { Check, Clock, Link as LinkIcon, Paperclip } from 'lucide-react';
+import { Check, Link as LinkIcon, Paperclip } from 'lucide-react';
 import SubtasksSection from './SubtasksSection';
 import { useSubtasks } from '@/hooks/useSubtasks';
 import { useTasks } from '@/hooks/useTasks';
 import { usePriorityColors } from '@/hooks/usePriorityColors';
+import { TaskCheckbox } from './TaskCheckbox';
+import { TaskDurationBadge, TaskTimerButton } from './TaskTime';
 
 interface TaskCardProps {
   task: any;
@@ -103,33 +105,22 @@ export const TaskCard = memo(({
     >
       {/* Checkbox */}
       <div className="relative flex-shrink-0 pt-1">
-        {isDone || completingTaskId === task.id ? (
-          <motion.button 
-            initial={{ scale: 0, rotate: -45 }}
-            animate={{ scale: 1, rotate: 0 }}
-            transition={{ type: "spring", stiffness: 500, damping: 30 }}
-            className="w-9 h-9 md:w-8 md:h-8 rounded-[12px] flex items-center justify-center cursor-pointer shadow-lg shadow-primary/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
-            style={{ backgroundColor: priorityColor === 'transparent' ? 'var(--primary)' : priorityColor }}
-            onClick={(e) => handleUncomplete(task, e)}
-            aria-label="Marcar tarea como pendiente"
-          >
-            <Check className="w-4 h-4 text-black stroke-[4]" />
-          </motion.button>
-        ) : (
-          <button onClick={(e) => { e.stopPropagation(); handleComplete(task, e); }}
-            className="w-9 h-9 md:w-8 md:h-8 rounded-[12px] border-2 flex items-center justify-center transition-all active:scale-75 group/check bg-zinc-900/50 backdrop-blur-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
-            style={{ 
-              borderColor: priorityColor === 'transparent' ? 'rgba(255,255,255,0.08)' : `${priorityColor}60`,
-              backgroundColor: 'transparent'
+        <motion.div
+          initial={isDone || completingTaskId === task.id ? { scale: 0, rotate: -45 } : false}
+          animate={{ scale: 1, rotate: 0 }}
+          transition={{ type: "spring", stiffness: 500, damping: 30 }}
+        >
+          <TaskCheckbox
+            checked={isDone || completingTaskId === task.id}
+            priorityColor={priorityColor}
+            size="md"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (isDone || completingTaskId === task.id) handleUncomplete(task, e);
+              else handleComplete(task, e);
             }}
-            aria-label="Completar tarea"
-          >
-            <div 
-              className="w-3 h-3 rounded-[5px] scale-0 group-hover/check:scale-100 transition-all duration-300 shadow-[0_0_12px_rgba(163,230,53,0.4)]" 
-              style={{ backgroundColor: priorityColor === 'transparent' ? 'var(--primary)' : priorityColor }}
-            />
-          </button>
-        )}
+          />
+        </motion.div>
       </div>
 
       <div className="flex-1 min-w-0 relative flex flex-col justify-center min-h-[44px] pr-2">
@@ -148,7 +139,7 @@ export const TaskCard = memo(({
             </span>
           </button>
 
-          <div className={`text-[14px] font-black tracking-tight transition-all flex flex-1 items-center gap-2 font-headline break-words ${
+          <div className={`text-[14px] font-semibold tracking-normal transition-all flex flex-1 items-center gap-2 font-headline break-words ${
             isDone || completingTaskId === task.id ? 'text-on-surface-variant/30 line-through' : 'text-foreground'
           }`}>
             {isEditing ? (
@@ -177,31 +168,14 @@ export const TaskCard = memo(({
               </span>
             )}
 
-            {isDone && task.actual_duration_seconds > 0 && (() => {
-              const isOver = task.estimated_minutes > 0 && task.actual_duration_seconds > (task.estimated_minutes * 60);
-              return (
-                <span 
-                  style={{
-                    fontSize: '11px',
-                    fontWeight: 800,
-                    fontFamily: 'monospace',
-                    padding: '2px 8px',
-                    borderRadius: '999px',
-                    marginLeft: '8px',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    minWidth: '46px',
-                    color: isOver ? '#F87171' : '#A3E635',
-                    background: isOver ? 'rgba(248, 113, 113, 0.2)' : 'rgba(163, 230, 53, 0.2)',
-                    border: `1px solid ${isOver ? 'rgba(248, 113, 113, 0.3)' : 'rgba(163, 230, 53, 0.3)'}`,
-                    lineHeight: '1'
-                  }}
-                >
-                  {String(Math.floor(task.actual_duration_seconds / 60)).padStart(2, '0')}:{String(task.actual_duration_seconds % 60).padStart(2, '0')}
-                </span>
-              );
-            })()}
+            {isDone && task.actual_duration_seconds > 0 && (
+              <TaskDurationBadge
+                seconds={task.actual_duration_seconds}
+                estimatedMinutes={task.estimated_minutes}
+                compact
+                className="ml-2"
+              />
+            )}
           </div>
         </div>
 
@@ -254,16 +228,10 @@ export const TaskCard = memo(({
               <Check className="w-4 h-4 text-primary-foreground stroke-[3]" />
             </button>
           ) : (
-            <button
+            <TaskTimerButton
+              priorityColor={priorityColor}
               onClick={(e) => handleStartTimer(task, e)}
-              className="w-9 h-9 md:w-8 md:h-8 rounded-[10px] border border-outline/50 flex items-center justify-center transition-all active:scale-90 bg-surface/50 dark:bg-black/20 hover:bg-surface dark:hover:bg-black/40 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
-              aria-label="Iniciar temporizador"
-            >
-              <Clock 
-                className="w-3.5 h-3.5" 
-                style={{ color: priorityColor === 'transparent' ? 'var(--primary)' : priorityColor }} 
-              />
-            </button>
+            />
           )
         )}
       </div>

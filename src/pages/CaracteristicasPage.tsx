@@ -4,19 +4,14 @@ import { PublicFooter } from "@/components/PublicFooter";
 import { Monitor, Apple, Loader2, Flame, Trophy, Target, CalendarDays, Users, Timer, FolderOpen, Sparkles, Check, ArrowRight } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { motion, useInView } from "framer-motion";
-import { WIN_DOWNLOAD, MAC_DOWNLOAD } from "@/lib/download-urls";
+import { startGuidedDownload, type DownloadPlatform } from "@/lib/downloadGuide";
 
 /* ── Download helpers ── */
-function useDownload(url: string) {
+function useDownload(platform: DownloadPlatform) {
   const [loading, setLoading] = useState(false);
   const handle = () => {
     setLoading(true);
-    const a = document.createElement("a");
-    a.href = url;
-    a.style.display = "none";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    startGuidedDownload(platform);
     setTimeout(() => setLoading(false), 3000);
   };
   return { loading, handle };
@@ -84,7 +79,7 @@ function FeatureBlock({
             </div>
           ) : (
             <div className="aspect-video flex items-center justify-center bg-foreground/[0.03] relative overflow-hidden">
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(34,197,94,0.05),transparent_70%)]" />
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(91,124,250,0.08),transparent_70%)]" />
               <Icon className="w-24 h-24 text-primary/20 transition-transform duration-700 group-hover:scale-110 group-hover:text-primary/40" />
             </div>
           )}
@@ -180,8 +175,8 @@ function FloatingParticles() {
 }
 
 export default function CaracteristicasPage() {
-  const win = useDownload(WIN_DOWNLOAD);
-  const mac = useDownload(MAC_DOWNLOAD);
+  const win = useDownload("win");
+  const mac = useDownload("mac");
   const heroRef = useRef(null);
   const heroInView = useInView(heroRef, { once: true });
   const statsRef = useRef(null);
@@ -392,7 +387,7 @@ export default function CaracteristicasPage() {
         viewport={{ once: true }}
         transition={{ duration: 1 }}
       >
-        <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_50%_50%,rgba(34,197,94,0.1),transparent_70%)]" />
+        <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_50%_50%,rgba(91,124,250,0.12),transparent_70%)]" />
         
         <div className="relative z-10 mx-auto max-w-4xl">
           <motion.h2

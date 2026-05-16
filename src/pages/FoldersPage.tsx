@@ -16,7 +16,7 @@ import { triggerTaskCelebration } from '@/lib/celebrations';
 import { dispatchTutorialFolderCreated } from '@/lib/tutorialEvents';
 import { usePriorityColors, getPriorityKey } from '@/hooks/usePriorityColors';
 
-const FOLDER_COLORS = ['#C3F53C', '#4BE277', '#6B9FFF', '#FF8B7C', '#FFB86C', '#BD93F9', '#FF79C6', '#C7C6C6'];
+const FOLDER_COLORS = ['#5B7CFA', '#4F6EE8', '#6FCF97', '#F4B860', '#EB5757', '#7C97FF', '#9CA3AF', '#E5E7EB'];
 
 const FoldersPage = () => {
   const { folders, createFolder, updateFolder, deleteFolder, isLoading } = useFolders();
@@ -327,7 +327,7 @@ const FoldersPage = () => {
                     Organización
                   </span>
                 </div>
-                <h1 className="text-3xl md:text-5xl font-black tracking-tight font-headline">
+                <h1 className="page-title">
                   Proyectos
                 </h1>
               </div>
@@ -498,7 +498,7 @@ const FoldersPage = () => {
                       Arquitectura
                     </span>
                   </div>
-                  <h1 className="text-3xl md:text-5xl font-black tracking-tight font-headline">
+                  <h1 className="page-title">
                     {currentFolder?.name}
                   </h1>
                 </div>

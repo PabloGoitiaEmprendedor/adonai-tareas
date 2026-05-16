@@ -1,24 +1,22 @@
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useState } from "react";
-import { Menu, X, Download, Monitor, Apple, Loader2 } from "lucide-react";
-import { WIN_DOWNLOAD, MAC_DOWNLOAD } from "@/lib/download-urls";
+import { HelpCircle, Mail, Menu, Monitor, X, Loader2 } from "lucide-react";
+import { startGuidedDownload } from "@/lib/downloadGuide";
+import { BrandLogo } from "@/components/BrandLogo";
 
 const NAV_LINKS = [
-  { label: "Inicio",          to: "/" },
-  { label: "Características", to: "/caracteristicas" },
-  { label: "FAQ",             to: "/faq" },
+  { label: "Inicio", section: "inicio" },
+  { label: "¿Como funciona?", section: "como-funciona" },
+  { label: "Preguntas frecuentes", to: "/faq" },
+  { label: "Precio", section: "precio" },
+  { label: "Soporte", href: "mailto:pablo@webadonai.com" },
 ];
 
 function useDownloadWin() {
   const [loading, setLoading] = useState(false);
   const handle = () => {
     setLoading(true);
-    const a = document.createElement("a");
-    a.href = WIN_DOWNLOAD;
-    a.style.display = "none";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    startGuidedDownload("win");
     setTimeout(() => setLoading(false), 3000);
   };
   return { loading, handle };
@@ -26,109 +24,127 @@ function useDownloadWin() {
 
 export function PublicNav() {
   const location = useLocation();
+  const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
   const { loading, handle } = useDownloadWin();
 
-  const isActive = (to: string) => location.pathname === to.split("#")[0];
+  const scrollToLandingSection = (section: string) => {
+    if (location.pathname !== "/landing" && location.pathname !== "/") {
+      navigate("/landing");
+      window.setTimeout(() => document.getElementById(section)?.scrollIntoView({ behavior: "smooth", block: "start" }), 80);
+      return;
+    }
+    document.getElementById(section)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  const renderNavItem = (item: (typeof NAV_LINKS)[number], mobile = false) => {
+    const className = mobile
+      ? "block w-full rounded-xl px-4 py-3 text-left text-sm font-semibold text-foreground/70 transition-colors hover:bg-foreground/5 hover:text-foreground"
+      : "rounded-full px-4 py-2 text-sm font-semibold text-foreground/60 transition-colors hover:bg-foreground/5 hover:text-foreground";
+
+    if ("href" in item) {
+      return (
+        <a key={item.label} href={item.href} onClick={() => setMobileOpen(false)} className={className}>
+          {item.label}
+        </a>
+      );
+    }
+
+    if ("to" in item) {
+      return (
+        <Link key={item.label} to={item.to} onClick={() => setMobileOpen(false)} className={className}>
+          {item.label}
+        </Link>
+      );
+    }
+
+    return (
+      <button
+        key={item.label}
+        type="button"
+        onClick={() => {
+          scrollToLandingSection(item.section);
+          setMobileOpen(false);
+        }}
+        className={className}
+      >
+        {item.label}
+      </button>
+    );
+  };
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-foreground/8 bg-background/90 backdrop-blur-md">
-      <div className="mx-auto flex max-w-6xl items-center justify-between px-6 h-16">
+      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
+        <button
+          type="button"
+          onClick={() => scrollToLandingSection("inicio")}
+          className="flex items-center gap-2.5 group"
+          aria-label="Adonai - Inicio"
+        >
+          <BrandLogo className="h-8 w-8 flex-shrink-0 drop-shadow-[0_0_6px_rgba(91,124,250,0.35)]" />
+          <span className="text-base font-black tracking-tight transition-colors group-hover:text-primary">Adonai</span>
+        </button>
 
-        {/* Logo */}
-        <Link to="/" className="flex items-center gap-2.5 group" aria-label="Adonai — Inicio">
-          <div className="w-7 h-7 flex-shrink-0">
-            <svg viewBox="0 0 100 100" className="w-full h-full drop-shadow-[0_0_6px_rgba(34,197,94,0.4)]">
-              <defs>
-                <linearGradient id="nav-logo-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#22C55E" />
-                  <stop offset="100%" stopColor="#16a34a" />
-                </linearGradient>
-              </defs>
-              <path d="M20 50 L40 75 L85 25" fill="none" stroke="url(#nav-logo-grad)"
-                strokeWidth="18" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </div>
-          <span className="text-base font-black tracking-tight group-hover:text-primary transition-colors">Adonai</span>
-        </Link>
-
-        {/* Desktop nav */}
-        <nav className="hidden md:flex items-center gap-1" role="navigation" aria-label="Navegación principal">
-          {NAV_LINKS.map((l) => (
-            <Link
-              key={l.to}
-              to={l.to}
-              className={`px-4 py-2 rounded-full text-sm font-semibold transition-colors ${
-                isActive(l.to)
-                  ? "bg-primary/10 text-primary"
-                  : "text-foreground/60 hover:text-foreground hover:bg-foreground/5"
-              }`}
-            >
-              {l.label}
-            </Link>
-          ))}
+        <nav className="hidden items-center gap-1 lg:flex" role="navigation" aria-label="Navegacion principal">
+          {NAV_LINKS.map((item) => renderNavItem(item))}
         </nav>
 
-        {/* CTA */}
-        <div className="hidden md:flex items-center gap-2">
+        <div className="hidden items-center gap-2 md:flex">
           <button
             onClick={handle}
             disabled={loading}
             id="nav-download-win"
-            className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-xs font-bold text-primary-foreground transition hover:opacity-90 disabled:opacity-60"
+            className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-xs font-black text-primary-foreground transition hover:opacity-90 disabled:opacity-60"
           >
-            {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Monitor className="w-3.5 h-3.5" />}
+            {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Monitor className="h-3.5 w-3.5" />}
             Descargar gratis
           </button>
           <Link
-            to="/auth"
+            to="/faq"
             className="inline-flex items-center gap-1.5 rounded-full border border-foreground/15 px-4 py-2 text-xs font-semibold text-foreground/70 transition hover:bg-foreground/5"
           >
-            Entrar a la app
+            <HelpCircle className="h-3.5 w-3.5" />
+            FAQ
           </Link>
+          <a
+            href="mailto:pablo@webadonai.com"
+            className="inline-flex items-center gap-1.5 rounded-full border border-foreground/15 px-4 py-2 text-xs font-semibold text-foreground/70 transition hover:bg-foreground/5"
+          >
+            <Mail className="h-3.5 w-3.5" />
+            Soporte
+          </a>
         </div>
 
-        {/* Mobile hamburger */}
         <button
-          className="md:hidden p-2 text-foreground/60 hover:text-foreground transition-colors"
+          className="p-2 text-foreground/60 transition-colors hover:text-foreground lg:hidden"
           onClick={() => setMobileOpen(!mobileOpen)}
-          aria-label={mobileOpen ? "Cerrar menú" : "Abrir menú"}
+          aria-label={mobileOpen ? "Cerrar menu" : "Abrir menu"}
           aria-expanded={mobileOpen}
         >
-          {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
         </button>
       </div>
 
-      {/* Mobile drawer */}
       {mobileOpen && (
-        <div className="md:hidden border-t border-foreground/8 bg-background/98 px-6 py-4 space-y-1">
-          {NAV_LINKS.map((l) => (
-            <Link
-              key={l.to}
-              to={l.to}
-              onClick={() => setMobileOpen(false)}
-              className={`block px-4 py-3 rounded-xl text-sm font-semibold transition-colors ${
-                isActive(l.to)
-                  ? "bg-primary/10 text-primary"
-                  : "text-foreground/70 hover:bg-foreground/5"
-              }`}
-            >
-              {l.label}
-            </Link>
-          ))}
-          <div className="pt-3 flex flex-col gap-2">
+        <div className="space-y-1 border-t border-foreground/8 bg-background/98 px-6 py-4 lg:hidden">
+          {NAV_LINKS.map((item) => renderNavItem(item, true))}
+          <div className="flex flex-col gap-2 pt-3">
             <button
-              onClick={() => { handle(); setMobileOpen(false); }}
+              onClick={() => {
+                handle();
+                setMobileOpen(false);
+              }}
               disabled={loading}
-              className="w-full inline-flex items-center justify-center gap-2 rounded-full bg-primary px-5 py-3 text-sm font-bold text-primary-foreground transition hover:opacity-90"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-primary px-5 py-3 text-sm font-black text-primary-foreground transition hover:opacity-90"
             >
-              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Monitor className="w-4 h-4" />}
+              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Monitor className="h-4 w-4" />}
               Descargar para Windows
             </button>
             <Link
-              to="/auth"
+              to="/welcome"
               onClick={() => setMobileOpen(false)}
-              className="w-full inline-flex items-center justify-center rounded-full border border-foreground/15 px-5 py-3 text-sm font-semibold text-foreground/70 transition hover:bg-foreground/5"
+              className="inline-flex w-full items-center justify-center rounded-full border border-foreground/15 px-5 py-3 text-sm font-semibold text-foreground/70 transition hover:bg-foreground/5"
             >
               Entrar a la app web
             </Link>

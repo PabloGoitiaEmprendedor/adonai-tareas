@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
+import { BrandLogo } from "@/components/BrandLogo";
 
 export function PublicFooter() {
   return (
@@ -8,18 +9,7 @@ export function PublicFooter() {
         <div className="flex flex-col md:flex-row justify-between items-center gap-12 text-center md:text-left">
           <div className="flex flex-col items-center md:items-start gap-4">
             <Link to="/" className="flex items-center gap-3 group">
-              <div className="w-10 h-10 transition-transform group-hover:scale-110">
-                <svg viewBox="0 0 100 100" className="w-full h-full">
-                  <path
-                    d="M20 50 L40 75 L85 25"
-                    fill="none"
-                    stroke="#22C55E"
-                    strokeWidth="18"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </div>
+              <BrandLogo className="h-11 w-11 transition-transform group-hover:scale-110" />
               <span className="text-2xl font-black tracking-tight">Adonai</span>
             </Link>
             <p className="text-sm text-foreground/40 max-w-xs leading-relaxed">
@@ -51,7 +41,7 @@ export function PublicFooter() {
           <p>© {new Date().getFullYear()} Adonai Tasks. Todos los derechos reservados.</p>
           <div className="flex items-center gap-6">
             <span className="flex items-center gap-1.5">
-              <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+              <div className="w-1.5 h-1.5 rounded-full bg-[hsl(var(--success))] animate-pulse" />
               Sistemas Operativos
             </span>
           </div>

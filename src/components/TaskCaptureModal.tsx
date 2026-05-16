@@ -92,20 +92,19 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
       setDescription('');
       setLinks(['']);
       
-      if (!requestedVoiceOpenRef.current) {
-        if (initialMode === 'voice') {
-          setPhase('input');
-          setSourceType('voice');
-          setShowTextInput(false);
-        } else if (initialMode === 'text') {
-          setPhase('input');
-          setSourceType('text');
-          setShowTextInput(true);
-        } else {
-          setPhase('select');
-          setSourceType('text');
-          setShowTextInput(true);
-        }
+      if (initialMode === 'voice') {
+        setPhase('input');
+        setSourceType('voice');
+        setShowTextInput(false);
+      } else if (initialMode === 'text') {
+        requestedVoiceOpenRef.current = false;
+        setPhase('input');
+        setSourceType('text');
+        setShowTextInput(true);
+      } else if (!requestedVoiceOpenRef.current) {
+        setPhase('select');
+        setSourceType('text');
+        setShowTextInput(true);
       }
     }
   }
@@ -134,6 +133,7 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
       return beginVoiceCapture();
     },
     openInTextMode: (date?: string, initialTitle?: string, initialDescription?: string, timePrefixArg?: string) => {
+      requestedVoiceOpenRef.current = false;
       setPhase('input');
       setTitle(initialTitle || '');
       setDescription(initialDescription || '');
@@ -176,6 +176,7 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
   }, [open, initialMode, beginVoiceCapture, resetTranscript]);
 
   const handleClose = () => {
+    requestedVoiceOpenRef.current = false;
     if (isRecording) {
       stopRecording();
     }

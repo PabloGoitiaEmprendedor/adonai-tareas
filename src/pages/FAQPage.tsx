@@ -3,7 +3,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown, HelpCircle, MessageCircle, Sparkles, ArrowRight, Monitor, Apple, Globe, Search, LifeBuoy } from "lucide-react";
 import { PublicNav } from "@/components/PublicNav";
 import { PublicFooter } from "@/components/PublicFooter";
-import { WIN_DOWNLOAD, MAC_DOWNLOAD } from "@/lib/download-urls";
 import { Link } from "react-router-dom";
 
 const CATEGORIES = ["General", "Descarga", "Funciones", "Cuenta", "Privacidad"];
@@ -157,7 +156,7 @@ export default function FAQPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7 }}
-            className="text-6xl md:text-8xl font-black tracking-tight leading-[0.85] mb-8"
+            className="page-title leading-[0.85] mb-8"
           >
             Preguntas <br />
             <span className="text-primary relative">

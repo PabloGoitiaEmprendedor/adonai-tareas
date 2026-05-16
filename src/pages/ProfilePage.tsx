@@ -45,7 +45,7 @@ const ProfilePage = () => {
             <span className="text-3xl font-black text-primary">{(profile?.name || 'U')[0].toUpperCase()}</span>
           </div>
           <div>
-            <h2 className="text-3xl font-black tracking-tight text-foreground">
+            <h2 className="page-title text-foreground">
               {(profile?.name && profile.name.trim()) || 'Usuario'}
             </h2>
             <p className="text-on-surface-variant text-sm font-medium">@{profile?.name?.toLowerCase().replace(/\s+/g, '') || 'usuario'}</p>

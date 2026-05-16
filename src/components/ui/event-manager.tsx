@@ -66,6 +66,7 @@ export interface Event {
   recurrenceEndType?: 'never' | 'date' | 'count'
   recurrenceEndDate?: string
   recurrenceEndCount?: number
+  expandRecurrence?: boolean
   reminderEnabled?: boolean
   reminderMinutesBefore?: number
   reminderCustomValue?: number
@@ -86,12 +87,16 @@ export interface EventManagerProps {
   onCellClick?: (date: Date) => void
   categories?: string[]
   colors?: { name: string; value: string; bg: string; text: string }[]
-  defaultView?: "month" | "week" | "day" | "list" | "schedule" | "3day"
+  defaultView?: "month" | "week" | "day" | "year" | "list" | "schedule" | "3day"
   className?: string
   recurrenceExceptions?: Set<string>
   availableTags?: string[]
   onEventClick?: (event: Event) => void
   dragDisabled?: boolean
+  focusedDate?: Date
+  onDateChange?: (date: Date) => void
+  hideSidebar?: boolean
+  containedScroll?: boolean
 }
 
 const defaultColors = [
@@ -117,12 +122,17 @@ export function EventManager({
   availableTags = ["Important", "Urgent", "Work", "Personal", "Team", "Client"],
   recurrenceExceptions,
   dragDisabled = false,
+  focusedDate,
+  onDateChange,
+  hideSidebar = false,
+  containedScroll = false,
 }: EventManagerProps) {
   const { colors: priorityColors, customColors, addCustomColor, removeCustomColor } = usePriorityColors()
   const [events, setEvents] = useState<Event[]>(initialEvents)
   // Map of eventId -> optimistic event for drops currently pending Supabase confirmation.
   // Prevents a stale React Query refetch from overwriting the optimistic local state.
   const pendingDropsRef = useRef<Map<string, Event>>(new Map())
+  const sidebarScrollRef = useRef<HTMLDivElement>(null)
   const registerPendingDrop = useCallback((ev: Event) => {
     pendingDropsRef.current.set(ev.id, ev);
     setTimeout(() => {
@@ -170,8 +180,8 @@ export function EventManager({
     })
   }, [initialEvents])
 
-  const [currentDate, setCurrentDate] = useState(new Date())
-  const [view, setView] = useState<"month" | "week" | "day" | "list" | "schedule" | "3day">(defaultView)
+  const [currentDate, setCurrentDate] = useState(() => focusedDate ? new Date(focusedDate) : new Date())
+  const [view, setView] = useState<"month" | "week" | "day" | "year" | "list" | "schedule" | "3day">(defaultView)
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null)
   const DURATION_OPTIONS = [
     { label: '1m', value: 1 },
@@ -233,7 +243,7 @@ export function EventManager({
   const [sidebarView, setSidebarView] = useState<'list' | 'folders'>('list');
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set(['General']));
   const [recurrenceEditorOpen, setRecurrenceEditorOpen] = useState(true)
-  const [pendingCustomColor, setPendingCustomColor] = useState('#22c55e')
+  const [pendingCustomColor, setPendingCustomColor] = useState('#5B7CFA')
   const [, setRecSummary] = useState('')
   const [draftEvent, setDraftEvent] = useState<Event | null>(null)
   const [draftTitle, setDraftTitle] = useState('')
@@ -261,9 +271,6 @@ export function EventManager({
       title: draftTitle.trim(),
       color: '#9e9e9e',
     }
-    pendingDropsRef.current.set(event.id, event)
-    setTimeout(() => { pendingDropsRef.current.delete(event.id) }, 5000)
-    setEvents(prev => [...prev, event])
     onEventCreate?.(event)
     setDraftEvent(null)
     setDraftTitle('')
@@ -286,6 +293,20 @@ export function EventManager({
     window.dispatchEvent(new CustomEvent('adonai:dialog-state-change', { detail: { active: isDialogOpen } }))
     if (isDialogOpen) setRecurrenceEditorOpen(false)
   }, [isDialogOpen])
+
+  useEffect(() => {
+    if (!focusedDate) return
+    setCurrentDate(prev => isSameDay(prev, focusedDate) ? prev : new Date(focusedDate))
+  }, [focusedDate])
+
+  const commitCurrentDate = useCallback((nextDate: Date | ((previous: Date) => Date)) => {
+    setCurrentDate(previous => {
+      const resolved = typeof nextDate === 'function' ? nextDate(previous) : nextDate
+      const normalized = new Date(resolved)
+      onDateChange?.(normalized)
+      return normalized
+    })
+  }, [onDateChange])
 
   const toggleFolder = (folder: string) => {
     const newExpanded = new Set(expandedFolders);
@@ -358,7 +379,10 @@ export function EventManager({
 
     // Calculate visible range based on current view
     let visibleStart: Date, visibleEnd: Date;
-    if (view === 'month') {
+    if (view === 'year') {
+      visibleStart = new Date(currentDate.getFullYear(), 0, 1);
+      visibleEnd = new Date(currentDate.getFullYear(), 11, 31, 23, 59, 59, 999);
+    } else if (view === 'month') {
       visibleStart = startOfMonth(currentDate);
       visibleEnd = endOfMonth(currentDate);
     } else if (view === 'week') {
@@ -381,7 +405,7 @@ export function EventManager({
     const skipRecurrenceId = (instanceId: string) => recurrenceExceptions?.has(instanceId)
 
     baseEvents.forEach(event => {
-      if (!event.recurrence || event.recurrence === 'none') return
+      if (!event.recurrence || event.recurrence === 'none' || event.expandRecurrence === false) return
 
       const anchorDate = new Date(event.startTime)
       const anchorEnd = new Date(event.endTime)
@@ -658,7 +682,6 @@ export function EventManager({
       isEvent: creationSource === 'calendar_only',
     }
 
-    setEvents((prev) => [...prev, event])
     onEventCreate?.(event)
     setIsDialogOpen(false)
     setIsCreating(false)
@@ -714,9 +737,15 @@ export function EventManager({
     [onEventUpdate, selectedEvent?.id],
   )
 
-  // ─── Shared ghost ref for both sidebar and grid drags ───
+  // â”€â”€â”€ Shared ghost ref for both sidebar and grid drags â”€â”€â”€
   const globalGhostRef = useRef<HTMLDivElement>(null)
   const [globalDragEvent, setGlobalDragEvent] = useState<Event | null>(null)
+  const globalDragEventRef = useRef<Event | null>(null)
+
+  const setActiveDragEvent = useCallback((event: Event | null) => {
+    globalDragEventRef.current = event
+    setGlobalDragEvent(event)
+  }, [])
 
   const handleDragStart = useCallback((event: Event) => {
     setDraggedEvent(event)
@@ -746,7 +775,7 @@ export function EventManager({
     onEventUpdate?.(event.id, updatedEvent)
   }, [onEventUpdate])
 
-  // Sidebar custom mouse drag – mirrors the calendar ghost system
+  // Sidebar custom mouse drag â€“ mirrors the calendar ghost system
   const handleSidebarMouseDown = useCallback((e: React.MouseEvent, event: Event) => {
     e.preventDefault()
     const startX = e.clientX
@@ -772,7 +801,7 @@ export function EventManager({
     const onMove = (ev: MouseEvent) => {
       if (!dragging && (Math.abs(ev.clientX - startX) > 5 || Math.abs(ev.clientY - startY) > 5)) {
         dragging = true
-        setGlobalDragEvent(event)
+        setActiveDragEvent(event)
       }
       if (dragging) showGhost(ev.clientX, ev.clientY)
     }
@@ -781,7 +810,7 @@ export function EventManager({
       window.removeEventListener('mousemove', onMove)
       window.removeEventListener('mouseup', onUp)
       hideGhost()
-      setGlobalDragEvent(null)
+      setActiveDragEvent(null)
       if (!dragging) return
 
       const els = document.elementsFromPoint(ev.clientX, ev.clientY) as HTMLElement[]
@@ -824,7 +853,7 @@ export function EventManager({
     const onMove = (ev: TouchEvent) => {
       if (!dragging && (Math.abs(ev.touches[0].clientX - startX) > 5 || Math.abs(ev.touches[0].clientY - startY) > 5)) {
         dragging = true
-        setGlobalDragEvent(event)
+        setActiveDragEvent(event)
       }
       if (dragging) showGhost(ev.touches[0].clientX, ev.touches[0].clientY)
     }
@@ -833,7 +862,7 @@ export function EventManager({
       window.removeEventListener('touchmove', onMove)
       window.removeEventListener('touchend', onEnd)
       hideGhost()
-      setGlobalDragEvent(null)
+      setActiveDragEvent(null)
       if (!dragging) return
 
       const touch = ev.changedTouches[0]
@@ -855,7 +884,7 @@ export function EventManager({
   useEffect(() => {
     const handleExternalDragStart = (e: any) => {
       const { task, x, y } = e.detail;
-      setGlobalDragEvent(task);
+      setActiveDragEvent(task);
       const g = globalGhostRef.current;
       if (g) {
         g.style.display = 'flex';
@@ -886,17 +915,18 @@ export function EventManager({
       g.style.transform = `translate(-9999px, -9999px)`;
       setTimeout(() => { if (g) g.style.display = 'none' }, 150);
 
-      if (globalDragEvent) {
+      const activeEvent = globalDragEventRef.current;
+      if (activeEvent) {
         const els = document.elementsFromPoint(x + 70, y + 20) as HTMLElement[];
         const cell = els.find(el => el.dataset && el.dataset.cellHour !== undefined);
         if (cell && cell.dataset.cellDay && cell.dataset.cellHour !== undefined) {
           const day = new Date(cell.dataset.cellDay);
           const hour = parseInt(cell.dataset.cellHour);
           const mins = parseInt(cell.dataset.cellMins || '0');
-          dropEventOnCalendar(globalDragEvent, day, hour, mins);
+          dropEventOnCalendar(activeEvent, day, hour, mins);
         }
       }
-      setGlobalDragEvent(null);
+      setActiveDragEvent(null);
     };
 
     window.addEventListener('adonai:external-drag-start', handleExternalDragStart);
@@ -907,7 +937,7 @@ export function EventManager({
       window.removeEventListener('adonai:external-drag-move', handleExternalDragMove);
       window.removeEventListener('adonai:external-drag-end', handleExternalDragEnd);
     };
-  }, [globalDragEvent, dropEventOnCalendar]);
+  }, [dropEventOnCalendar, setActiveDragEvent]);
 
   useEffect(() => {
     const handler = () => {
@@ -968,9 +998,11 @@ export function EventManager({
 
   const navigateDate = useCallback(
     (direction: "prev" | "next") => {
-      setCurrentDate((prev) => {
+      commitCurrentDate((prev) => {
         const newDate = new Date(prev)
-        if (view === "month") {
+        if (view === "year") {
+          newDate.setFullYear(prev.getFullYear() + (direction === "next" ? 1 : -1))
+        } else if (view === "month") {
           newDate.setMonth(prev.getMonth() + (direction === "next" ? 1 : -1))
         } else if (view === "week") {
           newDate.setDate(prev.getDate() + (direction === "next" ? 7 : -7))
@@ -982,7 +1014,7 @@ export function EventManager({
         return newDate
       })
     },
-    [view],
+    [view, commitCurrentDate],
   )
 
   // Mobile swipe navigation
@@ -1042,6 +1074,15 @@ export function EventManager({
 
   const [searchOpen, setSearchOpen] = useState(false)
   const searchInputRef = useRef<HTMLInputElement>(null)
+  const viewLabels: Record<"day" | "week" | "month" | "year" | "3day" | "schedule" | "list", string> = {
+    day: "Día",
+    week: "Semana",
+    month: "Mes",
+    year: "Año",
+    "3day": "3 días",
+    schedule: "Agenda",
+    list: "Lista",
+  }
 
   useEffect(() => {
     if (searchOpen && searchInputRef.current) {
@@ -1049,17 +1090,19 @@ export function EventManager({
     }
   }, [searchOpen])
 
+  const compactDayLabel = format(currentDate, "EEE d", { locale: es }).replace('.', '')
+
   return (
-    <div data-calendar-grid className={cn("flex flex-col gap-4", className)}>
+    <div data-calendar-grid className={cn("relative flex flex-col gap-0", className)}>
       {/* Sticky Header - Google-like */}
-      <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-xl border-b border-outline-variant/10 px-2 pb-3 pt-6 lg:pt-3 -mx-0 mb-2 shadow-sm">
+      <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-xl border-b border-outline-variant/10 px-3 pb-3 pt-4 lg:px-2 lg:pt-3 -mx-0 mb-0 shadow-sm">
         {/* Single-line header: Month + Day + Nav + View tabs */}
-        <div className="flex items-center gap-2 pl-12 lg:pl-0">
+        <div className="flex items-center gap-1.5 pl-10 lg:pl-0 lg:gap-2">
           {/* Month name (opens date picker) */}
           <Popover>
             <PopoverTrigger asChild>
               <button type="button" className="flex items-center gap-3 text-left hover:opacity-80 transition-opacity shrink-0">
-                <span className="text-2xl lg:text-3xl font-black tracking-tight text-foreground leading-none flex items-center gap-2">
+                <span className="text-xl sm:text-2xl lg:text-3xl font-black tracking-tight text-foreground leading-none flex items-center gap-2">
                   {format(currentDate, "MMMM", { locale: es }).charAt(0).toUpperCase() + format(currentDate, "MMMM", { locale: es }).slice(1)}
                 </span>
               </button>
@@ -1067,13 +1110,19 @@ export function EventManager({
             <PopoverContent className="w-auto p-0 border-outline-variant/10 bg-surface-container/95 backdrop-blur-3xl shadow-2xl" align="start">
               <div className="p-2 border-b border-outline-variant/5 flex items-center justify-between">
                 <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground px-2">Seleccionar Fecha</span>
-                <Button variant="ghost" size="sm" onClick={() => setCurrentDate(new Date())} className="text-[9px] font-black uppercase tracking-widest h-7 px-2 rounded-md hover:bg-primary/10 text-primary">
+                <Button variant="ghost" size="sm" onClick={() => commitCurrentDate(new Date())} className="text-[9px] font-black uppercase tracking-widest h-7 px-2 rounded-md hover:bg-primary/10 text-primary">
                   Ir a Hoy
                 </Button>
               </div>
-              <CalendarPicker mode="single" selected={currentDate} onSelect={(date) => date && setCurrentDate(date)} initialFocus className="p-3" />
+              <CalendarPicker mode="single" selected={currentDate} onSelect={(date) => date && commitCurrentDate(date)} initialFocus className="p-3" />
             </PopoverContent>
           </Popover>
+
+          {containedScroll && view === "day" && (
+            <div className="flex h-8 shrink-0 items-center rounded-xl border border-outline-variant/20 bg-surface-container px-3 text-[11px] font-black uppercase tracking-wide text-foreground shadow-sm">
+              {compactDayLabel}
+            </div>
+          )}
 
           {/* Nav arrows */}
           <div className="flex items-center gap-0.5 shrink-0">
@@ -1088,18 +1137,18 @@ export function EventManager({
           {/* Spacer */}
           <div className="flex-1 min-w-0" />
 
-          {/* View toggle */}
-          <div className="flex bg-surface-container-low/80 rounded-xl p-0.5 border border-outline-variant/10 shrink-0">
-            <Button variant="ghost" size="sm" onClick={() => setView("day")} className={cn("text-[9px] font-black uppercase tracking-widest h-6 px-3 rounded-xl transition-all shrink-0", view === "day" ? "bg-white dark:bg-surface-container-high shadow-lg text-primary" : "opacity-40 hover:opacity-100")}>
-              Día
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => setView("week")} className={cn("text-[9px] font-black uppercase tracking-widest h-6 px-3 rounded-xl transition-all shrink-0", view === "week" ? "bg-white dark:bg-surface-container-high shadow-lg text-primary" : "opacity-40 hover:opacity-100")}>
-              Semana
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => setView("month")} className={cn("text-[9px] font-black uppercase tracking-widest h-6 px-3 rounded-xl transition-all shrink-0", view === "month" ? "bg-white dark:bg-surface-container-high shadow-lg text-primary" : "opacity-40 hover:opacity-100")}>
-              Mes
-            </Button>
-          </div>
+          {/* View selector */}
+          <Select value={view} onValueChange={(value) => setView(value as typeof view)}>
+            <SelectTrigger className="h-8 w-[92px] shrink-0 rounded-xl border-outline-variant/10 bg-surface-container-low/80 px-2 text-[10px] font-black uppercase tracking-widest text-foreground shadow-none focus:ring-1 focus:ring-primary/30 sm:w-[108px]">
+              <SelectValue>{viewLabels[view]}</SelectValue>
+            </SelectTrigger>
+            <SelectContent align="end" className="min-w-[132px] rounded-2xl border-outline-variant/10 bg-surface-container/95 p-1 shadow-2xl backdrop-blur-xl">
+              <SelectItem value="day" className="rounded-xl text-xs font-bold">Día</SelectItem>
+              <SelectItem value="week" className="rounded-xl text-xs font-bold">Semana</SelectItem>
+              <SelectItem value="month" className="rounded-xl text-xs font-bold">Mes</SelectItem>
+              <SelectItem value="year" className="rounded-xl text-xs font-bold">Año</SelectItem>
+            </SelectContent>
+          </Select>
 
           {/* Search toggle */}
           <button
@@ -1113,7 +1162,7 @@ export function EventManager({
 
         {/* Search bar (expandable) */}
         {searchOpen && (
-          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden mt-2 pl-10 lg:pl-0">
+          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden mt-2">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/30 pointer-events-none" />
               <input
@@ -1134,7 +1183,7 @@ export function EventManager({
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 min-h-0 relative">
+      <div className={cn(containedScroll ? "flex-1 min-h-0" : "min-h-0", "relative")}>
         <AnimatePresence mode="wait">
           <motion.div
             key={view}
@@ -1142,7 +1191,7 @@ export function EventManager({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.3, ease: "easeOut" }}
-            className="h-full"
+            className={containedScroll ? "h-full" : "min-h-0"}
           >
             {view === "month" && (
               <MonthView
@@ -1170,13 +1219,26 @@ export function EventManager({
                 dragDisabled={dragDisabled}
               />
             )}
+            {view === "year" && (
+              <YearView
+                currentDate={currentDate}
+                events={filteredEvents}
+                onSelectMonth={(monthDate) => {
+                  commitCurrentDate(monthDate)
+                  setView("month")
+                }}
+              />
+            )}
             {(view === "week" || view === "day" || view === "3day") && (
-              <div className="flex gap-4 relative items-start">
-                {(view === "day" || view === "week") && (
+              <div className={cn("flex min-h-0 gap-0 lg:gap-4 relative items-stretch", containedScroll ? "h-full" : "items-start")}>
+                {!hideSidebar && (view === "day" || view === "week") && (
                   <Card 
                     data-sidebar-droptarget="true"
 
-                    className="hidden lg:flex w-64 flex-shrink-0 flex-col border-outline-variant/10 bg-surface-container/30 backdrop-blur-sm shadow-sm overflow-hidden sticky top-[4.5rem] z-10 h-[calc(100vh-140px)]"
+                    className={cn(
+                      "hidden lg:flex w-72 flex-shrink-0 flex-col border-outline-variant/15 bg-card shadow-sm overflow-hidden z-10",
+                      containedScroll ? "h-full min-h-0" : "sticky top-[76px] h-[calc(100vh-92px)]"
+                    )}
                     onDragOver={(e) => {
                       e.preventDefault();
                       e.dataTransfer.dropEffect = "move";
@@ -1196,23 +1258,23 @@ export function EventManager({
                       }
                     }}
                   >
-                    <div className="p-4 border-b border-outline-variant/5">
-                      <div className="flex items-center justify-between mb-1">
-                        <h3 className="text-[12px] font-black tracking-[0.1em] text-primary">Tareas de hoy</h3>
+                    <div className="border-b border-outline-variant/10 bg-card px-4 py-4">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <h3 className="text-[14px] font-black tracking-tight text-foreground">Tareas de hoy</h3>
                       </div>
-                      <p className="text-[10px] text-on-surface-variant/40 font-black tracking-wider leading-tight">Mantén presionado para arrastras al calendario</p>
+                      <p className="text-[11px] text-on-surface-variant font-semibold leading-snug">Mantén presionado para arrastrar al calendario</p>
                     </div>
 
                     {/* Folder filter bar */}
                     {uniqueCategories.length > 0 && (
-                      <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar px-4 py-2 border-b border-outline-variant/5">
+                      <div className="flex items-center gap-2 overflow-x-auto px-4 py-3 border-b border-outline-variant/10 bg-surface-container-low/40">
                         {uniqueCategories.map(cat => {
                           const isSelected = selectedCategory === cat;
                           return (
                             <button
                               key={cat}
                               onClick={() => setSelectedCategory(cat)}
-                              className={`flex-shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all border ${
+                              className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wide transition-all border ${
                                 isSelected
                                   ? 'bg-primary text-primary-foreground border-primary shadow-sm'
                                   : 'bg-surface-container text-on-surface-variant/70 hover:text-primary border-outline-variant/20 hover:border-primary/30'
@@ -1238,7 +1300,7 @@ export function EventManager({
                       </div>
                     )}
 
-                    <div className="flex-1 overflow-y-auto custom-scrollbar p-3">
+                    <div ref={sidebarScrollRef} className="flex-1 overflow-y-auto custom-scrollbar p-3 focus:outline-none focus:ring-2 focus:ring-primary/20" data-sidebar-scroll="true" tabIndex={0}>
                       {sidebarView === 'list' ? (
                         <div className="space-y-2">
                           {filteredEvents.filter(e => {
@@ -1278,7 +1340,7 @@ export function EventManager({
                                       style={{ backgroundColor: evColor || priorityColors[getPriorityKey(event.urgency || false, event.importance || false)] }}
                                     />
                                     <div className={cn("flex-1 min-w-0", event.completed && "opacity-40 grayscale-[0.5]")}>
-                                      <span className={cn("text-[13px] font-black leading-tight block group-hover:text-primary transition-colors text-foreground", event.completed && "line-through")}>{event.title}</span>
+                                      <span className={cn("block text-[13px] font-semibold leading-snug tracking-normal text-foreground transition-colors group-hover:text-primary", event.completed && "line-through")}>{event.title}</span>
                                       {event.description && (
                                         <div className="flex items-center gap-2 mt-1">
                                           <span className="text-[10px] font-medium text-on-surface-variant/50 line-clamp-1 italic">{event.description}</span>
@@ -1386,7 +1448,7 @@ export function EventManager({
                     </div>
                   </Card>
                 )}
-                <div className="flex-1 min-w-0">
+                <div className={cn("flex-1 min-w-0 min-h-0", containedScroll ? "h-full" : "h-auto")}>
                   <TimeGridView
                     view={view as "week" | "day" | "3day"}
                     currentDate={currentDate}
@@ -1422,6 +1484,8 @@ export function EventManager({
                     confirmDraft={confirmDraft}
                     cancelDraft={cancelDraft}
                     updateDraftTime={updateDraftTime}
+                    containedScroll={containedScroll}
+                    hideGridHeader={containedScroll && view === "day"}
                   />
                 </div>
               </div>
@@ -1450,7 +1514,7 @@ export function EventManager({
       </div>
 
 
-      {/* Event Dialog — pixel-match TaskDetailModal + time section */}
+      {/* Event Dialog â€” pixel-match TaskDetailModal + time section */}
       <AnimatePresence>
         {isDialogOpen && (() => {
           const hasTime = isCreating ? !newEvent.isAllDay : !selectedEvent?.isAllDay;
@@ -1470,23 +1534,29 @@ export function EventManager({
               <motion.div
                 key="event-backdrop"
                 initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                className="fixed inset-0 bg-black/60 z-[60]"
+                className={cn(containedScroll ? "absolute" : "fixed", "inset-0 bg-black/60 z-[60]")}
                 onClick={() => setIsDialogOpen(false)}
               />
 
-              {/* Modal panel — identical container to TaskDetailModal */}
+              {/* Modal panel â€” identical container to TaskDetailModal */}
               <motion.div
                 key="event-modal"
                 initial={{ opacity: 0, scale: 0.95, y: 10 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: 10 }}
                 transition={{ type: 'spring', damping: 22, stiffness: 260 }}
-                className="fixed inset-0 z-[70] flex items-center justify-center p-4 pointer-events-none"
+                className={cn(
+                  containedScroll ? "absolute p-3" : "fixed p-4",
+                  "inset-0 z-[70] flex items-center justify-center pointer-events-none"
+                )}
               >
-                <div className="relative mx-auto w-full max-w-[400px] max-h-[90vh] overflow-y-auto pointer-events-auto rounded-[32px] no-scrollbar shadow-[0_20px_60px_-10px_hsla(140,95%,8%,0.15)] bg-background border border-border">
-                  <div className="flex flex-col p-6 gap-6">
+                <div className={cn(
+                  "relative mx-auto w-full overflow-y-auto pointer-events-auto border border-border bg-background shadow-[0_20px_60px_-10px_hsl(var(--primary)/0.18)]",
+                  containedScroll ? "max-w-[500px] max-h-[calc(100%-1.5rem)] rounded-[24px]" : "max-w-[680px] max-h-[90vh] rounded-[32px] no-scrollbar"
+                )}>
+                  <div className={cn("flex flex-col gap-6", containedScroll ? "p-4" : "p-6")}>
 
-                    {/* ── Header ── same as TaskDetailModal */}
+                    {/* â”€â”€ Header â”€â”€ same as TaskDetailModal */}
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <button
@@ -1517,7 +1587,7 @@ export function EventManager({
                       </button>
                     </div>
 
-                    <div className="space-y-6">
+                      <div className={cn("space-y-6", containedScroll && "space-y-4")}>
 
                       {/* TAREA */}
                       <div className="space-y-2">
@@ -1548,8 +1618,8 @@ export function EventManager({
                         </div>
                       </div>
 
-                      {/* CONFIGURACIÓN RÁPIDA (Grid layout) */}
-                      <div className="grid grid-cols-2 gap-4">
+                      {/* CONFIGURACIÃ“N RÁPIDA (Grid layout) */}
+                      <div className={cn("grid gap-4", containedScroll ? "grid-cols-1" : "grid-cols-2")}>
                         {/* FECHA */}
                         <div className="space-y-2">
                           <label className="text-[11px] font-bold text-muted-foreground/60 uppercase tracking-wider ml-1">Fecha</label>
@@ -1662,7 +1732,7 @@ export function EventManager({
                         </div>
                       )}
 
-                      {/* DURACIÓN (Pills style) */}
+                      {/* DURACIÃ“N (Pills style) */}
                       {(creationSource === 'calendar_only' || creationSource === 'both') && isCreating && (
                         <div className="space-y-3">
                           <div className="flex items-center justify-between px-1">
@@ -1762,7 +1832,7 @@ export function EventManager({
                         </div>
                       </div>
 
-                      {/* REPETICIóN */}
+                      {/* REPETICIÓN */}
                       {(() => {
                         const priorityColorChoices = [
                           { id: 'p1', value: priorityColors.p1, label: 'P1', isCustom: false },
@@ -1919,7 +1989,7 @@ export function EventManager({
                                   onClick={() => {
                                     addCustomColor(pendingCustomColor)
                                     patchRecurrence({ color: pendingCustomColor })
-                                    setPendingCustomColor('#22c55e')
+                                    setPendingCustomColor('#5B7CFA')
                                   }}
                                   className="mt-3 w-full rounded-2xl bg-primary/10 border border-primary/20 py-2.5 text-[10px] font-black uppercase tracking-wider text-primary hover:bg-primary/15 transition-colors"
                                 >
@@ -2130,7 +2200,13 @@ export function EventManager({
                               )}
                                   <button
                                     type="button"
-                                    onClick={() => setRecurrenceEditorOpen(false)}
+                                    onClick={() => {
+                                      setRecurrenceEditorOpen(false)
+                                      if (titleVal?.trim()) {
+                                        if (isCreating) handleCreateEvent()
+                                        else handleUpdateEvent()
+                                      }
+                                    }}
                                     className="w-full rounded-2xl bg-primary text-primary-foreground py-2.5 text-[10px] font-black uppercase tracking-wider shadow-lg shadow-primary/15 hover:scale-[1.01] active:scale-95 transition-all"
                                   >
                                     Guardar repetición
@@ -2217,7 +2293,7 @@ export function EventManager({
                         </div>
                       </div>
 
-                      {/* DESCRIPCIÓN */}
+                      {/* DESCRIPCIÃ“N */}
                       <div className="space-y-1">
                         <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 ml-2">Descripción</label>
                         <Textarea
@@ -2243,7 +2319,7 @@ export function EventManager({
 
 
       <Dialog open={isSheetOpen} onOpenChange={setIsSheetOpen}>
-        <DialogContent className="max-w-lg bg-surface-container-high/95 backdrop-blur-3xl border border-outline-variant/10 rounded-[32px] shadow-2xl p-0 overflow-hidden outline-none">
+        <DialogContent className="max-w-2xl bg-surface-container-high/95 backdrop-blur-3xl border border-outline-variant/10 rounded-[32px] shadow-2xl p-0 overflow-hidden outline-none">
           <div className="h-[70vh] flex flex-col relative">
             <button 
               onClick={() => setIsSheetOpen(false)}
@@ -2447,6 +2523,8 @@ function TimeGridView({
   confirmDraft,
   cancelDraft,
   updateDraftTime,
+  containedScroll = false,
+  hideGridHeader = false,
 }: {
   view: "week" | "day" | "3day"
   currentDate: Date
@@ -2475,8 +2553,10 @@ function TimeGridView({
   confirmDraft?: () => void
   cancelDraft?: () => void
   updateDraftTime?: (startTime: Date, endTime: Date) => void
+  containedScroll?: boolean
+  hideGridHeader?: boolean
 }) {
-  const HOUR_HEIGHT = 120; // Revertido al largo anterior (antes 160)
+  const HOUR_HEIGHT = 160;
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const initialEventsRef = useRef<Event[]>([])
   
@@ -2500,13 +2580,88 @@ function TimeGridView({
 
   const hours = Array.from({ length: 24 }, (_, i) => i)
 
+  const eventLayouts = useMemo(() => {
+    const layouts = new Map<string, { left: number; width: number }>()
+
+    days.forEach(day => {
+      const dayEvents = events
+        .filter(event => !event.isAllDay && isSameDay(event.startTime, day))
+        .sort((a, b) => {
+          const startDiff = a.startTime.getTime() - b.startTime.getTime()
+          if (startDiff !== 0) return startDiff
+          return b.endTime.getTime() - b.startTime.getTime() - (a.endTime.getTime() - a.startTime.getTime())
+        })
+
+      const clusters: Event[][] = []
+      let currentCluster: Event[] = []
+      let clusterEnd = 0
+
+      dayEvents.forEach(event => {
+        if (currentCluster.length === 0 || event.startTime.getTime() < clusterEnd) {
+          currentCluster.push(event)
+          clusterEnd = Math.max(clusterEnd, event.endTime.getTime())
+        } else {
+          clusters.push(currentCluster)
+          currentCluster = [event]
+          clusterEnd = event.endTime.getTime()
+        }
+      })
+      if (currentCluster.length > 0) clusters.push(currentCluster)
+
+      clusters.forEach(cluster => {
+        const columns: Event[][] = []
+        const assignments = new Map<string, number>()
+
+        cluster.forEach(event => {
+          let columnIndex = columns.findIndex(column => {
+            const last = column[column.length - 1]
+            return last.endTime.getTime() <= event.startTime.getTime()
+          })
+          if (columnIndex === -1) {
+            columnIndex = columns.length
+            columns.push([])
+          }
+          columns[columnIndex].push(event)
+          assignments.set(event.id, columnIndex)
+        })
+
+        const columnCount = Math.max(1, columns.length)
+        cluster.forEach(event => {
+          const columnIndex = assignments.get(event.id) || 0
+          const gap = 1.25
+          const width = (100 / columnCount) - gap
+          const left = (100 / columnCount) * columnIndex
+          layouts.set(event.id, { left, width })
+        })
+      })
+    })
+
+    return layouts
+  }, [days, events])
+
   useEffect(() => {
-    if (scrollContainerRef.current) {
+    if (!containedScroll) {
+      const calendarTop = scrollContainerRef.current
+        ? scrollContainerRef.current.getBoundingClientRect().top + window.scrollY
+        : window.scrollY
       const now = new Date()
-      const scrollPosition = (now.getHours() * HOUR_HEIGHT) - 100
-      scrollContainerRef.current.scrollTop = Math.max(0, scrollPosition)
+      const currentHourPosition = (now.getHours() + now.getMinutes() / 60) * HOUR_HEIGHT
+      const targetY = Math.max(0, calendarTop + currentHourPosition - window.innerHeight * 0.42)
+      window.requestAnimationFrame(() => {
+        window.scrollTo({ top: targetY, behavior: 'auto' })
+      })
+      return
     }
-  }, [HOUR_HEIGHT])
+
+    const scrollEl = scrollContainerRef.current
+    if (!scrollEl) return
+
+    const now = new Date()
+    const currentHourPosition = (now.getHours() + now.getMinutes() / 60) * HOUR_HEIGHT
+    const centeredPosition = currentHourPosition - scrollEl.clientHeight * 0.42
+    const maxScrollTop = Math.max(0, scrollEl.scrollHeight - scrollEl.clientHeight)
+    scrollEl.scrollTop = Math.max(0, Math.min(maxScrollTop, centeredPosition))
+  }, [containedScroll, currentDate, view, HOUR_HEIGHT])
 
   const [isResizing, setIsResizing] = useState<string | null>(null);
   const [isResizingTop, setIsResizingTop] = useState(false);
@@ -2587,66 +2742,22 @@ function TimeGridView({
         const event = baseEvents.find(ev => ev.id === isResizing);
         if (!event) return;
 
-        const sameDayEvents = baseEvents.filter(ev => 
-          ev.id !== isResizing && 
-          isSameDay(ev.startTime, event.startTime) &&
-          !ev.isAllDay
-        );
-
         if (isResizingTop) {
           let newStartTime = new Date(initialStartTime.getTime() + minutesDiff * 60000);
           
-          // Mantener duración mínima de 5 minutos para que la tarea no desaparezca ni se trabe
+          // Mantener duraciÃ³n mínima de 5 minutos para que la tarea no desaparezca ni se trabe
           const maxStartTime = new Date(initialEndTime.getTime() - 5 * 60000);
           if (newStartTime > maxStartTime) newStartTime = maxStartTime;
 
-          // Find event above and adjust it
-          const aboveEvent = sameDayEvents.find(other => 
-            other.endTime > newStartTime && other.startTime < newStartTime
-          );
-
-          if (aboveEvent) {
-            const newEndTime = newStartTime;
-            if (newEndTime.getTime() - aboveEvent.startTime.getTime() >= 15 * 60000) {
-              setEvents(baseEvents.map(ev => 
-                ev.id === isResizing ? { ...ev, startTime: newStartTime } :
-                ev.id === aboveEvent.id ? { ...ev, endTime: newStartTime } : ev
-              ));
-            }
-          } else {
-            // Standard move if no collision
-            const isBlocked = sameDayEvents.some(other => newStartTime < other.endTime && event.endTime > other.startTime);
-            if (!isBlocked) {
-              setEvents(baseEvents.map(ev => ev.id === isResizing ? { ...ev, startTime: newStartTime } : ev));
-            }
-          }
+          setEvents(baseEvents.map(ev => ev.id === isResizing ? { ...ev, startTime: newStartTime } : ev));
         } else {
           let newEndTime = new Date(initialEndTime.getTime() + minutesDiff * 60000);
           
-          // Mantener duración mínima de 5 minutos
+          // Mantener duraciÃ³n mínima de 5 minutos
           const minEndTime = new Date(initialStartTime.getTime() + 5 * 60000);
           if (newEndTime < minEndTime) newEndTime = minEndTime;
 
-          // Find event below and adjust it
-          const belowEvent = sameDayEvents.find(other => 
-            other.startTime < newEndTime && other.endTime > newEndTime
-          );
-
-          if (belowEvent) {
-            const newStartTime = newEndTime;
-            if (belowEvent.endTime.getTime() - newStartTime.getTime() >= 15 * 60000) {
-              setEvents(baseEvents.map(ev => 
-                ev.id === isResizing ? { ...ev, endTime: newEndTime } :
-                ev.id === belowEvent.id ? { ...ev, startTime: newEndTime } : ev
-              ));
-            }
-          } else {
-            // Standard move if no collision
-            const isBlocked = sameDayEvents.some(other => newEndTime > other.startTime && event.startTime < other.endTime);
-            if (!isBlocked) {
-              setEvents(baseEvents.map(ev => ev.id === isResizing ? { ...ev, endTime: newEndTime } : ev));
-            }
-          }
+          setEvents(baseEvents.map(ev => ev.id === isResizing ? { ...ev, endTime: newEndTime } : ev));
         }
       } else if (isMoving && initialStartTime) {
         const deltaY = pageY - initialMouseY;
@@ -2658,7 +2769,7 @@ function TimeGridView({
 
         if (!isDraggingRef.current) return;
 
-        // Ghost logic — always visible while dragging calendar events
+        // Ghost logic â€” always visible while dragging calendar events
         if (isMoving && ghostRef.current) {
           ghostRef.current.style.transform = `translate(${clientX - 70}px, ${clientY - 20}px)`;
           ghostRef.current.style.display = 'flex';
@@ -2685,6 +2796,7 @@ function TimeGridView({
         
         const columns = document.querySelectorAll('.day-column');
         let targetDayIndex = days.findIndex(d => d.toDateString() === initialStartTime.toDateString());
+        if (targetDayIndex < 0) targetDayIndex = 0;
         
         columns.forEach((col) => {
           const rect = col.getBoundingClientRect();
@@ -2700,52 +2812,9 @@ function TimeGridView({
         const movedStartTime = new Date(newStartTimeBase.getTime() + minutesDiff * 60000);
         const movedEndTime = new Date(movedStartTime.getTime() + initialDuration * 60000);
 
-        const sameDayEvents = baseEvents.filter(ev => 
-          ev.id !== isMoving && 
-          isSameDay(ev.startTime, targetDay) &&
-          !ev.isAllDay
-        );
-
-        // Find overlapping events
-        const overlappingAbove = sameDayEvents.find(other => 
-          movedStartTime < other.endTime && movedStartTime > other.startTime
-        );
-        const overlappingBelow = sameDayEvents.find(other => 
-          movedEndTime > other.startTime && movedEndTime < other.endTime
-        );
-
-        if (overlappingAbove || overlappingBelow) {
-          setEvents(baseEvents.map(ev => {
-            if (ev.id === isMoving) return { ...ev, startTime: movedStartTime, endTime: movedEndTime };
-            
-            // Adjust above event if it still has at least 5 mins duration
-            if (overlappingAbove && ev.id === overlappingAbove.id) {
-              const newEndTime = movedStartTime;
-              if (newEndTime.getTime() - ev.startTime.getTime() >= 5 * 60000) {
-                return { ...ev, endTime: newEndTime };
-              }
-              return ev;
-            }
-            
-            // Adjust below event if it still has at least 5 mins duration
-            if (overlappingBelow && ev.id === overlappingBelow.id) {
-              const newStartTime = movedEndTime;
-              if (ev.endTime.getTime() - newStartTime.getTime() >= 5 * 60000) {
-                return { ...ev, startTime: newStartTime };
-              }
-              return ev;
-            }
-            return ev;
-          }));
-        } else {
-          // Standard move if no direct intersection with body (could still overlap entirely)
-          const totalOverlap = sameDayEvents.some(other => movedStartTime < other.endTime && movedEndTime > other.startTime);
-          if (!totalOverlap) {
-            setEvents(baseEvents.map(ev => 
-              ev.id === isMoving ? { ...ev, startTime: movedStartTime, endTime: movedEndTime } : ev
-            ));
-          }
-        }
+        setEvents(baseEvents.map(ev =>
+          ev.id === isMoving ? { ...ev, startTime: movedStartTime, endTime: movedEndTime } : ev
+        ));
       }
     };
 
@@ -2836,10 +2905,10 @@ function TimeGridView({
   useEffect(() => {
     if (!draftResizing || !draftEventRef.current || !initialStartTime || !initialEndTime) return
     document.body.style.userSelect = 'none'
-    const handleMouseMove = (e: MouseEvent) => {
+    const handleMove = (clientY: number) => {
       const de = draftEventRef.current
       if (!de) return
-      const deltaY = e.pageY - initialMouseY
+      const deltaY = clientY - initialMouseY
       const minutesDiff = Math.round((deltaY / HOUR_HEIGHT) * 60 / 5) * 5
       if (draftResizingTop) {
         let newStart = new Date(initialStartTime.getTime() + minutesDiff * 60000)
@@ -2853,15 +2922,30 @@ function TimeGridView({
         if (updateDraftTime) updateDraftTime(de.startTime, newEnd)
       }
     }
+    const handleMouseMove = (e: MouseEvent) => handleMove(e.pageY)
+    const handleTouchMove = (e: TouchEvent) => {
+      if (e.cancelable) e.preventDefault()
+      handleMove(e.touches[0].pageY)
+    }
     const handleMouseUp = () => {
+      setDraftResizing(false)
+      document.body.style.userSelect = ''
+    }
+    const handleTouchEnd = () => {
       setDraftResizing(false)
       document.body.style.userSelect = ''
     }
     window.addEventListener('mousemove', handleMouseMove)
     window.addEventListener('mouseup', handleMouseUp)
+    window.addEventListener('touchmove', handleTouchMove, { passive: false })
+    window.addEventListener('touchend', handleTouchEnd)
+    window.addEventListener('touchcancel', handleTouchEnd)
     return () => {
       window.removeEventListener('mousemove', handleMouseMove)
       window.removeEventListener('mouseup', handleMouseUp)
+      window.removeEventListener('touchmove', handleTouchMove)
+      window.removeEventListener('touchend', handleTouchEnd)
+      window.removeEventListener('touchcancel', handleTouchEnd)
       document.body.style.userSelect = ''
     }
   }, [draftResizing, draftResizingTop, initialMouseY, initialStartTime, initialEndTime, updateDraftTime, HOUR_HEIGHT])
@@ -2870,38 +2954,85 @@ function TimeGridView({
     return isMoving ? events.find(e => e.id === isMoving) : null;
   }, [isMoving, events]);
 
+  const handleRootWheelCapture = useCallback((e: React.WheelEvent<HTMLDivElement>) => {
+    if (!containedScroll) return
+    const target = e.target as Node | null
+    if (!target) return
+
+    const root = e.currentTarget as HTMLElement | null
+    const calendarEl = scrollContainerRef.current
+
+    if (!root || !root.contains(target)) return
+
+    const scrollTarget = calendarEl
+    if (!scrollTarget) return
+    if (e.deltaY === 0) return
+
+    const canScrollVertically = scrollTarget.scrollHeight > scrollTarget.clientHeight + 1
+    if (!canScrollVertically) return
+
+    const maxScrollTop = scrollTarget.scrollHeight - scrollTarget.clientHeight
+    const nextScrollTop = Math.max(0, Math.min(maxScrollTop, scrollTarget.scrollTop + e.deltaY))
+    if (nextScrollTop === scrollTarget.scrollTop) return
+
+    scrollTarget.scrollTop = nextScrollTop
+    e.preventDefault()
+    e.stopPropagation()
+  }, [containedScroll])
+
   return (
-    <Card className={cn("flex flex-col h-full border-outline-variant/20 bg-card shadow-sm", className)}>
+    <Card
+      className={cn(
+        "flex flex-col rounded-none border-x-0 border-outline-variant/20 bg-card shadow-sm lg:rounded-xl lg:border-x",
+        containedScroll ? "h-full" : "h-auto overflow-visible",
+        className
+      )}
+      onWheelCapture={handleRootWheelCapture}
+    >
       {/* Ghost is rendered via portal at body level so backdrop-blur on Card doesn't clip it */}
 
-      {/* Grid Header - Sticky */}
-      <div className="sticky top-[64px] z-20 bg-background/95 backdrop-blur-md flex border-b border-outline-variant/20 shadow-sm">
-        <div className="w-16 flex-shrink-0 border-r border-outline-variant/20 bg-surface-container/50 sticky left-0 z-30" />
-        <div className={cn("flex-1 grid", view === "week" ? "grid-cols-7" : view === "3day" ? "grid-cols-3" : "grid-cols-1")}>
-          {days.map((day, idx) => (
-            <div key={idx} className="p-3 text-center border-r border-outline-variant/20 last:border-r-0">
-              <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground block mb-1">
-                {format(day, "EEE", { locale: es }).toUpperCase().replace('.', '')}
-              </span>
-              <span className={cn(
-                "inline-flex items-center justify-center w-8 h-8 rounded-xl text-sm font-black transition-all",
-                day.toDateString() === new Date().toDateString() ? "bg-primary text-black shadow-lg shadow-primary/20 scale-110" : "text-on-surface"
-              )}>
-                {day.getDate()}
-              </span>
-            </div>
-          ))}
+      {!hideGridHeader && (
+        <div
+          className={cn(
+            "sticky z-20 flex overflow-x-auto border-b border-outline-variant/25 bg-surface-container shadow-[0_10px_26px_hsl(var(--background)/0.96)]",
+            containedScroll ? "top-0" : "top-[57px] lg:top-[57px]"
+          )}
+        >
+          <div className="w-12 lg:w-16 flex-shrink-0 border-r border-outline-variant/25 bg-surface-container sticky left-0 z-30" />
+          <div className={cn("flex-1 grid bg-surface-container", view === "week" ? "grid-cols-7 min-w-[620px] lg:min-w-0" : view === "3day" ? "grid-cols-3 min-w-[360px] lg:min-w-0" : "grid-cols-1 min-w-0")}>
+            {days.map((day, idx) => (
+              <div key={idx} className="min-h-[58px] p-2.5 lg:p-3 text-center border-r border-outline-variant/25 last:border-r-0 bg-surface-container">
+                <span className="text-[11px] font-black uppercase tracking-wide text-muted-foreground block mb-1">
+                  {format(day, "EEE", { locale: es }).toUpperCase().replace('.', '')}
+                </span>
+                <span className={cn(
+                  "inline-flex items-center justify-center h-8 min-w-8 rounded-lg px-2 text-sm font-black transition-all",
+                  day.toDateString() === new Date().toDateString() ? "bg-primary text-primary-foreground shadow-md shadow-primary/20" : "text-on-surface bg-surface-container-low"
+                )}>
+                  {day.getDate()}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Grid Body */}
-      <div ref={scrollContainerRef} className="flex-1 scroll-smooth overflow-x-auto">
+      <div
+        ref={scrollContainerRef}
+        className={cn(
+          "min-h-0 scroll-smooth",
+          containedScroll ? "flex-1 overflow-auto overscroll-contain" : "overflow-visible"
+        )}
+        style={{ touchAction: 'pan-y' }}
+        data-calendar-scroll="true"
+      >
         <div className="relative flex" style={{ height: `${24 * HOUR_HEIGHT}px` }}>
           {/* Time Labels - Sticky Left */}
-          <div className="w-16 flex-shrink-0 border-r border-outline-variant/20 bg-surface-container/50 sticky left-0 z-20 backdrop-blur-sm">
+          <div className="w-12 lg:w-16 flex-shrink-0 border-r border-outline-variant/20 bg-card sticky left-0 z-20 shadow-[6px_0_18px_hsl(var(--background)/0.55)]">
             {hours.map((hour) => (
               <div key={hour} className="relative" style={{ height: `${HOUR_HEIGHT}px` }}>
-                <span className="absolute -top-2 right-2 text-[11px] font-black text-foreground uppercase tracking-tighter drop-shadow-sm">
+                <span className="absolute -top-2 right-1.5 lg:right-2 text-[9px] lg:text-[11px] font-black text-foreground uppercase tracking-tighter drop-shadow-sm">
                   {hour === 0 ? "" : format(new Date().setHours(hour, 0, 0, 0), "h a", { locale: es })}
                 </span>
               </div>
@@ -2909,7 +3040,7 @@ function TimeGridView({
           </div>
 
           {/* Grid Columns */}
-          <div className={cn("flex-1 grid relative", view === "week" ? "grid-cols-7" : view === "3day" ? "grid-cols-3" : "grid-cols-1")}>
+          <div className={cn("flex-1 grid relative", view === "week" ? "grid-cols-7 min-w-[620px] lg:min-w-0" : view === "3day" ? "grid-cols-3 min-w-[360px] lg:min-w-0" : "grid-cols-1 min-w-0")}>
              {/* Horizontal Grid Lines */}
              {hours.map((hour) => (
                <div key={hour} className="absolute w-full" style={{ top: `${hour * HOUR_HEIGHT}px`, height: `${HOUR_HEIGHT}px` }}>
@@ -3012,10 +3143,11 @@ function TimeGridView({
 
                 {/* Events for this day - exclude allDay (those live in the sidebar task list) */}
                 {events
-                  .filter((event) => !event.isAllDay && event.startTime.toDateString() === day.toDateString())
+                  .filter((event) => !event.isAllDay && isSameDay(event.startTime, day))
                   .map((event) => {
                     const startHour = event.startTime.getHours() + event.startTime.getMinutes() / 60
                     const duration = Math.max(0.25, (event.endTime.getTime() - event.startTime.getTime()) / (1000 * 60 * 60))
+                    const layout = eventLayouts.get(event.id) || { left: 0, width: 98 }
                     
                     return (
                       <div
@@ -3028,7 +3160,7 @@ function TimeGridView({
                           onEventClick(event);
                         }}
                         className={cn(
-                          "absolute inset-x-1 rounded-xl p-2 text-[10px] font-bold text-white cursor-grab active:cursor-grabbing hover:brightness-110 z-10 overflow-hidden group select-none",
+                          "absolute rounded-xl p-2 text-[10px] font-bold text-white cursor-grab active:cursor-grabbing hover:brightness-110 z-10 overflow-hidden group select-none touch-pan-y",
                           "transition-[opacity,transform] duration-200 ease-out", // No shadow transition - prevents shadow accumulation
                           event.color && !event.color.startsWith('#') && !event.color.startsWith('var') && getColorClasses(event.color).bg,
                           isResizing === event.id && "z-50 shadow-xl brightness-125 ring-2 ring-white/50 transition-none", // Disable transitions while resizing
@@ -3038,6 +3170,8 @@ function TimeGridView({
                         )}
                         style={{
                           top: `${startHour * HOUR_HEIGHT + 2}px`, // 2px gap at top
+                          left: `${layout.left + 0.5}%`,
+                          width: `${layout.width}%`,
                           height: `${duration * HOUR_HEIGHT - 4}px`, // 4px total gap (2px top, 2px bottom)
                           backgroundColor: (event.color && (event.color.startsWith('#') || event.color.startsWith('var'))) ? event.color : undefined,
                           userSelect: 'none',
@@ -3160,10 +3294,10 @@ function TimeGridView({
                   })}
                   {/* Draft Event Block */}
                   {draftEvent && isSameDay(draftEvent.startTime, day) && (
-                    <motion.div
-                      initial={{ opacity: 0, scaleY: 0.8 }}
-                      animate={{ opacity: 1, scaleY: 1 }}
-                      className="absolute inset-x-1 z-20 rounded-xl border-2 border-dashed border-gray-400 bg-gray-500/10 shadow-sm"
+                      <motion.div
+                        initial={{ opacity: 0, scaleY: 0.8 }}
+                        animate={{ opacity: 1, scaleY: 1 }}
+                        className="absolute inset-x-1 z-20 rounded-xl border-2 border-dashed border-gray-400 bg-gray-500/10 shadow-sm touch-pan-y"
                       style={{
                         top: `${(draftEvent.startTime.getHours() + draftEvent.startTime.getMinutes() / 60) * HOUR_HEIGHT + 2}px`,
                         height: `${Math.max(0.5, (draftEvent.endTime.getTime() - draftEvent.startTime.getTime()) / (1000 * 60 * 60)) * HOUR_HEIGHT - 4}px`,
@@ -3177,7 +3311,7 @@ function TimeGridView({
                           className="absolute -top-7 left-1/2 -translate-x-1/2 whitespace-nowrap z-40"
                         >
                           <div className="bg-foreground text-background text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg shadow-lg">
-                            Arrastra los bordes ↕
+                            Arrastra los bordes â†•
                           </div>
                         </motion.div>
                       )}
@@ -3193,13 +3327,23 @@ function TimeGridView({
                       </div>
                       {/* Top Resize Handle */}
                       <div
-                        className="absolute top-0 inset-x-0 cursor-ns-resize z-30 flex items-start justify-center h-4"
+                        className="absolute top-0 inset-x-0 cursor-ns-resize z-30 flex items-start justify-center h-4 touch-none"
                         onMouseDown={(e) => {
                           e.stopPropagation()
                           e.preventDefault()
                           setDraftResizing(true)
                           setDraftResizingTop(true)
                           setInitialMouseY(e.pageY)
+                          setInitialStartTime(new Date(draftEvent.startTime))
+                          setInitialEndTime(new Date(draftEvent.endTime))
+                        }}
+                        onTouchStart={(e) => {
+                          e.stopPropagation()
+                          e.preventDefault()
+                          const touch = e.touches[0]
+                          setDraftResizing(true)
+                          setDraftResizingTop(true)
+                          setInitialMouseY(touch.pageY)
                           setInitialStartTime(new Date(draftEvent.startTime))
                           setInitialEndTime(new Date(draftEvent.endTime))
                         }}
@@ -3216,13 +3360,23 @@ function TimeGridView({
                       </div>
                       {/* Bottom Resize Handle */}
                       <div
-                        className="absolute bottom-0 inset-x-0 cursor-ns-resize z-30 flex items-end justify-center h-4"
+                        className="absolute bottom-0 inset-x-0 cursor-ns-resize z-30 flex items-end justify-center h-4 touch-none"
                         onMouseDown={(e) => {
                           e.stopPropagation()
                           e.preventDefault()
                           setDraftResizing(true)
                           setDraftResizingTop(false)
                           setInitialMouseY(e.pageY)
+                          setInitialStartTime(new Date(draftEvent.startTime))
+                          setInitialEndTime(new Date(draftEvent.endTime))
+                        }}
+                        onTouchStart={(e) => {
+                          e.stopPropagation()
+                          e.preventDefault()
+                          const touch = e.touches[0]
+                          setDraftResizing(true)
+                          setDraftResizingTop(false)
+                          setInitialMouseY(touch.pageY)
                           setInitialStartTime(new Date(draftEvent.startTime))
                           setInitialEndTime(new Date(draftEvent.endTime))
                         }}
@@ -3249,11 +3403,11 @@ function TimeGridView({
                 style={{ top: `${(new Date().getHours() + new Date().getMinutes() / 60) * HOUR_HEIGHT}px` }}
               >
                 <div className="relative flex items-center justify-center -ml-1.5">
-                  <div className="absolute w-4 h-4 rounded-full bg-red-500 animate-ping opacity-20" />
-                  <div className="w-3 h-3 rounded-full bg-red-500 border-2 border-white shadow-sm" />
+                  <div className="absolute w-4 h-4 rounded-full bg-primary/20 animate-ping opacity-25" />
+                  <div className="w-3 h-3 rounded-full bg-primary border-2 border-background dark:border-surface-container-high shadow-[0_0_0_4px_hsl(var(--primary)/0.08)]" />
                 </div>
-                <div className="flex-1 h-0.5 bg-gradient-to-r from-red-500 to-transparent opacity-40" />
-                <span className="text-[8px] font-black text-red-500 bg-white dark:bg-surface-container-high px-1.5 py-0.5 rounded-full ml-2 shadow-sm border border-red-500/10">
+                <div className="flex-1 h-0.5 bg-gradient-to-r from-primary via-primary/70 to-transparent opacity-50" />
+                <span className="text-[8px] font-black text-primary bg-background/85 dark:bg-surface-container-high/85 px-1.5 py-0.5 rounded-full ml-2 shadow-sm border border-primary/10 backdrop-blur-sm">
                   {format(new Date(), "h:mm a", { locale: es })}
                 </span>
               </div>
@@ -3262,7 +3416,7 @@ function TimeGridView({
         </div>
       </div>
 
-      {/* Ghost element for internal calendar drag — always follows mouse */}
+      {/* Ghost element for internal calendar drag â€” always follows mouse */}
       <div
         ref={ghostRef}
         style={{
@@ -3442,6 +3596,69 @@ function MonthView({
         })}
       </div>
     </Card>
+  )
+}
+
+function YearView({
+  currentDate,
+  events,
+  onSelectMonth,
+}: {
+  currentDate: Date
+  events: Event[]
+  onSelectMonth: (date: Date) => void
+}) {
+  const months = Array.from({ length: 12 }, (_, month) => new Date(currentDate.getFullYear(), month, 1))
+  const today = new Date()
+
+  const getEventsForMonth = (monthDate: Date) => events.filter((event) => {
+    const eventDate = new Date(event.startTime)
+    return eventDate.getFullYear() === monthDate.getFullYear() && eventDate.getMonth() === monthDate.getMonth()
+  })
+
+  return (
+    <div className="grid grid-cols-2 gap-2 px-3 pb-6 sm:grid-cols-3 lg:grid-cols-4 lg:px-0">
+      {months.map((monthDate) => {
+        const monthEvents = getEventsForMonth(monthDate)
+        const isCurrentMonth = today.getFullYear() === monthDate.getFullYear() && today.getMonth() === monthDate.getMonth()
+
+        return (
+          <button
+            key={monthDate.toISOString()}
+            type="button"
+            onClick={() => onSelectMonth(monthDate)}
+            className={cn(
+              "min-h-[132px] rounded-2xl border border-outline-variant/10 bg-surface-container/35 p-3 text-left transition-all hover:border-primary/30 hover:bg-primary/5 active:scale-[0.98]",
+              isCurrentMonth && "border-primary/30 bg-primary/10"
+            )}
+          >
+            <div className="flex items-start justify-between gap-2">
+              <span className="text-sm font-black capitalize text-foreground">
+                {format(monthDate, "MMMM", { locale: es })}
+              </span>
+              <span className="rounded-full bg-background/70 px-2 py-0.5 text-[10px] font-black text-muted-foreground">
+                {monthEvents.length}
+              </span>
+            </div>
+            <div className="mt-4 grid grid-cols-7 gap-1">
+              {eachDayOfInterval({ start: startOfMonth(monthDate), end: endOfMonth(monthDate) }).slice(0, 35).map((day) => {
+                const hasEvent = monthEvents.some((event) => isSameDay(event.startTime, day))
+                return (
+                  <span
+                    key={day.toISOString()}
+                    className={cn(
+                      "h-1.5 rounded-full bg-outline-variant/20",
+                      hasEvent && "bg-primary",
+                      isSameDay(day, today) && "bg-foreground"
+                    )}
+                  />
+                )
+              })}
+            </div>
+          </button>
+        )
+      })}
+    </div>
   )
 }
 
