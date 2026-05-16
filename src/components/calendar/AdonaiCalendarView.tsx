@@ -694,7 +694,15 @@ const handleEventUpdate = async (id: string, updates: Partial<Event>) => {
     if (recMatch) {
       const anchorTaskId = recMatch[1];
       const dueDate = recMatch[2];
-      const anchorTask = tasks?.find((t: any) => t.id === anchorTaskId);
+      let anchorTask = tasks?.find((t: any) => t.id === anchorTaskId);
+      if (!anchorTask && user) {
+        const { data } = await supabase
+          .from('tasks')
+          .select('id, title, description, due_date, recurrence_id, priority, importance, urgency')
+          .eq('id', anchorTaskId)
+          .maybeSingle();
+        anchorTask = data;
+      }
       if (!anchorTask || !anchorTask.recurrence_id) return;
       // Create a 'deleted' materialized task for this specific date
       const { error } = await supabase.from('tasks').insert({
@@ -709,11 +717,15 @@ const handleEventUpdate = async (id: string, updates: Partial<Event>) => {
         urgency: anchorTask.urgency || false,
         source_type: 'text',
       });
-      if (!error) {
+      if (!error || error.code === '23505') {
         window.dispatchEvent(new CustomEvent('adonai:notify', {
           detail: { type: 'success', message: `Ocurrencia del ${dueDate} eliminada` }
         }));
         refetchMaterialized();
+      } else {
+        window.dispatchEvent(new CustomEvent('adonai:notify', {
+          detail: { type: 'error', message: 'No se pudo eliminar la ocurrencia' }
+        }));
       }
       return;
     }
@@ -721,7 +733,8 @@ const handleEventUpdate = async (id: string, updates: Partial<Event>) => {
       const blockId = id.replace(/^block-/, '').replace(/-\d{4}-\d{2}-\d{2}$/, '');
       deleteBlock.mutate(blockId);
     } else if (id.startsWith('task-')) {
-      deleteTask.mutate(id.replace('task-', ''));
+      const taskId = id.replace(/^task-/, '').replace(/-\d{4}-\d{2}-\d{2}$/, '');
+      deleteTask.mutate(taskId);
     }
   };
 

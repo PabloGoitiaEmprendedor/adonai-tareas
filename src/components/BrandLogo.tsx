@@ -10,7 +10,7 @@ export function BrandLogo({ className, imageClassName, alt = "Adonai" }: BrandLo
   return (
     <span className={cn("inline-flex items-center justify-center overflow-hidden rounded-full", className)}>
       <img
-        src="/logo.png"
+        src="./logo.png"
         alt={alt}
         className={cn("h-full w-full object-contain", imageClassName)}
         draggable={false}

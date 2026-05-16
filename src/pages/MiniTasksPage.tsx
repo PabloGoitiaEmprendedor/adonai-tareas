@@ -661,8 +661,7 @@ const MiniTaskList = () => {
     if (api?.getMiniPosition && api?.setMiniBounds) {
       const pos = await api.getMiniPosition();
       if (pos && pos.w >= 700) {
-        const newX = pos.x + Math.round((pos.w - (PANEL_W + 32)) / 2);
-        api.setMiniBounds({ x: newX, y: pos.y, w: PANEL_W + 32, h: PANEL_H });
+        api.setMiniBounds({ x: pos.x, y: pos.y, w: PANEL_W + 32, h: PANEL_H });
       }
     }
   }, []);
@@ -678,8 +677,9 @@ const MiniTaskList = () => {
     if (api?.getMiniPosition && api?.setMiniBounds) {
       const pos = await api.getMiniPosition();
       // Only expand if not already wide enough
-      if (pos && pos.w < 700) {
-        api.setMiniBounds({ x: pos.x, y: pos.y, w: 750, h: pos.h });
+      const expandedWidth = PANEL_W + CALENDAR_W;
+      if (pos && pos.w < expandedWidth) {
+        api.setMiniBounds({ x: pos.x, y: pos.y, w: expandedWidth, h: pos.h });
       }
     }
   }, []);

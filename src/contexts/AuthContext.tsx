@@ -101,7 +101,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             }
           });
         }
-        if (!manualSignOutRef.current) {
+        if (manualSignOutRef.current) {
           clearSessionFlags();
         }
         manualSignOutRef.current = false;

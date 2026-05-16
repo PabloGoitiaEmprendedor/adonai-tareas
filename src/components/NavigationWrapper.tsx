@@ -375,7 +375,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
       {!open && (
         <div className={`fixed left-3 z-[70] flex items-center gap-2 sm:left-4 ${
             desktopSidebarOpen ? 'lg:hidden' : ''
-          } ${window.electronAPI ? 'top-12' : 'top-3 sm:top-4'}`}>
+          } ${window.electronAPI ? 'top-10' : 'top-3 sm:top-4'}`}>
           <button
             id="global-menu-trigger"
             onClick={() => {
@@ -402,7 +402,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
       )}
 
       <aside
-        className={`hidden lg:flex fixed left-0 ${window.electronAPI ? 'top-9' : 'top-0'} bottom-0 w-72 bg-surface border-r border-outline-variant z-40 flex-col shadow-xl transition-transform duration-300 ${
+        className={`hidden lg:flex fixed left-0 ${window.electronAPI ? 'top-8' : 'top-0'} bottom-0 w-72 bg-surface border-r border-outline-variant z-40 flex-col shadow-xl transition-transform duration-300 ${
           desktopSidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
@@ -424,7 +424,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
           desktopSidebarOpen ? 'lg:pl-72' : 'lg:pl-0'
         }`}
       >
-        <div className={`mx-auto w-full max-w-7xl px-0 lg:px-4 ${window.electronAPI ? 'pt-20' : 'pt-[4.5rem]'}`}>
+        <div className={`mx-auto w-full max-w-7xl px-0 lg:px-4 ${window.electronAPI ? 'pt-16' : 'pt-[4.5rem]'}`}>
           {children}
         </div>
       </main>

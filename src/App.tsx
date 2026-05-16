@@ -174,9 +174,11 @@ const AppRoutes = () => {
         <Route path="/mini" element={<MiniTasksPage />} />
         <Route path="/toast" element={<ToastPage />} />
         <Route path="/welcome" element={
-          user && !user.is_anonymous ? <Navigate to="/daily" replace /> : <WelcomePage />
+          loading ? <LoadingScreen message="Sincronizando Adonai" /> : user && !user.is_anonymous ? <Navigate to="/daily" replace /> : <WelcomePage />
         } />
-        <Route path="/auth" element={user && !user.is_anonymous ? <Navigate to="/daily" replace /> : <AuthPage />} />
+        <Route path="/auth" element={
+          loading ? <LoadingScreen message="Sincronizando Adonai" /> : user && !user.is_anonymous ? <Navigate to="/daily" replace /> : <AuthPage />
+        } />
         <Route path="/onboarding" element={<OnboardingPage />} />
         <Route path="/calendar-callback" element={appRouteElement(<CalendarCallback />)} />
         
