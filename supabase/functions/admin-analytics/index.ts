@@ -42,26 +42,56 @@ serve(async (req) => {
     const excludedUsersParam = body.excludedUsers || "[]";
     const timeRange = timeRangeParam === "all" ? "all" as const : parseInt(timeRangeParam);
     const excludedUserIds: string[] = JSON.parse(excludedUsersParam);
+    const excludedEmailsParam = body.excludedEmails || "[]";
+    const excludedEmails: string[] = JSON.parse(excludedEmailsParam);
+    const clientToday = body.clientToday || "";
 
-    const today = new Date();
+    const today = clientToday ? parseISO(clientToday) : new Date();
     const todayStr = format(today, "yyyy-MM-dd");
 
     // Fetch all profiles
     const { data: profilesData, error: profilesError } = await supabase
       .from("profiles")
-      .select("user_id, email, name, created_at");
+      .select("user_id, email, name, created_at, onboarding_completed");
     if (profilesError) throw new Error(`profiles: ${profilesError.message}`);
 
     const adminProfile = profilesData?.find(p => p.email === ADMIN_EMAIL);
     const adminUserId = adminProfile?.user_id;
-    const profiles = (profilesData || []).filter(p => p.user_id !== adminUserId && !excludedUserIds.includes(p.user_id));
-    const profileMap = new Map(profiles.map(p => [p.user_id, p]));
+    const profiles = (profilesData || []).filter(p => p.user_id !== adminUserId && !excludedUserIds.includes(p.user_id) && p.email !== null);
+    const allProfiles = (profilesData || []).filter(p => p.user_id !== adminUserId && !excludedUserIds.includes(p.user_id));
+    const profileMap = new Map(allProfiles.map(p => [p.user_id, p]));
 
     // Fetch auth users (authoritative source for email)
     const { data: authData } = await supabase.auth.admin.listUsers();
     const authUserMap = new Map(
       (authData?.users || []).map(u => [u.id, u])
     );
+
+    // Resolve excluded emails and user ID prefixes to user IDs
+    excludedEmails.forEach(entry => {
+      const lower = entry.toLowerCase().trim();
+      // Try exact email match in auth users
+      (authData?.users || []).forEach(u => {
+        if (u.email?.toLowerCase() === lower && !excludedUserIds.includes(u.id)) {
+          excludedUserIds.push(u.id);
+        }
+      });
+      // Try exact email match in profiles
+      (profilesData || []).forEach(p => {
+        if (p.email?.toLowerCase() === lower && p.user_id && !excludedUserIds.includes(p.user_id)) {
+          excludedUserIds.push(p.user_id);
+        }
+      });
+      // Try user ID prefix match (for partial UUIDs like "92ea014e")
+      const matchedAuth = (authData?.users || []).filter(u => u.id.toLowerCase().startsWith(lower));
+      matchedAuth.forEach(u => {
+        if (!excludedUserIds.includes(u.id)) excludedUserIds.push(u.id);
+      });
+      const matchedProfiles = (profilesData || []).filter(p => p.user_id?.toLowerCase().startsWith(lower));
+      matchedProfiles.forEach(p => {
+        if (p.user_id && !excludedUserIds.includes(p.user_id)) excludedUserIds.push(p.user_id);
+      });
+    });
 
     // Fetch all tasks
     const { data: allTasks, error: tasksError } = await supabase
@@ -109,7 +139,7 @@ serve(async (req) => {
 
     // Determine date bounds
     let oldestDate = today;
-    profiles.forEach(p => {
+    allProfiles.forEach(p => {
       if (p.created_at) {
         const d = new Date(p.created_at);
         if (d < oldestDate) oldestDate = d;
@@ -214,7 +244,7 @@ serve(async (req) => {
     const wau = new Set(recentValidEvents.map(e => e.user_id)).size;
 
     // Per-user stats — with "status" field (activo / en_riesgo / churned)
-    const userIds = [...new Set([...tasks.map(t => t.user_id), ...profiles.map(p => p.user_id)])];
+    const userIds = [...new Set([...tasks.map(t => t.user_id), ...allProfiles.map(p => p.user_id)])];
     const userStats = userIds.map(uid => {
       const userTasks = tasks.filter(t => t.user_id === uid);
       const userEvents = events.filter(e => e.user_id === uid);
@@ -253,6 +283,7 @@ serve(async (req) => {
         email: authUserMap.get(uid)?.email || profile?.email || null,
         name: profile?.name || null,
         is_anonymous: !authUserMap.get(uid)?.email,
+        onboarding_completed: profile?.onboarding_completed || false,
         registration_date: authUserMap.get(uid)?.email ? (authUserMap.get(uid)?.created_at?.slice(0, 10) || null) : null,
         first_event_date: (() => {
           let earliest: string | null = null;
@@ -307,7 +338,7 @@ serve(async (req) => {
     let usersWithPrioritization = 0;
     userIds.forEach(uid => {
       const profile = profileMap.get(uid);
-      if (!profile) return;
+      if (!profile || !profile.email) return;
       const signupDate = profile.created_at?.slice(0, 10);
       if (!signupDate || signupDate < startDateStr) return;
 
@@ -572,7 +603,7 @@ serve(async (req) => {
       },
       {
         key: "completed_onboarding", label: "Completó onboarding", emoji: "📋",
-        check: (uid) => (userEventsMap.get(uid) || []).some(e => e.event_type === "onboarding_completed"),
+        check: (uid) => (userEventsMap.get(uid) || []).some(e => e.event_type === "onboarding_completed_relief"),
       },
       {
         key: "linked_goal_to_task", label: "Vinculó meta a tarea", emoji: "🔗",

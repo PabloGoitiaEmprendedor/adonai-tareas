@@ -341,7 +341,7 @@ const OnboardingPage = () => {
                   </div>
                   <h1 className="text-4xl font-black tracking-tight leading-tight text-foreground">
                     Hola. <br />
-                    <span className="text-on-surface-variant/40">¿Cómo te llamas?</span>
+                    <span className="text-foreground/70">¿Cómo te llamas?</span>
                   </h1>
                 </div>
                 
@@ -350,14 +350,18 @@ const OnboardingPage = () => {
                     autoFocus
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    placeholder="Tu nombre aquí..."
-                    className="w-full bg-surface-container-lowest border-2 border-outline-variant/30 focus:border-primary/50 rounded-[28px] px-8 h-20 outline-none transition-all text-2xl font-black placeholder:text-on-surface-variant/20"
+                    placeholder="Tu nombre aquí…"
+                    className="w-full bg-surface-container-lowest border-2 border-outline-variant/40 focus:border-primary/70 rounded-[28px] px-8 h-20 outline-none transition-all text-2xl font-black placeholder:text-foreground/55"
                   />
                   
                   <button 
                     onClick={next}
                     disabled={!name.trim()}
-                    className="w-full h-20 primary-gradient text-primary-foreground rounded-[28px] font-black text-xl flex items-center justify-center gap-3 shadow-2xl shadow-primary/30 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-30 disabled:scale-100 transition-all"
+                    className={`w-full h-20 rounded-[28px] font-black text-xl flex items-center justify-center gap-3 transition-all active:scale-[0.98] ${
+                      name.trim()
+                        ? 'primary-gradient text-primary-foreground shadow-2xl shadow-primary/30 hover:scale-[1.02]'
+                        : 'bg-surface-container-high text-on-surface-variant/80 shadow-none cursor-not-allowed'
+                    }`}
                   >
                     Continuar <ArrowRight className="w-6 h-6" />
                   </button>
@@ -386,7 +390,7 @@ const OnboardingPage = () => {
                   {urgentTasks.map((task, i) => (
                     <div key={i} className="bg-surface-container-lowest border-2 border-outline-variant/30 focus-within:border-primary/50 rounded-[24px] p-1 transition-all">
                       <div className="flex items-center gap-3 px-4">
-                        <span className="w-8 h-8 rounded-full bg-surface-container-highest flex items-center justify-center text-xs font-black text-on-surface-variant/40 flex-shrink-0">
+                        <span className="w-8 h-8 rounded-full bg-surface-container-highest flex items-center justify-center text-xs font-black text-on-surface-variant/70 flex-shrink-0">
                           {i + 1}
                         </span>
                         <input 
@@ -396,13 +400,13 @@ const OnboardingPage = () => {
                             newTasks[i] = { ...newTasks[i], title: e.target.value };
                             setUrgentTasks(newTasks);
                           }}
-                          placeholder={`Tarea urgente ${i + 1}...`}
-                          className="flex-1 bg-transparent h-14 outline-none font-bold text-lg text-foreground placeholder:text-on-surface-variant/20"
+                          placeholder={`Tarea urgente ${i + 1}…`}
+                          className="flex-1 bg-transparent h-14 outline-none font-bold text-lg text-foreground placeholder:text-on-surface-variant/50"
                         />
                       </div>
 
                       <div className="flex items-center gap-2 px-4 pb-3 pt-1">
-                        <span className="text-on-surface-variant/30 text-sm">🔗</span>
+                        <span className="text-on-surface-variant/60 text-sm">🔗</span>
                         <input 
                           value={task.link}
                           onChange={(e) => {
@@ -411,7 +415,7 @@ const OnboardingPage = () => {
                             setUrgentTasks(newTasks);
                           }}
                           placeholder="Link (opcional)"
-                          className="flex-1 bg-transparent h-8 outline-none text-sm text-on-surface-variant/70 placeholder:text-on-surface-variant/20"
+                          className="flex-1 bg-transparent h-8 outline-none text-sm text-on-surface-variant/80 placeholder:text-on-surface-variant/50"
                         />
                       </div>
 
@@ -456,13 +460,13 @@ const OnboardingPage = () => {
                 {/* Priority Preview */}
                 {urgentTasks.some(t => t.title.trim()) && (
                   <div className="bg-surface-container-lowest border-2 border-outline-variant/30 rounded-[24px] p-5 space-y-3">
-                    <h3 className="text-xs font-black uppercase tracking-widest text-on-surface-variant/30">Preview de prioridad</h3>
+                    <h3 className="text-xs font-black uppercase tracking-widest text-on-surface-variant/60">Preview de prioridad</h3>
                     <div className="space-y-1.5">
                       {urgentTasks.filter(t => t.title.trim()).map((task, i) => {
                         const isHigh = task.importance && task.urgency;
                         const isMedium = task.importance || task.urgency;
                         const label = isHigh ? 'Alta' : isMedium ? 'Media' : 'Baja';
-                        const color = isHigh ? 'text-[#ff4b4b]' : isMedium ? 'text-[#ffb34b]' : 'text-on-surface-variant/40';
+                        const color = isHigh ? 'text-[#ff4b4b]' : isMedium ? 'text-[#ffb34b]' : 'text-on-surface-variant/70';
                         const dotColor = isHigh ? 'bg-[#ff4b4b]' : isMedium ? 'bg-[#ffb34b]' : 'bg-on-surface-variant/20';
                         return (
                           <div key={i} className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-surface-container/50">
@@ -473,14 +477,14 @@ const OnboardingPage = () => {
                         );
                       })}
                     </div>
-                    <p className="text-[9px] text-on-surface-variant/20 text-center italic">Así de fácil. Prioriza sin pensar.</p>
+                    <p className="text-[9px] text-on-surface-variant/60 text-center italic">Así de fácil. Prioriza sin pensar.</p>
                   </div>
                 )}
 
                 <button 
                   onClick={next}
                   disabled={urgentTasks.some(t => !t.title.trim())}
-                  className="w-full h-20 primary-gradient text-primary-foreground rounded-[28px] font-black text-xl flex items-center justify-center gap-3 shadow-2xl shadow-primary/30 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-30"
+                  className="w-full h-20 primary-gradient text-primary-foreground rounded-[28px] font-black text-xl flex items-center justify-center gap-3 shadow-2xl shadow-primary/30 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Soltar carga <Zap className="w-6 h-6" />
                 </button>
@@ -499,7 +503,7 @@ const OnboardingPage = () => {
                   </h2>
                   <p className="text-on-surface-variant text-lg leading-relaxed">
                     ¿Qué tareas haces todas las semanas?
-                    <span className="text-on-surface-variant/40 block mt-1">(Ej: Revisar correo, Leer, Planificar)</span>
+                    <span className="text-on-surface-variant/70 block mt-1">(Ej: Revisar correo, Leer, Planificar)</span>
                   </p>
                 </div>
 
@@ -508,7 +512,7 @@ const OnboardingPage = () => {
                     <div key={i} className="bg-surface-container-lowest border-2 border-outline-variant/30 focus-within:border-primary/50 rounded-[24px] p-4 space-y-4 transition-all">
                       {/* Title */}
                       <div className="flex items-center gap-3">
-                        <span className="w-8 h-8 rounded-full bg-surface-container-highest flex items-center justify-center text-xs font-black text-on-surface-variant/40 flex-shrink-0">
+                        <span className="w-8 h-8 rounded-full bg-surface-container-highest flex items-center justify-center text-xs font-black text-on-surface-variant/70 flex-shrink-0">
                           {i + 1}
                         </span>
                         <input 
@@ -518,14 +522,14 @@ const OnboardingPage = () => {
                             newTasks[i] = { ...newTasks[i], title: e.target.value };
                             setRecurringTasks(newTasks);
                           }}
-                          placeholder={`Tarea recurrente ${i + 1}...`}
-                          className="flex-1 bg-transparent h-12 outline-none font-bold text-lg text-foreground placeholder:text-on-surface-variant/20"
+                          placeholder={`Tarea recurrente ${i + 1}…`}
+                          className="flex-1 bg-transparent h-12 outline-none font-bold text-lg text-foreground placeholder:text-on-surface-variant/50"
                         />
                       </div>
 
                       {/* Link */}
                       <div className="flex items-center gap-2 pl-11">
-                        <span className="text-on-surface-variant/30 text-sm">🔗</span>
+                        <span className="text-on-surface-variant/60 text-sm">🔗</span>
                         <input 
                           value={task.link}
                           onChange={(e) => {
@@ -534,13 +538,13 @@ const OnboardingPage = () => {
                             setRecurringTasks(newTasks);
                           }}
                           placeholder="Link (opcional)"
-                          className="flex-1 bg-transparent h-8 outline-none text-sm text-on-surface-variant/70 placeholder:text-on-surface-variant/20"
+                          className="flex-1 bg-transparent h-8 outline-none text-sm text-on-surface-variant/80 placeholder:text-on-surface-variant/50"
                         />
                       </div>
 
                       {/* Days */}
                       <div className="pl-11 space-y-2">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/30">Días</p>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/60">Días</p>
                         <div className="flex gap-1.5">
                           {[{label:'L',v:1},{label:'M',v:2},{label:'X',v:3},{label:'J',v:4},{label:'V',v:5},{label:'S',v:6},{label:'D',v:0}].map(d => (
                             <button
@@ -557,7 +561,7 @@ const OnboardingPage = () => {
                               className={`w-9 h-9 rounded-full text-[10px] font-black transition-all ${
                                 task.days.includes(d.v)
                                   ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20 scale-110'
-                                  : 'bg-surface-container text-on-surface-variant/40 hover:bg-surface-container-high'
+                                  : 'bg-surface-container text-on-surface-variant/70 hover:bg-surface-container-high'
                               }`}
                             >
                               {d.label}
@@ -570,7 +574,7 @@ const OnboardingPage = () => {
                       <div className="pl-11 grid grid-cols-2 gap-3">
                         {/* Time scroll picker */}
                         <div className="space-y-1.5">
-                          <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/30">Hora</p>
+                          <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/60">Hora</p>
                           <div className="relative">
                             <div
                               ref={el => {
@@ -625,7 +629,7 @@ const OnboardingPage = () => {
                                      className={`h-[31px] shrink-0 flex items-center justify-center font-bold transition-all cursor-pointer snap-center rounded-[10px] ${
                                       selected
                                         ? 'text-primary text-[13px] font-black bg-primary/[0.07]'
-                                        : 'text-on-surface-variant/25 text-[10px] hover:text-on-surface-variant/60'
+                                        : 'text-on-surface-variant/45 text-[10px] hover:text-on-surface-variant/70'
                                     }`}
                                   >
                                     {display}
@@ -639,7 +643,7 @@ const OnboardingPage = () => {
 
                         {/* Duration scroll picker */}
                         <div className="space-y-1.5">
-                          <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/30">Duración</p>
+                          <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/60">Duración</p>
                           <div className="relative">
                             <div
                               ref={el => {
@@ -697,7 +701,7 @@ const OnboardingPage = () => {
                                       className={`h-[31px] shrink-0 flex items-center justify-center font-bold transition-all cursor-pointer snap-center rounded-[10px] ${
                                         selected
                                           ? 'text-primary text-[13px] font-black bg-primary/[0.07]'
-                                          : 'text-on-surface-variant/25 text-[10px] hover:text-on-surface-variant/60'
+                                          : 'text-on-surface-variant/45 text-[10px] hover:text-on-surface-variant/70'
                                       }`}
                                     >
                                       {item.label}
@@ -715,7 +719,7 @@ const OnboardingPage = () => {
                 </div>
 
                 {/* Calendar hint */}
-                <p className="text-center text-xs text-on-surface-variant/30 italic">
+                <p className="text-center text-xs text-on-surface-variant/60 italic">
                   Estas tareas aparecerán automáticamente en tu calendario con la hora y duración que elegiste.
                 </p>
 
@@ -723,7 +727,7 @@ const OnboardingPage = () => {
                   <button
                     onClick={handleFinish}
                     disabled={isFinishing || recurringTasks.some(t => !t.title.trim())}
-                    className="w-full h-20 primary-gradient text-primary-foreground rounded-[28px] font-black text-xl flex items-center justify-center gap-3 shadow-2xl shadow-primary/30 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-30"
+                    className="w-full h-20 primary-gradient text-primary-foreground rounded-[28px] font-black text-xl flex items-center justify-center gap-3 shadow-2xl shadow-primary/30 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isFinishing ? (
                       <div className="w-6 h-6 border-3 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
@@ -739,7 +743,7 @@ const OnboardingPage = () => {
                     <button 
                       onClick={next}
                       disabled={recurringTasks.some(t => !t.title.trim())}
-                      className="flex-1 h-20 primary-gradient text-primary-foreground rounded-[28px] font-black text-xl flex items-center justify-center gap-3 shadow-2xl shadow-primary/30 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-30"
+                      className="flex-1 h-20 primary-gradient text-primary-foreground rounded-[28px] font-black text-xl flex items-center justify-center gap-3 shadow-2xl shadow-primary/30 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Fijar rutinas <Check className="w-6 h-6" />
                     </button>
@@ -761,7 +765,7 @@ const OnboardingPage = () => {
                   <p className="text-2xl font-medium text-on-surface-variant leading-relaxed">
                     Estas tareas se quedan aquí <span className="text-primary font-black">flotando contigo.</span> No tienes que abrir nada más.
                   </p>
-                  <p className="text-lg text-on-surface-variant/60 bg-surface-container-low p-6 rounded-[24px] border border-outline-variant/20 italic">
+                  <p className="text-lg text-on-surface-variant/80 bg-surface-container-low p-6 rounded-[24px] border border-outline-variant/30 italic">
                     "Ahora, cierra Notion, tu agenda, notas y todas esas pestañas. Enfócate. Siempre estaré aquí en tu ordenador."
                   </p>
                 </div>
@@ -791,7 +795,7 @@ const OnboardingPage = () => {
 
                   <button 
                     onClick={next}
-                    className="w-full h-16 text-on-surface-variant/40 font-black uppercase tracking-widest text-[10px] hover:text-primary transition-colors"
+                    className="w-full h-16 text-on-surface-variant/70 font-black uppercase tracking-widest text-[10px] hover:text-primary transition-colors"
                   >
                     Continuar al resumen
                   </button>
@@ -823,19 +827,19 @@ const OnboardingPage = () => {
                         onChange={(e) => setEmail(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && handleSendOtp()}
                         placeholder="tu@email.com"
-                        className="w-full bg-surface-container-lowest border-2 border-outline-variant/30 focus:border-primary/50 rounded-[24px] px-8 h-20 outline-none transition-all text-xl font-bold placeholder:text-on-surface-variant/20"
+                        className="w-full bg-surface-container-lowest border-2 border-outline-variant/40 focus:border-primary/70 rounded-[24px] px-8 h-20 outline-none transition-all text-xl font-bold placeholder:text-on-surface-variant/50"
                       />
                       <button 
                         onClick={handleSendOtp}
                         disabled={isAuthenticating || !email.includes('@')}
-                        className="w-full h-20 primary-gradient text-primary-foreground rounded-[28px] font-black text-xl flex items-center justify-center gap-3 shadow-2xl shadow-primary/30 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-30"
+                        className="w-full h-20 primary-gradient text-primary-foreground rounded-[28px] font-black text-xl flex items-center justify-center gap-3 shadow-2xl shadow-primary/30 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        {isAuthenticating ? 'Enviando...' : 'Proteger mis tareas'} <Mail className="w-6 h-6" />
+                        {isAuthenticating ? 'Enviando…' : 'Proteger mis tareas'} <Mail className="w-6 h-6" />
                       </button>
                     </div>
                   ) : (
                     <div className="space-y-8">
-                        <p className="text-center text-sm font-bold text-on-surface-variant/60">Ingresa el código enviado a <br/><span className="text-primary">{email}</span></p>
+                        <p className="text-center text-sm font-bold text-on-surface-variant/80">Ingresa el código enviado a <br/><span className="text-primary">{email}</span></p>
                         <div className="flex gap-2 justify-center">
                             {otpCode.map((digit, i) => (
                                 <input
@@ -852,7 +856,7 @@ const OnboardingPage = () => {
                         </div>
                         <button 
                             onClick={() => setAuthSubStep('email')}
-                            className="w-full text-[10px] font-black uppercase tracking-widest text-on-surface-variant/40 hover:text-primary transition-colors"
+                            className="w-full text-[10px] font-black uppercase tracking-widest text-on-surface-variant/70 hover:text-primary transition-colors"
                         >
                             Cambiar email
                         </button>

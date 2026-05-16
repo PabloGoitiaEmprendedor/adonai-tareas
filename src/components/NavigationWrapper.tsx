@@ -89,7 +89,7 @@ interface NavigationWrapperProps {
 
 const SidebarContent = ({ user, profile, menuItems, location, handleNavigate, signOut, startTutorial, isSheet, toggleSidebar }: any) => (
   <div className="flex flex-col h-full bg-surface text-foreground">
-    <div className="p-6 border-b border-outline-variant flex items-center justify-between gap-4">
+    <div className={`p-6 border-b border-outline-variant flex items-center justify-between gap-4 ${isSheet ? 'pr-16' : ''}`}>
       <div 
         onClick={() => handleNavigate('/profile')}
         className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity group flex-1 min-w-0"
@@ -341,7 +341,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
   const isWelcomePage = location.pathname === '/welcome';
   const isAuthPage = location.pathname === '/auth';
   const isMiniPage = location.pathname === '/mini';
-  const isLandingPage = location.pathname === '/';
+  const isLandingPage = location.pathname === '/' || location.pathname === '/landing';
   const isPrivacyPage = location.pathname === '/politica-de-privacidad';
   const isTermsPage = location.pathname === '/terminos-de-servicio';
   const isDocsPage = location.pathname.startsWith('/docs');
@@ -382,7 +382,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
       {!open && (
         <div className={`fixed left-4 z-[70] flex items-center gap-2 ${
             desktopSidebarOpen ? 'lg:hidden' : ''
-          } ${window.electronAPI ? 'top-[4.5rem]' : 'top-[3.25rem]'}`}>
+          } ${window.electronAPI ? 'top-12' : 'top-4'}`}>
           <button
             id="global-menu-trigger"
             onClick={() => {
@@ -393,7 +393,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
               }
             }}
             aria-label="Mostrar menú"
-            className="p-2.5 text-on-surface-variant/70 hover:text-foreground transition-all active:scale-90"
+            className="w-10 h-10 rounded-xl text-on-surface-variant/70 hover:text-foreground transition-all active:scale-90 flex items-center justify-center"
           >
             <Menu className="w-5 h-5" />
           </button>
@@ -431,7 +431,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
           desktopSidebarOpen ? 'lg:pl-72' : 'lg:pl-0'
         }`}
       >
-        <div className={`max-w-7xl mx-auto px-0 lg:px-4 ${window.electronAPI ? 'pt-24' : 'pt-[4.5rem]'}`}>
+        <div className={`max-w-7xl mx-auto px-0 lg:px-4 ${window.electronAPI ? 'pt-24' : 'pt-[4.5rem]'} pl-14 lg:pl-4`}>
           {children}
         </div>
       </main>
@@ -503,7 +503,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
         }} 
         goalId={targetContext.goalId}
         folderId={targetContext.folderId}
-        creationSource="global-fab" 
+        creationSource="fab" 
       />
 
       <Dialog open={eventCreateOpen} onOpenChange={(open) => { if (!open) setEventCreateOpen(false) }}>

@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { format } from 'date-fns';
 
 const ADMIN_EMAIL = 'pablogoitiaemprendedor@gmail.com';
 
@@ -15,6 +16,7 @@ interface UserStat {
   email: string | null;
   name: string | null;
   is_anonymous: boolean;
+  onboarding_completed: boolean;
   registration_date: string | null;
   first_event_date: string | null;
   total_tasks: number;
@@ -127,19 +129,28 @@ interface FeatureRetentionItem {
   delta: number;
 }
 
-export const useAdminAnalytics = (timeRange: number | 'all' = 30, excludedUserIds: string[] = []) => {
+export const useAdminAnalytics = (timeRange: number | 'all' = 30, excludedUserIds: string[] = [], excludedEmails: string[] = []) => {
   const isAdmin = useIsAdmin();
   const { user } = useAuth();
 
   return useQuery<AdminAnalytics | null>({
-    queryKey: ['admin-analytics', user?.id, timeRange, excludedUserIds],
+    queryKey: ['admin-analytics', user?.id, timeRange, excludedUserIds, excludedEmails],
     queryFn: async () => {
       if (!isAdmin || !user) return null;
+
+      const now = new Date();
+      const venezuelaOffset = -4 * 60;
+      const localOffset = now.getTimezoneOffset();
+      const diffMs = (venezuelaOffset - localOffset) * 60 * 1000;
+      const venezuelaNow = new Date(now.getTime() + diffMs);
+      const clientToday = format(venezuelaNow, 'yyyy-MM-dd');
 
       const { data, error } = await supabase.functions.invoke('admin-analytics', {
         body: {
           timeRange: timeRange.toString(),
           excludedUsers: JSON.stringify(excludedUserIds),
+          excludedEmails: JSON.stringify(excludedEmails),
+          clientToday,
         },
       });
 

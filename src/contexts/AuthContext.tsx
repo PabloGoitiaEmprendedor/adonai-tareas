@@ -263,11 +263,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const signOut = async () => {
     manualSignOutRef.current = true;
     try {
+      const wasAnonymous = user?.is_anonymous ?? false;
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
-      // After signing out, we should automatically sign in anonymously again 
-      // to keep the "no-login" experience.
-      await signInAnonymously();
+      // Solo auto-crear sesión anónima si el usuario era anónimo
+      // Si tenía email, redirigir a la pantalla de inicio de sesión
+      if (wasAnonymous) {
+        await signInAnonymously();
+      }
     } catch (err) {
       console.error("Error signing out, forcing local clear", err);
       localStorage.clear();

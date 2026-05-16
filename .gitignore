@@ -31,3 +31,6 @@ SETUP-FINAL/
 
 .vercel
 public/Adonai-Setup.exe
+
+# Vite timestamp files
+vite.config.ts.timestamp-*.mjs

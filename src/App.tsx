@@ -133,11 +133,38 @@ const AppRoutes = () => {
   const isElectron = !!window.electronAPI || 
                      navigator.userAgent.toLowerCase().includes('electron') ||
                      (window.process && window.process.versions && !!window.process.versions.electron);
+  const isLocalHost = window.location.hostname === 'localhost' || 
+                      window.location.hostname === '127.0.0.1' || 
+                      window.location.hostname.startsWith('192.168.');
 
   // El loading de auth lo maneja ProtectedRoute para ser más fluido
 
   const appRouteElement = (element: React.ReactNode) => 
     <ProtectedRoute>{element}</ProtectedRoute>;
+
+  const rootRouteElement = () => {
+    if (loading) {
+      return <LoadingScreen message="Sincronizando Adonai" />;
+    }
+
+    // La web publica siempre es landing, aunque exista una sesion guardada.
+    // La app web queda separada en /app y la app de escritorio conserva su flujo.
+    if (!isElectron && !isLocalHost) {
+      return <LandingPage />;
+    }
+
+    // Primer uso en escritorio/local: mostrar la pantalla que pregunta si ya tiene cuenta.
+    if (isElectron || isLocalHost) {
+      // Respetar sesiones existentes para que una actualizacion no saque a nadie de su cuenta.
+      if (user) {
+        return <Navigate to="/daily" replace />;
+      }
+
+      return <Navigate to="/welcome" replace />;
+    }
+
+    return <LandingPage />;
+  };
 
   return (
     <>
@@ -154,15 +181,7 @@ const AppRoutes = () => {
         
         <Route 
           path="/" 
-          element={
-            loading 
-              ? <LoadingScreen message="Sincronizando Adonai" />
-              : user 
-                ? <Navigate to="/daily" replace /> 
-                : (isElectron || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname.startsWith('192.168.'))
-                  ? <Navigate to="/welcome" replace />
-                  : <LandingPage />
-          } 
+          element={rootRouteElement()} 
         />
 
         <Route path="/dashboard" element={appRouteElement(<DashboardPage />)} />
@@ -182,6 +201,7 @@ const AppRoutes = () => {
         <Route path="/admin" element={appRouteElement(<AdminPanelPage />)} />
         <Route path="/selection-bubble" element={<SelectionBubblePage />} />
         <Route path="/quick-task" element={<QuickTaskPage />} />
+        <Route path="/landing" element={<LandingPage />} />
         <Route path="/caracteristicas" element={<CaracteristicasPage />} />
         <Route path="/faq" element={<FAQPage />} />
         <Route path="/politica-de-privacidad" element={<PrivacyPolicyPage />} />

@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell, dialog, session, Menu, MenuItem, globalShortcut, screen, clipboard } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, dialog, session, Menu, MenuItem, globalShortcut, screen, clipboard, Notification } = require('electron');
 const { exec } = require('child_process');
 const path = require('path');
 const fs = require('fs');
@@ -811,5 +811,13 @@ function createToastWindow(data) {
 }
 
 ipcMain.on('show-notification', (event, data) => {
+  if (Notification.isSupported()) {
+    new Notification({
+      title: data?.title || 'Adonai',
+      body: data?.body || '',
+      silent: false,
+    }).show();
+    return;
+  }
   createToastWindow(data);
 });

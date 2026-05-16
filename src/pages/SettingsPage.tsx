@@ -28,6 +28,9 @@ const SettingsPage = () => {
 
   const [editingField, setEditingField] = useState<string | null>(null);
   const [autoStart, setAutoStart] = useState(true);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(() => localStorage.getItem('adonai_notifications_enabled') !== 'false');
+  const [streakEnabled, setStreakEnabled] = useState(() => localStorage.getItem('adonai_notif_streak') !== 'false');
+  const [healthEnabled, setHealthEnabled] = useState(() => localStorage.getItem('adonai_notif_health') !== 'false');
 
   useEffect(() => {
     const fetchAutoStart = async () => {
@@ -199,6 +202,31 @@ const SettingsPage = () => {
         <section className="space-y-4">
             <h3 className="text-xs font-black text-on-surface-variant uppercase tracking-[0.2em] px-2">Notificaciones Inteligentes</h3>
             <div className="bg-surface-container-low border border-outline-variant/10 rounded-[32px] overflow-hidden divide-y divide-outline-variant/5">
+                <div className="p-6 flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-[20px] bg-surface-container-highest flex items-center justify-center">
+                            <BellRing className="w-6 h-6 text-primary" />
+                        </div>
+                        <div>
+                            <span className="block font-bold text-foreground">Notificaciones</span>
+                            <span className="text-[11px] text-on-surface-variant/60 font-medium">Avisos externos del sistema y navegador</span>
+                        </div>
+                    </div>
+                    <button 
+                        onClick={async () => {
+                            const next = !notificationsEnabled;
+                            if (next && 'Notification' in window && Notification.permission === 'default') {
+                                await Notification.requestPermission();
+                            }
+                            localStorage.setItem('adonai_notifications_enabled', String(next));
+                            setNotificationsEnabled(next);
+                            toast.success(next ? 'Notificaciones activadas' : 'Notificaciones desactivadas');
+                        }}
+                        className={`w-12 h-6 rounded-full relative transition-colors ${notificationsEnabled ? 'bg-primary' : 'bg-surface-container-highest'}`}
+                    >
+                        <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${notificationsEnabled ? 'translate-x-6' : ''}`} />
+                    </button>
+                </div>
                 
                 {/* Bedtime / Tomorrow Plan */}
                 <div className="p-6 flex items-center justify-between">
@@ -232,14 +260,14 @@ const SettingsPage = () => {
                     </div>
                     <button 
                         onClick={() => {
-                            const current = localStorage.getItem('adonai_notif_streak') !== 'false';
-                            localStorage.setItem('adonai_notif_streak', String(!current));
-                            toast.success(!current ? 'Protección activada' : 'Protección desactivada');
-                            navigate(0);
+                            const next = !streakEnabled;
+                            localStorage.setItem('adonai_notif_streak', String(next));
+                            setStreakEnabled(next);
+                            toast.success(next ? 'Protección activada' : 'Protección desactivada');
                         }}
-                        className={`w-12 h-6 rounded-full relative transition-colors ${localStorage.getItem('adonai_notif_streak') !== 'false' ? 'bg-primary' : 'bg-surface-container-highest'}`}
+                        className={`w-12 h-6 rounded-full relative transition-colors ${streakEnabled ? 'bg-primary' : 'bg-surface-container-highest'}`}
                     >
-                        <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${localStorage.getItem('adonai_notif_streak') !== 'false' ? 'translate-x-6' : ''}`} />
+                        <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${streakEnabled ? 'translate-x-6' : ''}`} />
                     </button>
                 </div>
 
@@ -256,14 +284,14 @@ const SettingsPage = () => {
                     </div>
                     <button 
                         onClick={() => {
-                            const current = localStorage.getItem('adonai_notif_health') !== 'false';
-                            localStorage.setItem('adonai_notif_health', String(!current));
-                            toast.success(!current ? 'Recordatorios activados' : 'Recordatorios desactivados');
-                            navigate(0);
+                            const next = !healthEnabled;
+                            localStorage.setItem('adonai_notif_health', String(next));
+                            setHealthEnabled(next);
+                            toast.success(next ? 'Recordatorios activados' : 'Recordatorios desactivados');
                         }}
-                        className={`w-12 h-6 rounded-full relative transition-colors ${localStorage.getItem('adonai_notif_health') !== 'false' ? 'bg-secondary' : 'bg-surface-container-highest'}`}
+                        className={`w-12 h-6 rounded-full relative transition-colors ${healthEnabled ? 'bg-secondary' : 'bg-surface-container-highest'}`}
                     >
-                        <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${localStorage.getItem('adonai_notif_health') !== 'false' ? 'translate-x-6' : ''}`} />
+                        <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${healthEnabled ? 'translate-x-6' : ''}`} />
                     </button>
                 </div>
 

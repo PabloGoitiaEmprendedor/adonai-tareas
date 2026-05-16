@@ -52,5 +52,16 @@ export const useGoals = () => {
     },
   });
 
-  return { goals, isLoading, createGoal, updateGoal };
+  const deleteGoal = useMutation({
+    mutationFn: async (id: string) => {
+      if (!user) throw new Error('No user');
+      const { error } = await supabase.from('goals').delete().eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['goals'] });
+    },
+  });
+
+  return { goals, isLoading, createGoal, updateGoal, deleteGoal };
 };

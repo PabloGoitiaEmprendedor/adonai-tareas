@@ -18,6 +18,7 @@ interface Window {
     onUpdateDownloadProgress?: (callback: (event: any, percent: number) => void) => void;
     onUpdateDownloaded?: (callback: () => void) => void;
     restartApp?: () => void;
+    showNotification?: (title: string, body: string, type?: 'info' | 'warning' | 'success' | 'error') => void;
   };
   process?: {
     versions?: {

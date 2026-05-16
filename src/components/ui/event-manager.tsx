@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
 import { motion, AnimatePresence } from "framer-motion"
-import { Calendar, Clock, LayoutGrid, List, Folder, FolderOpen, Plus, Search, Filter, X, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Check, MoreHorizontal, Link as LinkIcon, Trash2, Repeat, Zap, Menu, GripHorizontal, GripVertical } from "lucide-react"
+import { Calendar, Clock, LayoutGrid, List, Folder, FolderOpen, Plus, Search, Filter, X, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Check, MoreHorizontal, Link as LinkIcon, Trash2, Repeat, Zap, Menu, GripHorizontal, GripVertical, Bell, BellOff, Palette } from "lucide-react"
 import ScrollableTimePicker from "./scrollable-time-picker"
 import { usePriorityColors, getPriorityKey } from "@/hooks/usePriorityColors"
 import { cn } from "@/lib/utils"
@@ -63,6 +63,13 @@ export interface Event {
   recurrenceDays?: number[]
   recurrenceInterval?: number
   recurrenceUnit?: 'days' | 'weeks' | 'months' | 'years'
+  recurrenceEndType?: 'never' | 'date' | 'count'
+  recurrenceEndDate?: string
+  recurrenceEndCount?: number
+  reminderEnabled?: boolean
+  reminderMinutesBefore?: number
+  reminderCustomValue?: number
+  reminderCustomUnit?: 'minutes' | 'hours' | 'days' | 'weeks'
   urgency?: boolean
   importance?: boolean
   links?: string[]
@@ -111,11 +118,20 @@ export function EventManager({
   recurrenceExceptions,
   dragDisabled = false,
 }: EventManagerProps) {
-  const { colors: priorityColors } = usePriorityColors()
+  const { colors: priorityColors, customColors, addCustomColor, removeCustomColor } = usePriorityColors()
   const [events, setEvents] = useState<Event[]>(initialEvents)
   // Map of eventId -> optimistic event for drops currently pending Supabase confirmation.
   // Prevents a stale React Query refetch from overwriting the optimistic local state.
   const pendingDropsRef = useRef<Map<string, Event>>(new Map())
+  const registerPendingDrop = useCallback((ev: Event) => {
+    pendingDropsRef.current.set(ev.id, ev);
+    setTimeout(() => {
+      if (pendingDropsRef.current.has(ev.id)) {
+        console.warn(`[TimeGrid] Pending drop ${ev.id} timed out after 5s`);
+        pendingDropsRef.current.delete(ev.id);
+      }
+    }, 5000);
+  }, [])
 
   useEffect(() => {
     if (pendingDropsRef.current.size === 0) {
@@ -190,6 +206,8 @@ export function EventManager({
     color: colors[0].value,
     category: categories[0],
     tags: [],
+    reminderEnabled: false,
+    reminderMinutesBefore: 10,
   })
 
   const [selectedCategory, setSelectedCategory] = useState<string | null>('General');
@@ -214,16 +232,9 @@ export function EventManager({
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [sidebarView, setSidebarView] = useState<'list' | 'folders'>('list');
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set(['General']));
-  const [showRecurrenceOptions, setShowRecurrenceOptions] = useState(false);
-  const [showCustomRec, setShowCustomRec] = useState(false)
-  const [isRecPopoverOpen, setIsRecPopoverOpen] = useState(false)
-  const [recDays, setRecDays] = useState<number[]>([])
-  const [recInterval, setRecInterval] = useState(2)
-  const [recUnit, setRecUnit] = useState<'days' | 'weeks' | 'months' | 'years'>('weeks')
-  const [recEndType, setRecEndType] = useState<'never' | 'count' | 'date'>('never')
-  const [recEndCount, setRecEndCount] = useState(5)
-  const [recEndDate, setRecEndDate] = useState('')
-  const [recSummary, setRecSummary] = useState('')
+  const [recurrenceEditorOpen, setRecurrenceEditorOpen] = useState(true)
+  const [pendingCustomColor, setPendingCustomColor] = useState('#22c55e')
+  const [, setRecSummary] = useState('')
   const [draftEvent, setDraftEvent] = useState<Event | null>(null)
   const [draftTitle, setDraftTitle] = useState('')
   const draftInputRef = useRef<HTMLInputElement>(null)
@@ -273,6 +284,7 @@ export function EventManager({
 
   useEffect(() => {
     window.dispatchEvent(new CustomEvent('adonai:dialog-state-change', { detail: { active: isDialogOpen } }))
+    if (isDialogOpen) setRecurrenceEditorOpen(false)
   }, [isDialogOpen])
 
   const toggleFolder = (folder: string) => {
@@ -284,16 +296,6 @@ export function EventManager({
     }
     setExpandedFolders(newExpanded);
   };
-
-  useEffect(() => {
-    if (!isRecPopoverOpen) return; // Only update when opening/already open
-    const currentRec = isCreating ? newEvent.recurrence : selectedEvent?.recurrence
-    if (['weekdays', 'biweekly', 'yearly'].includes(currentRec || '')) {
-      setShowCustomRec(true)
-    } else {
-      setShowCustomRec(false)
-    }
-  }, [isRecPopoverOpen, selectedEvent?.recurrence, newEvent.recurrence, isCreating])
 
   // Initialize recSummary from event recurrence data when dialog opens
   useEffect(() => {
@@ -383,6 +385,12 @@ export function EventManager({
 
       const anchorDate = new Date(event.startTime)
       const anchorEnd = new Date(event.endTime)
+      const recurrenceEndDate = event.recurrenceEndDate
+        ? endOfDay(new Date(`${event.recurrenceEndDate}T12:00:00`))
+        : null
+      const recurrenceEndCount = event.recurrenceEndType === 'count'
+        ? Math.max(1, event.recurrenceEndCount || 1)
+        : null
 
       if (isNaN(anchorDate.getTime()) || isNaN(anchorEnd.getTime())) return
 
@@ -394,6 +402,7 @@ export function EventManager({
 
       // Iterate each day in the visible range and check against recurrence rule
       const daysInRange = eachDayOfInterval({ start: visibleStart, end: visibleEnd })
+      let occurrenceCount = 1
 
       daysInRange.forEach(day => {
         const dayStart = startOfDay(day)
@@ -403,6 +412,7 @@ export function EventManager({
 
         // Skip dates before the anchor date (event didn't exist yet)
         if (day < anchorDayStart) return
+        if (recurrenceEndDate && dayStart > recurrenceEndDate) return
 
         const dayOfWeek = day.getDay()
         const dayOfMonth = day.getDate()
@@ -470,6 +480,8 @@ export function EventManager({
         }
 
         if (!matches) return
+        occurrenceCount += 1
+        if (recurrenceEndCount && occurrenceCount > recurrenceEndCount) return
 
         const nextStart = new Date(day)
         nextStart.setHours(anchorHour, anchorMin, anchorSec, 0)
@@ -554,10 +566,18 @@ export function EventManager({
       color: colors[0].value,
       category: categories[0],
       isAllDay: false,
+      recurrence: 'none',
+      recurrenceDays: [],
+      recurrenceInterval: 1,
+      recurrenceUnit: 'weeks',
+      recurrenceEndType: 'never',
+      reminderEnabled: false,
+      reminderMinutesBefore: 10,
     });
     setCreationSource('calendar_only');
     setDurationMinutes(30);
     setCustomDuration('');
+    setRecurrenceEditorOpen(true);
     setIsCreating(true);
     setIsDialogOpen(true);
   }, [onCellClick, colors, categories, events]);
@@ -577,6 +597,14 @@ export function EventManager({
         attendees: newEvent.attendees,
         tags: newEvent.tags || [],
         recurrence: 'none',
+        recurrenceDays: [],
+        recurrenceInterval: 1,
+        recurrenceUnit: 'weeks',
+        recurrenceEndType: 'never',
+        reminderEnabled: newEvent.reminderEnabled || false,
+        reminderMinutesBefore: newEvent.reminderMinutesBefore,
+        reminderCustomValue: newEvent.reminderCustomValue,
+        reminderCustomUnit: newEvent.reminderCustomUnit,
         links: newEvent.links || [],
         urgency: newEvent.urgency,
         importance: newEvent.importance,
@@ -594,6 +622,8 @@ export function EventManager({
         tags: [],
         recurrence: 'none',
         links: [],
+        reminderEnabled: false,
+        reminderMinutesBefore: 10,
       })
       return
     }
@@ -614,6 +644,13 @@ export function EventManager({
       recurrenceDays: newEvent.recurrenceDays || [],
       recurrenceInterval: newEvent.recurrenceInterval,
       recurrenceUnit: newEvent.recurrenceUnit,
+      recurrenceEndType: newEvent.recurrenceEndType,
+      recurrenceEndDate: newEvent.recurrenceEndDate,
+      recurrenceEndCount: newEvent.recurrenceEndCount,
+      reminderEnabled: newEvent.reminderEnabled || false,
+      reminderMinutesBefore: newEvent.reminderMinutesBefore,
+      reminderCustomValue: newEvent.reminderCustomValue,
+      reminderCustomUnit: newEvent.reminderCustomUnit,
       links: newEvent.links || [],
       urgency: newEvent.urgency,
       importance: newEvent.importance,
@@ -632,7 +669,13 @@ export function EventManager({
       category: categories[0],
       tags: [],
       recurrence: 'none',
+      recurrenceDays: [],
+      recurrenceInterval: 1,
+      recurrenceUnit: 'weeks',
+      recurrenceEndType: 'never',
       links: [],
+      reminderEnabled: false,
+      reminderMinutesBefore: 10,
     })
   }, [newEvent, colors, categories, onEventCreate, creationSource])
 
@@ -1361,6 +1404,7 @@ export function EventManager({
                     onDrop={handleDrop}
                     getColorClasses={getColorClasses}
                     onEventUpdate={onEventUpdate}
+                    onRegisterPendingDrop={registerPendingDrop}
                     draggedEvent={draggedEvent}
                     previewTime={previewTime}
                     setPreviewTime={setPreviewTime}
@@ -1415,6 +1459,7 @@ export function EventManager({
           const linksVal = (isCreating ? newEvent.links : selectedEvent?.links) || [];
           const importanceVal = isCreating ? !!newEvent.importance : !!selectedEvent?.importance;
           const urgencyVal    = isCreating ? !!newEvent.urgency    : !!selectedEvent?.urgency;
+          const colorVal = isCreating ? (newEvent.color || priorityColors.p4) : (selectedEvent?.color || priorityColors.p4);
 
           const isTask = isCreating ? creationSource !== 'calendar_only' : selectedEvent?.id.startsWith('task-');
           const isBlock = isCreating ? (creationSource === 'calendar_only' || creationSource === 'both') : selectedEvent?.id.startsWith('block-');
@@ -1673,8 +1718,15 @@ export function EventManager({
                           <button
                             type="button"
                             onClick={() => {
-                              if (isCreating) setNewEvent(prev => ({ ...prev, importance: !prev.importance }))
-                              else setSelectedEvent(prev => prev ? ({ ...prev, importance: !prev.importance }) : null)
+                              if (isCreating) setNewEvent(prev => {
+                                const importance = !prev.importance
+                                return { ...prev, importance, color: priorityColors[getPriorityKey(prev.urgency || false, importance)] }
+                              })
+                              else setSelectedEvent(prev => {
+                                if (!prev) return null
+                                const importance = !prev.importance
+                                return { ...prev, importance, color: priorityColors[getPriorityKey(prev.urgency || false, importance)] }
+                              })
                             }}
                             className={cn(
                               "flex flex-col items-center justify-center gap-1 rounded-[22px] font-black uppercase tracking-widest text-[9px] transition-all border h-14",
@@ -1688,8 +1740,15 @@ export function EventManager({
                           <button
                             type="button"
                             onClick={() => {
-                              if (isCreating) setNewEvent(prev => ({ ...prev, urgency: !prev.urgency }))
-                              else setSelectedEvent(prev => prev ? ({ ...prev, urgency: !prev.urgency }) : null)
+                              if (isCreating) setNewEvent(prev => {
+                                const urgency = !prev.urgency
+                                return { ...prev, urgency, color: priorityColors[getPriorityKey(urgency, prev.importance || false)] }
+                              })
+                              else setSelectedEvent(prev => {
+                                if (!prev) return null
+                                const urgency = !prev.urgency
+                                return { ...prev, urgency, color: priorityColors[getPriorityKey(urgency, prev.importance || false)] }
+                              })
                             }}
                             className={cn(
                               "flex flex-col items-center justify-center gap-1 rounded-[22px] font-black uppercase tracking-widest text-[9px] transition-all border h-14",
@@ -1703,71 +1762,385 @@ export function EventManager({
                         </div>
                       </div>
 
-                      {/* REPETICIÓN */}
-                      <div className="space-y-2">
-                        <label className="text-[11px] font-bold text-muted-foreground/60 uppercase tracking-wider ml-1">Repetición</label>
-                        <Popover open={isRecPopoverOpen} onOpenChange={setIsRecPopoverOpen}>
-                          <PopoverTrigger asChild>
-                            <div className="flex items-center justify-between bg-surface/50 border border-outline-variant/30 rounded-[18px] px-4 py-3.5 cursor-pointer hover:border-primary/40 hover:bg-surface transition-all shadow-sm group">
-                              <div className="flex items-center gap-3">
-                                <Repeat className="w-4 h-4 text-primary/40 group-hover:text-primary transition-colors" />
-                                <span className="text-[11px] font-bold text-primary">
-                                  {isCreating ? (newEvent.recurrence === 'none' || !newEvent.recurrence ? 'No se repite' : 
-                                    newEvent.recurrence === 'daily' ? 'Diario' : 
-                                    newEvent.recurrence === 'weekly' ? 'Semanal' : 
-                                    newEvent.recurrence === 'monthly' ? 'Mensual' : 
-                                    newEvent.recurrence === 'weekdays' ? 'Días laborales' : 
-                                    newEvent.recurrence === 'biweekly' ? 'Quincenal' : 
-                                    newEvent.recurrence === 'yearly' ? 'Anual' : 
-                                    newEvent.recurrence === 'custom' ? (recSummary || 'Personalizado') : 'Personalizado') : 
-                                    (selectedEvent?.recurrence === 'none' || !selectedEvent?.recurrence ? 'No se repite' : 
-                                    selectedEvent?.recurrence === 'daily' ? 'Diario' : 
-                                    selectedEvent?.recurrence === 'weekly' ? 'Semanal' : 
-                                    selectedEvent?.recurrence === 'monthly' ? 'Mensual' : 
-                                    selectedEvent?.recurrence === 'weekdays' ? 'Días laborales' : 
-                                    selectedEvent?.recurrence === 'biweekly' ? 'Quincenal' : 
-                                    selectedEvent?.recurrence === 'yearly' ? 'Anual' : 
-                                    selectedEvent?.recurrence === 'custom' ? (recSummary || 'Personalizado') : 'Personalizado')}
-                                </span>
+                      {/* REPETICIóN */}
+                      {(() => {
+                        const priorityColorChoices = [
+                          { id: 'p1', value: priorityColors.p1, label: 'P1', isCustom: false },
+                          { id: 'p2', value: priorityColors.p2, label: 'P2', isCustom: false },
+                          { id: 'p3', value: priorityColors.p3, label: 'P3', isCustom: false },
+                          { id: 'p4', value: priorityColors.p4, label: 'P4', isCustom: false },
+                        ]
+                        const customColorChoices = customColors.map((color, index) => ({ id: color.id, value: color.value, label: `${index + 1}`, isCustom: true }))
+                        const colorChoices = [...priorityColorChoices, ...customColorChoices]
+                        const recEvent = isCreating ? newEvent : selectedEvent
+                        const selectedDays = recEvent?.recurrenceDays || []
+                        const currentRec = recEvent?.recurrence || 'none'
+                        const interval = recEvent?.recurrenceInterval || 1
+                        const unit = recEvent?.recurrenceUnit || 'weeks'
+                        const endType = recEvent?.recurrenceEndType || 'never'
+                        const endDate = recEvent?.recurrenceEndDate || ''
+                        const endCount = recEvent?.recurrenceEndCount || 5
+                        const weekDays = [
+                          { value: 1, label: 'L', full: 'lunes' },
+                          { value: 2, label: 'M', full: 'martes' },
+                          { value: 3, label: 'X', full: 'miércoles' },
+                          { value: 4, label: 'J', full: 'jueves' },
+                          { value: 5, label: 'V', full: 'viernes' },
+                          { value: 6, label: 'S', full: 'sábado' },
+                          { value: 0, label: 'D', full: 'domingo' },
+                        ]
+                        const patchRecurrence = (patch: Partial<Event>) => {
+                          if (isCreating) setNewEvent(prev => ({ ...prev, ...patch }))
+                          else setSelectedEvent(prev => prev ? ({ ...prev, ...patch }) : null)
+                        }
+                        const toggleDay = (day: number) => {
+                          const nextDays = selectedDays.includes(day)
+                            ? selectedDays.filter(d => d !== day)
+                            : [...selectedDays, day]
+                          patchRecurrence({
+                            recurrence: nextDays.length ? (currentRec === 'custom' ? 'custom' : 'weekly') : 'none',
+                            recurrenceDays: nextDays,
+                            recurrenceInterval: currentRec === 'custom' ? interval : 1,
+                            recurrenceUnit: 'weeks',
+                          })
+                        }
+                        const selectedDayNames = weekDays
+                          .filter(d => selectedDays.includes(d.value))
+                          .map(d => d.full)
+                        const unitLabel: Record<string, [string, string]> = {
+                          days: ['día', 'días'],
+                          weeks: ['semana', 'semanas'],
+                          months: ['mes', 'meses'],
+                          years: ['año', 'años'],
+                        }
+                        const baseSummary = (() => {
+                          if (!currentRec || currentRec === 'none') return 'No se repite'
+                          if (currentRec === 'daily') return 'Se repite cada día'
+                          if (currentRec === 'monthly') return 'Se repite cada mes'
+                          if (currentRec === 'yearly') return 'Se repite cada año'
+                          if (currentRec === 'weekdays') return 'Se repite de lunes a viernes'
+                          if (currentRec === 'biweekly') return selectedDayNames.length ? `Se repite cada 2 semanas: ${selectedDayNames.join(', ')}` : 'Se repite cada 2 semanas'
+                          if (currentRec === 'weekly') return selectedDayNames.length ? `Se repite cada ${selectedDayNames.join(', ')}` : 'Se repite cada semana'
+                          const [singular, plural] = unitLabel[unit] || ['periodo', 'periodos']
+                          const cadence = `Se repite cada ${interval} ${interval === 1 ? singular : plural}`
+                          return unit === 'weeks' && selectedDayNames.length ? `${cadence}: ${selectedDayNames.join(', ')}` : cadence
+                        })()
+                        const endSummary = endType === 'date' && endDate
+                          ? ` hasta ${format(new Date(`${endDate}T12:00:00`), 'd MMM yyyy', { locale: es })}`
+                          : endType === 'count'
+                            ? ` durante ${endCount} eventos`
+                            : ''
+                        const liveSummary = `${titleVal || 'Nombre del evento'}: ${baseSummary}${endSummary}.`
+                        const customOpen = currentRec === 'custom'
+                        const reminderEnabled = !!recEvent?.reminderEnabled
+                        const reminderMinutes = recEvent?.reminderMinutesBefore || 10
+                        const reminderCustomValue = recEvent?.reminderCustomValue || 1
+                        const reminderCustomUnit = recEvent?.reminderCustomUnit || 'hours'
+                        const quickReminders = [
+                          { value: 5, label: '5 min' },
+                          { value: 10, label: '10 min' },
+                          { value: 15, label: '15 min' },
+                          { value: 30, label: '30 min' },
+                          { value: 60, label: '1 hora' },
+                          { value: 1440, label: '1 día' },
+                        ]
+                        const reminderUnitMinutes: Record<string, number> = { minutes: 1, hours: 60, days: 1440, weeks: 10080 }
+                        const patchReminder = (patch: Partial<Event>) => patchRecurrence(patch)
+                        const patchCustomReminder = (value: number, unit: Event['reminderCustomUnit']) => {
+                          const safeValue = Math.max(1, value || 1)
+                          const safeUnit = unit || 'hours'
+                          patchReminder({
+                            reminderEnabled: true,
+                            reminderCustomValue: safeValue,
+                            reminderCustomUnit: safeUnit,
+                            reminderMinutesBefore: safeValue * reminderUnitMinutes[safeUnit],
+                          })
+                        }
+
+                        return (
+                          <div className="space-y-3">
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between px-1">
+                                <label className="text-[11px] font-bold text-muted-foreground/60 uppercase tracking-wider">Color del evento</label>
+                                <Palette className="w-3.5 h-3.5 text-muted-foreground/40" />
                               </div>
-                              <ChevronRight className="w-3 h-3 text-muted-foreground/30" />
-                            </div>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-64 p-2 rounded-[24px] bg-background border-outline-variant/10 shadow-2xl" align="start">
-                            <div className="flex flex-col gap-1">
-                              {[
-                                { id: 'none', label: 'No se repite' },
-                                { id: 'daily', label: 'Diario' },
-                                { id: 'weekly', label: 'Semanal' },
-                                { id: 'monthly', label: 'Mensual' },
-                                { id: 'weekdays', label: 'Días laborales' },
-                                { id: 'biweekly', label: 'Quincenal' },
-                                { id: 'yearly', label: 'Anual' },
-                                { id: 'custom', label: 'Personalizado...' },
-                              ].map(opt => (
+                              <div className="rounded-[22px] border border-outline-variant/15 bg-surface-container/25 p-3">
+                                <div className="grid grid-cols-5 gap-2">
+                                  {colorChoices.map((color) => {
+                                    const active = colorVal?.toLowerCase?.() === color.value.toLowerCase()
+                                    return (
+                                      <div key={color.id} className="relative group/color">
+                                        <button
+                                          type="button"
+                                          onClick={() => patchRecurrence({ color: color.value })}
+                                          className={cn(
+                                            "h-10 w-full rounded-full border transition-all flex items-center justify-center text-[9px] font-black",
+                                            active ? "border-foreground scale-105" : "border-outline-variant/20 hover:border-primary/40"
+                                          )}
+                                          style={{ backgroundColor: color.value }}
+                                          aria-label={`Usar color ${color.label}`}
+                                        >
+                                          {active && <Check className="w-4 h-4 text-white drop-shadow" />}
+                                        </button>
+                                        {color.isCustom && (
+                                          <button
+                                            type="button"
+                                            onClick={(e) => {
+                                              e.stopPropagation()
+                                              removeCustomColor(color.id)
+                                              // If this was the selected color, reset to p4
+                                              if (active) patchRecurrence({ color: priorityColors.p4 })
+                                            }}
+                                            className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-destructive text-white flex items-center justify-center opacity-0 group-hover/color:opacity-100 transition-opacity shadow-sm z-10"
+                                            aria-label="Eliminar color"
+                                          >
+                                            <X className="w-2.5 h-2.5" />
+                                          </button>
+                                        )}
+                                      </div>
+                                    )
+                                  })}
+                                  {/* + button always visible */}
+                                  <label
+                                    className="h-10 rounded-full border border-dashed border-outline-variant/30 text-muted-foreground hover:text-primary hover:border-primary/40 transition-all flex items-center justify-center cursor-pointer"
+                                    style={{ backgroundColor: pendingCustomColor }}
+                                  >
+                                    <Plus className="w-4 h-4 text-white drop-shadow" />
+                                    <input
+                                      type="color"
+                                      className="sr-only"
+                                      value={pendingCustomColor}
+                                      onChange={(e) => setPendingCustomColor(e.target.value)}
+                                    />
+                                  </label>
+                                </div>
                                 <button
-                                  key={opt.id}
+                                  type="button"
                                   onClick={() => {
-                                    const val = opt.id as any
-                                    if (isCreating) setNewEvent(prev => ({ ...prev, recurrence: val }))
-                                    else setSelectedEvent(prev => prev ? ({ ...prev, recurrence: val }) : null)
-                                    if (val !== 'custom') setIsRecPopoverOpen(false)
+                                    addCustomColor(pendingCustomColor)
+                                    patchRecurrence({ color: pendingCustomColor })
+                                    setPendingCustomColor('#22c55e')
                                   }}
-                                  className={cn(
-                                    "flex items-center justify-between px-3 py-2.5 rounded-[14px] text-[11px] font-bold transition-all",
-                                    (isCreating ? newEvent.recurrence : selectedEvent?.recurrence) === opt.id
-                                      ? "bg-primary/10 text-primary"
-                                      : "text-muted-foreground hover:bg-black/5 dark:hover:bg-white/5"
-                                  )}
+                                  className="mt-3 w-full rounded-2xl bg-primary/10 border border-primary/20 py-2.5 text-[10px] font-black uppercase tracking-wider text-primary hover:bg-primary/15 transition-colors"
                                 >
-                                  {opt.label}
-                                  {(isCreating ? newEvent.recurrence : selectedEvent?.recurrence) === opt.id && <Check className="w-3 h-3" />}
+                                  Guardar color
                                 </button>
-                              ))}
+                              </div>
                             </div>
-                          </PopoverContent>
-                        </Popover>
-                      </div>
+
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between px-1">
+                                <label className="text-[11px] font-bold text-muted-foreground/60 uppercase tracking-wider">Notificación</label>
+                                <button
+                                  type="button"
+                                  onClick={() => patchReminder({ reminderEnabled: !reminderEnabled, reminderMinutesBefore: reminderMinutes || 10 })}
+                                  className={cn(
+                                    "w-9 h-9 rounded-full flex items-center justify-center border transition-all",
+                                    reminderEnabled ? "bg-primary/15 text-primary border-primary/25" : "bg-surface-container/30 text-muted-foreground border-outline-variant/15"
+                                  )}
+                                  aria-label={reminderEnabled ? 'Desactivar notificación' : 'Activar notificación'}
+                                >
+                                  {reminderEnabled ? <Bell className="w-4 h-4" /> : <BellOff className="w-4 h-4" />}
+                                </button>
+                              </div>
+                              {reminderEnabled && (
+                                <div className="rounded-[22px] border border-outline-variant/15 bg-surface-container/25 p-3 space-y-3">
+                                  <div className="grid grid-cols-3 gap-1.5">
+                                    {quickReminders.map((option) => (
+                                      <button
+                                        key={option.value}
+                                        type="button"
+                                        onClick={() => patchReminder({ reminderEnabled: true, reminderMinutesBefore: option.value })}
+                                        className={cn(
+                                          "h-9 rounded-xl text-[10px] font-black transition-all border",
+                                          reminderMinutes === option.value
+                                            ? "bg-primary/15 text-primary border-primary/30"
+                                            : "bg-surface/50 text-muted-foreground border-outline-variant/15 hover:text-primary"
+                                        )}
+                                      >
+                                        {option.label}
+                                      </button>
+                                    ))}
+                                  </div>
+                                  <div className="grid grid-cols-[72px_1fr] gap-2">
+                                    <input
+                                      type="number"
+                                      min={1}
+                                      max={999}
+                                      value={reminderCustomValue}
+                                      onChange={(e) => patchCustomReminder(Number(e.target.value), reminderCustomUnit)}
+                                      className="h-10 rounded-xl bg-surface/70 border border-outline-variant/20 px-3 text-sm font-black focus:outline-none focus:ring-2 focus:ring-primary/30"
+                                    />
+                                    <select
+                                      value={reminderCustomUnit}
+                                      onChange={(e) => patchCustomReminder(reminderCustomValue, e.target.value as Event['reminderCustomUnit'])}
+                                      className="h-10 rounded-xl bg-surface/70 border border-outline-variant/20 px-3 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/30"
+                                    >
+                                      <option value="minutes">minutos antes</option>
+                                      <option value="hours">horas antes</option>
+                                      <option value="days">días antes</option>
+                                      <option value="weeks">semanas antes</option>
+                                    </select>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="flex items-center justify-between gap-3">
+                              <label className="text-[11px] font-bold text-muted-foreground/60 uppercase tracking-wider ml-1">Repetición</label>
+                              <button
+                                type="button"
+                                onClick={() => patchRecurrence({
+                                  recurrence: customOpen ? (selectedDays.length ? 'weekly' : 'none') : 'custom',
+                                  recurrenceInterval: interval,
+                                  recurrenceUnit: unit,
+                                  recurrenceDays: selectedDays,
+                                  recurrenceEndType: endType,
+                                })}
+                                className={cn(
+                                  "rounded-full px-3 py-1.5 text-[10px] font-black transition-all",
+                                  !recurrenceEditorOpen && "hidden",
+                                  customOpen ? "bg-primary/15 text-primary" : "bg-surface-container/40 text-muted-foreground hover:text-primary"
+                                )}
+                              >
+                                Personalizado
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setRecurrenceEditorOpen((open) => !open)}
+                                className="rounded-full px-3 py-1.5 text-[10px] font-black bg-surface-container/40 text-muted-foreground hover:text-primary transition-all"
+                              >
+                                {recurrenceEditorOpen ? 'Cerrar' : 'Editar'}
+                              </button>
+                            </div>
+
+                            <div className="rounded-[22px] border border-outline-variant/15 bg-surface-container/25 p-3 space-y-3">
+                              <div className="rounded-2xl bg-primary/10 border border-primary/15 px-4 py-3 text-[12px] font-bold text-foreground leading-relaxed">
+                                {liveSummary}
+                              </div>
+
+                              {recurrenceEditorOpen && (
+                                <>
+                              <div className="grid grid-cols-7 gap-1.5">
+                                {weekDays.map(day => {
+                                  const active = selectedDays.includes(day.value)
+                                  return (
+                                    <button
+                                      key={day.value}
+                                      type="button"
+                                      onClick={() => toggleDay(day.value)}
+                                      className={cn(
+                                        "h-10 rounded-full text-xs font-black transition-all border",
+                                        active
+                                          ? "bg-primary text-primary-foreground border-primary shadow-lg shadow-primary/20"
+                                          : "bg-surface/60 text-muted-foreground border-outline-variant/20 hover:border-primary/30 hover:text-primary"
+                                      )}
+                                      aria-label={`Repetir los ${day.full}`}
+                                    >
+                                      {day.label}
+                                    </button>
+                                  )
+                                })}
+                              </div>
+
+                              {selectedDays.length > 0 && !customOpen && (
+                                <button
+                                  type="button"
+                                  onClick={() => patchRecurrence({ recurrence: 'none', recurrenceDays: [] })}
+                                  className="w-full rounded-2xl py-2 text-[10px] font-black uppercase tracking-wider text-muted-foreground hover:text-destructive transition-colors"
+                                >
+                                  Quitar repetición
+                                </button>
+                              )}
+
+                              {customOpen && (
+                                <div className="space-y-3 border-t border-outline-variant/10 pt-3">
+                                  <div className="grid grid-cols-[80px_1fr] gap-2 items-center">
+                                    <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground/70">Cada</span>
+                                    <div className="grid grid-cols-[72px_1fr] gap-2">
+                                      <input
+                                        type="number"
+                                        min={1}
+                                        max={365}
+                                        value={interval}
+                                        onChange={(e) => patchRecurrence({ recurrence: 'custom', recurrenceInterval: Math.max(1, Number(e.target.value) || 1) })}
+                                        className="h-10 rounded-xl bg-surface/70 border border-outline-variant/20 px-3 text-sm font-black focus:outline-none focus:ring-2 focus:ring-primary/30"
+                                      />
+                                      <select
+                                        value={unit}
+                                        onChange={(e) => patchRecurrence({ recurrence: 'custom', recurrenceUnit: e.target.value as Event['recurrenceUnit'] })}
+                                        className="h-10 rounded-xl bg-surface/70 border border-outline-variant/20 px-3 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/30"
+                                      >
+                                        <option value="days">días</option>
+                                        <option value="weeks">semanas</option>
+                                        <option value="months">meses</option>
+                                        <option value="years">años</option>
+                                      </select>
+                                    </div>
+                                  </div>
+
+                                  <div className="space-y-2">
+                                    <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground/70">Finaliza</span>
+                                    <div className="grid grid-cols-3 gap-1.5">
+                                      {[
+                                        { id: 'never', label: 'Nunca' },
+                                        { id: 'date', label: 'Fecha' },
+                                        { id: 'count', label: 'Eventos' },
+                                      ].map(opt => (
+                                        <button
+                                          key={opt.id}
+                                          type="button"
+                                          onClick={() => patchRecurrence({ recurrence: 'custom', recurrenceEndType: opt.id as Event['recurrenceEndType'] })}
+                                          className={cn(
+                                            "h-9 rounded-xl text-[10px] font-black transition-all border",
+                                            endType === opt.id
+                                              ? "bg-primary/15 text-primary border-primary/30"
+                                              : "bg-surface/50 text-muted-foreground border-outline-variant/15 hover:text-primary"
+                                          )}
+                                        >
+                                          {opt.label}
+                                        </button>
+                                      ))}
+                                    </div>
+
+                                    {endType === 'date' && (
+                                      <input
+                                        type="date"
+                                        value={endDate}
+                                        onChange={(e) => patchRecurrence({ recurrence: 'custom', recurrenceEndDate: e.target.value })}
+                                        className="w-full h-10 rounded-xl bg-surface/70 border border-outline-variant/20 px-3 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/30"
+                                      />
+                                    )}
+
+                                    {endType === 'count' && (
+                                      <div className="flex items-center gap-2">
+                                        <input
+                                          type="number"
+                                          min={1}
+                                          max={999}
+                                          value={endCount}
+                                          onChange={(e) => patchRecurrence({ recurrence: 'custom', recurrenceEndCount: Math.max(1, Number(e.target.value) || 1) })}
+                                          className="h-10 w-24 rounded-xl bg-surface/70 border border-outline-variant/20 px-3 text-sm font-black focus:outline-none focus:ring-2 focus:ring-primary/30"
+                                        />
+                                        <span className="text-xs font-bold text-muted-foreground">eventos</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+                                  <button
+                                    type="button"
+                                    onClick={() => setRecurrenceEditorOpen(false)}
+                                    className="w-full rounded-2xl bg-primary text-primary-foreground py-2.5 text-[10px] font-black uppercase tracking-wider shadow-lg shadow-primary/15 hover:scale-[1.01] active:scale-95 transition-all"
+                                  >
+                                    Guardar repetición
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        )
+                      })()}
 
                       {/* LINKS O REFERENCIAS */}
                       <div className="space-y-1">
@@ -2055,6 +2428,7 @@ function TimeGridView({
   onDrop,
   getColorClasses,
   onEventUpdate,
+  onRegisterPendingDrop,
   draggedEvent,
   previewTime,
   setPreviewTime,
@@ -2403,6 +2777,7 @@ function TimeGridView({
 
           if (onEventUpdate) {
             changedEvents.forEach(ev => {
+              onRegisterPendingDrop?.(ev);
               onEventUpdate(ev.id, { 
                 startTime: ev.startTime,
                 endTime: ev.endTime 
@@ -2653,11 +3028,11 @@ function TimeGridView({
                           onEventClick(event);
                         }}
                         className={cn(
-                          "absolute inset-x-1 rounded-xl p-2 text-[10px] font-bold text-white shadow-lg cursor-grab active:cursor-grabbing hover:brightness-110 z-10 overflow-hidden group select-none",
-                          "transition-all duration-200 ease-out", // Smooth transitions
+                          "absolute inset-x-1 rounded-xl p-2 text-[10px] font-bold text-white cursor-grab active:cursor-grabbing hover:brightness-110 z-10 overflow-hidden group select-none",
+                          "transition-[opacity,transform] duration-200 ease-out", // No shadow transition - prevents shadow accumulation
                           event.color && !event.color.startsWith('#') && !event.color.startsWith('var') && getColorClasses(event.color).bg,
-                          isResizing === event.id && "z-50 shadow-2xl brightness-125 ring-2 ring-white/50 transition-none", // Disable transitions while resizing
-                          isMoving === event.id && "z-50 shadow-2xl scale-[1.02] brightness-110 ring-2 ring-white/30 transition-none cursor-grabbing", // Premium feedback while moving
+                          isResizing === event.id && "z-50 shadow-xl brightness-125 ring-2 ring-white/50 transition-none", // Disable transitions while resizing
+                          isMoving === event.id && "z-50 shadow-xl scale-[1.02] brightness-110 ring-2 ring-white/30 transition-none cursor-grabbing", // Premium feedback while moving
                           isDraggingRef.current && "transition-none", // Disable transitions while dragging
                           event.completed && "opacity-50 grayscale-[0.3]"
                         )}
@@ -2729,6 +3104,16 @@ function TimeGridView({
                               setInitialStartTime(new Date(event.startTime));
                               setInitialEndTime(new Date(event.endTime));
                             }}
+                            onTouchStart={(e) => {
+                              e.stopPropagation();
+                              const touch = e.touches[0];
+                              isDraggingRef.current = false;
+                              setIsResizing(event.id);
+                              setIsResizingTop(true);
+                              setInitialMouseY(touch.pageY);
+                              setInitialStartTime(new Date(event.startTime));
+                              setInitialEndTime(new Date(event.endTime));
+                            }}
                           >
                             <div className="w-8 h-1 rounded-full bg-white/80 shadow-md" />
                           </div>
@@ -2754,6 +3139,16 @@ function TimeGridView({
                               setIsResizing(event.id);
                               setIsResizingTop(false);
                               setInitialMouseY(e.pageY);
+                              setInitialStartTime(new Date(event.startTime));
+                              setInitialEndTime(new Date(event.endTime));
+                            }}
+                            onTouchStart={(e) => {
+                              e.stopPropagation();
+                              const touch = e.touches[0];
+                              isDraggingRef.current = false;
+                              setIsResizing(event.id);
+                              setIsResizingTop(false);
+                              setInitialMouseY(touch.pageY);
                               setInitialStartTime(new Date(event.startTime));
                               setInitialEndTime(new Date(event.endTime));
                             }}

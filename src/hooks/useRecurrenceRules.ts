@@ -43,7 +43,6 @@ export const useRecurrenceRules = () => {
   const createRule = useMutation({
     mutationFn: async (rule: Omit<RecurrenceRule, 'id' | 'user_id' | 'created_at'>) => {
       if (!user) throw new Error('No user');
-      // Only insert columns that definitely exist in the base table schema
       const insertData: Record<string, unknown> = {
         user_id: user.id,
         frequency: rule.frequency,

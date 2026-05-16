@@ -58,6 +58,52 @@ const rebuildDescription = (startTime: Date | null, endTime: Date | null, color:
   return parts.join(' ').trim();
 };
 
+const getCountBasedEndDate = (
+  startDate: string,
+  recurrence: Event['recurrence'],
+  daysOfWeek: number[],
+  interval: number,
+  unit: Event['recurrenceUnit'],
+  count?: number
+) => {
+  if (!count || count < 1 || !recurrence || recurrence === 'none') return null;
+
+  const anchor = parseISO(`${startDate}T12:00:00`);
+  const selectedDays = daysOfWeek.length > 0 ? daysOfWeek : [anchor.getDay()];
+  let seen = 0;
+  let cursor = anchor;
+
+  for (let i = 0; i < 3660; i += 1) {
+    const diffDays = Math.floor((startOfDay(cursor).getTime() - startOfDay(anchor).getTime()) / 86400000);
+    const diffWeeks = Math.floor(diffDays / 7);
+    const diffMonths = (cursor.getFullYear() - anchor.getFullYear()) * 12 + cursor.getMonth() - anchor.getMonth();
+    const diffYears = cursor.getFullYear() - anchor.getFullYear();
+    const dayMatches = selectedDays.includes(cursor.getDay());
+    let matches = false;
+
+    if (recurrence === 'daily' || (recurrence === 'custom' && unit === 'days')) {
+      matches = diffDays % Math.max(1, interval) === 0;
+    } else if (recurrence === 'weekly' || recurrence === 'weekdays' || recurrence === 'biweekly' || (recurrence === 'custom' && unit === 'weeks')) {
+      const weeklyInterval = recurrence === 'biweekly' ? 2 : Math.max(1, interval);
+      matches = dayMatches && diffWeeks % weeklyInterval === 0;
+    } else if (recurrence === 'monthly' || (recurrence === 'custom' && unit === 'months')) {
+      matches = cursor.getDate() === anchor.getDate() && diffMonths % Math.max(1, interval) === 0;
+    } else if (recurrence === 'yearly' || (recurrence === 'custom' && unit === 'years')) {
+      matches = cursor.getDate() === anchor.getDate() && cursor.getMonth() === anchor.getMonth() && diffYears % Math.max(1, interval) === 0;
+    }
+
+    if (matches) {
+      seen += 1;
+      if (seen >= count) return format(cursor, 'yyyy-MM-dd');
+    }
+
+    cursor = new Date(cursor);
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  return null;
+};
+
 const AdonaiCalendarView: React.FC<AdonaiCalendarViewProps> = ({ selectedDate, onSelectDate, viewMode = 'day', dragDisabled = false }) => {
   const { user } = useAuth();
   const dateStr = format(selectedDate, 'yyyy-MM-dd');
@@ -251,9 +297,11 @@ tasks?.forEach((task) => {
           // Resolve recurrence from task's recurrence_id -> recurrence_rules
           let taskRecurrence: Event['recurrence'] = 'none';
           let taskRecurrenceDays: number[] | undefined = undefined;
+          let taskRecurrenceEndDate: string | undefined = undefined;
           if (task.recurrence_id && recurrenceRules) {
             const rule = recurrenceRules.find(r => r.id === task.recurrence_id);
             if (rule) {
+              taskRecurrenceEndDate = rule.end_date || undefined;
               if (rule.frequency === 'daily') {
                 taskRecurrence = 'daily';
               } else if (rule.frequency === 'weekly') {
@@ -294,8 +342,14 @@ tasks?.forEach((task) => {
             isAllDay: !scheduledTime,
             completed: task.status === 'done',
             isEvent: (task.metadata as any)?.creation_source === 'event',
-            recurrence: taskRecurrence,
+           recurrence: taskRecurrence,
             recurrenceDays: taskRecurrenceDays,
+            recurrenceEndType: taskRecurrenceEndDate ? 'date' : 'never',
+            recurrenceEndDate: taskRecurrenceEndDate,
+            reminderEnabled: !!(task.metadata as any)?.event_reminder?.enabled,
+            reminderMinutesBefore: (task.metadata as any)?.event_reminder?.minutes_before,
+            reminderCustomValue: (task.metadata as any)?.event_reminder?.custom_value,
+            reminderCustomUnit: (task.metadata as any)?.event_reminder?.custom_unit,
           });
        }
      });
@@ -325,7 +379,6 @@ const handleEventUpdate = async (id: string, updates: Partial<Event>) => {
           importance: anchorTask.importance || false,
           urgency: anchorTask.urgency || false,
           source_type: 'text',
-          metadata: { creation_source: 'calendar' },
         });
         if (error) {
           console.error('[calendar] Error saving recurrence completion:', error);
@@ -354,6 +407,7 @@ const handleEventUpdate = async (id: string, updates: Partial<Event>) => {
       updateBlock.mutate({ id: blockId, ...updateData });
     } else if (id.startsWith('task-')) {
       const taskId = id.replace('task-', '');
+      if (taskId.startsWith('temp-')) return;
       const task = tasks?.find(t => t.id === taskId);
       const updateData: any = {};
 
@@ -361,6 +415,7 @@ const handleEventUpdate = async (id: string, updates: Partial<Event>) => {
       if (updates.urgency !== undefined) updateData.urgency = updates.urgency;
       if (updates.importance !== undefined) updateData.importance = updates.importance;
       if (updates.links && updates.links.length > 0) updateData.link = updates.links[0];
+
 
       // ── Rebuild description from all sources ──────────────────────────
       const currentDbDesc = task?.description || '';
@@ -374,34 +429,38 @@ const handleEventUpdate = async (id: string, updates: Partial<Event>) => {
       const existingTime = parseTimeFromDescription(currentDbDesc);
       const newStartTime = updates.startTime ?? null;
       const newEndTime = updates.endTime ?? null;
+      const targetDateStr = newStartTime ? format(newStartTime, 'yyyy-MM-dd') : (task?.due_date || dateStr);
 
       const isAllDay = updates.isAllDay ?? (existingTime === null);
       const noTimesProvided = !updates.startTime && !updates.endTime;
       if (isAllDay === true && noTimesProvided) {
         const newDesc = rebuildDescription(null, null, newColor, cleanText);
         updateData.description = newDesc === "" ? null : newDesc;
+        if (newStartTime && targetDateStr !== task?.due_date) {
+          updateData.due_date = targetDateStr;
+        }
       } else {
         let startTime = newStartTime;
         let endTime = newEndTime;
 
         if (startTime || endTime) {
           if (!startTime && existingTime) {
-            startTime = parseISO(`${dateStr}T${existingTime.start}:00`);
+            startTime = parseISO(`${targetDateStr}T${existingTime.start}:00`);
           }
           if (startTime && !endTime) {
             endTime = addMinutes(startTime, 30);
           }
         } else if (existingTime) {
-          startTime = parseISO(`${dateStr}T${existingTime.start}:00`);
-          endTime = parseISO(`${dateStr}T${existingTime.end}:00`);
+          startTime = parseISO(`${targetDateStr}T${existingTime.start}:00`);
+          endTime = parseISO(`${targetDateStr}T${existingTime.end}:00`);
         } else if (isAllDay === false) {
-          startTime = parseISO(`${dateStr}T09:00:00`);
-          endTime = parseISO(`${dateStr}T10:00:00`);
+          startTime = parseISO(`${targetDateStr}T09:00:00`);
+          endTime = parseISO(`${targetDateStr}T10:00:00`);
         }
 
         updateData.description = rebuildDescription(startTime, endTime, newColor, cleanText);
 
-        if (startTime && format(startTime, 'yyyy-MM-dd') !== dateStr) {
+        if (startTime && format(startTime, 'yyyy-MM-dd') !== task?.due_date) {
           updateData.due_date = format(startTime, 'yyyy-MM-dd');
         }
       }
@@ -426,6 +485,13 @@ const handleEventUpdate = async (id: string, updates: Partial<Event>) => {
             biweekly: 'weekly',
             monthly: 'monthly',
             yearly: 'yearly',
+            custom: updates.recurrenceUnit === 'days'
+              ? 'daily'
+              : updates.recurrenceUnit === 'months'
+                ? 'monthly'
+                : updates.recurrenceUnit === 'years'
+                  ? 'yearly'
+                  : 'weekly',
           };
           const frequency = frequencyMap[updates.recurrence];
           if (!frequency) { doUpdate(); return; }
@@ -437,10 +503,24 @@ const handleEventUpdate = async (id: string, updates: Partial<Event>) => {
             daysOfWeek = updates.recurrenceDays;
           }
 
-          const interval = updates.recurrence === 'biweekly' ? 2 : 1;
+          const interval = updates.recurrence === 'biweekly'
+            ? 2
+            : updates.recurrence === 'custom'
+              ? updates.recurrenceInterval || 1
+              : 1;
           const eventDate = updates.startTime
             ? format(updates.startTime, 'yyyy-MM-dd')
             : dateStr;
+          const countEndDate = updates.recurrenceEndType === 'count'
+            ? getCountBasedEndDate(
+                eventDate,
+                updates.recurrence,
+                daysOfWeek,
+                interval,
+                updates.recurrenceUnit || 'weeks',
+                updates.recurrenceEndCount
+              )
+            : null;
 
           (async () => {
             try {
@@ -454,7 +534,7 @@ const handleEventUpdate = async (id: string, updates: Partial<Event>) => {
                 day_of_month: null,
                 month_of_year: null,
                 start_date: eventDate,
-                end_date: null,
+                end_date: updates.recurrenceEndType === 'date' ? (updates.recurrenceEndDate || null) : countEndDate,
                 start_time: null,
                 end_time: null,
                 estimated_minutes: null,
@@ -474,7 +554,7 @@ const handleEventUpdate = async (id: string, updates: Partial<Event>) => {
     }
   };
 
-  const handleEventCreate = (event: Omit<Event, 'id'>) => {
+  const handleEventCreate = async (event: Omit<Event, 'id'>) => {
     const start = event.startTime || new Date();
     const end = event.endTime || addMinutes(start, 60);
     const eventDateStr = format(start, 'yyyy-MM-dd');
@@ -494,6 +574,68 @@ const handleEventUpdate = async (id: string, updates: Partial<Event>) => {
       description = rebuildDescription(start, end, event.color || null, cleanDesc);
     }
 
+    let recurrenceId: string | null = null;
+    if (event.recurrence && event.recurrence !== 'none') {
+      try {
+        const frequencyMap: Record<string, 'daily' | 'weekly' | 'monthly' | 'yearly'> = {
+          daily: 'daily',
+          weekdays: 'weekly',
+          weekly: 'weekly',
+          biweekly: 'weekly',
+          monthly: 'monthly',
+          yearly: 'yearly',
+          custom: event.recurrenceUnit === 'days'
+            ? 'daily'
+            : event.recurrenceUnit === 'months'
+              ? 'monthly'
+              : event.recurrenceUnit === 'years'
+                ? 'yearly'
+                : 'weekly',
+        };
+
+        const daysOfWeek = event.recurrence === 'weekdays'
+          ? [1, 2, 3, 4, 5]
+          : event.recurrenceDays || [];
+        const interval = event.recurrence === 'biweekly'
+          ? 2
+          : event.recurrence === 'custom'
+            ? event.recurrenceInterval || 1
+            : 1;
+        const countEndDate = event.recurrenceEndType === 'count'
+          ? getCountBasedEndDate(
+              eventDateStr,
+              event.recurrence,
+              daysOfWeek,
+              interval,
+              event.recurrenceUnit || 'weeks',
+              event.recurrenceEndCount
+            )
+          : null;
+
+        const rule = await createRule.mutateAsync({
+          title: event.title || 'Nueva Tarea',
+          description: null,
+          link: null,
+          frequency: frequencyMap[event.recurrence],
+          interval,
+          days_of_week: daysOfWeek,
+          day_of_month: null,
+          month_of_year: null,
+          start_date: eventDateStr,
+          end_date: event.recurrenceEndType === 'date' ? (event.recurrenceEndDate || null) : countEndDate,
+          start_time: null,
+          end_time: null,
+          estimated_minutes: null,
+        });
+        recurrenceId = rule.id;
+      } catch (err) {
+        console.error('[recurrence] Error creating rule:', err);
+        window.dispatchEvent(new CustomEvent('adonai:notify', {
+          detail: { type: 'error', message: 'Error al guardar repetición' }
+        }));
+      }
+    }
+
     createTask.mutate(
       {
         title: event.title || 'Nueva Tarea',
@@ -503,6 +645,7 @@ const handleEventUpdate = async (id: string, updates: Partial<Event>) => {
         link: event.links && event.links.length > 0 ? event.links[0] : null,
         due_date: eventDateStr,
         status: 'pending',
+        recurrence_id: recurrenceId,
         creation_source: isEvent ? 'event' : undefined,
       },
       {
@@ -540,7 +683,6 @@ const handleEventUpdate = async (id: string, updates: Partial<Event>) => {
         importance: anchorTask.importance || false,
         urgency: anchorTask.urgency || false,
         source_type: 'text',
-        metadata: { creation_source: 'calendar' },
       });
       if (!error) {
         window.dispatchEvent(new CustomEvent('adonai:notify', {

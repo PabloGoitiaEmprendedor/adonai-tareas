@@ -200,7 +200,7 @@ const FriendsPage = () => {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Buscar por nombre o email..."
-                className="w-full bg-surface-container rounded-full pl-14 pr-6 py-4 text-foreground font-medium text-sm outline-none focus:ring-2 focus:ring-primary/20 transition-all border border-outline-variant/30"
+                className="w-full bg-surface-container rounded-xl pl-12 pr-4 py-3.5 text-foreground font-medium text-sm outline-none focus:ring-2 focus:ring-primary/20 transition-all border border-outline-variant/30"
                 onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
               />
               {searching && (
@@ -219,7 +219,7 @@ const FriendsPage = () => {
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              className="bg-surface-container/80 backdrop-blur-xl border border-outline-variant/30 rounded-[32px] p-2 space-y-1 shadow-2xl overflow-hidden"
+              className="bg-surface-container/80 backdrop-blur-xl border border-outline-variant/30 rounded-2xl p-2 space-y-1 shadow-2xl overflow-hidden"
             >
               {searchResults.length > 0 && (
                 <div className="p-4 border-b border-outline-variant/10 flex items-center justify-between">
@@ -246,13 +246,13 @@ const FriendsPage = () => {
                       <p className="text-[10px] font-bold text-on-surface-variant/40 uppercase tracking-widest truncate">{p.email}</p>
                     </div>
                     {alreadyFriend ? (
-                      <span className="text-[10px] font-black uppercase tracking-widest text-primary px-4 py-2 bg-primary/10 rounded-full flex-shrink-0">Amigos</span>
+                      <span className="text-[10px] font-black uppercase tracking-widest text-primary px-4 py-2 bg-primary/10 rounded-lg flex-shrink-0">Amigos</span>
                     ) : alreadySent ? (
-                      <span className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/40 px-4 py-2 bg-surface-container rounded-full flex-shrink-0">Enviada</span>
+                      <span className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/40 px-4 py-2 bg-surface-container rounded-lg flex-shrink-0">Enviada</span>
                     ) : (
                       <button
                         onClick={() => handleSendRequest(p.user_id)}
-                        className="px-6 py-3 rounded-full bg-primary text-primary-foreground text-[10px] font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:scale-105 transition-all flex-shrink-0"
+                        className="px-6 py-3 rounded-xl bg-primary text-primary-foreground text-[10px] font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:scale-105 transition-all flex-shrink-0"
                       >
                         Conectar
                       </button>
@@ -263,10 +263,10 @@ const FriendsPage = () => {
 
               {/* Explicit Invite Section when searching or explicitly triggered */}
               {(showInviteBox || (searchResults.length === 0 && searchQuery.includes('@'))) && (
-                <div className="p-6 bg-primary/5 rounded-[24px] m-2 border border-primary/10 space-y-4">
+                <div className="p-5 bg-primary/5 rounded-2xl m-2 border border-primary/10 space-y-4">
                   <div className="flex items-start justify-between">
                     <div className="flex gap-3">
-                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                      <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
                         <Mail className="w-5 h-5 text-primary" />
                       </div>
                       <div>
@@ -292,13 +292,13 @@ const FriendsPage = () => {
                         onChange={(e) => setInviteEmail(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && handleSendInviteEmail()}
                         placeholder="email@ejemplo.com"
-                        className="w-full bg-surface-container-lowest border border-outline-variant/30 focus:border-primary/50 rounded-2xl pl-5 pr-4 py-3 outline-none transition-all text-sm font-bold"
+                        className="w-full bg-surface-container-lowest border border-outline-variant/30 focus:border-primary/50 rounded-xl px-4 py-3 outline-none transition-all text-sm font-bold"
                       />
                     </div>
                     <button
                       onClick={handleSendInviteEmail}
                       disabled={inviteSending || !inviteEmail.includes('@')}
-                      className="px-6 py-3 rounded-2xl bg-primary text-primary-foreground font-black text-[10px] uppercase tracking-widest shadow-lg shadow-primary/20 hover:scale-105 transition-all disabled:opacity-30 flex-shrink-0 flex items-center gap-2"
+                      className="px-6 py-3 rounded-xl bg-primary text-primary-foreground font-black text-[10px] uppercase tracking-widest shadow-lg shadow-primary/20 hover:scale-105 transition-all disabled:opacity-30 flex-shrink-0 flex items-center gap-2"
                     >
                       {inviteSending ? (
                         <div className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
@@ -317,16 +317,16 @@ const FriendsPage = () => {
         {/* Tabs */}
         <div className="space-y-8">
           <div className="flex items-center justify-between">
-            <div className="flex bg-surface-container rounded-[24px] p-1.5 w-fit border border-outline-variant/30">
+            <div className="flex bg-surface-container rounded-2xl p-1.5 w-fit border border-outline-variant/30">
               <button
                 onClick={() => setTab('friends')}
-                className={`px-8 py-3 rounded-[20px] text-[10px] font-black uppercase tracking-widest transition-all ${tab === 'friends' ? 'bg-background text-foreground shadow-sm' : 'text-on-surface-variant/40 hover:text-foreground'}`}
+                className={`px-8 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${tab === 'friends' ? 'bg-background text-foreground shadow-sm' : 'text-on-surface-variant/40 hover:text-foreground'}`}
               >
                 Amigos ({friends.length})
               </button>
               <button
                 onClick={() => setTab('requests')}
-                className={`px-8 py-3 rounded-[20px] text-[10px] font-black uppercase tracking-widest transition-all relative ${tab === 'requests' ? 'bg-background text-foreground shadow-sm' : 'text-on-surface-variant/40 hover:text-foreground'}`}
+                className={`px-8 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all relative ${tab === 'requests' ? 'bg-background text-foreground shadow-sm' : 'text-on-surface-variant/40 hover:text-foreground'}`}
               >
                 Solicitudes
                 {pendingReceived.length > 0 && (
@@ -340,7 +340,7 @@ const FriendsPage = () => {
             {/* Quick invite button */}
             <button
               onClick={() => { setShowInviteBox(true); setSearchResults([]); }}
-              className="flex items-center gap-2 px-5 py-3 rounded-full bg-primary/10 text-primary font-black text-[10px] uppercase tracking-widest hover:bg-primary/20 transition-all border border-primary/20"
+              className="flex items-center gap-2 px-5 py-3 rounded-xl bg-primary/10 text-primary font-black text-[10px] uppercase tracking-widest hover:bg-primary/20 transition-all border border-primary/20"
             >
               <UserPlus className="w-4 h-4" /> Invitar
             </button>
@@ -355,9 +355,9 @@ const FriendsPage = () => {
             {/* Friends List */}
             {tab === 'friends' && (
               friends.length === 0 ? (
-                <motion.div variants={itemVariants} className="col-span-full py-20 bg-surface/30 border border-dashed border-outline-variant/30 rounded-[40px] text-center flex flex-col items-center gap-4">
-                  <div className="w-20 h-20 rounded-[32px] bg-surface-container flex items-center justify-center">
-                    <Sparkles className="w-10 h-10 text-primary/30" />
+                <motion.div variants={itemVariants} className="col-span-full py-20 bg-surface/30 border border-dashed border-outline-variant/20 rounded-2xl text-center flex flex-col items-center gap-4">
+                  <div className="w-16 h-16 rounded-2xl bg-surface-container flex items-center justify-center">
+                    <Sparkles className="w-8 h-8 text-primary/30" />
                   </div>
                   <div>
                     <h3 className="text-xl font-black mb-2">Tu Comunidad de Enfoque</h3>
@@ -367,7 +367,7 @@ const FriendsPage = () => {
                   </div>
                   <button
                     onClick={() => setShowInviteBox(true)}
-                    className="mt-2 px-8 py-4 rounded-full bg-primary text-primary-foreground font-black text-sm shadow-lg shadow-primary/30 hover:scale-105 transition-all flex items-center gap-2"
+                    className="mt-2 px-8 py-4 rounded-xl bg-primary text-primary-foreground font-black text-sm shadow-lg shadow-primary/30 hover:scale-105 transition-all flex items-center gap-2"
                   >
                     <UserPlus className="w-4 h-4" /> Invitar a tu primer amigo
                   </button>
@@ -381,19 +381,19 @@ const FriendsPage = () => {
                       key={friendship.id}
                       variants={itemVariants}
                       onClick={() => navigate(`/profile/${friendId}`)}
-                      className="group p-8 rounded-[32px] bg-surface-container/50 border border-outline-variant/30 hover:border-primary/30 transition-all duration-500 cursor-pointer relative overflow-hidden"
+                      className="group p-5 rounded-2xl bg-surface-container/50 border-2 border-outline-variant/15 hover:border-primary/40 transition-all duration-200 cursor-pointer relative overflow-hidden hover:-translate-y-0.5 active:translate-y-0"
                     >
-                      <div className="relative z-10 space-y-6">
-                        <div className="w-16 h-16 rounded-[24px] bg-primary/10 flex items-center justify-center text-2xl font-black text-primary group-hover:scale-110 transition-transform duration-500">
+                      <div className="relative z-10 space-y-4">
+                        <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-lg font-black text-primary group-hover:scale-110 transition-transform duration-300">
                           {(profile?.name || 'U')[0].toUpperCase()}
                         </div>
                         <div>
-                          <h4 className="text-lg font-black tracking-tight group-hover:text-primary transition-colors">{profile?.name || 'Usuario'}</h4>
-                          <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/40 mt-1 truncate max-w-[180px]">{profile?.email}</p>
+                          <h4 className="text-base font-bold tracking-tight group-hover:text-primary transition-colors">{profile?.name || 'Usuario'}</h4>
+                          <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/40 mt-0.5 truncate max-w-[180px]">{profile?.email}</p>
                         </div>
-                        <div className="pt-4 border-t border-outline-variant/10 flex items-center justify-between">
+                        <div className="pt-3 border-t border-outline-variant/10 flex items-center justify-between">
                           <span className="text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant/30 group-hover:text-primary transition-colors">Ver Perfil</span>
-                          <ChevronRight className="w-5 h-5 text-on-surface-variant/20 group-hover:translate-x-1 transition-all" />
+                          <ChevronRight className="w-4 h-4 text-on-surface-variant/30 group-hover:translate-x-1 transition-all" />
                         </div>
                       </div>
                       <div className="absolute -right-4 -top-4 w-32 h-32 bg-primary/5 rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -406,7 +406,7 @@ const FriendsPage = () => {
             {/* Requests List */}
             {tab === 'requests' && (
               pendingReceived.length === 0 ? (
-                <motion.div variants={itemVariants} className="col-span-full py-20 bg-surface/30 border border-dashed border-outline-variant/30 rounded-[40px] text-center flex flex-col items-center">
+                <motion.div variants={itemVariants} className="col-span-full py-20 bg-surface/30 border border-dashed border-outline-variant/20 rounded-2xl text-center flex flex-col items-center">
                   <p className="text-sm text-on-surface-variant/40 font-black uppercase tracking-[0.2em]">Sin solicitudes pendientes</p>
                 </motion.div>
               ) : (
@@ -416,27 +416,27 @@ const FriendsPage = () => {
                     <motion.div
                       key={req.id}
                       variants={itemVariants}
-                      className="p-8 rounded-[32px] bg-surface-container border border-outline-variant/30 space-y-8"
+                      className="p-5 rounded-2xl bg-surface-container/50 border-2 border-outline-variant/15 space-y-4"
                     >
-                      <div className="flex items-center gap-6">
-                        <div className="w-16 h-16 rounded-[24px] bg-primary/10 flex items-center justify-center text-2xl font-black text-primary">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-lg font-black text-primary">
                           {(profile?.name || 'U')[0].toUpperCase()}
                         </div>
                         <div>
-                          <h4 className="text-lg font-black tracking-tight">{profile?.name || 'Usuario'}</h4>
-                          <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/40 mt-1">{profile?.email}</p>
+                          <h4 className="text-base font-bold tracking-tight">{profile?.name || 'Usuario'}</h4>
+                          <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/40 mt-0.5">{profile?.email}</p>
                         </div>
                       </div>
                       <div className="flex gap-3">
                         <button
                           onClick={() => respondRequest.mutate({ id: req.id, status: 'accepted' })}
-                          className="flex-1 py-4 rounded-[20px] bg-primary text-primary-foreground font-black text-[10px] uppercase tracking-widest shadow-lg shadow-primary/20 hover:opacity-90 transition-all flex items-center justify-center gap-2"
+                          className="flex-1 py-3.5 rounded-xl bg-primary text-primary-foreground font-black text-[10px] uppercase tracking-widest shadow-lg shadow-primary/20 hover:opacity-90 transition-all flex items-center justify-center gap-2"
                         >
                           <Check className="w-4 h-4" /> Aceptar
                         </button>
                         <button
                           onClick={() => respondRequest.mutate({ id: req.id, status: 'rejected' })}
-                          className="px-6 py-4 rounded-[20px] bg-surface-container-high text-on-surface-variant font-black text-[10px] uppercase tracking-widest hover:text-error transition-all"
+                          className="px-5 py-3.5 rounded-xl bg-surface-container-high text-on-surface-variant font-black text-[10px] uppercase tracking-widest hover:text-error transition-all"
                         >
                           <X className="w-4 h-4" />
                         </button>

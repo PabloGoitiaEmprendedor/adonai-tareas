@@ -7,6 +7,11 @@ export type PriorityColors = {
   p4: string; // Not Urgent & Not Important
 };
 
+export type CustomColor = {
+  id: string;
+  value: string;
+};
+
 const DEFAULT_COLORS: PriorityColors = {
   p1: '#ff4b4b', // Urgent & Important (Red)
   p2: '#ffb34b', // Urgent & Not Important (Orange)
@@ -25,6 +30,17 @@ export const usePriorityColors = () => {
       return DEFAULT_COLORS;
     }
   });
+  const [customColors, setCustomColors] = useState<CustomColor[]>(() => {
+    const saved = localStorage.getItem('adonai_custom_colors');
+    if (!saved) return [];
+    try {
+      const parsed = JSON.parse(saved);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+      console.error('Error parsing custom colors:', e);
+      return [];
+    }
+  });
 
   const updateColors = (newColors: Partial<PriorityColors>) => {
     const updated = { ...colors, ...newColors };
@@ -32,7 +48,26 @@ export const usePriorityColors = () => {
     localStorage.setItem('adonai_priority_colors', JSON.stringify(updated));
   };
 
-  return { colors, updateColors };
+  const addCustomColor = (value: string) => {
+    if (!/^#[0-9a-f]{6}$/i.test(value)) return;
+    const normalized = value.toLowerCase();
+    setCustomColors((current) => {
+      if (current.some((color) => color.value.toLowerCase() === normalized)) return current;
+      const updated = [...current, { id: `custom-${Date.now()}`, value: normalized }];
+      localStorage.setItem('adonai_custom_colors', JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const removeCustomColor = (id: string) => {
+    setCustomColors((current) => {
+      const updated = current.filter((color) => color.id !== id);
+      localStorage.setItem('adonai_custom_colors', JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  return { colors, updateColors, customColors, addCustomColor, removeCustomColor };
 };
 
 export const getPriorityKey = (urgency: boolean | null, importance: boolean | null): keyof PriorityColors => {

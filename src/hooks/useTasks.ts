@@ -219,11 +219,12 @@ export const useTasks = (filters?: { date?: string; startDate?: string; endDate?
       time_block_id?: string | null;
       link?: string | null;
       parent_task_id?: string | null;
+      metadata?: Record<string, unknown>;
       /** Where the creation was triggered from: 'fab', 'mini_voice', 'mini_plus', 'secondary', 'recurrence' */
       creation_source?: string;
     }) => {
       if (!user) throw new Error('No user');
-      const { creation_source, ...rest } = task;
+      const { creation_source, metadata, ...rest } = task;
       const creationSource = creation_source || 'fab';
       
       // Strip null/undefined values to avoid sending columns that don't exist in the table
@@ -257,6 +258,58 @@ export const useTasks = (filters?: { date?: string; startDate?: string; endDate?
       });
 
       return data;
+    },
+    onMutate: async (task) => {
+      await queryClient.cancelQueries({ queryKey: ['tasks', user?.id] });
+
+      const previousQueries = queryClient.getQueriesData({ queryKey: ['tasks', user?.id] });
+      const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      const optimisticTask = {
+        ...task,
+        id: tempId,
+        user_id: user?.id,
+        due_date: task.due_date || format(new Date(), 'yyyy-MM-dd'),
+        status: 'pending',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        contexts: null,
+      };
+
+      previousQueries.forEach(([queryKey, value]) => {
+        if (!value) return;
+        const queryFilters = Array.isArray(queryKey) ? queryKey[2] as typeof filters | undefined : undefined;
+        const optimisticDate = optimisticTask.due_date;
+        const todayStr = format(new Date(), 'yyyy-MM-dd');
+        const belongsToQuery = (() => {
+          if (!queryFilters?.date && !queryFilters?.startDate && !queryFilters?.endDate) return true;
+          if (queryFilters?.date) {
+            if (queryFilters.date === todayStr) {
+              return optimisticDate === queryFilters.date || optimisticDate < queryFilters.date;
+            }
+            return optimisticDate === queryFilters.date;
+          }
+          if (queryFilters?.startDate && queryFilters?.endDate) {
+            return optimisticDate >= queryFilters.startDate && optimisticDate <= queryFilters.endDate;
+          }
+          return true;
+        })();
+        if (!belongsToQuery) return;
+
+        queryClient.setQueryData(queryKey, (old: any) => {
+          if (!old?.tasks) return old;
+          return {
+            ...old,
+            tasks: [...old.tasks, optimisticTask],
+          };
+        });
+      });
+
+      return { previousQueries };
+    },
+    onError: (_err, _task, context) => {
+      context?.previousQueries?.forEach(([queryKey, data]) => {
+        queryClient.setQueryData(queryKey, data);
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
@@ -323,8 +376,11 @@ export const useTasks = (filters?: { date?: string; startDate?: string; endDate?
           targetId = data.id;
         }
       } else {
-        const { error } = await supabase.from('tasks').update(updates).eq('id', id);
+        const { data: updated, error } = await supabase.from('tasks').update(updates).eq('id', id).select();
         if (error) throw error;
+        if (!updated || updated.length === 0) {
+          throw new Error('No se encontró la tarea (sesión expirada o sin permisos)');
+        }
       }
 
       if (updates.status === 'done') {

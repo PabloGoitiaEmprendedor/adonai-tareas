@@ -104,23 +104,25 @@ export const TaskCard = memo(({
       {/* Checkbox */}
       <div className="relative flex-shrink-0 pt-1">
         {isDone || completingTaskId === task.id ? (
-          <motion.div 
+          <motion.button 
             initial={{ scale: 0, rotate: -45 }}
             animate={{ scale: 1, rotate: 0 }}
             transition={{ type: "spring", stiffness: 500, damping: 30 }}
-            className="w-8 h-8 rounded-[12px] flex items-center justify-center cursor-pointer shadow-lg shadow-primary/20"
+            className="w-9 h-9 md:w-8 md:h-8 rounded-[12px] flex items-center justify-center cursor-pointer shadow-lg shadow-primary/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
             style={{ backgroundColor: priorityColor === 'transparent' ? 'var(--primary)' : priorityColor }}
             onClick={(e) => handleUncomplete(task, e)}
+            aria-label="Marcar tarea como pendiente"
           >
             <Check className="w-4 h-4 text-black stroke-[4]" />
-          </motion.div>
+          </motion.button>
         ) : (
           <button onClick={(e) => { e.stopPropagation(); handleComplete(task, e); }}
-            className="w-8 h-8 rounded-[12px] border-2 flex items-center justify-center transition-all active:scale-75 group/check bg-zinc-900/50 backdrop-blur-sm"
+            className="w-9 h-9 md:w-8 md:h-8 rounded-[12px] border-2 flex items-center justify-center transition-all active:scale-75 group/check bg-zinc-900/50 backdrop-blur-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
             style={{ 
               borderColor: priorityColor === 'transparent' ? 'rgba(255,255,255,0.08)' : `${priorityColor}60`,
               backgroundColor: 'transparent'
             }}
+            aria-label="Completar tarea"
           >
             <div 
               className="w-3 h-3 rounded-[5px] scale-0 group-hover/check:scale-100 transition-all duration-300 shadow-[0_0_12px_rgba(163,230,53,0.4)]" 
@@ -138,7 +140,8 @@ export const TaskCard = memo(({
               e.stopPropagation();
               setSubtasksOpen(!subtasksOpen);
             }}
-            className="flex-shrink-0 text-white/20 hover:text-primary transition-all flex items-center p-1 hover:bg-white/5 rounded-lg"
+            className="flex-shrink-0 text-white/30 hover:text-primary transition-all flex items-center justify-center w-8 h-8 hover:bg-white/5 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+            aria-label={subtasksOpen ? 'Ocultar subtareas' : 'Mostrar subtareas'}
           >
             <span className={`text-[16px] font-black inline-block transition-transform duration-300 ${subtasksOpen ? 'rotate-45 text-primary scale-110' : 'group-hover/task:scale-110'}`}>
               {"+"}
@@ -228,7 +231,7 @@ export const TaskCard = memo(({
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={(e) => e.stopPropagation()}
-                className="w-8 h-8 rounded-[10px] flex items-center justify-center transition-all active:scale-90 bg-surface/50 dark:bg-black/20 border border-outline/50 hover:bg-surface dark:hover:bg-black/40 group/link shadow-sm"
+                className="w-9 h-9 md:w-8 md:h-8 rounded-[10px] flex items-center justify-center transition-all active:scale-90 bg-surface/50 dark:bg-black/20 border border-outline/50 hover:bg-surface dark:hover:bg-black/40 group/link shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
                 aria-label="Abrir link"
               >
                 <Paperclip 
@@ -245,7 +248,7 @@ export const TaskCard = memo(({
           isEditing ? (
             <button
               onClick={(e) => { e.stopPropagation(); submitEdit(); }}
-              className="w-8 h-8 rounded-[10px] flex items-center justify-center transition-all active:scale-90 bg-primary shadow-lg shadow-primary/20"
+              className="w-9 h-9 md:w-8 md:h-8 rounded-[10px] flex items-center justify-center transition-all active:scale-90 bg-primary shadow-lg shadow-primary/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
               aria-label="Guardar cambios"
             >
               <Check className="w-4 h-4 text-primary-foreground stroke-[3]" />
@@ -253,7 +256,7 @@ export const TaskCard = memo(({
           ) : (
             <button
               onClick={(e) => handleStartTimer(task, e)}
-              className="w-8 h-8 rounded-[10px] border border-outline/50 flex items-center justify-center transition-all active:scale-90 bg-surface/50 dark:bg-black/20 hover:bg-surface dark:hover:bg-black/40 shadow-sm"
+              className="w-9 h-9 md:w-8 md:h-8 rounded-[10px] border border-outline/50 flex items-center justify-center transition-all active:scale-90 bg-surface/50 dark:bg-black/20 hover:bg-surface dark:hover:bg-black/40 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
               aria-label="Iniciar temporizador"
             >
               <Clock 
