@@ -1,32 +1,103 @@
-import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useState } from "react";
-import { HelpCircle, Mail, Menu, Monitor, X, Loader2 } from "lucide-react";
-import { startGuidedDownload } from "@/lib/downloadGuide";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Apple, Globe, HelpCircle, Mail, Menu, Monitor, X } from "lucide-react";
 import { BrandLogo } from "@/components/BrandLogo";
+import { startGuidedDownload } from "@/lib/downloadGuide";
+
+const SUPPORT_EMAIL = "pablo@webadonai.com";
 
 const NAV_LINKS = [
   { label: "Inicio", section: "inicio" },
-  { label: "¿Como funciona?", section: "como-funciona" },
-  { label: "Preguntas frecuentes", to: "/faq" },
+  { label: "Como funciona", section: "como-funciona" },
   { label: "Precio", section: "precio" },
-  { label: "Soporte", href: "mailto:pablo@webadonai.com" },
+  { label: "FAQ", to: "/faq" },
+  { label: "Soporte", support: true },
 ];
 
-function useDownloadWin() {
-  const [loading, setLoading] = useState(false);
-  const handle = () => {
-    setLoading(true);
-    startGuidedDownload("win");
-    setTimeout(() => setLoading(false), 3000);
+function NavPlatformChoice({ onClose }: { onClose: () => void }) {
+  const navigate = useNavigate();
+
+  const chooseDownload = (platform: "win" | "mac") => {
+    startGuidedDownload(platform);
+    onClose();
   };
-  return { loading, handle };
+
+  const chooseWeb = () => {
+    onClose();
+    navigate("/welcome");
+  };
+
+  return (
+    <div className="fixed inset-0 z-[90] flex items-end justify-center bg-[#151820]/62 p-3 backdrop-blur-sm sm:items-start sm:pt-20">
+      <div className="w-full max-w-sm overflow-hidden rounded-[24px] border border-white/15 bg-white shadow-[0_28px_90px_rgba(21,24,32,0.3)]">
+        <div className="flex items-center gap-3 bg-[#151820] p-5 text-white">
+          <img src="/logo.png" alt="" className="h-10 w-10 rounded-xl object-contain" />
+          <div>
+            <p className="text-base font-black leading-none">Descargar ahora</p>
+            <p className="mt-1 text-xs font-semibold text-white/52">Elige como quieres empezar.</p>
+          </div>
+        </div>
+        <div className="space-y-2 p-3">
+          <button onClick={() => chooseDownload("win")} className="flex w-full items-center justify-between rounded-2xl bg-[#F7F6F1] p-4 text-sm font-black text-[#151820] transition hover:bg-[#EEF3FF]">
+            Windows <Monitor className="h-4 w-4 text-[#5B7CFA]" />
+          </button>
+          <button onClick={() => chooseDownload("mac")} className="flex w-full items-center justify-between rounded-2xl bg-[#F7F6F1] p-4 text-sm font-black text-[#151820] transition hover:bg-[#EEF3FF]">
+            Mac <Apple className="h-4 w-4 text-[#5B7CFA]" />
+          </button>
+          <button onClick={chooseWeb} className="flex w-full items-center justify-between rounded-2xl bg-white p-4 text-sm font-black text-[#151820] ring-1 ring-[#151820]/8 transition hover:bg-[#F7F6F1]">
+            Version web <Globe className="h-4 w-4 text-[#151820]/55" />
+          </button>
+          <button onClick={onClose} className="w-full rounded-full px-4 py-3 text-xs font-black text-[#151820]/45 transition hover:text-[#151820]">
+            Volver
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SupportModal({ onClose }: { onClose: () => void }) {
+  const [copied, setCopied] = useState(false);
+
+  const copyEmail = async () => {
+    await navigator.clipboard.writeText(SUPPORT_EMAIL);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1800);
+  };
+
+  return (
+    <div className="fixed inset-0 z-[90] flex items-end justify-center bg-[#151820]/62 p-3 backdrop-blur-sm sm:items-start sm:pt-20">
+      <div className="w-full max-w-sm overflow-hidden rounded-[24px] border border-white/15 bg-white shadow-[0_28px_90px_rgba(21,24,32,0.3)]">
+        <div className="flex items-center gap-3 bg-[#151820] p-5 text-white">
+          <img src="/logo.png" alt="" className="h-10 w-10 rounded-xl object-contain" />
+          <div>
+            <p className="text-base font-black leading-none">Soporte</p>
+            <p className="mt-1 text-xs font-semibold text-white/52">Escribenos cuando necesites ayuda.</p>
+          </div>
+        </div>
+        <div className="p-4">
+          <div className="rounded-2xl border border-[#151820]/8 bg-[#F7F6F1] p-4">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#151820]/42">Correo</p>
+            <p className="mt-2 text-lg font-black text-[#151820]">{SUPPORT_EMAIL}</p>
+          </div>
+          <button onClick={copyEmail} className="mt-3 w-full rounded-full bg-[#151820] px-5 py-3 text-sm font-black text-white transition hover:bg-[#0B0F17]">
+            {copied ? "Copiado" : "Copiar correo"}
+          </button>
+          <button onClick={onClose} className="mt-2 w-full rounded-full px-4 py-3 text-xs font-black text-[#151820]/45 transition hover:text-[#151820]">
+            Volver
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export function PublicNav() {
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { loading, handle } = useDownloadWin();
+  const [choiceOpen, setChoiceOpen] = useState(false);
+  const [supportOpen, setSupportOpen] = useState(false);
 
   const scrollToLandingSection = (section: string) => {
     if (location.pathname !== "/landing" && location.pathname !== "/") {
@@ -39,14 +110,22 @@ export function PublicNav() {
 
   const renderNavItem = (item: (typeof NAV_LINKS)[number], mobile = false) => {
     const className = mobile
-      ? "block w-full rounded-xl px-4 py-3 text-left text-sm font-semibold text-foreground/70 transition-colors hover:bg-foreground/5 hover:text-foreground"
-      : "rounded-full px-4 py-2 text-sm font-semibold text-foreground/60 transition-colors hover:bg-foreground/5 hover:text-foreground";
+      ? "block w-full rounded-xl px-4 py-3 text-left text-sm font-bold text-white transition-colors hover:bg-white/12"
+      : "rounded-full px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-white/12";
 
-    if ("href" in item) {
+    if ("support" in item) {
       return (
-        <a key={item.label} href={item.href} onClick={() => setMobileOpen(false)} className={className}>
+        <button
+          key={item.label}
+          type="button"
+          onClick={() => {
+            setSupportOpen(true);
+            setMobileOpen(false);
+          }}
+          className={className}
+        >
           {item.label}
-        </a>
+        </button>
       );
     }
 
@@ -74,16 +153,16 @@ export function PublicNav() {
   };
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-foreground/8 bg-background/90 backdrop-blur-md">
+    <header className="fixed left-0 right-0 top-0 z-50 w-full border-b border-white/12 bg-[#0B0F17] text-white shadow-[0_12px_38px_rgba(11,15,23,0.28)]">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
         <button
           type="button"
           onClick={() => scrollToLandingSection("inicio")}
-          className="flex items-center gap-2.5 group"
+          className="group flex items-center gap-2.5"
           aria-label="Adonai - Inicio"
         >
           <BrandLogo className="h-8 w-8 flex-shrink-0 drop-shadow-[0_0_6px_rgba(91,124,250,0.35)]" />
-          <span className="text-base font-black tracking-tight transition-colors group-hover:text-primary">Adonai</span>
+          <span className="text-base font-black tracking-tight text-white transition-colors group-hover:text-white">Adonai</span>
         </button>
 
         <nav className="hidden items-center gap-1 lg:flex" role="navigation" aria-label="Navegacion principal">
@@ -92,32 +171,32 @@ export function PublicNav() {
 
         <div className="hidden items-center gap-2 md:flex">
           <button
-            onClick={handle}
-            disabled={loading}
+            onClick={() => setChoiceOpen(true)}
             id="nav-download-win"
-            className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-xs font-black text-primary-foreground transition hover:opacity-90 disabled:opacity-60"
+            className="inline-flex items-center gap-1.5 rounded-full bg-white px-4 py-2 text-xs font-black text-[#151820] transition hover:bg-white/88"
           >
-            {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Monitor className="h-3.5 w-3.5" />}
-            Descargar gratis
+            <Monitor className="h-3.5 w-3.5 text-[#5B7CFA]" />
+            Descargar ahora
           </button>
           <Link
             to="/faq"
-            className="inline-flex items-center gap-1.5 rounded-full border border-foreground/15 px-4 py-2 text-xs font-semibold text-foreground/70 transition hover:bg-foreground/5"
+            className="inline-flex items-center gap-1.5 rounded-full border border-white/18 px-4 py-2 text-xs font-bold text-white transition hover:bg-white/12"
           >
             <HelpCircle className="h-3.5 w-3.5" />
             FAQ
           </Link>
-          <a
-            href="mailto:pablo@webadonai.com"
-            className="inline-flex items-center gap-1.5 rounded-full border border-foreground/15 px-4 py-2 text-xs font-semibold text-foreground/70 transition hover:bg-foreground/5"
+          <button
+            type="button"
+            onClick={() => setSupportOpen(true)}
+            className="inline-flex items-center gap-1.5 rounded-full border border-white/18 px-4 py-2 text-xs font-bold text-white transition hover:bg-white/12"
           >
             <Mail className="h-3.5 w-3.5" />
             Soporte
-          </a>
+          </button>
         </div>
 
         <button
-          className="p-2 text-foreground/60 transition-colors hover:text-foreground lg:hidden"
+          className="p-2 text-white transition-colors hover:bg-white/10 lg:hidden"
           onClick={() => setMobileOpen(!mobileOpen)}
           aria-label={mobileOpen ? "Cerrar menu" : "Abrir menu"}
           aria-expanded={mobileOpen}
@@ -127,30 +206,31 @@ export function PublicNav() {
       </div>
 
       {mobileOpen && (
-        <div className="space-y-1 border-t border-foreground/8 bg-background/98 px-6 py-4 lg:hidden">
+        <div className="space-y-1 border-t border-white/12 bg-[#0B0F17] px-6 py-4 lg:hidden">
           {NAV_LINKS.map((item) => renderNavItem(item, true))}
           <div className="flex flex-col gap-2 pt-3">
             <button
               onClick={() => {
-                handle();
+                setChoiceOpen(true);
                 setMobileOpen(false);
               }}
-              disabled={loading}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-primary px-5 py-3 text-sm font-black text-primary-foreground transition hover:opacity-90"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-black text-[#151820] transition hover:bg-white/90"
             >
-              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Monitor className="h-4 w-4" />}
-              Descargar para Windows
+              <Monitor className="h-4 w-4 text-[#5B7CFA]" />
+              Descargar ahora
             </button>
             <Link
               to="/welcome"
               onClick={() => setMobileOpen(false)}
-              className="inline-flex w-full items-center justify-center rounded-full border border-foreground/15 px-5 py-3 text-sm font-semibold text-foreground/70 transition hover:bg-foreground/5"
+              className="inline-flex w-full items-center justify-center rounded-full border border-white/18 px-5 py-3 text-sm font-bold text-white transition hover:bg-white/12"
             >
               Entrar a la app web
             </Link>
           </div>
         </div>
       )}
+      {choiceOpen && <NavPlatformChoice onClose={() => setChoiceOpen(false)} />}
+      {supportOpen && <SupportModal onClose={() => setSupportOpen(false)} />}
     </header>
   );
 }
