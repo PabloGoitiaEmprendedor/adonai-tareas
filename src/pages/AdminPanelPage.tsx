@@ -15,6 +15,7 @@ import { useState, useMemo } from 'react';
 import { useAdminAnalytics, useIsAdmin } from '@/hooks/useAdminAnalytics';
 import { Navigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import { addDays, differenceInCalendarDays, format, parseISO } from 'date-fns';
 import {
   BarChart3, Users, CheckCircle2, Mic, Type, Camera, Repeat,
   Plus, Zap, Target, TrendingUp, Flame, Clock, UserCheck,
@@ -181,6 +182,15 @@ const CohortRetentionChart = ({ data, title }: { data: { day: string; retention:
   </div>
 );
 
+const TRIAL_DAYS = 90;
+const getBetaTrialFromDate = (registrationDate: string | null) => {
+  if (!registrationDate) return null;
+  const start = parseISO(registrationDate);
+  const end = addDays(start, TRIAL_DAYS);
+  const daysLeft = Math.max(0, differenceInCalendarDays(end, new Date()));
+  return { daysLeft, expired: daysLeft <= 0, endDate: format(end, 'yyyy-MM-dd') };
+};
+
 // ─── Main Page ───────────────────────────────────────────────────────────────
 const AdminPanelPage = () => {
   const isAdmin = useIsAdmin();
@@ -300,6 +310,15 @@ const AdminPanelPage = () => {
   const invitedUsers = analytics.userStats.filter(u => u.email === null);
   const activeInvitedUsers = invitedUsers.filter(u => u.onboarding_completed);
   const oneTimeVisitors = invitedUsers.filter(u => !u.onboarding_completed);
+  const betaRows = registeredUsers
+    .map((u) => {
+      const trial = getBetaTrialFromDate(u.registration_date || u.first_session_date);
+      return trial ? { ...u, trial } : null;
+    })
+    .filter(Boolean) as Array<UserStat & { trial: { daysLeft: number; expired: boolean; endDate: string } }>;
+  const betaActiveCount = betaRows.filter((u) => !u.trial.expired).length;
+  const betaExpiredCount = betaRows.filter((u) => u.trial.expired).length;
+  const betaEndingSoonCount = betaRows.filter((u) => !u.trial.expired && u.trial.daysLeft <= 14).length;
 
   const filteredUsers = [...registeredUsers, ...activeInvitedUsers].filter(u => {
     if (!userSearch) return true;
@@ -384,6 +403,37 @@ const AdminPanelPage = () => {
               onClick={() => { setInvitedFilter('oneTime'); setViewingInvited(true); }}
             />
           </section>
+        </Section>
+
+        <Section title="Beta 3 Meses" icon={Clock} description="Estado de prueba gratuita">
+          <section className="grid grid-cols-1 gap-3 md:grid-cols-3 mb-5">
+            <StatCard icon={Users} label="Usuarios en beta activa" value={betaActiveCount} color="primary" />
+            <StatCard icon={Clock} label="Vencen en 14 días" value={betaEndingSoonCount} color="amber-500" />
+            <StatCard icon={Zap} label="Beta vencida" value={betaExpiredCount} color="rose-500" />
+          </section>
+          <div className="rounded-2xl border border-outline-variant/10 bg-card overflow-hidden">
+            <div className="grid grid-cols-[1.2fr_1fr_0.8fr_0.8fr] border-b border-outline-variant/10 bg-surface-container-low px-4 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-on-surface-variant/60">
+              <span>Usuario</span>
+              <span>Fin Beta</span>
+              <span>Días</span>
+              <span>Estado</span>
+            </div>
+            <div className="max-h-72 overflow-y-auto">
+              {betaRows
+                .sort((a, b) => a.trial.daysLeft - b.trial.daysLeft)
+                .slice(0, 80)
+                .map((row) => (
+                  <div key={row.user_id} className="grid grid-cols-[1.2fr_1fr_0.8fr_0.8fr] items-center border-b border-outline-variant/5 px-4 py-3 text-sm">
+                    <span className="truncate font-bold text-foreground">{row.name || row.email || row.user_id.slice(0, 8)}</span>
+                    <span className="font-medium text-on-surface-variant">{row.trial.endDate}</span>
+                    <span className="font-black tabular-nums text-foreground">{row.trial.daysLeft}</span>
+                    <span className={`text-xs font-black uppercase ${row.trial.expired ? 'text-rose-500' : 'text-emerald-500'}`}>
+                      {row.trial.expired ? 'Vencida' : 'Activa'}
+                    </span>
+                  </div>
+                ))}
+            </div>
+          </div>
         </Section>
 
         {/* ═══ Core Actions ═══════════════════════════════════════════════ */}

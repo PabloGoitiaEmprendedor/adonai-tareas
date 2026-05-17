@@ -13,6 +13,20 @@ import {
     Brain
 } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { addDays, differenceInCalendarDays, format } from 'date-fns';
+
+const TRIAL_DAYS = 90;
+
+const getTrialStatus = (createdAt?: string | null) => {
+  if (!createdAt) return null;
+  const end = addDays(new Date(createdAt), TRIAL_DAYS);
+  const daysLeft = Math.max(0, differenceInCalendarDays(end, new Date()));
+  return {
+    daysLeft,
+    endDateText: format(end, 'dd MMM yyyy'),
+    expired: daysLeft <= 0,
+  };
+};
 
 const ProfilePage = () => {
   const { userId: paramUserId } = useParams();
@@ -27,6 +41,7 @@ const ProfilePage = () => {
   const navigate = useNavigate();
 
   const completedTotal = tasks.filter((t) => t.status === 'done').length;
+  const trial = getTrialStatus(profile?.created_at);
 
   return (
     <div className="min-h-screen bg-background">
@@ -110,6 +125,18 @@ const ProfilePage = () => {
                 </div>
             )}
         </section>
+
+        {isOwnProfile && trial && (
+          <section className="rounded-[32px] border border-primary/20 bg-primary/10 p-6">
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-primary">Plan Beta</p>
+            <h3 className="mt-1 text-2xl font-black text-foreground">
+              {trial.expired ? 'Tu beta finalizó.' : `Te quedan ${trial.daysLeft} días gratis.`}
+            </h3>
+            <p className="mt-2 text-sm font-medium text-on-surface-variant">
+              Fin del beneficio beta: <span className="font-black text-foreground">{trial.endDateText}</span>
+            </p>
+          </section>
+        )}
 
         {/* Legal links - subtle */}
         <div className="flex justify-center gap-3 pt-2 pb-4">

@@ -267,6 +267,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
 
   // Task capture state
   const [captureOpen, setCaptureOpen] = useState(false);
+  const [captureInitialMode, setCaptureInitialMode] = useState<'text' | 'voice' | 'recurrence' | null>(null);
   const [recurrenceOpen, setRecurrenceOpen] = useState(false);
 
   const [evTitle, setEvTitle] = useState('');
@@ -286,12 +287,21 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
   const openCapture = useCallback((context?: { goalId?: string; folderId?: string }) => {
     if (context) setTargetContext(context);
     else setTargetContext({});
+    setCaptureInitialMode(null);
+    setCaptureOpen(true);
+  }, []);
+
+  const openCaptureInTextMode = useCallback((context?: { goalId?: string; folderId?: string }) => {
+    if (context) setTargetContext(context);
+    else setTargetContext({});
+    setCaptureInitialMode('text');
     setCaptureOpen(true);
   }, []);
 
   const openCaptureInVoiceMode = useCallback((context?: { goalId?: string; folderId?: string }) => {
     if (context) setTargetContext(context);
     else setTargetContext({});
+    setCaptureInitialMode(null);
     setCaptureOpen(true);
     setTimeout(() => {
       captureModalRef.current?.openInVoiceMode();
@@ -307,12 +317,12 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
       if (voice) {
         openCaptureInVoiceMode({ goalId, folderId });
       } else {
-        openCapture({ goalId, folderId });
+        openCaptureInTextMode({ goalId, folderId });
       }
     };
     window.addEventListener('adonai:open-capture' as any, handleOpenCapture);
     return () => window.removeEventListener('adonai:open-capture' as any, handleOpenCapture);
-  }, [openCapture, openCaptureInVoiceMode]);
+  }, [openCaptureInTextMode, openCaptureInVoiceMode]);
 
   const menuItems = [
     { label: 'Hoy', icon: Sun, path: '/daily' },
@@ -437,7 +447,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
             <MobileDynamicIsland
               tasks={tasks}
               currentDate={new Date()}
-              onAddTask={() => openCapture()}
+              onAddTask={() => openCaptureInTextMode()}
               onTaskClick={(task) => {
                 window.dispatchEvent(new CustomEvent('adonai:open-task-detail', { detail: task }));
               }}
@@ -448,7 +458,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
           )}
           {!fabHidden && (
             <FAB 
-              onTextClick={() => openCapture()} 
+              onTextClick={() => openCaptureInTextMode()} 
               onVoiceClick={() => openCaptureInVoiceMode()} 
               onRecurrenceClick={() => setRecurrenceOpen(true)}
                onEventClick={() => {
@@ -469,7 +479,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
         {!fabHidden && (
         <div className="hidden lg:block">
           <FAB 
-            onTextClick={() => openCapture()} 
+            onTextClick={() => openCaptureInTextMode()} 
             onVoiceClick={() => openCaptureInVoiceMode()} 
             onRecurrenceClick={() => setRecurrenceOpen(true)}
               onEventClick={() => {
@@ -492,10 +502,12 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
         open={captureOpen} 
         onClose={() => {
           setCaptureOpen(false);
+          setCaptureInitialMode(null);
           setTargetContext({});
         }} 
         goalId={targetContext.goalId}
         folderId={targetContext.folderId}
+        initialMode={captureInitialMode}
         creationSource="fab" 
       />
 
