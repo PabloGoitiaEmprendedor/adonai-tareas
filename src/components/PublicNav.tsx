@@ -110,8 +110,8 @@ export function PublicNav() {
 
   const renderNavItem = (item: (typeof NAV_LINKS)[number], mobile = false) => {
     const className = mobile
-      ? "block w-full rounded-xl px-4 py-3 text-left text-sm font-bold text-white transition-colors hover:bg-white/12"
-      : "rounded-full px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-white/12";
+      ? "block w-full rounded-xl px-4 py-3 text-left text-sm font-bold text-[#151820] transition-colors hover:bg-white/18"
+      : "rounded-full px-4 py-2 text-sm font-bold text-[#151820] transition-colors hover:bg-white/18";
 
     if ("support" in item) {
       return (
@@ -153,7 +153,7 @@ export function PublicNav() {
   };
 
   return (
-    <header className="fixed left-0 right-0 top-0 z-50 w-full border-b border-white/12 bg-[#0B0F17] text-white shadow-[0_12px_38px_rgba(11,15,23,0.28)]">
+    <header className="fixed left-0 right-0 top-0 z-50 w-full border-b border-white/28 bg-[#5B7CFA]/34 text-[#151820] shadow-[0_12px_38px_rgba(91,124,250,0.12)] backdrop-blur-2xl supports-[backdrop-filter]:bg-[#5B7CFA]/30">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
         <button
           type="button"
@@ -162,7 +162,7 @@ export function PublicNav() {
           aria-label="Adonai - Inicio"
         >
           <BrandLogo className="h-8 w-8 flex-shrink-0 drop-shadow-[0_0_6px_rgba(91,124,250,0.35)]" />
-          <span className="text-base font-black tracking-tight text-white transition-colors group-hover:text-white">Adonai</span>
+          <span className="text-base font-black tracking-tight text-[#151820] transition-colors group-hover:text-[#151820]/78">Adonai</span>
         </button>
 
         <nav className="hidden items-center gap-1 lg:flex" role="navigation" aria-label="Navegacion principal">
@@ -180,7 +180,7 @@ export function PublicNav() {
           </button>
           <Link
             to="/faq"
-            className="inline-flex items-center gap-1.5 rounded-full border border-white/18 px-4 py-2 text-xs font-bold text-white transition hover:bg-white/12"
+            className="inline-flex items-center gap-1.5 rounded-full border border-[#151820]/16 px-4 py-2 text-xs font-bold text-[#151820] transition hover:bg-white/18"
           >
             <HelpCircle className="h-3.5 w-3.5" />
             FAQ
@@ -188,7 +188,7 @@ export function PublicNav() {
           <button
             type="button"
             onClick={() => setSupportOpen(true)}
-            className="inline-flex items-center gap-1.5 rounded-full border border-white/18 px-4 py-2 text-xs font-bold text-white transition hover:bg-white/12"
+            className="inline-flex items-center gap-1.5 rounded-full border border-[#151820]/16 px-4 py-2 text-xs font-bold text-[#151820] transition hover:bg-white/18"
           >
             <Mail className="h-3.5 w-3.5" />
             Soporte
@@ -196,7 +196,7 @@ export function PublicNav() {
         </div>
 
         <button
-          className="p-2 text-white transition-colors hover:bg-white/10 lg:hidden"
+          className="p-2 text-[#151820] transition-colors hover:bg-white/18 lg:hidden"
           onClick={() => setMobileOpen(!mobileOpen)}
           aria-label={mobileOpen ? "Cerrar menu" : "Abrir menu"}
           aria-expanded={mobileOpen}
@@ -206,7 +206,7 @@ export function PublicNav() {
       </div>
 
       {mobileOpen && (
-        <div className="space-y-1 border-t border-white/12 bg-[#0B0F17] px-6 py-4 lg:hidden">
+        <div className="space-y-1 border-t border-white/28 bg-[#5B7CFA]/44 px-6 py-4 backdrop-blur-2xl lg:hidden">
           {NAV_LINKS.map((item) => renderNavItem(item, true))}
           <div className="flex flex-col gap-2 pt-3">
             <button
@@ -222,7 +222,7 @@ export function PublicNav() {
             <Link
               to="/welcome"
               onClick={() => setMobileOpen(false)}
-              className="inline-flex w-full items-center justify-center rounded-full border border-white/18 px-5 py-3 text-sm font-bold text-white transition hover:bg-white/12"
+              className="inline-flex w-full items-center justify-center rounded-full border border-[#151820]/16 px-5 py-3 text-sm font-bold text-[#151820] transition hover:bg-white/18"
             >
               Entrar a la app web
             </Link>

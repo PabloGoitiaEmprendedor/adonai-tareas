@@ -70,9 +70,12 @@ export function MiniDayView({
 
   // Initial scroll to current time
   useEffect(() => {
+    const scrollTime = new Date();
+    if (!isSameDay(scrollTime, currentDate)) return;
+
     if (scrollRef.current) {
       const dayStart = startOfDay(currentDate);
-      const currentMins = differenceInMinutes(now, dayStart);
+      const currentMins = differenceInMinutes(scrollTime, dayStart);
       const scrollPos = (currentMins / 60) * HOUR_HEIGHT - 120;
       scrollRef.current.scrollTop = Math.max(0, scrollPos);
     }
@@ -83,22 +86,30 @@ export function MiniDayView({
   return (
     <div className="flex flex-col h-full select-none bg-background/20">
       {/* Header */}
-      <div className="flex items-center justify-between px-5 py-4 border-b border-outline-variant/15 flex-shrink-0 bg-surface/90 backdrop-blur-xl">
-        <button 
-          onClick={() => onDateChange?.(subDays(currentDate, 1))}
-          className="p-1.5 rounded-full hover:bg-foreground/5 active:scale-90 transition-all"
-        >
-          <ChevronLeft className="w-4 h-4 text-foreground/40" />
-        </button>
+      <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-outline-variant/15 flex-shrink-0 bg-surface/90 backdrop-blur-xl">
         <span className="text-[10px] font-black uppercase tracking-[0.25em] text-foreground/90">
           {format(currentDate, "EEEE, d 'DE' MMMM", { locale: es })}
         </span>
-        <button 
-          onClick={() => onDateChange?.(addMinutes(currentDate, 24 * 60))}
-          className="p-1.5 rounded-full hover:bg-foreground/5 active:scale-90 transition-all"
-        >
-          <ChevronRight className="w-4 h-4 text-foreground/40" />
-        </button>
+        <div className="flex shrink-0 items-center gap-1 rounded-full border border-outline-variant/15 bg-background/50 p-0.5">
+          <button
+            onClick={() => onDateChange?.(subDays(currentDate, 1))}
+            className="p-1.5 rounded-full hover:bg-foreground/5 active:scale-90 transition-all"
+          >
+            <ChevronLeft className="w-4 h-4 text-foreground/40" />
+          </button>
+          <button
+            onClick={() => onDateChange?.(new Date())}
+            className="h-7 rounded-full px-3 text-[9px] font-black uppercase tracking-[0.18em] text-primary hover:bg-primary/10 active:scale-95 transition-all"
+          >
+            Hoy
+          </button>
+          <button
+            onClick={() => onDateChange?.(addMinutes(currentDate, 24 * 60))}
+            className="p-1.5 rounded-full hover:bg-foreground/5 active:scale-90 transition-all"
+          >
+            <ChevronRight className="w-4 h-4 text-foreground/40" />
+          </button>
+        </div>
       </div>
 
       {/* Grid */}

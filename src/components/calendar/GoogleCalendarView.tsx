@@ -41,6 +41,7 @@ const GoogleCalendarView: React.FC<GoogleCalendarViewProps> = ({
   const weekStart = startOfWeek(selectedDate, { weekStartsOn: 1 });
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
   const displayDays = viewMode === 'week' ? weekDays : [selectedDate];
+  const isShowingToday = displayDays.some(day => isSameDay(day, new Date()));
   const hours = Array.from({ length: 24 }, (_, i) => i);
 
   useEffect(() => {
@@ -54,11 +55,11 @@ const GoogleCalendarView: React.FC<GoogleCalendarViewProps> = ({
       }
     };
 
-    if (isConnected || isSameDay(selectedDate, new Date())) {
+    if (isShowingToday) {
       const timer = setTimeout(scrollToCurrentTime, 500);
       return () => clearTimeout(timer);
     }
-  }, [isConnected, selectedDate, hourHeight]);
+  }, [isShowingToday, selectedDate, viewMode, hourHeight]);
 
   const demoEvents: CalendarEvent[] = [
     { id: '1', title: 'Reunión de Diseño Adonai', start: new Date().toISOString().split('T')[0] + 'T10:00:00', end: new Date().toISOString().split('T')[0] + 'T11:30:00', description: '', location: '', allDay: false, color: null, htmlLink: '' },
@@ -181,6 +182,12 @@ const GoogleCalendarView: React.FC<GoogleCalendarViewProps> = ({
             
             <div className="flex items-center gap-2">
               <button onClick={() => onSelectDate(viewMode === 'week' ? subWeeks(selectedDate, 1) : subDays(selectedDate, 1))} className="p-2 hover:bg-surface-container-low rounded-xl transition-colors"><ChevronLeft className="w-4 h-4 opacity-40" /></button>
+              <button
+                onClick={() => onSelectDate(new Date())}
+                className="h-9 rounded-xl px-3 text-[10px] font-black uppercase tracking-[0.18em] text-primary hover:bg-primary/10 transition-colors"
+              >
+                Hoy
+              </button>
               <button onClick={() => onSelectDate(viewMode === 'week' ? addWeeks(selectedDate, 1) : addDays(selectedDate, 1))} className="p-2 hover:bg-surface-container-low rounded-xl transition-colors"><ChevronRight className="w-4 h-4 opacity-40" /></button>
             </div>
 

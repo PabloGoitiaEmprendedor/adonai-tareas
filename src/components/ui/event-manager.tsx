@@ -77,6 +77,7 @@ export interface Event {
   isAllDay?: boolean
   completed?: boolean
   isEvent?: boolean
+  recurrenceId?: string
 }
 
 export interface EventManagerProps {
@@ -108,6 +109,80 @@ const defaultColors = [
   { name: "Red", value: "red", bg: "bg-red-500", text: "text-red-700" },
 ]
 
+const MIN_EVENT_DURATION_MINUTES = 5
+const DEFAULT_EVENT_DURATION_MINUTES = 30
+const SNAP_MINUTES = 5
+
+const snapMinutes = (minutes: number) => Math.round(minutes / SNAP_MINUTES) * SNAP_MINUTES
+
+const getStableDurationMs = (startTime?: Date, endTime?: Date, fallbackMinutes = DEFAULT_EVENT_DURATION_MINUTES) => {
+  const start = startTime ? new Date(startTime).getTime() : NaN
+  const end = endTime ? new Date(endTime).getTime() : NaN
+  const duration = end - start
+  const minDuration = MIN_EVENT_DURATION_MINUTES * 60 * 1000
+  if (!Number.isFinite(duration) || duration < minDuration) return fallbackMinutes * 60 * 1000
+  return duration
+}
+
+const clampEventWithinDay = (startTime: Date, durationMs: number) => {
+  const safeDuration = Math.max(durationMs, MIN_EVENT_DURATION_MINUTES * 60 * 1000)
+  const dayStart = startOfDay(startTime)
+  const latestStart = new Date(dayStart)
+  latestStart.setHours(24, 0, 0, 0)
+  latestStart.setTime(latestStart.getTime() - safeDuration)
+
+  const clampedStart = new Date(startTime)
+  if (clampedStart < dayStart) clampedStart.setTime(dayStart.getTime())
+  if (clampedStart > latestStart) clampedStart.setTime(latestStart.getTime())
+
+  return {
+    startTime: clampedStart,
+    endTime: new Date(clampedStart.getTime() + safeDuration),
+  }
+}
+
+const areEventListsEquivalent = (left: Event[], right: Event[]) => {
+  if (left.length !== right.length) return false
+  return left.every((event, index) => {
+    const other = right[index]
+    return other &&
+      event.id === other.id &&
+      event.title === other.title &&
+      event.startTime?.getTime() === other.startTime?.getTime() &&
+      event.endTime?.getTime() === other.endTime?.getTime() &&
+      event.isAllDay === other.isAllDay &&
+      event.completed === other.completed &&
+      event.color === other.color
+  })
+}
+
+const doTimedEventsOverlap = (aStart: Date, aEnd: Date, bStart: Date, bEnd: Date) => {
+  return aStart < bEnd && aEnd > bStart
+}
+
+const findTimedEventConflict = (
+  events: Event[],
+  candidate: Pick<Event, 'startTime' | 'endTime'> & { id?: string; isAllDay?: boolean },
+  ignoreId?: string
+) => {
+  if (candidate.isAllDay) return null
+  return events.find((event) => {
+    if (event.isAllDay) return false
+    if (event.id === candidate.id || event.id === ignoreId) return false
+    if (!isSameDay(event.startTime, candidate.startTime)) return false
+    return doTimedEventsOverlap(candidate.startTime, candidate.endTime, event.startTime, event.endTime)
+  }) || null
+}
+
+const notifyCalendarConflict = () => {
+  window.dispatchEvent(new CustomEvent('adonai:notify', {
+    detail: {
+      type: 'error',
+      message: 'Ese horario ya esta ocupado. Elige un espacio libre.',
+    },
+  }))
+}
+
 export function EventManager({
   events: initialEvents = [],
   onEventCreate,
@@ -129,6 +204,7 @@ export function EventManager({
 }: EventManagerProps) {
   const { colors: priorityColors, customColors, addCustomColor, removeCustomColor } = usePriorityColors()
   const [events, setEvents] = useState<Event[]>(initialEvents)
+  const [locallyDeletedEventIds, setLocallyDeletedEventIds] = useState<Set<string>>(new Set())
   // Map of eventId -> optimistic event for drops currently pending Supabase confirmation.
   // Prevents a stale React Query refetch from overwriting the optimistic local state.
   const pendingDropsRef = useRef<Map<string, Event>>(new Map())
@@ -145,12 +221,13 @@ export function EventManager({
 
   useEffect(() => {
     if (pendingDropsRef.current.size === 0) {
-      setEvents(initialEvents)
+      const nextEvents = initialEvents.filter(event => !locallyDeletedEventIds.has(event.id))
+      setEvents(prev => areEventListsEquivalent(prev, nextEvents) ? prev : nextEvents)
       return
     }
     // Smart merge: preserve optimistic drops/updates until Supabase confirms
-    setEvents(() => {
-      const merged = initialEvents.map(extEvent => {
+    setEvents((prev) => {
+      const merged = initialEvents.filter(event => !locallyDeletedEventIds.has(event.id)).map(extEvent => {
         const pending = pendingDropsRef.current.get(extEvent.id)
         if (pending) {
           // Check if the server event has the updates we expect
@@ -176,9 +253,9 @@ export function EventManager({
         }
         return extEvent
       })
-      return merged
+      return areEventListsEquivalent(prev, merged) ? prev : merged
     })
-  }, [initialEvents])
+  }, [initialEvents, locallyDeletedEventIds])
 
   const [currentDate, setCurrentDate] = useState(() => focusedDate ? new Date(focusedDate) : new Date())
   const [view, setView] = useState<"month" | "week" | "day" | "year" | "list" | "schedule" | "3day">(defaultView)
@@ -244,7 +321,6 @@ export function EventManager({
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set(['General']));
   const [recurrenceEditorOpen, setRecurrenceEditorOpen] = useState(true)
   const [pendingCustomColor, setPendingCustomColor] = useState('#5B7CFA')
-  const [, setRecSummary] = useState('')
   const [draftEvent, setDraftEvent] = useState<Event | null>(null)
   const [draftTitle, setDraftTitle] = useState('')
   const draftInputRef = useRef<HTMLInputElement>(null)
@@ -266,6 +342,10 @@ export function EventManager({
 
   const confirmDraft = useCallback(() => {
     if (!draftEvent || !draftTitle.trim()) return
+    if (findTimedEventConflict(events, draftEvent, draftEvent.id)) {
+      notifyCalendarConflict()
+      return
+    }
     const event: Event = {
       ...draftEvent,
       title: draftTitle.trim(),
@@ -274,7 +354,7 @@ export function EventManager({
     onEventCreate?.(event)
     setDraftEvent(null)
     setDraftTitle('')
-  }, [draftEvent, draftTitle, onEventCreate])
+  }, [draftEvent, draftTitle, onEventCreate, events])
 
   const cancelDraft = useCallback(() => {
     setDraftEvent(null)
@@ -331,9 +411,9 @@ export function EventManager({
       const unitMap: Record<string, string> = { days: interval === 1 ? 'día' : 'días', weeks: interval === 1 ? 'semana' : 'semanas', months: interval === 1 ? 'mes' : 'meses', years: interval === 1 ? 'año' : 'años' };
       let text = `Cada ${interval} ${unitMap[unit] || unit}`;
       if (unit === 'weeks') text += ` en ${selectedLabels}`;
-      setRecSummary(text);
+      void text;
     } else {
-      setRecSummary('');
+      return;
     }
   }, [isDialogOpen, isCreating, selectedEvent, newEvent.recurrenceDays])
 
@@ -346,6 +426,7 @@ export function EventManager({
 
   const filteredEvents = useMemo(() => {
     const baseEvents = events.filter((event) => {
+      if (locallyDeletedEventIds.has(event.id)) return false
       // Search filter
       if (searchQuery) {
         const query = searchQuery.toLowerCase()
@@ -511,7 +592,7 @@ export function EventManager({
         nextStart.setHours(anchorHour, anchorMin, anchorSec, 0)
         const nextEnd = new Date(nextStart.getTime() + duration)
         const instanceId = `${event.id}-rec-${format(day, 'yyyy-MM-dd')}`
-        if (skipRecurrenceId(instanceId)) return
+        if (skipRecurrenceId(instanceId) || locallyDeletedEventIds.has(instanceId)) return
 
         recurringInstances.push({
           ...event,
@@ -523,7 +604,7 @@ export function EventManager({
     })
 
     return [...baseEvents, ...recurringInstances]
-  }, [events, searchQuery, selectedColors, selectedTags, selectedCategories, currentDate, view, recurrenceExceptions])
+  }, [events, searchQuery, selectedColors, selectedTags, selectedCategories, currentDate, view, recurrenceExceptions, locallyDeletedEventIds])
 
   const tasksByFolder = useMemo(() => {
     const tasks = filteredEvents.filter(e => {
@@ -654,6 +735,15 @@ export function EventManager({
 
     if (!newEvent.startTime || !newEvent.endTime) return
 
+    if (findTimedEventConflict(events, {
+      startTime: newEvent.startTime,
+      endTime: newEvent.endTime,
+      isAllDay: false,
+    })) {
+      notifyCalendarConflict()
+      return
+    }
+
     const event: Event = {
       id: Math.random().toString(36).substr(2, 9),
       title: newEvent.title,
@@ -700,12 +790,16 @@ export function EventManager({
       reminderEnabled: false,
       reminderMinutesBefore: 10,
     })
-  }, [newEvent, colors, categories, onEventCreate, creationSource])
+  }, [newEvent, colors, categories, onEventCreate, creationSource, events])
 
   const handleUpdateEvent = useCallback(() => {
     if (!selectedEvent) return
 
     const updatedEvent = { ...selectedEvent }
+    if (findTimedEventConflict(events, updatedEvent, selectedEvent.id)) {
+      notifyCalendarConflict()
+      return
+    }
     
     // Optimistically track this update
     pendingDropsRef.current.set(selectedEvent.id, updatedEvent)
@@ -714,10 +808,23 @@ export function EventManager({
     onEventUpdate?.(selectedEvent.id, updatedEvent)
     setIsDialogOpen(false)
     setSelectedEvent(null)
-  }, [selectedEvent, onEventUpdate])
+  }, [selectedEvent, onEventUpdate, events])
 
   const handleDeleteEvent = useCallback(
     (id: string) => {
+      setLocallyDeletedEventIds((prev) => {
+        const next = new Set(prev)
+        next.add(id)
+        return next
+      })
+      window.setTimeout(() => {
+        setLocallyDeletedEventIds((prev) => {
+          if (!prev.has(id)) return prev
+          const next = new Set(prev)
+          next.delete(id)
+          return next
+        })
+      }, 10000)
       setEvents((prev) => prev.filter((e) => e.id !== id))
       onEventDelete?.(id)
       setIsDialogOpen(false)
@@ -769,11 +876,15 @@ export function EventManager({
     newStartTime.setHours(hour, mins, 0, 0)
     const newEndTime = new Date(newStartTime.getTime() + duration)
     const updatedEvent = { ...event, startTime: newStartTime, endTime: newEndTime, isAllDay: false }
+    if (findTimedEventConflict(events, updatedEvent, event.id)) {
+      notifyCalendarConflict()
+      return
+    }
     pendingDropsRef.current.set(event.id, updatedEvent)
     setTimeout(() => { pendingDropsRef.current.delete(event.id) }, 5000)
     setEvents(prev => prev.map(e => e.id === event.id ? updatedEvent : e))
     onEventUpdate?.(event.id, updatedEvent)
-  }, [onEventUpdate])
+  }, [onEventUpdate, events])
 
   // Sidebar custom mouse drag â€“ mirrors the calendar ghost system
   const handleSidebarMouseDown = useCallback((e: React.MouseEvent, event: Event) => {
@@ -954,11 +1065,11 @@ export function EventManager({
     (date: Date, hour?: number, minutes: number = 0) => {
       if (!draggedEvent) return
 
-      let duration = draggedEvent.endTime.getTime() - draggedEvent.startTime.getTime()
+      let duration = getStableDurationMs(draggedEvent.startTime, draggedEvent.endTime)
       
       // If dropping an all-day task from sidebar, default to 30 minutes duration
       if (draggedEvent.isAllDay) {
-        duration = 30 * 60 * 1000 // 30 minutes
+        duration = DEFAULT_EVENT_DURATION_MINUTES * 60 * 1000
       }
 
       const newStartTime = new Date(date)
@@ -968,13 +1079,20 @@ export function EventManager({
         // Preserve original time if not provided and not an all-day event
         newStartTime.setHours(draggedEvent.startTime.getHours(), draggedEvent.startTime.getMinutes(), 0, 0)
       }
-      const newEndTime = new Date(newStartTime.getTime() + duration)
+      const { startTime: finalStartTime, endTime: finalEndTime } = clampEventWithinDay(newStartTime, duration)
 
       const updatedEvent = {
         ...draggedEvent,
-        startTime: newStartTime,
-        endTime: newEndTime,
+        startTime: finalStartTime,
+        endTime: finalEndTime,
         isAllDay: hour === undefined ? draggedEvent.isAllDay : false, // Keep all-day if dropped on a day cell, otherwise make timed
+      }
+
+      if (findTimedEventConflict(events, updatedEvent, draggedEvent.id)) {
+        notifyCalendarConflict()
+        setDraggedEvent(null)
+        setPreviewTime(null)
+        return
       }
 
       // Register the optimistic event so the sync useEffect can preserve it
@@ -993,7 +1111,7 @@ export function EventManager({
       setDraggedEvent(null)
       setPreviewTime(null)
     },
-    [draggedEvent, onEventUpdate],
+    [draggedEvent, onEventUpdate, events],
   )
 
   const navigateDate = useCallback(
@@ -1125,9 +1243,17 @@ export function EventManager({
           )}
 
           {/* Nav arrows */}
-          <div className="flex items-center gap-0.5 shrink-0">
+          <div className="flex items-center gap-0.5 shrink-0 rounded-xl border border-outline-variant/10 bg-surface-container-low/70 p-0.5">
             <Button variant="ghost" size="icon" onClick={() => navigateDate("prev")} className="h-7 w-7 rounded-lg hover:bg-primary/10 hover:text-primary">
               <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => commitCurrentDate(new Date())}
+              className="h-7 rounded-lg px-3 text-[10px] font-black uppercase tracking-widest text-primary hover:bg-primary/10"
+            >
+              Hoy
             </Button>
             <Button variant="ghost" size="icon" onClick={() => navigateDate("next")} className="h-7 w-7 rounded-lg hover:bg-primary/10 hover:text-primary">
               <ChevronRight className="h-4 w-4" />
@@ -2578,6 +2704,11 @@ function TimeGridView({
     })
   }, [currentDate, view])
 
+  const isShowingToday = useMemo(() => {
+    const today = new Date()
+    return days.some(day => isSameDay(day, today))
+  }, [days])
+
   const hours = Array.from({ length: 24 }, (_, i) => i)
 
   const eventLayouts = useMemo(() => {
@@ -2640,6 +2771,8 @@ function TimeGridView({
   }, [days, events])
 
   useEffect(() => {
+    if (!isShowingToday) return
+
     if (!containedScroll) {
       const calendarTop = scrollContainerRef.current
         ? scrollContainerRef.current.getBoundingClientRect().top + window.scrollY
@@ -2661,7 +2794,7 @@ function TimeGridView({
     const centeredPosition = currentHourPosition - scrollEl.clientHeight * 0.42
     const maxScrollTop = Math.max(0, scrollEl.scrollHeight - scrollEl.clientHeight)
     scrollEl.scrollTop = Math.max(0, Math.min(maxScrollTop, centeredPosition))
-  }, [containedScroll, currentDate, view, HOUR_HEIGHT])
+  }, [containedScroll, isShowingToday, currentDate, view, HOUR_HEIGHT])
 
   const [isResizing, setIsResizing] = useState<string | null>(null);
   const [isResizingTop, setIsResizingTop] = useState(false);
@@ -2737,7 +2870,7 @@ function TimeGridView({
       if (isResizing && initialStartTime && initialEndTime) {
         isDraggingRef.current = true;
         const deltaY = pageY - initialMouseY;
-        const minutesDiff = Math.round((deltaY / HOUR_HEIGHT) * 60 / 5) * 5;
+        const minutesDiff = snapMinutes((deltaY / HOUR_HEIGHT) * 60);
         
         const event = baseEvents.find(ev => ev.id === isResizing);
         if (!event) return;
@@ -2746,7 +2879,7 @@ function TimeGridView({
           let newStartTime = new Date(initialStartTime.getTime() + minutesDiff * 60000);
           
           // Mantener duraciÃ³n mínima de 5 minutos para que la tarea no desaparezca ni se trabe
-          const maxStartTime = new Date(initialEndTime.getTime() - 5 * 60000);
+          const maxStartTime = new Date(initialEndTime.getTime() - MIN_EVENT_DURATION_MINUTES * 60000);
           if (newStartTime > maxStartTime) newStartTime = maxStartTime;
 
           setEvents(baseEvents.map(ev => ev.id === isResizing ? { ...ev, startTime: newStartTime } : ev));
@@ -2754,7 +2887,7 @@ function TimeGridView({
           let newEndTime = new Date(initialEndTime.getTime() + minutesDiff * 60000);
           
           // Mantener duraciÃ³n mínima de 5 minutos
-          const minEndTime = new Date(initialStartTime.getTime() + 5 * 60000);
+          const minEndTime = new Date(initialStartTime.getTime() + MIN_EVENT_DURATION_MINUTES * 60000);
           if (newEndTime < minEndTime) newEndTime = minEndTime;
 
           setEvents(baseEvents.map(ev => ev.id === isResizing ? { ...ev, endTime: newEndTime } : ev));
@@ -2792,7 +2925,7 @@ function TimeGridView({
           }
         }
 
-        const minutesDiff = Math.round((deltaY / HOUR_HEIGHT) * 60 / 5) * 5;
+        const minutesDiff = snapMinutes((deltaY / HOUR_HEIGHT) * 60);
         
         const columns = document.querySelectorAll('.day-column');
         let targetDayIndex = days.findIndex(d => d.toDateString() === initialStartTime.toDateString());
@@ -2809,8 +2942,9 @@ function TimeGridView({
         const targetDay = days[targetDayIndex];
         const newStartTimeBase = new Date(targetDay);
         newStartTimeBase.setHours(initialStartTime.getHours(), initialStartTime.getMinutes(), 0, 0);
-        const movedStartTime = new Date(newStartTimeBase.getTime() + minutesDiff * 60000);
-        const movedEndTime = new Date(movedStartTime.getTime() + initialDuration * 60000);
+        const movedStartCandidate = new Date(newStartTimeBase.getTime() + minutesDiff * 60000);
+        const stableDuration = Math.max(initialDuration, MIN_EVENT_DURATION_MINUTES) * 60000;
+        const { startTime: movedStartTime, endTime: movedEndTime } = clampEventWithinDay(movedStartCandidate, stableDuration);
 
         setEvents(baseEvents.map(ev =>
           ev.id === isMoving ? { ...ev, startTime: movedStartTime, endTime: movedEndTime } : ev
@@ -2836,22 +2970,28 @@ function TimeGridView({
             (originalCol as HTMLElement).style.transform = 'none';
           }
         } else {
-          // Persist all changed events (both the dragged one and any pushed ones)
-          const changedEvents = currentEventsRef.current.filter(ev => {
-            const initial = initialEventsRef.current.find(i => i.id === ev.id);
-            if (!initial) return false;
-            return initial.startTime.getTime() !== ev.startTime.getTime() || 
-                   initial.endTime.getTime() !== ev.endTime.getTime();
-          });
+          const activeId = isMoving || isResizing;
+          const changedEvent = activeId ? currentEventsRef.current.find(ev => ev.id === activeId) : undefined;
+          const initial = activeId ? initialEventsRef.current.find(ev => ev.id === activeId) : undefined;
+          const changed =
+            changedEvent &&
+            initial &&
+            (initial.startTime.getTime() !== changedEvent.startTime.getTime() ||
+              initial.endTime.getTime() !== changedEvent.endTime.getTime());
 
-          if (onEventUpdate) {
-            changedEvents.forEach(ev => {
-              onRegisterPendingDrop?.(ev);
-              onEventUpdate(ev.id, { 
-                startTime: ev.startTime,
-                endTime: ev.endTime 
-              });
+          if (onEventUpdate && changedEvent && changed) {
+            if (findTimedEventConflict(currentEventsRef.current, changedEvent, changedEvent.id)) {
+              notifyCalendarConflict();
+              if (initial) {
+                setEvents(prev => prev.map(ev => ev.id === changedEvent.id ? initial : ev));
+              }
+            } else {
+            onRegisterPendingDrop?.(changedEvent);
+            onEventUpdate(changedEvent.id, {
+              startTime: changedEvent.startTime,
+              endTime: changedEvent.endTime,
             });
+            }
           }
         }
         

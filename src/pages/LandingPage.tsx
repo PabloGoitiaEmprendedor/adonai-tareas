@@ -1,6 +1,6 @@
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   Apple,
   ArrowRight,
@@ -27,6 +27,49 @@ const fadeUp = {
   viewport: { once: true, amount: 0.25 },
   transition: { duration: 0.5, ease: "easeOut" },
 } as const;
+
+function IntroExperience() {
+  const [visible, setVisible] = useState(() => !sessionStorage.getItem("adonaiLandingIntroSeen"));
+
+  useEffect(() => {
+    if (!visible) return;
+    sessionStorage.setItem("adonaiLandingIntroSeen", "true");
+    const timer = window.setTimeout(() => setVisible(false), 2500);
+    return () => window.clearTimeout(timer);
+  }, [visible]);
+
+  return (
+    <AnimatePresence>
+      {visible && (
+        <motion.div
+          initial={{ opacity: 1 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 1.15, ease: "easeInOut" }}
+          className="fixed inset-0 z-[120] flex items-center justify-center overflow-hidden bg-[#151820] text-white"
+        >
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_42%,rgba(91,124,250,0.34),transparent_36%)]" />
+          <motion.div
+            initial={{ opacity: 0, scale: 0.96 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 1.015 }}
+            transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+            className="relative flex flex-col items-center px-6 text-center"
+          >
+            <motion.img
+              src="/logo.png"
+              alt="Adonai"
+              initial={{ scale: 0.86, rotate: -5 }}
+              animate={{ scale: [0.86, 1.04, 1], rotate: [-5, 2, 0] }}
+              transition={{ duration: 1.1, ease: "easeOut" }}
+              className="h-24 w-24 rounded-[30px] object-contain shadow-[0_28px_80px_rgba(91,124,250,0.34)]"
+            />
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
 
 function useDownload(platform: "win" | "mac") {
   const [downloading, setDownloading] = useState(false);
@@ -108,16 +151,21 @@ function PlatformChoiceModal({ onClose }: { onClose: () => void }) {
   );
 }
 
-function PrimaryCTA({ className = "" }: { className?: string }) {
+function PrimaryCTA({ className = "", tone = "brand" }: { className?: string; tone?: "brand" | "dark" }) {
   const [open, setOpen] = useState(false);
+  const toneClass =
+    tone === "dark"
+      ? "bg-[#151820] text-white shadow-[0_18px_45px_rgba(21,24,32,0.22)] hover:bg-[#0B0F17]"
+      : "bg-[#5B7CFA] text-white shadow-[0_18px_45px_rgba(91,124,250,0.26)] hover:bg-[#4F6EE8]";
+
   return (
     <>
       <button
         onClick={() => setOpen(true)}
-        className={`inline-flex h-14 w-full items-center justify-center gap-2 rounded-full bg-[#151820] px-6 text-sm font-black text-white shadow-[0_18px_45px_rgba(21,24,32,0.18)] transition hover:-translate-y-0.5 hover:bg-[#0D1017] active:translate-y-0 sm:w-auto sm:px-7 ${className}`}
+        className={`group inline-flex h-14 w-full items-center justify-center gap-2 rounded-full px-6 text-sm font-semibold transition hover:-translate-y-0.5 active:translate-y-0 sm:w-auto sm:px-7 ${toneClass} ${className}`}
       >
         Descargar ahora
-        <ArrowRight className="h-4 w-4" />
+        <ArrowRight className="h-4 w-4 animate-[ctaArrow_1.15s_ease-in-out_infinite]" />
       </button>
       {open && <PlatformChoiceModal onClose={() => setOpen(false)} />}
     </>
@@ -256,7 +304,7 @@ function IntegrationsStrip() {
           <div className="pointer-events-none absolute inset-x-8 top-1/2 hidden h-px bg-gradient-to-r from-transparent via-white/18 to-transparent md:block" />
           <p className="mb-6 text-xs font-black uppercase tracking-[0.24em] text-white">Integraciones</p>
 
-          <div className="relative flex flex-wrap items-center justify-center gap-3 sm:gap-5">
+          <div className="relative grid grid-cols-[auto_auto_auto_auto_auto] items-center justify-center gap-2 sm:gap-5">
             {integrationItems.map((item, index) => (
               <motion.div
                 key={item.label}
@@ -265,9 +313,9 @@ function IntegrationsStrip() {
                 viewport={{ once: true, amount: 0.7 }}
                 transition={{ delay: index * 0.12, duration: 0.45, ease: "easeOut" }}
                 whileHover={{ y: -5, scale: 1.04 }}
-                className="group flex h-20 w-20 items-center justify-center rounded-[24px] border border-white/16 bg-white shadow-[0_16px_38px_rgba(0,0,0,0.16)] sm:h-24 sm:w-24"
+                className="group flex h-14 w-14 items-center justify-center rounded-2xl border border-white/16 bg-white shadow-[0_16px_38px_rgba(0,0,0,0.16)] sm:h-24 sm:w-24 sm:rounded-[24px]"
               >
-                <img src={item.src} alt={item.alt} className="h-10 w-10 object-contain transition duration-300 group-hover:scale-110" />
+                <img src={item.src} alt={item.alt} className="h-7 w-7 object-contain transition duration-300 group-hover:scale-110 sm:h-10 sm:w-10" />
               </motion.div>
             ))}
 
@@ -276,7 +324,7 @@ function IntegrationsStrip() {
               whileInView={{ opacity: 1, scale: 1 }}
               viewport={{ once: true }}
               transition={{ delay: 0.24, duration: 0.35 }}
-              className="text-3xl font-black text-white"
+              className="text-2xl font-black text-white sm:text-3xl"
             >
               =
             </motion.span>
@@ -287,10 +335,10 @@ function IntegrationsStrip() {
               viewport={{ once: true, amount: 0.7 }}
               transition={{ delay: 0.34, duration: 0.5, ease: "easeOut" }}
               whileHover={{ y: -6, scale: 1.04 }}
-              className="group relative flex h-24 w-24 items-center justify-center rounded-[28px] border border-[#7C97FF]/35 bg-white shadow-[0_22px_55px_rgba(91,124,250,0.24)] sm:h-28 sm:w-28"
+              className="group relative flex h-16 w-16 items-center justify-center rounded-2xl border border-[#7C97FF]/35 bg-white shadow-[0_22px_55px_rgba(91,124,250,0.24)] sm:h-28 sm:w-28 sm:rounded-[28px]"
             >
-              <span className="absolute -right-2 -top-2 rounded-full bg-[#151820] px-2 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-white">Adonai</span>
-              <img src="/logo.png" alt="Adonai" className="h-14 w-14 object-contain transition duration-300 group-hover:scale-110 sm:h-16 sm:w-16" />
+              <span className="absolute -right-2 -top-2 rounded-full bg-[#5B7CFA] px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.08em] text-white sm:px-2 sm:py-1 sm:text-[10px]">Adonai</span>
+              <img src="/logo.png" alt="Adonai" className="h-9 w-9 object-contain transition duration-300 group-hover:scale-110 sm:h-16 sm:w-16" />
             </motion.div>
           </div>
 
@@ -345,6 +393,31 @@ function PainMirror() {
 }
 
 function NotebookInsight() {
+  const writingRef = useRef<HTMLDivElement | null>(null);
+  const [writingRun, setWritingRun] = useState(0);
+  const [isWritingVisible, setIsWritingVisible] = useState(false);
+  const handwrittenText = "Adonai no remplaza tu libreta. La mejora.";
+
+  useEffect(() => {
+    const node = writingRef.current;
+    if (!node) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setWritingRun((run) => run + 1);
+          setIsWritingVisible(true);
+        } else {
+          setIsWritingVisible(false);
+        }
+      },
+      { threshold: 0.55 }
+    );
+
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+
   return (
     <section className="relative overflow-hidden bg-[#151820] px-5 py-20 text-white sm:px-8 md:py-28 lg:px-10">
       <img src="/logo.png" alt="" className="pointer-events-none absolute -left-10 top-12 h-48 w-48 rotate-12 rounded-[44px] object-contain opacity-[0.055] sm:h-72 sm:w-72" />
@@ -360,72 +433,51 @@ function NotebookInsight() {
 
         <motion.div {...fadeUp} className="mt-12 grid gap-4 md:grid-cols-2">
           {[
-            ["Con libreta", "Capturas rapido, pero despues tienes que volver a buscar, reinterpretar, recordar y pasar todo manualmente al calendario."],
-            ["Con Adonai", "Capturas igual de rapido, pero tus pendientes quedan visibles, accionables y listos para convertirse en foco, calendario o siguiente paso."],
-            ["Lo que se pierde en papel", "Ideas enterradas, tareas duplicadas, fechas olvidadas, prioridades mezcladas y esa sensacion de que algo importante se te esta escapando."],
-            ["Lo que cambia con Adonai", "La mente descansa porque el sistema te acompana: recibe el caos, lo mantiene cerca y te ayuda a avanzar sin administrar otra vida."],
-          ].map(([title, text]) => (
-            <div key={title} className="rounded-2xl border border-white/10 bg-white/[0.04] p-6">
-              <h3 className="text-lg font-black">{title}</h3>
-              <p className="mt-3 text-sm font-semibold leading-relaxed text-white/52">{text}</p>
+            { title: "Con libreta", text: "Capturas rapido, pero despues tienes que volver a buscar, reinterpretar, recordar y pasar todo manualmente al calendario.", highlight: false },
+            { title: "Con Adonai", text: "Capturas igual de rapido, pero tus pendientes quedan visibles, accionables y listos para convertirse en foco, calendario o siguiente paso.", highlight: true },
+            { title: "Lo que se pierde en papel", text: "Ideas enterradas, tareas duplicadas, fechas olvidadas, prioridades mezcladas y esa sensacion de que algo importante se te esta escapando.", highlight: false },
+            { title: "Lo que cambia con Adonai", text: "La mente descansa porque el sistema te acompana: recibe el caos, lo mantiene cerca y te ayuda a avanzar sin administrar otra vida.", highlight: true },
+          ].map((item) => (
+            <div
+              key={item.title}
+              className={`rounded-2xl p-6 ${
+                item.highlight
+                  ? "border border-[#8EA2FF]/45 bg-[#5B7CFA]/18 shadow-[0_18px_48px_rgba(91,124,250,0.18)]"
+                  : "border border-white/10 bg-white/[0.04]"
+              }`}
+            >
+              <h3 className={`text-lg font-black ${item.highlight ? "text-[#AFC0FF]" : "text-white"}`}>{item.title}</h3>
+              <p className={`mt-3 text-sm font-semibold leading-relaxed ${item.highlight ? "text-white/82" : "text-white/52"}`}>{item.text}</p>
             </div>
           ))}
         </motion.div>
 
-        <motion.div {...fadeUp} className="mt-14 text-center">
+        <motion.div {...fadeUp} ref={writingRef} className="mt-14 text-center">
           <img src="/logo.png" alt="Adonai" className="mx-auto mb-5 h-14 w-14 rounded-2xl object-contain shadow-[0_18px_45px_rgba(0,0,0,0.25)]" />
-          <p className="mx-auto max-w-4xl text-4xl font-black leading-[0.98] tracking-[-0.035em] text-white sm:text-6xl">
-            Adonai no remplaza tu libreta. La mejora.
-          </p>
+          <div key={writingRun} className="mx-auto max-w-4xl px-2 py-2">
+            <p
+              className="mx-auto max-w-[20rem] text-center text-[2rem] font-black leading-[1.08] text-white sm:max-w-4xl sm:text-5xl lg:text-6xl"
+              style={{ fontFamily: "'Segoe Print', 'Comic Sans MS', cursive" }}
+            >
+              {handwrittenText.split("").map((char, index) => {
+                const wordColor = index < 6 ? "text-[#8EA2FF] drop-shadow-[0_0_28px_rgba(142,162,255,0.35)]" : "";
+                const humanDelay = index * 0.055 + (index % 5) * 0.018 + (index % 3) * 0.01;
+                return (
+                  <span
+                    key={`${writingRun}-${index}`}
+                    className={`handwriting-char ${wordColor}`}
+                    style={{
+                      animationDelay: isWritingVisible ? `${humanDelay}s` : "0s",
+                    }}
+                  >
+                    {char === " " ? "\u00A0" : char}
+                  </span>
+                );
+              })}
+              <span className="handwriting-live-cursor hidden sm:inline-block" />
+            </p>
+          </div>
         </motion.div>
-      </div>
-    </section>
-  );
-}
-
-function Mechanism() {
-  const items = [
-    {
-      icon: <Brain className="h-5 w-5" />,
-      title: "Vaciar",
-      text: "Captura tareas, ideas y pendientes apenas aparecen. Sin organizar primero.",
-    },
-    {
-      icon: <Monitor className="h-5 w-5" />,
-      title: "Ver",
-      text: "La mini ventana mantiene lo importante visible sin sacarte de tu flujo.",
-    },
-    {
-      icon: <Timer className="h-5 w-5" />,
-      title: "Ejecutar",
-      text: "Convierte pendientes en foco, calendario o siguiente accion cuando toca.",
-    },
-  ];
-
-  return (
-    <section id="como-funciona" className="bg-[#F7F6F1] px-5 py-20 sm:px-8 md:py-28 lg:px-10">
-      <div className="mx-auto max-w-6xl">
-        <motion.div {...fadeUp} className="mb-12 max-w-3xl">
-          <SectionLabel>Como funciona</SectionLabel>
-          <h2 className="text-4xl font-black leading-[0.98] tracking-[-0.03em] text-[#151820] sm:text-6xl">
-            Brain dump instantaneo. Claridad inmediata.
-          </h2>
-          <p className="mt-6 text-lg font-semibold leading-relaxed text-[#151820]/62">
-            Adonai no intenta que seas mas disciplinado. Baja la friccion hasta que capturar y ejecutar se siente natural.
-          </p>
-        </motion.div>
-
-        <div className="grid gap-4 md:grid-cols-3">
-          {items.map((item) => (
-            <motion.article key={item.title} {...fadeUp} className="rounded-3xl border border-[#151820]/8 bg-white p-6 shadow-sm">
-              <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#E9F0FF] text-[#5B7CFA]">
-                {item.icon}
-              </div>
-              <h3 className="text-2xl font-black tracking-[-0.02em] text-[#151820]">{item.title}</h3>
-              <p className="mt-3 text-sm font-semibold leading-relaxed text-[#151820]/58">{item.text}</p>
-            </motion.article>
-          ))}
-        </div>
       </div>
     </section>
   );
@@ -448,11 +500,11 @@ function ProductFlow() {
   ];
 
   return (
-    <section className="bg-white px-5 py-20 sm:px-8 md:py-28 lg:px-10">
+    <section id="como-funciona" className="bg-white px-5 py-20 sm:px-8 md:py-28 lg:px-10">
       <div className="mx-auto max-w-6xl">
         <motion.div {...fadeUp} className="mb-12 flex flex-col justify-between gap-6 md:flex-row md:items-end">
           <div className="max-w-3xl">
-            <SectionLabel>Producto real</SectionLabel>
+            <SectionLabel>Como funciona</SectionLabel>
             <h2 className="text-4xl font-black leading-[0.98] tracking-[-0.03em] text-[#151820] sm:text-6xl">
               De ruido mental a dia claro en menos de un minuto.
             </h2>
@@ -509,10 +561,16 @@ function Differentiation() {
             <span className="text-white">Adonai</span>
           </div>
           {rows.map(([tool, current, adonai]) => (
-            <div key={tool} className="grid gap-3 border-b border-[#151820]/8 p-5 last:border-b-0 md:grid-cols-[0.75fr_1fr_1fr] md:items-center md:px-6">
+            <div key={tool} className="grid gap-3 border-b border-[#151820]/8 p-4 last:border-b-0 md:grid-cols-[0.75fr_1fr_1fr] md:items-center md:px-6">
               <p className="text-lg font-black text-[#151820]">{tool}</p>
-              <p className="text-sm font-semibold leading-relaxed text-[#151820]/52">{current}</p>
-              <p className="text-sm font-black leading-relaxed text-[#151820]">{adonai}</p>
+              <div className="rounded-2xl bg-[#F7F6F1] p-4 md:bg-transparent md:p-0">
+                <p className="mb-1 text-[10px] font-black uppercase tracking-[0.16em] text-[#151820]/36 md:hidden">Hoy</p>
+                <p className="text-sm font-semibold leading-relaxed text-[#151820]/58">{current}</p>
+              </div>
+              <div className="rounded-2xl border border-[#5B7CFA]/18 bg-[#E9F0FF] p-4 shadow-[0_12px_30px_rgba(91,124,250,0.1)] md:border-0 md:bg-transparent md:p-0 md:shadow-none">
+                <p className="mb-1 text-[10px] font-black uppercase tracking-[0.16em] text-[#5B7CFA] md:hidden">Con Adonai</p>
+                <p className="text-sm font-black leading-relaxed text-[#151820] md:text-[#5B7CFA]">{adonai}</p>
+              </div>
             </div>
           ))}
         </div>
@@ -568,7 +626,7 @@ function EmotionalDesign() {
             La productividad no deberia sentirse como otra carga.
           </h2>
           <p className="mx-auto mt-6 max-w-3xl text-xl font-semibold leading-relaxed text-white/62">
-            Adonai no intenta convertirte en una persona mas disciplinada. Disena el entorno para que sacar el pendiente de tu cabeza sea mas facil que postergarlo.
+            Adonai no intenta convertirte en una persona mas disciplinada. Diseña el entorno para que sacar el pendiente de tu cabeza sea mas facil que postergarlo.
           </p>
           <div className="mt-10 flex justify-center">
             <PrimaryCTA />
@@ -697,7 +755,7 @@ function FinalCTA() {
 function MobileStickyCTA() {
   return (
     <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[#151820]/8 bg-white/92 p-3 backdrop-blur-xl sm:hidden">
-      <PrimaryCTA className="h-12" />
+      <PrimaryCTA tone="dark" className="h-12" />
     </div>
   );
 }
@@ -712,14 +770,15 @@ export default function LandingPage() {
   }, []);
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-white text-[#151820] selection:bg-[#5B7CFA] selection:text-white">
+    <div className="min-h-screen overflow-x-hidden bg-[#151820] text-[#151820] selection:bg-[#5B7CFA] selection:text-white">
+      <IntroExperience />
+      <div className="bg-white">
       <PublicNav />
       <main className="pt-16">
         <Hero />
         <IntegrationsStrip />
         <PainMirror />
         <NotebookInsight />
-        <Mechanism />
         <ProductFlow />
         <Differentiation />
         <LatamUseCases />
@@ -731,6 +790,7 @@ export default function LandingPage() {
       </main>
       <PublicFooter />
       <MobileStickyCTA />
+      </div>
     </div>
   );
 }

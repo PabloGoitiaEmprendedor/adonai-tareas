@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { useTasks } from '@/hooks/useTasks';
 import { useTimeBlocks } from '@/hooks/useTimeBlocks';
 import { useFolders } from '@/hooks/useFolders';
@@ -9,8 +9,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { EventManager, Event } from '@/components/ui/event-manager';
 import { format, parseISO, startOfMonth, endOfMonth, addMonths, startOfDay, addHours, differenceInMinutes, addMinutes, isSameDay, eachDayOfInterval } from 'date-fns';
 import { Sparkles, Calendar as CalendarIcon, Plus } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 
 interface AdonaiCalendarViewProps {
   selectedDate: Date;
@@ -24,6 +25,7 @@ interface AdonaiCalendarViewProps {
 
 const TIME_PREFIX_REGEX = /^\[T:(\d{2}:\d{2})-(\d{2}:\d{2})\]/;
 const COLOR_PREFIX_REGEX = /\[C:([^\]]+)\]/;
+type RecurringUpdateScope = 'single' | 'all';
  
 const stripAllPrefixes = (description: string | null): string => {
   if (!description) return '';
@@ -110,6 +112,7 @@ const getCountBasedEndDate = (
 
 const AdonaiCalendarView: React.FC<AdonaiCalendarViewProps> = ({ selectedDate, onSelectDate, viewMode = 'day', dragDisabled = false, className, hideSidebar = false, fillHeight = false }) => {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const dateStr = format(selectedDate, 'yyyy-MM-dd');
   
   const rangeStart = useMemo(() => startOfMonth(selectedDate), [selectedDate]);
@@ -136,6 +139,8 @@ const AdonaiCalendarView: React.FC<AdonaiCalendarViewProps> = ({ selectedDate, o
   }), [rangeStart, rangeEnd]);
   
   const { tasks, createTask, updateTask, deleteTask } = useTasks(tasksFilter);
+  const recurrenceScopeResolverRef = useRef<((scope: RecurringUpdateScope) => void) | null>(null);
+  const [recurrenceScopeDialogOpen, setRecurrenceScopeDialogOpen] = useState(false);
 
   // Map excluded dates to event instance IDs for EventManager
   const recurrenceExceptions = useMemo(() => {
@@ -371,6 +376,7 @@ tasks?.forEach((task) => {
             recurrenceEndType: recurrenceConfig.recurrenceEndDate ? 'date' : 'never',
             recurrenceEndDate: recurrenceConfig.recurrenceEndDate,
             expandRecurrence: false,
+            recurrenceId: task.recurrence_id || undefined,
             reminderEnabled: !!(task.metadata as any)?.event_reminder?.enabled,
             reminderMinutesBefore: (task.metadata as any)?.event_reminder?.minutes_before,
             reminderCustomValue: (task.metadata as any)?.event_reminder?.custom_value,
@@ -382,7 +388,86 @@ tasks?.forEach((task) => {
     return events;
   }, [tasks, timeBlocks, dateStr, folders, priorityColors, rangeStart, rangeEnd, recurrenceRules]);
 
-const handleEventUpdate = async (id: string, updates: Partial<Event>) => {
+  const getTaskEventParts = (id: string) => {
+    const generatedMatch = id.match(/^task-(.+)-rec-(\d{4}-\d{2}-\d{2})$/);
+    if (generatedMatch) {
+      return { taskId: generatedMatch[1], occurrenceDate: generatedMatch[2], isGeneratedOccurrence: true };
+    }
+
+    if (!id.startsWith('task-')) return null;
+    return { taskId: id.replace('task-', ''), occurrenceDate: null, isGeneratedOccurrence: false };
+  };
+
+  const resolveRecurringUpdateScope = (scope: RecurringUpdateScope) => {
+    recurrenceScopeResolverRef.current?.(scope);
+    recurrenceScopeResolverRef.current = null;
+    setRecurrenceScopeDialogOpen(false);
+  };
+
+  const askRecurringUpdateScope = () => {
+    setRecurrenceScopeDialogOpen(true);
+    return new Promise<RecurringUpdateScope>((resolve) => {
+      recurrenceScopeResolverRef.current = resolve;
+    });
+  };
+
+  const updateRecurringTaskSeries = async (
+    recurrenceId: string,
+    updateData: any,
+    updates: Partial<Event>,
+    originalEvent?: Event
+  ) => {
+    if (!user) return;
+
+    const { due_date: _dueDate, recurrence_id: _recurrenceId, ...seriesTaskUpdates } = updateData;
+
+    if (Object.keys(seriesTaskUpdates).length > 0) {
+      const { error } = await supabase
+        .from('tasks')
+        .update(seriesTaskUpdates)
+        .eq('user_id', user.id)
+        .eq('recurrence_id', recurrenceId);
+      if (error) throw error;
+    }
+
+    const ruleUpdates: any = {};
+    if (seriesTaskUpdates.title) ruleUpdates.title = seriesTaskUpdates.title;
+
+    if (updates.startTime) {
+      const nextDate = format(updates.startTime, 'yyyy-MM-dd');
+      const nextDay = updates.startTime.getDay();
+      const rule = recurrenceRules.find(r => r.id === recurrenceId);
+      ruleUpdates.start_date = nextDate;
+
+      if (rule?.frequency === 'weekly') {
+        const currentDays = rule.days_of_week || [];
+        const previousDay = originalEvent?.startTime?.getDay();
+        if (currentDays.length <= 1) {
+          ruleUpdates.days_of_week = [nextDay];
+        } else if (previousDay !== undefined) {
+          ruleUpdates.days_of_week = Array.from(new Set(currentDays.map(day => day === previousDay ? nextDay : day))).sort();
+        }
+      }
+    }
+
+    if (Object.keys(ruleUpdates).length > 0) {
+      const { error } = await supabase
+        .from('recurrence_rules')
+        .update(ruleUpdates)
+        .eq('id', recurrenceId)
+        .eq('user_id', user.id);
+      if (error) throw error;
+    }
+
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['tasks', user.id] }),
+      queryClient.invalidateQueries({ queryKey: ['recurrence_rules', user.id] }),
+      queryClient.invalidateQueries({ queryKey: ['materialized-recurrence', user.id] }),
+    ]);
+    (window as any).electronAPI?.syncData?.();
+  };
+
+  const handleEventUpdate = async (id: string, updates: Partial<Event>) => {
     // Handle completion of recurring instances (skip for calendar-only events)
     const recMatch = id.match(/^task-(.+)-rec-(\d{4}-\d{2}-\d{2})$/);
     if (recMatch && updates.completed === true) {
@@ -414,9 +499,6 @@ const handleEventUpdate = async (id: string, updates: Partial<Event>) => {
       return;
     }
 
-    // Skip drag updates for generated recurring instances (use optimistic local state only)
-    if (id.match(/^task-.+-rec-\d{4}-\d{2}-\d{2}$/)) return;
-
     if (id.startsWith('block-')) {
       // Extract base block ID (strip date suffix from generated events like "block-{id}-2026-05-11")
       const blockId = id.replace(/^block-/, '').replace(/-\d{4}-\d{2}-\d{2}$/, '');
@@ -431,9 +513,17 @@ const handleEventUpdate = async (id: string, updates: Partial<Event>) => {
       
       updateBlock.mutate({ id: blockId, ...updateData });
     } else if (id.startsWith('task-')) {
-      const taskId = id.replace('task-', '');
+      const taskParts = getTaskEventParts(id);
+      if (!taskParts) return;
+
+      const taskId = taskParts.taskId;
       if (taskId.startsWith('temp-')) return;
+      const originalEvent = calendarEvents.find(event => event.id === id);
       const task = tasks?.find(t => t.id === taskId);
+      const recurrenceId = task?.recurrence_id || originalEvent?.recurrenceId || null;
+      const singleUpdateTaskId = taskParts.isGeneratedOccurrence && recurrenceId && taskParts.occurrenceDate
+        ? `virtual-${recurrenceId}-${taskParts.occurrenceDate}`
+        : taskId;
       const updateData: any = {};
 
       if (updates.title) updateData.title = updates.title;
@@ -443,7 +533,7 @@ const handleEventUpdate = async (id: string, updates: Partial<Event>) => {
 
 
       // ── Rebuild description from all sources ──────────────────────────
-      const currentDbDesc = task?.description || '';
+      const currentDbDesc = task?.description || originalEvent?.description || '';
       const cleanText = updates.description !== undefined
         ? stripAllPrefixes(updates.description)
         : stripAllPrefixes(currentDbDesc);
@@ -454,7 +544,7 @@ const handleEventUpdate = async (id: string, updates: Partial<Event>) => {
       const existingTime = parseTimeFromDescription(currentDbDesc);
       const newStartTime = updates.startTime ?? null;
       const newEndTime = updates.endTime ?? null;
-      const targetDateStr = newStartTime ? format(newStartTime, 'yyyy-MM-dd') : (task?.due_date || dateStr);
+      const targetDateStr = newStartTime ? format(newStartTime, 'yyyy-MM-dd') : (taskParts.occurrenceDate || task?.due_date || dateStr);
 
       const isAllDay = updates.isAllDay ?? (existingTime === null);
       const noTimesProvided = !updates.startTime && !updates.endTime;
@@ -491,12 +581,50 @@ const handleEventUpdate = async (id: string, updates: Partial<Event>) => {
       }
 
       // ── Handle recurrence ────────────────────────────────────────────
-      const doUpdate = () => updateTask.mutate({ id: taskId, ...updateData });
+      const doUpdate = () => updateTask.mutate({ id: singleUpdateTaskId, ...updateData });
+
+      if (updates.recurrence !== undefined && recurrenceId) {
+        const scope = await askRecurringUpdateScope();
+        if (scope === 'single') {
+          doUpdate();
+          return;
+        }
+
+        try {
+          await updateRecurringTaskSeries(recurrenceId, updateData, updates, originalEvent);
+          window.dispatchEvent(new CustomEvent('adonai:notify', {
+            detail: { type: 'success', message: 'Todas las repeticiones fueron actualizadas' }
+          }));
+        } catch (err) {
+          console.error('[recurrence] Error updating linked series:', err);
+          window.dispatchEvent(new CustomEvent('adonai:notify', {
+            detail: { type: 'error', message: 'No se pudieron actualizar todas las repeticiones' }
+          }));
+        }
+        return;
+      }
 
       if (updates.recurrence === undefined) {
+        if (recurrenceId && Object.keys(updateData).length > 0) {
+          const scope = await askRecurringUpdateScope();
+          if (scope === 'all') {
+            try {
+              await updateRecurringTaskSeries(recurrenceId, updateData, updates, originalEvent);
+              window.dispatchEvent(new CustomEvent('adonai:notify', {
+                detail: { type: 'success', message: 'Todas las repeticiones fueron actualizadas' }
+              }));
+            } catch (err) {
+              console.error('[recurrence] Error updating linked series:', err);
+              window.dispatchEvent(new CustomEvent('adonai:notify', {
+                detail: { type: 'error', message: 'No se pudieron actualizar todas las repeticiones' }
+              }));
+            }
+            return;
+          }
+        }
         doUpdate();
       } else {
-        const existingRuleId = task?.recurrence_id;
+        const existingRuleId = recurrenceId;
 
         if (updates.recurrence === 'none') {
           if (existingRuleId) deleteRule.mutate(existingRuleId);
@@ -770,6 +898,57 @@ const handleEventUpdate = async (id: string, updates: Partial<Event>) => {
           containedScroll={fillHeight}
         />
       </div>
+
+      <Dialog
+        open={recurrenceScopeDialogOpen}
+        onOpenChange={(open) => {
+          if (!open && recurrenceScopeResolverRef.current) {
+            resolveRecurringUpdateScope('single');
+          } else {
+            setRecurrenceScopeDialogOpen(open);
+          }
+        }}
+      >
+        <DialogContent className="max-w-[92vw] rounded-[32px] border border-primary/15 bg-surface-container-high/95 p-0 shadow-2xl backdrop-blur-3xl sm:max-w-md">
+          <div className="overflow-hidden rounded-[32px]">
+            <div className="relative px-6 pb-5 pt-6">
+              <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-primary/18 to-transparent" />
+              <div className="relative flex items-start gap-4">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/20">
+                  <Sparkles className="h-5 w-5" />
+                </div>
+                <div className="min-w-0">
+                  <DialogTitle className="text-xl font-black tracking-tight text-foreground">
+                    Esto forma parte de una repeticion
+                  </DialogTitle>
+                  <DialogDescription className="mt-2 text-sm font-medium leading-relaxed text-muted-foreground">
+                    Adonai puede cambiar solo este evento o mantener toda la serie vinculada para que las repeticiones sigan iguales.
+                  </DialogDescription>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid gap-2 border-t border-outline-variant/10 bg-background/35 p-4 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={() => resolveRecurringUpdateScope('single')}
+                className="rounded-2xl border border-outline-variant/15 bg-surface-container px-4 py-3 text-left transition-all hover:border-primary/25 hover:bg-primary/5 active:scale-[0.98]"
+              >
+                <span className="block text-sm font-black text-foreground">Solo este evento</span>
+                <span className="mt-1 block text-xs font-medium leading-snug text-muted-foreground">Ideal si este dia fue una excepcion.</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => resolveRecurringUpdateScope('all')}
+                className="rounded-2xl bg-primary px-4 py-3 text-left text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:brightness-105 active:scale-[0.98]"
+              >
+                <span className="block text-sm font-black">Todas las repeticiones</span>
+                <span className="mt-1 block text-xs font-medium leading-snug opacity-80">Mantiene la serie completa sincronizada.</span>
+              </button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
     </div>
   );

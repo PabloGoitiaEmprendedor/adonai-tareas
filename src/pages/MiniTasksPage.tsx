@@ -6,13 +6,14 @@
  * - When timer active: pill shows running time with primary numbers
  */
 import { useState, useEffect, useMemo, useRef, useCallback, memo } from 'react';
+import type { CSSProperties } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTasks } from '@/hooks/useTasks';
 import { useFolders } from '@/hooks/useFolders';
 import { useSubtasks } from '@/hooks/useSubtasks';
 import { format, parseISO, addMinutes } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Check, MoreHorizontal, ChevronRight, CalendarDays, Plus, Mic, Repeat, Paperclip, Folder, FolderOpen, X, Users as UsersIcon, GripHorizontal } from 'lucide-react';
+import { Check, ChevronRight, CalendarDays, Plus, Mic, Repeat, Paperclip, Folder, FolderOpen, X, Users as UsersIcon, GripHorizontal } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import TaskCaptureModal, { type TaskCaptureModalHandle } from '@/components/TaskCaptureModal';
 import TaskDetailModal from '@/components/TaskDetailModal';
@@ -23,6 +24,7 @@ import { useGamification } from '@/hooks/useGamification';
 import { triggerTaskCelebration, triggerDailyCelebration, triggerOnTimeCelebration } from '@/lib/celebrations';
 import { useProfile } from '@/hooks/useProfile';
 import { usePriorityColors } from '@/hooks/usePriorityColors';
+import { useTheme } from '@/contexts/ThemeProvider';
 import AdonaiCalendarView from '@/components/calendar/AdonaiCalendarView';
 import '../index.css';
 
@@ -36,16 +38,83 @@ const PILL_H = 52;
 const PILL_TIMER_W = 130;
 
 const C = {
-  bg: 'hsl(var(--surface-container))',
-  border: 'hsl(var(--outline))',
-  text: 'hsl(var(--on-surface))',
-  muted: 'hsl(var(--on-surface-variant))',
-  accent: 'hsl(var(--primary))',
-  accentBg: 'hsl(var(--primary) / 0.1)',
-  taskBg: 'hsl(var(--surface))',
-  taskBorder: 'hsl(var(--outline-variant))',
-  subBg: 'hsl(var(--surface-dim))',
+  bg: 'var(--mini-bg)',
+  border: 'var(--mini-border)',
+  text: 'var(--mini-text)',
+  muted: 'var(--mini-muted)',
+  accent: 'var(--mini-accent)',
+  accentBg: 'var(--mini-accent-bg)',
+  accentSoft: 'var(--mini-accent-soft)',
+  accentBorder: 'var(--mini-accent-border)',
+  accentGlow: 'var(--mini-accent-glow)',
+  taskBg: 'var(--mini-task-bg)',
+  taskBorder: 'var(--mini-task-border)',
+  subBg: 'var(--mini-sub-bg)',
 };
+
+type MiniThemeVars = CSSProperties & Record<`--mini-${string}`, string>;
+
+const getMiniThemeVars = (isDarkMode: boolean): MiniThemeVars => ({
+  '--mini-bg': isDarkMode ? '#0B1220' : '#F7F8FC',
+  '--mini-border': isDarkMode ? 'rgba(91, 124, 250, 0.12)' : 'rgba(21, 24, 32, 0.1)',
+  '--mini-text': isDarkMode ? 'rgba(245,247,255,0.94)' : '#151820',
+  '--mini-muted': isDarkMode ? 'rgba(211,219,245,0.56)' : 'rgba(21,24,32,0.54)',
+  '--mini-accent': isDarkMode ? '#3E5CC8' : '#5B7CFA',
+  '--mini-accent-bg': isDarkMode ? 'rgba(62, 92, 200, 0.08)' : 'rgba(91, 124, 250, 0.1)',
+  '--mini-accent-soft': isDarkMode ? 'rgba(62, 92, 200, 0.16)' : 'rgba(91, 124, 250, 0.14)',
+  '--mini-accent-border': isDarkMode ? 'rgba(91, 124, 250, 0.22)' : 'rgba(91, 124, 250, 0.26)',
+  '--mini-accent-glow': isDarkMode ? 'rgba(62, 92, 200, 0.16)' : 'rgba(91, 124, 250, 0.16)',
+  '--mini-task-bg': isDarkMode ? '#101826' : '#FFFFFF',
+  '--mini-task-border': isDarkMode ? 'rgba(255, 255, 255, 0.07)' : 'rgba(21, 24, 32, 0.08)',
+  '--mini-sub-bg': isDarkMode ? '#080F1B' : '#EEF2FA',
+});
+
+const getApplePillStyles = (isDarkMode: boolean) => ({
+  background: isDarkMode
+    ? 'linear-gradient(180deg, rgba(255,255,255,0.11), rgba(255,255,255,0.035))'
+    : 'linear-gradient(180deg, rgba(91,124,250,0.18), rgba(62,92,200,0.08))',
+  border: isDarkMode ? 'rgba(255,255,255,0.14)' : 'rgba(91,124,250,0.18)',
+  shadow: isDarkMode
+    ? '0 10px 26px rgba(0,0,0,0.34), inset 0 1px 0 rgba(255,255,255,0.16), inset 0 -1px 0 rgba(0,0,0,0.18)'
+    : '0 10px 24px rgba(4,10,24,0.22), inset 0 1px 0 rgba(255,255,255,0.08), inset 0 -1px 0 rgba(0,0,0,0.18)',
+});
+
+const AppleDots = ({ size = 6, isDarkMode }: { size?: number; isDarkMode: boolean }) => (
+  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: size * 0.72 }}>
+    {[0, 1, 2].map((dot) => (
+      <span
+        key={dot}
+        style={{
+          width: size,
+          height: size,
+          borderRadius: '50%',
+          background: isDarkMode
+            ? 'linear-gradient(180deg, rgba(124,151,255,0.82), rgba(62,92,200,0.52))'
+            : 'linear-gradient(180deg, rgba(20,32,56,0.88), rgba(20,32,56,0.48))',
+          boxShadow: isDarkMode
+            ? '0 1px 2px rgba(0,0,0,0.42), 0 0 8px rgba(62,92,200,0.18), inset 0 1px 0 rgba(255,255,255,0.12)'
+            : '0 1px 2px rgba(15,23,42,0.12), inset 0 1px 0 rgba(255,255,255,0.58)',
+          opacity: dot === 1 ? 0.82 : 0.68,
+        }}
+      />
+    ))}
+  </div>
+);
+
+const TimerText = ({ seconds, compact = false }: { seconds: number; compact?: boolean }) => (
+  <span style={{
+    fontSize: compact ? 13.5 : 15.5,
+    fontWeight: compact ? 780 : 820,
+    color: seconds < 0 ? '#FF9B9B' : '#F8FAFF',
+    fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Rounded", "SF Pro Display", system-ui, sans-serif',
+    fontVariantNumeric: 'tabular-nums',
+    letterSpacing: 0,
+    lineHeight: 1,
+    textShadow: seconds < 0 ? '0 0 8px rgba(255,122,122,0.24)' : '0 1px 3px rgba(0,0,0,0.72)',
+  }}>
+    {formatTimer(seconds)}
+  </span>
+);
 
 function formatTimer(seconds: number): string {
   const isNegative = seconds < 0;
@@ -278,8 +347,8 @@ const TaskRowRaw = ({ task, onToggle, onDetail, activeTimerId, onTimerToggle, up
         style={{
           display: 'flex', alignItems: 'center', gap: 10, padding: '10px',
           borderRadius: 12, cursor: 'pointer',
-          background: isDone ? 'transparent' : isTimerActive ? 'hsl(var(--primary) / 0.08)' : baseBg,
-          border: `1px solid ${isDone ? 'transparent' : isTimerActive ? 'hsl(var(--primary) / 0.18)' : C.taskBorder}`,
+          background: isDone ? 'transparent' : isTimerActive ? C.accentBg : baseBg,
+          border: `1px solid ${isDone ? 'transparent' : isTimerActive ? C.accentBorder : C.taskBorder}`,
           opacity: isDone ? 0.45 : 1,
         }}
       >
@@ -391,12 +460,13 @@ const TaskRowRaw = ({ task, onToggle, onDetail, activeTimerId, onTimerToggle, up
                   onClick={(e) => { e.stopPropagation(); submitEdit(); }}
                   style={{
                     width: 24, height: 24, borderRadius: 6, flexShrink: 0,
-                    background: C.accent,
+                    background: C.accentSoft,
+                    border: `1px solid ${C.accentBorder}`,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     cursor: 'pointer',
                   }}
                 >
-                  <Check style={{ width: 12, height: 12, color: '#000', strokeWidth: 3 }} />
+                  <Check style={{ width: 12, height: 12, color: C.accent, strokeWidth: 3 }} />
                 </div>
               ) : (
                 <TaskTimerButton
@@ -481,6 +551,10 @@ function useDragWindow() {
 // ─── Main component ──────────────────────────────────────────────────────────
 const MiniTaskList = () => {
   const { user, loading } = useAuth();
+  const { theme } = useTheme();
+  const isDarkMode = theme === 'dark' || (theme === 'system' && document.documentElement.classList.contains('dark'));
+  const miniThemeVars = getMiniThemeVars(isDarkMode);
+  const applePill = getApplePillStyles(isDarkMode);
   const [viewDate, setViewDate] = useState(new Date());
   const { tasks, updateTask, createTask, isLoading } = useTasks({ 
     date: format(viewDate, 'yyyy-MM-dd'), 
@@ -917,7 +991,7 @@ const MiniTaskList = () => {
 
   if (!isExpanded) {
     return (
-      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ ...miniThemeVars, width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div
           onMouseEnter={handleMouseEnterUI}
           onMouseLeave={handleMouseLeaveUI}
@@ -938,18 +1012,22 @@ const MiniTaskList = () => {
             handleToggleExpand(e);
           }}
           style={{
-            height: 32, borderRadius: 999,
-            padding: activeTimerId ? '0 12px' : '0',
+            height: activeTimerId ? 34 : 32, borderRadius: 999,
+            padding: activeTimerId ? '0 8px 0 7px' : '0',
             width: activeTimerId ? 'auto' : 64,
-            minWidth: activeTimerId ? 110 : 64,
-            background: C.bg,
-            border: `1px solid ${activeTimerId ? (timerSeconds < 0 ? 'rgba(235,87,87,0.25)' : 'hsl(var(--primary) / 0.25)') : C.border}`,
+            minWidth: activeTimerId ? 92 : 64,
+            background: activeTimerId
+              ? 'linear-gradient(180deg, rgba(9,18,34,0.99), rgba(5,10,20,0.98))'
+              : 'linear-gradient(180deg, rgba(16,24,38,0.98), rgba(8,15,27,0.96))',
+            border: `1px solid ${activeTimerId ? (timerSeconds < 0 ? 'rgba(255,122,122,0.34)' : 'rgba(124,151,255,0.28)') : 'rgba(91,124,250,0.16)'}`,
             boxShadow: showLedGlow
-              ? '0 0 0 0 hsl(var(--primary) / 0.4), 0 0 20px 4px hsl(var(--primary) / 0.3), 0 0 40px 8px hsl(var(--primary) / 0.15), inset 0 0 8px hsl(var(--primary) / 0.1)'
+              ? `0 0 0 0 rgba(62, 92, 200, 0.16), 0 0 16px 2px ${C.accentGlow}, 0 0 28px 4px rgba(62, 92, 200, 0.07), inset 0 0 6px rgba(62, 92, 200, 0.06)`
               : activeTimerId
-                ? (timerSeconds < 0 ? '0 4px 20px rgba(235,87,87,0.15)' : '0 4px 20px hsl(var(--primary) / 0.15)')
-                : '0 4px 20px hsl(var(--foreground) / 0.1)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                ? (timerSeconds < 0
+                  ? '0 10px 26px rgba(0,0,0,0.4), 0 0 18px rgba(255,122,122,0.16), inset 0 1px 0 rgba(255,255,255,0.1)'
+                  : '0 10px 26px rgba(0,0,0,0.4), 0 0 18px rgba(62,92,200,0.14), inset 0 1px 0 rgba(255,255,255,0.1), inset 0 -1px 0 rgba(0,0,0,0.24)')
+                : '0 10px 26px rgba(0,0,0,0.34), inset 0 1px 0 rgba(255,255,255,0.08), inset 0 -1px 0 rgba(0,0,0,0.24)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0,
             userSelect: 'none', cursor: 'grab',
             position: 'relative',
             animation: showLedGlow ? 'ledPulse 1.5s ease-in-out infinite' : 'none',
@@ -959,28 +1037,15 @@ const MiniTaskList = () => {
           {showLedGlow && (
             <div style={{
               position: 'absolute', inset: -3, borderRadius: 999,
-              border: `2px solid hsl(var(--primary) / 0.5)`,
+              border: `1px solid ${C.accentBorder}`,
               animation: 'ledBorder 2s ease-in-out infinite',
               pointerEvents: 'none',
             }} />
           )}
           {activeTimerId ? (
-            <>
-              <div style={{
-                width: 8, height: 8, borderRadius: '50%',
-                background: timerSeconds < 0 ? '#EB5757' : C.accent, animation: 'pulse 1.5s ease-in-out infinite',
-              }} />
-              <span style={{
-                fontSize: 16, fontWeight: 900, 
-                color: timerSeconds < 0 ? '#EB5757' : C.accent,
-                fontFamily: 'monospace', letterSpacing: '0.05em',
-                textShadow: '0 0 10px hsl(var(--primary) / 0.3)'
-              }}>
-                {formatTimer(timerSeconds)}
-              </span>
-            </>
+            <TimerText seconds={timerSeconds} />
           ) : (
-            <MoreHorizontal style={{ width: 20, height: 20, color: C.text }} />
+            <AppleDots size={5.5} isDarkMode />
           )}
         </div>
       </div>
@@ -1007,6 +1072,7 @@ const MiniTaskList = () => {
         handleMouseLeaveUI(e as any);
       }}
       style={{
+        ...miniThemeVars,
         position: isElectron ? 'fixed' : 'relative',
         inset: isElectron ? 0 : undefined,
         width: isElectron ? undefined : (calendarOpen ? PANEL_W + CALENDAR_W : PANEL_W + 32),
@@ -1026,8 +1092,8 @@ const MiniTaskList = () => {
       }}
       whileHover={{ 
         scale: 1.05,
-        boxShadow: `0 0 25px hsl(var(--primary) / 0.35)`,
-        borderColor: 'hsl(var(--primary))'
+        boxShadow: `0 0 20px ${C.accentGlow}`,
+        borderColor: C.accentBorder
       }}
       transition={{ type: 'spring', stiffness: 420, damping: 30, mass: 0.8 }}
       style={{
@@ -1037,16 +1103,16 @@ const MiniTaskList = () => {
         transform: 'translateY(-50%)',
         width: 48, height: 48, 
         borderRadius: '50%',
-        background: 'linear-gradient(135deg, hsl(var(--primary-container)) 0%, hsl(var(--primary)) 100%)',
-        border: '1.5px solid hsl(var(--primary))',
-        boxShadow: '4px 0 16px rgba(0,0,0,0.5)',
+        background: 'linear-gradient(135deg, hsl(var(--surface-container-high)) 0%, hsl(var(--surface-container)) 100%)',
+        border: `1.5px solid ${C.accentBorder}`,
+        boxShadow: '4px 0 16px rgba(0,0,0,0.45)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         cursor: 'pointer', 
         pointerEvents: calendarOpen ? 'none' : 'auto',
       }}
       title="Ver calendario"
     >
-      <CalendarDays style={{ width: 22, height: 22, color: 'hsl(var(--primary-foreground))', marginLeft: 12 }} />
+      <CalendarDays style={{ width: 22, height: 22, color: C.accent, marginLeft: 12 }} />
     </motion.div>
 
     {/* INNER: visual panel with clipping */}
@@ -1073,29 +1139,24 @@ const MiniTaskList = () => {
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           {/* Collapse / timer pill — same ... design as collapsed state */}
           <div onClick={handleToggleExpand} style={{
-            height: 26, borderRadius: 999,
-            padding: activeTimerId ? '0 10px' : '0',
+            height: activeTimerId ? 28 : 26, borderRadius: 999,
+            padding: activeTimerId ? '0 11px' : '0',
             width: activeTimerId ? 'auto' : 52,
-            minWidth: activeTimerId ? 90 : 52,
-            background: activeTimerId ? 'hsl(var(--primary) / 0.1)' : C.subBg,
-            border: `1px solid ${activeTimerId ? 'hsl(var(--primary) / 0.2)' : C.border}`,
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
+            minWidth: activeTimerId ? 82 : 52,
+            background: activeTimerId
+              ? 'linear-gradient(180deg, rgba(9,18,34,0.99), rgba(5,10,20,0.98))'
+              : applePill.background,
+            border: `1px solid ${activeTimerId ? (timerSeconds < 0 ? 'rgba(255,122,122,0.3)' : 'rgba(124,151,255,0.24)') : applePill.border}`,
+            boxShadow: activeTimerId
+              ? '0 6px 18px rgba(0,0,0,0.26), inset 0 1px 0 rgba(255,255,255,0.1), inset 0 -1px 0 rgba(0,0,0,0.2)'
+              : applePill.shadow,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0,
             cursor: 'pointer',
           }} title="Colapsar">
             {activeTimerId ? (
-              <>
-                <div style={{ width: 6, height: 6, borderRadius: '50%', background: timerSeconds < 0 ? '#EB5757' : C.accent, animation: 'pulse 1.5s ease-in-out infinite' }} />
-                <span style={{
-                  fontSize: 13, fontWeight: 900,
-                  color: timerSeconds < 0 ? '#EB5757' : C.accent,
-                  fontFamily: 'monospace',
-                  textShadow: '0 0 8px hsl(var(--primary) / 0.2)'
-                }}>
-                  {formatTimer(timerSeconds)}
-                </span>
-              </>
+              <TimerText seconds={timerSeconds} compact />
             ) : (
-              <MoreHorizontal style={{ width: 16, height: 16, color: C.muted }} />
+              <AppleDots size={4.5} isDarkMode={isDarkMode} />
             )}
           </div>
 
@@ -1136,15 +1197,15 @@ const MiniTaskList = () => {
             onClick={(e) => { e.stopPropagation(); setShowFolderBar(!showFolderBar); }}
             style={{
               width: 34, height: 28, borderRadius: 10,
-              background: showFolderBar ? C.accent : C.subBg,
-              border: `1px solid ${showFolderBar ? 'transparent' : C.border}`,
+              background: showFolderBar ? C.accentSoft : C.subBg,
+              border: `1px solid ${showFolderBar ? C.accentBorder : C.border}`,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               cursor: 'pointer', flexShrink: 0,
               transition: 'all 0.2s ease',
             }}
             title="Ver carpetas"
           >
-            <Folder style={{ width: 14, height: 14, color: showFolderBar ? '#000' : C.text }} />
+            <Folder style={{ width: 14, height: 14, color: showFolderBar ? C.accent : C.text }} />
           </div>
 
           {/* 4. RECURRENCE button — Repeat icon */}
@@ -1183,7 +1244,7 @@ const MiniTaskList = () => {
         <div style={{ height: 3, background: 'rgba(255,255,255,0.06)', flexShrink: 0, margin: '0 0 2px' }}>
           <motion.div initial={{ width: 0 }} animate={{ width: `${progress}%` }}
             transition={{ duration: 0.5, ease: 'easeOut' }}
-            style={{ height: '100%', background: C.accent }} />
+            style={{ height: '100%', background: 'rgba(62, 92, 200, 0.58)' }} />
         </div>
       )}
 
@@ -1207,9 +1268,9 @@ const MiniTaskList = () => {
                 style={{
                   flexShrink: 0, padding: '4px 12px', borderRadius: 8,
                   fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em',
-                  background: !selectedFolderId ? C.accent : 'transparent',
-                  color: !selectedFolderId ? '#000' : C.muted,
-                  border: `1px solid ${!selectedFolderId ? 'transparent' : C.border}`,
+                  background: !selectedFolderId ? C.accentSoft : 'transparent',
+                  color: !selectedFolderId ? C.text : C.muted,
+                  border: `1px solid ${!selectedFolderId ? C.accentBorder : C.border}`,
                   display: 'flex', alignItems: 'center', gap: 4,
                   transition: 'all 0.2s ease'
                 }}
@@ -1219,8 +1280,8 @@ const MiniTaskList = () => {
               {folders.map(folder => (
                 <div key={folder.id} style={{
                   flexShrink: 0, display: 'flex', alignItems: 'center', borderRadius: 8,
-                  background: selectedFolderId === folder.id ? C.accent : 'transparent',
-                  border: `1px solid ${selectedFolderId === folder.id ? 'transparent' : C.border}`,
+                  background: selectedFolderId === folder.id ? C.accentSoft : 'transparent',
+                  border: `1px solid ${selectedFolderId === folder.id ? C.accentBorder : C.border}`,
                   overflow: 'hidden',
                   transition: 'all 0.2s ease'
                 }}>
@@ -1229,13 +1290,13 @@ const MiniTaskList = () => {
                     style={{
                       padding: '4px 8px 4px 12px',
                       fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em',
-                      color: selectedFolderId === folder.id ? '#000' : C.muted,
+                      color: selectedFolderId === folder.id ? C.text : C.muted,
                       border: 'none', background: 'transparent', cursor: 'pointer',
                       display: 'flex', alignItems: 'center', gap: 4
                     }}
                   >
                     {folder.isShared ? (
-                      <UsersIcon style={{ width: 10, height: 10, color: selectedFolderId === folder.id ? '#000' : folder.color }} />
+                      <UsersIcon style={{ width: 10, height: 10, color: selectedFolderId === folder.id ? C.accent : folder.color }} />
                     ) : (
                       <motion.div
                         key={selectedFolderId === folder.id ? 'open' : 'closed'}
@@ -1245,7 +1306,7 @@ const MiniTaskList = () => {
                         style={{ display: 'flex' }}
                       >
                         {selectedFolderId === folder.id ? (
-                          <FolderOpen style={{ width: 10, height: 10, color: '#000' }} />
+                          <FolderOpen style={{ width: 10, height: 10, color: C.accent }} />
                         ) : (
                           <Folder style={{ width: 10, height: 10, color: folder.color }} />
                         )}
@@ -1290,7 +1351,7 @@ const MiniTaskList = () => {
                           setIsCreatingFolder(false);
                         }
                       }}
-                      style={{ padding: 4, background: C.accent, borderRadius: 6, border: 'none', cursor: 'pointer', color: '#000' }}
+                      style={{ padding: 4, background: C.accentSoft, borderRadius: 6, border: `1px solid ${C.accentBorder}`, cursor: 'pointer', color: C.accent }}
                       title="Guardar"
                     >
                       <Check style={{ width: 12, height: 12 }} />
@@ -1400,7 +1461,7 @@ const MiniTaskList = () => {
               <motion.div 
                 initial={{ opacity: 0, scale: 0.9 }} 
                 animate={{ opacity: 1, scale: 1 }}
-                style={{ margin: '6px 0', padding: '10px', borderRadius: 12, textAlign: 'center', background: C.accentBg, border: '1px solid rgba(163,230,53,0.2)' }}
+                style={{ margin: '6px 0', padding: '10px', borderRadius: 12, textAlign: 'center', background: C.accentBg, border: `1px solid ${C.accentBorder}` }}
               >
                 <span style={{ fontSize: 20 }}>🏆</span>
                 <p style={{ fontSize: 12, fontWeight: 800, color: C.accent, marginTop: 4 }}>¡Todo completado!</p>

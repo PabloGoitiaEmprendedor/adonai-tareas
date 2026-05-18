@@ -219,8 +219,70 @@
     0% { transform: translateX(-100%); }
     100% { transform: translateX(100%); }
   }
+  @keyframes ctaArrow {
+    0%, 100% { transform: translateX(0); }
+    50% { transform: translateX(4px); }
+  }
+  @keyframes handwritingReveal {
+    from { clip-path: inset(0 100% 0 0); }
+    to { clip-path: inset(0 0 0 0); }
+  }
+  @keyframes handwritingCursor {
+    0%, 100% { opacity: 0; transform: translateX(0); }
+    35%, 70% { opacity: 1; transform: translateX(4px); }
+  }
+  @keyframes handwritingChar {
+    0% {
+      opacity: 0;
+      transform: translateY(7px) rotate(-1deg);
+      filter: blur(2px);
+    }
+    65% {
+      opacity: 1;
+      transform: translateY(-1px) rotate(0.4deg);
+      filter: blur(0);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0) rotate(0);
+      filter: blur(0);
+    }
+  }
   .animate-shimmer {
     animation: shimmer 2s infinite linear;
+  }
+  .handwriting-line {
+    position: relative;
+    display: inline-block;
+    animation: handwritingReveal 3.8s steps(46, end) both;
+    text-shadow: 0 14px 34px rgba(142, 162, 255, 0.18);
+  }
+  .handwriting-line::after {
+    content: "";
+    position: absolute;
+    right: -10px;
+    bottom: 0.12em;
+    height: 0.9em;
+    width: 2px;
+    border-radius: 999px;
+    background: rgba(142, 162, 255, 0.9);
+    animation: handwritingCursor 0.9s ease-in-out infinite;
+  }
+  .handwriting-char {
+    display: inline-block;
+    opacity: 0;
+    animation: handwritingChar 0.34s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+    will-change: opacity, transform, filter;
+  }
+  .handwriting-live-cursor {
+    display: inline-block;
+    width: 2px;
+    height: 0.9em;
+    margin-left: 4px;
+    transform: translateY(0.1em);
+    border-radius: 999px;
+    background: rgba(142, 162, 255, 0.95);
+    animation: handwritingCursor 0.9s ease-in-out infinite;
   }
 
   .page-title {
