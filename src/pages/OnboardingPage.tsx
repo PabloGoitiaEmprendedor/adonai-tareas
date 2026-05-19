@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState, type ClipboardEvent, type Dispatch, type SetStateAction } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
@@ -17,7 +17,6 @@ import {
   ShieldCheck,
   Mail
 } from 'lucide-react';
-import { useRef } from 'react';
 import { toast } from 'sonner';
 import { startGuidedDownload } from '@/lib/downloadGuide';
 
@@ -50,6 +49,21 @@ const OnboardingPage = () => {
   const lastTickRef = useRef<string>('');
   const isMobile = typeof navigator !== 'undefined' && /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
   const isElectron = typeof window !== 'undefined' && !!(window as any).electronAPI;
+
+  const handleLinkPaste = <T extends { link: string }>(
+    event: ClipboardEvent<HTMLInputElement>,
+    setItems: Dispatch<SetStateAction<T[]>>,
+    index: number
+  ) => {
+    const pasted = event.clipboardData.getData('text/plain') || event.clipboardData.getData('text') || '';
+    if (!pasted.trim()) return;
+    event.preventDefault();
+    setItems((current) => {
+      const next = [...current];
+      next[index] = { ...next[index], link: pasted.trim() };
+      return next;
+    });
+  };
 
   const playTick = () => {
     try {
@@ -415,6 +429,9 @@ const OnboardingPage = () => {
                             newTasks[i] = { ...newTasks[i], link: e.target.value };
                             setUrgentTasks(newTasks);
                           }}
+                          onPaste={(e) => handleLinkPaste(e, setUrgentTasks, i)}
+                          autoComplete="off"
+                          spellCheck={false}
                           placeholder="Link (opcional)"
                           className="flex-1 bg-transparent h-8 outline-none text-sm text-on-surface-variant/80 placeholder:text-on-surface-variant/50"
                         />
@@ -538,6 +555,9 @@ const OnboardingPage = () => {
                             newTasks[i] = { ...newTasks[i], link: e.target.value };
                             setRecurringTasks(newTasks);
                           }}
+                          onPaste={(e) => handleLinkPaste(e, setRecurringTasks, i)}
+                          autoComplete="off"
+                          spellCheck={false}
                           placeholder="Link (opcional)"
                           className="flex-1 bg-transparent h-8 outline-none text-sm text-on-surface-variant/80 placeholder:text-on-surface-variant/50"
                         />

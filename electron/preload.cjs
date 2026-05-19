@@ -26,4 +26,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onCustomToast: (callback) => ipcRenderer.on('custom-toast-data', callback),
   getAutoStart: () => ipcRenderer.invoke('get-auto-start'),
   setAutoStart: (openAtLogin) => ipcRenderer.send('set-auto-start', openAtLogin),
+  authStorageGet: (key) => ipcRenderer.invoke('auth-storage-get', key),
+  authStorageSet: (key, value) => ipcRenderer.invoke('auth-storage-set', key, value),
+  authStorageRemove: (key) => ipcRenderer.invoke('auth-storage-remove', key),
+  authStorageClear: () => ipcRenderer.invoke('auth-storage-clear'),
 });

@@ -25,6 +25,26 @@ export const useTasks = (filters?: { date?: string; startDate?: string; endDate?
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
+  const pushTaskChangesToNotion = async (taskId: string, updates: Partial<TaskUpdate>) => {
+    if (!user) return;
+
+    const relevantKeys: (keyof TaskUpdate)[] = ['title', 'due_date', 'link'];
+    const hasRelevantChange = relevantKeys.some((key) => Object.prototype.hasOwnProperty.call(updates, key));
+    if (!hasRelevantChange) return;
+
+    const payload: Record<string, unknown> = { task_id: taskId };
+    for (const key of relevantKeys) {
+      if (Object.prototype.hasOwnProperty.call(updates, key)) {
+        payload[key] = updates[key] ?? null;
+      }
+    }
+
+    const { error } = await supabase.functions.invoke('notion-update-linked-task', { body: payload });
+    if (error) {
+      console.warn('[useTasks] Notion sync skipped:', error);
+    }
+  };
+
   const { data: allData, isLoading } = useQuery({
     queryKey: ['tasks', user?.id, filters],
     queryFn: async () => {
@@ -382,6 +402,8 @@ export const useTasks = (filters?: { date?: string; startDate?: string; endDate?
           throw new Error('No se encontró la tarea (sesión expirada o sin permisos)');
         }
       }
+
+      await pushTaskChangesToNotion(targetId, updates);
 
       if (updates.status === 'done') {
         await supabase.from('usage_events').insert({

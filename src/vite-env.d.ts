@@ -1,5 +1,19 @@
 /// <reference types="vite/client" />
 
+interface ImportMetaEnv {
+  readonly VITE_CLARITY_PROJECT_ID?: string;
+  readonly VITE_ENABLE_CLARITY_IN_DEV?: string;
+  readonly VITE_ENABLE_CLARITY_IN_DESKTOP?: string;
+  readonly VITE_GA_MEASUREMENT_ID?: string;
+  readonly VITE_ENABLE_ANALYTICS_IN_DEV?: string;
+  readonly VITE_ENABLE_ANALYTICS_IN_DESKTOP?: string;
+  readonly VITE_ENABLE_GA_MEASUREMENT_PROTOCOL?: string;
+}
+
+interface ImportMeta {
+  readonly env: ImportMetaEnv;
+}
+
 interface Window {
   electronAPI?: {
     toggleMiniWindow: () => void;
@@ -19,6 +33,10 @@ interface Window {
     onUpdateDownloaded?: (callback: () => void) => void;
     restartApp?: () => void;
     showNotification?: (title: string, body: string, type?: 'info' | 'warning' | 'success' | 'error') => void;
+    authStorageGet?: (key: string) => Promise<string | null>;
+    authStorageSet?: (key: string, value: string) => Promise<void>;
+    authStorageRemove?: (key: string) => Promise<void>;
+    authStorageClear?: () => Promise<void>;
   };
   process?: {
     versions?: {

@@ -13,7 +13,7 @@ import { useFolders } from '@/hooks/useFolders';
 import { useSubtasks } from '@/hooks/useSubtasks';
 import { format, parseISO, addMinutes } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Check, ChevronRight, CalendarDays, Plus, Mic, Repeat, Paperclip, Folder, FolderOpen, X, Users as UsersIcon, GripHorizontal } from 'lucide-react';
+import { Check, ChevronRight, CalendarDays, Plus, Mic, Repeat, Paperclip, Folder, FolderOpen, X, Users as UsersIcon, GripHorizontal, ChevronsUpDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import TaskCaptureModal, { type TaskCaptureModalHandle } from '@/components/TaskCaptureModal';
 import TaskDetailModal from '@/components/TaskDetailModal';
@@ -26,6 +26,7 @@ import { useProfile } from '@/hooks/useProfile';
 import { usePriorityColors } from '@/hooks/usePriorityColors';
 import { useTheme } from '@/contexts/ThemeProvider';
 import AdonaiCalendarView from '@/components/calendar/AdonaiCalendarView';
+import { compareTasksWithinQuadrants, getTaskManualOrderGroupKey } from '@/lib/taskOrdering';
 import '../index.css';
 
 const FOLDER_COLORS = ['#5B7CFA', '#4F6EE8', '#6FCF97', '#F4B860', '#EB5757', '#7C97FF', '#9CA3AF', '#E5E7EB'];
@@ -352,6 +353,30 @@ const TaskRowRaw = ({ task, onToggle, onDetail, activeTimerId, onTimerToggle, up
           opacity: isDone ? 0.45 : 1,
         }}
       >
+        {!isDone ? (
+          <div
+            onClick={(e) => e.stopPropagation()}
+            title="Arrastra para ordenar"
+            aria-label="Arrastra para ordenar"
+            style={{
+              width: 16,
+              height: 28,
+              flexShrink: 0,
+              borderRadius: 8,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: C.muted,
+              opacity: 0.62,
+              cursor: 'grab',
+            }}
+          >
+            <ChevronsUpDown style={{ width: 13, height: 13, strokeWidth: 1.8 }} />
+          </div>
+        ) : (
+          <div style={{ width: 16, flexShrink: 0 }} />
+        )}
+
         <div 
           onClick={(e) => { e.stopPropagation(); onToggle(task); }} 
           style={{ flexShrink: 0 }}
@@ -613,6 +638,8 @@ const MiniTaskList = () => {
   const hasInteractedRef = useRef(false);
 
   const [calendarOpen, setCalendarOpen] = useState(false);
+  const [orderedTasks, setOrderedTasks] = useState<any[]>([]);
+  const [reorderIdx, setReorderIdx] = useState<number | null>(null);
   const calendarTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const calendarHoverRef = useRef(false);
   const calendarBusyRef = useRef(false);
@@ -900,13 +927,45 @@ const MiniTaskList = () => {
   }, [tasks, selectedFolderId]);
 
   const sortedTasks = useMemo(() => {
-    return [...filteredTasks].sort((a: any, b: any) => {
-      const rankDiff = quadrantRank(a) - quadrantRank(b);
-      if (rankDiff !== 0) return rankDiff;
+    return [...filteredTasks].sort(compareTasksWithinQuadrants);
+  }, [filteredTasks]);
 
-      return (a.sort_order || 0) - (b.sort_order || 0);
+  useEffect(() => {
+    setOrderedTasks(sortedTasks);
+  }, [sortedTasks]);
+
+  const persistMiniOrder = useCallback((nextOrder: any[]) => {
+    nextOrder.forEach((task, idx) => {
+      if (task.status !== 'done' && (task.sort_order ?? 0) !== idx) {
+        updateTask.mutate({ id: task.id, sort_order: idx });
+      }
     });
-  }, [filteredTasks, quadrantRank]);
+  }, [updateTask]);
+
+  const handleMiniReorderStart = useCallback((idx: number) => {
+    if (orderedTasks[idx]?.status === 'done') return;
+    setReorderIdx(idx);
+  }, [orderedTasks]);
+
+  const handleMiniReorderOver = useCallback((event: React.DragEvent, idx: number) => {
+    event.preventDefault();
+    if (reorderIdx === null || reorderIdx === idx) return;
+    const dragged = orderedTasks[reorderIdx];
+    const target = orderedTasks[idx];
+    if (!dragged || !target || dragged.status === 'done' || target.status === 'done') return;
+    if (getTaskManualOrderGroupKey(dragged) !== getTaskManualOrderGroupKey(target)) return;
+
+    const next = [...orderedTasks];
+    const [moved] = next.splice(reorderIdx, 1);
+    next.splice(idx, 0, moved);
+    setOrderedTasks(next);
+    setReorderIdx(idx);
+  }, [orderedTasks, reorderIdx]);
+
+  const handleMiniReorderEnd = useCallback(() => {
+    if (reorderIdx !== null) persistMiniOrder(orderedTasks);
+    setReorderIdx(null);
+  }, [orderedTasks, persistMiniOrder, reorderIdx]);
 
   const completedCount = filteredTasks.filter((t: any) => t.status === 'done').length;
   const totalCount = filteredTasks.length;
@@ -1442,19 +1501,31 @@ const MiniTaskList = () => {
         ) : (
           <div key="task-list-items">
             <AnimatePresence mode="popLayout">
-              {sortedTasks.map((task: any) => (
-                <TaskRow 
+              {orderedTasks.map((task: any, idx: number) => (
+                <div
                   key={task.id}
-                  task={completingId === task.id ? { ...task, status: 'done' } : task}
-                  onToggle={handleToggle}
-                  onDetail={handleDetail}
-                  activeTimerId={activeTimerId}
-                  onTimerToggle={handleTimerToggle}
-                  updateTask={updateTask}
-                  folders={folders}
-                  currentDate={viewDate}
-                  ensureCalendarOpen={openCalendarPanel}
-                />
+                  draggable={task.status !== 'done'}
+                  onDragStart={() => handleMiniReorderStart(idx)}
+                  onDragOver={(event) => handleMiniReorderOver(event, idx)}
+                  onDragEnd={handleMiniReorderEnd}
+                  style={{
+                    cursor: task.status === 'done' ? 'default' : 'grab',
+                    opacity: reorderIdx === idx ? 0.72 : 1,
+                    transition: 'opacity 120ms ease, transform 120ms ease',
+                  }}
+                >
+                  <TaskRow
+                    task={completingId === task.id ? { ...task, status: 'done' } : task}
+                    onToggle={handleToggle}
+                    onDetail={handleDetail}
+                    activeTimerId={activeTimerId}
+                    onTimerToggle={handleTimerToggle}
+                    updateTask={updateTask}
+                    folders={folders}
+                    currentDate={viewDate}
+                    ensureCalendarOpen={openCalendarPanel}
+                  />
+                </div>
               ))}
             </AnimatePresence>
             {totalCount > 0 && completedCount === totalCount && (

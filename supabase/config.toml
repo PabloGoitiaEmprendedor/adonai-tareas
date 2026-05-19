@@ -8,3 +8,30 @@ verify_jwt = true
 
 [functions.backup-database]
 verify_jwt = true
+
+[functions.google-analytics-event]
+verify_jwt = false
+
+[functions.notion-auth-start]
+verify_jwt = true
+
+[functions.notion-oauth-callback]
+verify_jwt = false
+
+[functions.notion-sync]
+verify_jwt = true
+
+[functions.notion-list-databases]
+verify_jwt = true
+
+[functions.notion-preview-import]
+verify_jwt = true
+
+[functions.notion-import-reviewed]
+verify_jwt = true
+
+[functions.notion-disconnect]
+verify_jwt = true
+
+[functions.notion-webhook]
+verify_jwt = false

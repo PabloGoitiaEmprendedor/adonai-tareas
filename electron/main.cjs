@@ -107,6 +107,25 @@ function handleDeepLink(url) {
 
 // ── Window State Management ────────────────────────────────────────────────
 const configPath = path.join(app.getPath('userData'), 'window-state.json');
+const authStoragePath = path.join(app.getPath('userData'), 'supabase-auth.json');
+
+function readAuthStorage() {
+  try {
+    if (!fs.existsSync(authStoragePath)) return {};
+    return JSON.parse(fs.readFileSync(authStoragePath, 'utf8'));
+  } catch (e) {
+    console.error('Failed to read auth storage', e);
+    return {};
+  }
+}
+
+function writeAuthStorage(store) {
+  try {
+    fs.writeFileSync(authStoragePath, JSON.stringify(store));
+  } catch (e) {
+    console.error('Failed to write auth storage', e);
+  }
+}
 
 function saveWindowState(state) {
   try {
@@ -628,6 +647,30 @@ ipcMain.on('set-auto-start', (event, openAtLogin) => {
     args: ['--autostart'],
   });
   saveWindowState({ autoStartSet: true }); // Mark as explicitly set or at least initialized
+});
+
+ipcMain.handle('auth-storage-get', (_event, key) => {
+  const store = readAuthStorage();
+  return store[key] ?? null;
+});
+
+ipcMain.handle('auth-storage-set', (_event, key, value) => {
+  const store = readAuthStorage();
+  store[key] = value;
+  writeAuthStorage(store);
+  return true;
+});
+
+ipcMain.handle('auth-storage-remove', (_event, key) => {
+  const store = readAuthStorage();
+  delete store[key];
+  writeAuthStorage(store);
+  return true;
+});
+
+ipcMain.handle('auth-storage-clear', () => {
+  writeAuthStorage({});
+  return true;
 });
 
 // ── Universal Task Capture ──────────────────────────────────────────────────

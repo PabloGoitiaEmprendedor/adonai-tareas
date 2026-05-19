@@ -1,6 +1,6 @@
 import { useState, memo } from 'react';
 import { motion } from 'framer-motion';
-import { Check, Link as LinkIcon, Paperclip } from 'lucide-react';
+import { Check, Link as LinkIcon, Paperclip, ChevronsUpDown } from 'lucide-react';
 import SubtasksSection from './SubtasksSection';
 import { useSubtasks } from '@/hooks/useSubtasks';
 import { useTasks } from '@/hooks/useTasks';
@@ -82,6 +82,13 @@ export const TaskCard = memo(({
     <motion.div
       layoutId={view === 'weekly' ? task.id : undefined}
       layout={view === 'daily' ? true : undefined}
+      draggable={!isDone}
+      onDragStart={() => handleDragStart(taskIdx)}
+      onDragOver={(e) => handleDragOver(e, taskIdx)}
+      onDragEnd={handleDragEnd}
+      onTouchStart={(e) => handleTouchStart(taskIdx, e)}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
       initial={view === 'daily' ? { opacity: 0, x: -20 } : { opacity: 0, scale: 0.95 }}
       animate={
         view === 'daily' 
@@ -103,6 +110,19 @@ export const TaskCard = memo(({
             : `hover:border-primary/20 border-white/5 bg-white/[0.01]`
       }`}
     >
+      {!isDone ? (
+        <div
+          className="mt-1 flex h-8 w-5 flex-shrink-0 items-center justify-center rounded-lg text-on-surface-variant/30 opacity-70 transition-all group-hover/task:text-primary group-hover/task:opacity-100 cursor-grab active:cursor-grabbing"
+          title="Arrastra para ordenar"
+          aria-label="Arrastra para ordenar"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <ChevronsUpDown className="h-4 w-4" strokeWidth={1.8} />
+        </div>
+      ) : (
+        <div className="w-5 flex-shrink-0" />
+      )}
+
       {/* Checkbox */}
       <div className="relative flex-shrink-0 pt-1">
         <motion.div

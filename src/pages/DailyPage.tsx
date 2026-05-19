@@ -21,6 +21,7 @@ import { openDownloadDialog } from '@/lib/desktopApp';
 import MiniTaskWidget from '@/components/MiniTaskWidget';
 import { ChaosBuddiesTrigger } from '@/components/ChaosBuddiesTrigger';
 import { WeeklySummaryModal } from '@/components/WeeklySummaryModal';
+import { compareTasksWithinQuadrants, getTaskManualOrderGroupKey } from '@/lib/taskOrdering';
 
 const getDynamicGreeting = (
   name: string,
@@ -127,7 +128,10 @@ const DailyPage = () => {
   const streakCount = metrics?.streak_current || 0;
   const [selectedTask, setSelectedTask] = useState<any>(null);
   const [timerTask, setTimerTask] = useState<any>(null);
-  const [dragIdx] = useState<number | null>(null);
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const [orderedTasks, setOrderedTasks] = useState<any[]>([]);
+  const [touchIdx, setTouchIdx] = useState<number | null>(null);
+  const [touchY, setTouchY] = useState(0);
   const [completingTaskId, setCompletingTaskId] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
   const levelProgress = useMemo(() => {
@@ -178,14 +182,74 @@ const DailyPage = () => {
         : tasks.filter((t: any) => t.folder_id === selectedFolderId);
     }
     
-    return [...filtered].sort((a: any, b: any) => {
-      const rankA = a.urgency && a.importance ? 0 : a.urgency ? 1 : a.importance ? 2 : 3;
-      const rankB = b.urgency && b.importance ? 0 : b.urgency ? 1 : b.importance ? 2 : 3;
-      const rankDiff = rankA - rankB;
-      if (rankDiff !== 0) return rankDiff;
-      return (a.sort_order || 0) - (b.sort_order || 0);
-    });
+    return [...filtered].sort(compareTasksWithinQuadrants);
   }, [tasks, selectedFolderId]);
+
+  useEffect(() => {
+    setOrderedTasks(sortedTasks);
+  }, [sortedTasks]);
+
+  const persistVisibleOrder = useCallback((nextOrder: any[]) => {
+    nextOrder.forEach((task, idx) => {
+      if (task.status !== 'done' && (task.sort_order ?? 0) !== idx) {
+        updateTask.mutate({ id: task.id, sort_order: idx });
+      }
+    });
+  }, [updateTask]);
+
+  const handleDragStart = useCallback((idx: number) => {
+    if (orderedTasks[idx]?.status === 'done') return;
+    setDragIdx(idx);
+  }, [orderedTasks]);
+
+  const handleDragOver = useCallback((e: React.DragEvent, idx: number) => {
+    e.preventDefault();
+    if (dragIdx === null || dragIdx === idx) return;
+    const dragged = orderedTasks[dragIdx];
+    const target = orderedTasks[idx];
+    if (!dragged || !target || dragged.status === 'done' || target.status === 'done') return;
+    if (getTaskManualOrderGroupKey(dragged) !== getTaskManualOrderGroupKey(target)) return;
+
+    const next = [...orderedTasks];
+    const [moved] = next.splice(dragIdx, 1);
+    next.splice(idx, 0, moved);
+    setOrderedTasks(next);
+    setDragIdx(idx);
+  }, [dragIdx, orderedTasks]);
+
+  const handleDragEnd = useCallback(() => {
+    if (dragIdx !== null) persistVisibleOrder(orderedTasks);
+    setDragIdx(null);
+  }, [dragIdx, orderedTasks, persistVisibleOrder]);
+
+  const handleTouchStart = useCallback((idx: number, e: React.TouchEvent) => {
+    if (orderedTasks[idx]?.status === 'done') return;
+    setTouchIdx(idx);
+    setTouchY(e.touches[0].clientY);
+  }, [orderedTasks]);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (touchIdx === null) return;
+    const steps = Math.round((e.touches[0].clientY - touchY) / 72);
+    if (steps === 0) return;
+    const nextIdx = Math.max(0, Math.min(orderedTasks.length - 1, touchIdx + steps));
+    const dragged = orderedTasks[touchIdx];
+    const target = orderedTasks[nextIdx];
+    if (!dragged || !target || dragged.status === 'done' || target.status === 'done') return;
+    if (getTaskManualOrderGroupKey(dragged) !== getTaskManualOrderGroupKey(target)) return;
+
+    const next = [...orderedTasks];
+    const [moved] = next.splice(touchIdx, 1);
+    next.splice(nextIdx, 0, moved);
+    setOrderedTasks(next);
+    setTouchIdx(nextIdx);
+    setTouchY(e.touches[0].clientY);
+  }, [orderedTasks, touchIdx, touchY]);
+
+  const handleTouchEnd = useCallback(() => {
+    if (touchIdx !== null) persistVisibleOrder(orderedTasks);
+    setTouchIdx(null);
+  }, [orderedTasks, persistVisibleOrder, touchIdx]);
 
   const completedCount = useMemo(() => tasks.filter((t) => t.status === 'done').length, [tasks]);
 
@@ -640,7 +704,7 @@ const DailyPage = () => {
             ) : sortedTasks.length > 0 ? (
               <div className="space-y-4">
                 <AnimatePresence mode="popLayout">
-                  {sortedTasks.map((task, idx) => (
+                  {orderedTasks.map((task, idx) => (
                     <TaskCard
                       key={task.id}
                       task={task}
@@ -648,13 +712,13 @@ const DailyPage = () => {
                       isDone={task.status === 'done'}
                       completingTaskId={completingTaskId}
                       dragIdx={dragIdx}
-                      touchIdx={null}
-                      handleDragStart={() => {}}
-                      handleDragOver={() => {}}
-                      handleDragEnd={() => {}}
-                      handleTouchStart={() => {}}
-                      handleTouchMove={() => {}}
-                      handleTouchEnd={() => {}}
+                      touchIdx={touchIdx}
+                      handleDragStart={handleDragStart}
+                      handleDragOver={handleDragOver}
+                      handleDragEnd={handleDragEnd}
+                      handleTouchStart={handleTouchStart}
+                      handleTouchMove={handleTouchMove}
+                      handleTouchEnd={handleTouchEnd}
                       setSelectedTask={setSelectedTask}
                       handleComplete={handleComplete}
                       handleUncomplete={handleUncomplete}
@@ -744,7 +808,7 @@ const DailyPage = () => {
             ) : sortedTasks.length > 0 ? (
               <div className="space-y-3">
                 <AnimatePresence mode="popLayout">
-                  {sortedTasks.map((task, idx) => (
+                  {orderedTasks.map((task, idx) => (
                     <TaskCard
                       key={task.id}
                       task={task}
@@ -752,13 +816,13 @@ const DailyPage = () => {
                       isDone={task.status === 'done'}
                       completingTaskId={completingTaskId}
                       dragIdx={dragIdx}
-                      touchIdx={null}
-                      handleDragStart={() => {}}
-                      handleDragOver={() => {}}
-                      handleDragEnd={() => {}}
-                      handleTouchStart={() => {}}
-                      handleTouchMove={() => {}}
-                      handleTouchEnd={() => {}}
+                      touchIdx={touchIdx}
+                      handleDragStart={handleDragStart}
+                      handleDragOver={handleDragOver}
+                      handleDragEnd={handleDragEnd}
+                      handleTouchStart={handleTouchStart}
+                      handleTouchMove={handleTouchMove}
+                      handleTouchEnd={handleTouchEnd}
                       setSelectedTask={setSelectedTask}
                       handleComplete={handleComplete}
                       handleUncomplete={handleUncomplete}

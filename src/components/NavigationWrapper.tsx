@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { FolderOpen, Users, User, Calendar, LogOut, Settings, Bell, HelpCircle, Menu, Trash2, Home, Target, Trophy, BarChart3, Sun, History, Palette, Download, Monitor, Apple, Loader2, X, Clock } from 'lucide-react';
+import { FolderOpen, Users, User, Calendar, Settings, Bell, HelpCircle, Menu, Trash2, Home, Target, Trophy, BarChart3, Sun, History, Palette, Download, Monitor, Apple, Loader2, X, Clock } from 'lucide-react';
 import { toast } from 'sonner';
 import { startGuidedDownload } from '@/lib/downloadGuide';
 
@@ -21,6 +21,7 @@ import TaskCaptureModal, { type TaskCaptureModalHandle } from '@/components/Task
 import QuickRecurrenceFlow from '@/components/QuickRecurrenceFlow';
 import { format, addMinutes } from 'date-fns';
 import { useFolders } from '@/hooks/useFolders';
+import { useNotionIntegration } from '@/hooks/useNotionIntegration';
 import { useRef, useCallback } from 'react';
 
 // Detect if running inside Electron (desktop app)
@@ -81,7 +82,7 @@ interface NavigationWrapperProps {
   children: React.ReactNode;
 }
 
-const SidebarContent = ({ user, profile, menuItems, location, handleNavigate, signOut, startTutorial, isSheet, toggleSidebar }: any) => (
+const SidebarContent = ({ user, profile, menuItems, location, handleNavigate, startTutorial, isSheet, toggleSidebar }: any) => (
   <div className="flex flex-col h-full bg-surface text-foreground">
     <div className={`p-6 border-b border-outline-variant flex items-center justify-between gap-4 ${isSheet ? 'pr-16' : ''}`}>
       <div 
@@ -174,7 +175,7 @@ const SidebarContent = ({ user, profile, menuItems, location, handleNavigate, si
         <DesktopDownloadBanner />
       )}
 
-      {user?.is_anonymous ? (
+      {user?.is_anonymous && (
         <Button 
           onClick={() => handleNavigate('/auth')} 
           variant="default" 
@@ -182,15 +183,6 @@ const SidebarContent = ({ user, profile, menuItems, location, handleNavigate, si
         >
           <User className="w-5 h-5" />
           <span>Iniciar sesión</span>
-        </Button>
-      ) : (
-        <Button 
-          onClick={() => signOut()} 
-          variant="ghost" 
-          className="w-full justify-start gap-4 h-12 text-error hover:text-error hover:bg-error/10 rounded-xl font-semibold transition-colors"
-        >
-          <LogOut className="w-5 h-5" />
-          <span>Cerrar sesión</span>
         </Button>
       )}
     </div>
@@ -259,7 +251,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
   }, []);
 
 
-  const { signOut, user, loading } = useAuth();
+  const { user, loading } = useAuth();
   const { profile } = useProfile();
   const navigate = useNavigate();
   const location = useLocation();
@@ -283,6 +275,8 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
   const { tasks, createTask } = useTasks({ date: today });
   const { folders } = useFolders();
   const { colors: priorityColors } = usePriorityColors();
+  const notion = useNotionIntegration();
+  const lastNotionAutoSyncRef = useRef(0);
 
   const openCapture = useCallback((context?: { goalId?: string; folderId?: string }) => {
     if (context) setTargetContext(context);
@@ -340,6 +334,43 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
     setOpen(false);
   };
 
+  useEffect(() => {
+    if (!notion.connection || notion.mappings.length === 0) return;
+
+    const runAutoSync = async () => {
+      const now = Date.now();
+      if (now - lastNotionAutoSyncRef.current < 10000) return;
+      lastNotionAutoSyncRef.current = now;
+
+      try {
+        await notion.sync.mutateAsync();
+      } catch {
+        // Background sync should stay quiet.
+      }
+    };
+
+    void runAutoSync();
+
+    const interval = window.setInterval(() => {
+      void runAutoSync();
+    }, 15000);
+
+    const onFocus = () => {
+      if (document.visibilityState === 'visible') {
+        void runAutoSync();
+      }
+    };
+
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onFocus);
+
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onFocus);
+    };
+  }, [notion.connection, notion.mappings.length, notion.sync]);
+
   const isWelcomePage = location.pathname === '/welcome';
   const isAuthPage = location.pathname === '/auth';
   const isMiniPage = location.pathname === '/mini';
@@ -371,7 +402,6 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
             menuItems={menuItems} 
             location={location} 
             handleNavigate={handleNavigate} 
-            signOut={signOut} 
             startTutorial={() => { setTutorialRun(true); setOpen(false); }}
             isSheet 
             toggleSidebar={() => setOpen(false)}
@@ -422,7 +452,6 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
           menuItems={menuItems} 
           location={location} 
           handleNavigate={handleNavigate} 
-          signOut={signOut} 
           startTutorial={() => setTutorialRun(true)}
           toggleSidebar={() => setDesktopSidebarOpen(false)}
         />

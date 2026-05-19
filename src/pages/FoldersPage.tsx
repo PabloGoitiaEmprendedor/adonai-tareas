@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 import { triggerTaskCelebration } from '@/lib/celebrations';
 import { dispatchTutorialFolderCreated } from '@/lib/tutorialEvents';
 import { usePriorityColors, getPriorityKey } from '@/hooks/usePriorityColors';
+import { compareTasksWithinQuadrants } from '@/lib/taskOrdering';
 
 const FOLDER_COLORS = ['#5B7CFA', '#4F6EE8', '#6FCF97', '#F4B860', '#EB5757', '#7C97FF', '#9CA3AF', '#E5E7EB'];
 
@@ -93,16 +94,7 @@ const FoldersPage = () => {
     const raw = isUncategorized
       ? tasks.filter((t) => t.folder_id === null || t.folder_id === undefined)
       : selectedFolder ? tasks.filter((t) => t.folder_id === selectedFolder) : [];
-    const quadrantRank = (t: any) =>
-      t.urgency && t.importance ? 0
-      : t.urgency ? 1
-      : t.importance ? 2
-      : 3;
-    return [...raw].sort((a, b) => {
-      const rankDiff = quadrantRank(a) - quadrantRank(b);
-      if (rankDiff !== 0) return rankDiff;
-      return (a.sort_order || 0) - (b.sort_order || 0);
-    });
+    return [...raw].sort(compareTasksWithinQuadrants);
   }, [tasks, selectedFolder, isUncategorized]);
   const completedCount = folderTasks.filter(t => t.status === 'done').length;
 

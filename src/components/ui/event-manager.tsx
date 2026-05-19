@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
 import { motion, AnimatePresence } from "framer-motion"
-import { Calendar, Clock, LayoutGrid, List, Folder, FolderOpen, Plus, Search, Filter, X, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Check, MoreHorizontal, Link as LinkIcon, Trash2, Repeat, Zap, Menu, GripHorizontal, GripVertical, Bell, BellOff, Palette } from "lucide-react"
+import { Calendar, Clock, LayoutGrid, List, Folder, FolderOpen, Plus, Search, Filter, X, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Check, MoreHorizontal, Link as LinkIcon, Trash2, Repeat, Zap, Menu, GripHorizontal, GripVertical, Bell, BellOff, Palette, Paperclip, ChevronsUpDown } from "lucide-react"
 import ScrollableTimePicker from "./scrollable-time-picker"
 import { usePriorityColors, getPriorityKey } from "@/hooks/usePriorityColors"
 import { cn } from "@/lib/utils"
@@ -78,7 +78,42 @@ export interface Event {
   completed?: boolean
   isEvent?: boolean
   recurrenceId?: string
+  sortOrder?: number | null
 }
+const getEventLinks = (links?: string[]) => {
+  return (links || []).flatMap((link) => link.split(/\s+/)).map((link) => link.trim()).filter(Boolean);
+};
+
+const EventLinkClips = ({ links, color }: { links?: string[]; color?: string }) => {
+  const urls = getEventLinks(links);
+  if (urls.length === 0) return null;
+
+  return (
+    <div className="flex items-center gap-1 flex-wrap">
+      {urls.map((url, index) => {
+        const href = url.startsWith('http') ? url : `https://${url}`;
+        return (
+          <a
+            key={`${url}-${index}`}
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(event) => event.stopPropagation()}
+            onMouseDown={(event) => event.stopPropagation()}
+            onTouchStart={(event) => event.stopPropagation()}
+            className="inline-flex h-6 w-6 items-center justify-center rounded-lg border border-white/20 bg-background/70 text-foreground shadow-sm backdrop-blur-sm transition-all hover:scale-105 hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+            aria-label="Abrir link"
+          >
+            <Paperclip
+              className="h-3.5 w-3.5"
+              style={{ color: color && (color.startsWith('#') || color.startsWith('var')) ? color : undefined }}
+            />
+          </a>
+        );
+      })}
+    </div>
+  );
+};
 
 export interface EventManagerProps {
   events?: Event[]
@@ -281,6 +316,8 @@ export function EventManager({
   ]
 
   const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [confirmCloseOpen, setConfirmCloseOpen] = useState(false)
+  const [dialogInitialSnapshot, setDialogInitialSnapshot] = useState('')
   const [isCreating, setIsCreating] = useState(false)
   const [creationSource, setCreationSource] = useState<'calendar_only' | 'task_only' | 'both'>('calendar_only')
   const [durationMinutes, setDurationMinutes] = useState(30)
@@ -303,6 +340,7 @@ export function EventManager({
     const cats = new Set<string>();
     cats.add('General');
     events.forEach(e => {
+      if (e.isEvent || e.id.startsWith('block-')) return;
       const catName = e.category || 'General';
       cats.add(catName);
     });
@@ -319,6 +357,7 @@ export function EventManager({
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [sidebarView, setSidebarView] = useState<'list' | 'folders'>('list');
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set(['General']));
+  const [sidebarReorderId, setSidebarReorderId] = useState<string | null>(null);
   const [recurrenceEditorOpen, setRecurrenceEditorOpen] = useState(true)
   const [pendingCustomColor, setPendingCustomColor] = useState('#5B7CFA')
   const [draftEvent, setDraftEvent] = useState<Event | null>(null)
@@ -374,6 +413,41 @@ export function EventManager({
     if (isDialogOpen) setRecurrenceEditorOpen(false)
   }, [isDialogOpen])
 
+  const getDialogSnapshot = useCallback((event?: Partial<Event> | null) => JSON.stringify({
+    title: event?.title || '',
+    description: event?.description || '',
+    startTime: event?.startTime ? new Date(event.startTime).getTime() : null,
+    endTime: event?.endTime ? new Date(event.endTime).getTime() : null,
+    color: event?.color || '',
+    category: event?.category || '',
+    tags: event?.tags || [],
+    recurrence: event?.recurrence || 'none',
+    recurrenceDays: event?.recurrenceDays || [],
+    recurrenceInterval: event?.recurrenceInterval || null,
+    recurrenceUnit: event?.recurrenceUnit || null,
+    recurrenceEndType: event?.recurrenceEndType || null,
+    recurrenceEndDate: event?.recurrenceEndDate || null,
+    recurrenceEndCount: event?.recurrenceEndCount || null,
+    reminderEnabled: !!event?.reminderEnabled,
+    reminderMinutesBefore: event?.reminderMinutesBefore || null,
+    reminderCustomValue: event?.reminderCustomValue || null,
+    reminderCustomUnit: event?.reminderCustomUnit || null,
+    urgency: !!event?.urgency,
+    importance: !!event?.importance,
+    links: event?.links || [],
+    isAllDay: !!event?.isAllDay,
+    isEvent: !!event?.isEvent,
+  }), [])
+
+  useEffect(() => {
+    if (!isDialogOpen) {
+      setDialogInitialSnapshot('')
+      setConfirmCloseOpen(false)
+      return
+    }
+    setDialogInitialSnapshot(getDialogSnapshot(isCreating ? newEvent : selectedEvent))
+  }, [isDialogOpen, isCreating, selectedEvent?.id, getDialogSnapshot])
+
   useEffect(() => {
     if (!focusedDate) return
     setCurrentDate(prev => isSameDay(prev, focusedDate) ? prev : new Date(focusedDate))
@@ -408,7 +482,7 @@ export function EventManager({
       const selectedLabels = [...days].sort().map(d => dayLabels[d]).join(', ');
       const interval = (event as any)?.recurrenceInterval || 1;
       const unit = (event as any)?.recurrenceUnit || 'weeks';
-      const unitMap: Record<string, string> = { days: interval === 1 ? 'día' : 'días', weeks: interval === 1 ? 'semana' : 'semanas', months: interval === 1 ? 'mes' : 'meses', years: interval === 1 ? 'año' : 'años' };
+      const unitMap: Record<string, string> = { days: interval === 1 ? 'dÃƒÂ­a' : 'dÃƒÂ­as', weeks: interval === 1 ? 'semana' : 'semanas', months: interval === 1 ? 'mes' : 'meses', years: interval === 1 ? 'aÃƒÂ±o' : 'aÃƒÂ±os' };
       let text = `Cada ${interval} ${unitMap[unit] || unit}`;
       if (unit === 'weeks') text += ` en ${selectedLabels}`;
       void text;
@@ -606,8 +680,100 @@ export function EventManager({
     return [...baseEvents, ...recurringInstances]
   }, [events, searchQuery, selectedColors, selectedTags, selectedCategories, currentDate, view, recurrenceExceptions, locallyDeletedEventIds])
 
+  const getSidebarTaskRank = useCallback((event: Event) => {
+    if (event.urgency && event.importance) return 0;
+    if (event.urgency) return 1;
+    if (event.importance) return 2;
+    return 3;
+  }, []);
+
+  const getSidebarTaskDateRank = useCallback((event: Event) => {
+    return event.startTime < startOfDay(currentDate) && !event.completed ? 1 : 0;
+  }, [currentDate]);
+
+  const compareSidebarTasks = useCallback((a: Event, b: Event) => {
+    const doneA = a.completed ? 1 : 0;
+    const doneB = b.completed ? 1 : 0;
+    if (doneA !== doneB) return doneB - doneA;
+
+    const rankDiff = getSidebarTaskRank(a) - getSidebarTaskRank(b);
+    if (rankDiff !== 0) return rankDiff;
+
+    const dateRankDiff = getSidebarTaskDateRank(a) - getSidebarTaskDateRank(b);
+    if (dateRankDiff !== 0) return dateRankDiff;
+
+    return (a.sortOrder ?? 0) - (b.sortOrder ?? 0);
+  }, [getSidebarTaskDateRank, getSidebarTaskRank]);
+
+  const getSidebarTaskGroupKey = useCallback((event: Event) => {
+    return `${event.category || 'General'}:${getSidebarTaskRank(event)}:${getSidebarTaskDateRank(event)}`;
+  }, [getSidebarTaskDateRank, getSidebarTaskRank]);
+
+  const canReorderSidebarTask = useCallback((event: Event) => {
+    return !event.completed && event.id.startsWith('task-') && !event.id.includes('-rec-');
+  }, []);
+
+  const handleSidebarReorderStart = useCallback((e: React.DragEvent, event: Event) => {
+    e.stopPropagation();
+    if (!canReorderSidebarTask(event)) return;
+    setSidebarReorderId(event.id);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', event.id);
+  }, [canReorderSidebarTask]);
+
+  const handleSidebarReorderOver = useCallback((e: React.DragEvent, target: Event) => {
+    if (!sidebarReorderId || sidebarReorderId === target.id || !canReorderSidebarTask(target)) return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    setEvents((prev) => {
+      const dragged = prev.find((event) => event.id === sidebarReorderId);
+      if (!dragged || !canReorderSidebarTask(dragged)) return prev;
+      if (getSidebarTaskGroupKey(dragged) !== getSidebarTaskGroupKey(target)) return prev;
+
+      const group = prev
+        .filter((event) => canReorderSidebarTask(event) && getSidebarTaskGroupKey(event) === getSidebarTaskGroupKey(target))
+        .sort(compareSidebarTasks);
+
+      const from = group.findIndex((event) => event.id === dragged.id);
+      const to = group.findIndex((event) => event.id === target.id);
+      if (from < 0 || to < 0 || from === to) return prev;
+
+      const nextGroup = [...group];
+      const [moved] = nextGroup.splice(from, 1);
+      nextGroup.splice(to, 0, moved);
+      const nextSort = new Map(nextGroup.map((event, index) => [event.id, index]));
+
+      return prev.map((event) => (
+        nextSort.has(event.id)
+          ? { ...event, sortOrder: nextSort.get(event.id) ?? event.sortOrder }
+          : event
+      ));
+    });
+  }, [canReorderSidebarTask, compareSidebarTasks, getSidebarTaskGroupKey, sidebarReorderId]);
+
+  const handleSidebarReorderEnd = useCallback(() => {
+    if (!sidebarReorderId) return;
+
+    const dragged = events.find((event) => event.id === sidebarReorderId);
+    if (dragged) {
+      const group = events
+        .filter((event) => canReorderSidebarTask(event) && getSidebarTaskGroupKey(event) === getSidebarTaskGroupKey(dragged))
+        .sort(compareSidebarTasks);
+
+      group.forEach((event, index) => {
+        if ((event.sortOrder ?? 0) !== index) {
+          onEventUpdate?.(event.id, { sortOrder: index });
+        }
+      });
+    }
+
+    setSidebarReorderId(null);
+  }, [canReorderSidebarTask, compareSidebarTasks, events, getSidebarTaskGroupKey, onEventUpdate, sidebarReorderId]);
+
   const tasksByFolder = useMemo(() => {
     const tasks = filteredEvents.filter(e => {
+      if (e.isEvent || e.id.startsWith('block-')) return false;
       const inTimeRange = (isSameDay(e.startTime, currentDate)) || 
         (e.startTime < startOfDay(currentDate) && !e.completed);
       const taskCat = e.category || 'General';
@@ -622,13 +788,12 @@ export function EventManager({
       grouped[folder].push(task);
     });
 
-    // Sort tasks in each folder by priority
     Object.keys(grouped).forEach(folder => {
-      grouped[folder].sort((a, b) => (b.priority || 0) - (a.priority || 0));
+      grouped[folder].sort(compareSidebarTasks);
     });
 
     return grouped;
-  }, [filteredEvents, currentDate, selectedCategory]);
+  }, [compareSidebarTasks, filteredEvents, currentDate, selectedCategory]);
 
   const hasActiveFilters = selectedColors.length > 0 || selectedTags.length > 0 || selectedCategories.length > 0
 
@@ -690,7 +855,7 @@ export function EventManager({
   const handleCreateEvent = useCallback(() => {
     if (!newEvent.title) return
 
-    if (creationSource === 'task_only') {
+    if (creationSource === 'task_only' || newEvent.isAllDay || !newEvent.startTime || !newEvent.endTime) {
       const event: Event = {
         id: Math.random().toString(36).substr(2, 9),
         title: newEvent.title,
@@ -810,6 +975,35 @@ export function EventManager({
     setSelectedEvent(null)
   }, [selectedEvent, onEventUpdate, events])
 
+  const hasUnsavedDialogChanges = useMemo(() => {
+    if (!isDialogOpen || !dialogInitialSnapshot) return false
+    return getDialogSnapshot(isCreating ? newEvent : selectedEvent) !== dialogInitialSnapshot
+  }, [dialogInitialSnapshot, getDialogSnapshot, isCreating, isDialogOpen, newEvent, selectedEvent])
+
+  const discardDialogChanges = useCallback(() => {
+    setConfirmCloseOpen(false)
+    setIsDialogOpen(false)
+    setIsCreating(false)
+    setSelectedEvent(null)
+  }, [])
+
+  const requestDialogClose = useCallback(() => {
+    if (hasUnsavedDialogChanges) {
+      setConfirmCloseOpen(true)
+      return
+    }
+    discardDialogChanges()
+  }, [discardDialogChanges, hasUnsavedDialogChanges])
+
+  const saveAndCloseDialog = useCallback(() => {
+    setConfirmCloseOpen(false)
+    if (isCreating) {
+      handleCreateEvent()
+    } else {
+      handleUpdateEvent()
+    }
+  }, [handleCreateEvent, handleUpdateEvent, isCreating])
+
   const handleDeleteEvent = useCallback(
     (id: string) => {
       setLocallyDeletedEventIds((prev) => {
@@ -844,7 +1038,7 @@ export function EventManager({
     [onEventUpdate, selectedEvent?.id],
   )
 
-  // â”€â”€â”€ Shared ghost ref for both sidebar and grid drags â”€â”€â”€
+  // ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Shared ghost ref for both sidebar and grid drags ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
   const globalGhostRef = useRef<HTMLDivElement>(null)
   const [globalDragEvent, setGlobalDragEvent] = useState<Event | null>(null)
   const globalDragEventRef = useRef<Event | null>(null)
@@ -886,7 +1080,7 @@ export function EventManager({
     onEventUpdate?.(event.id, updatedEvent)
   }, [onEventUpdate, events])
 
-  // Sidebar custom mouse drag â€“ mirrors the calendar ghost system
+  // Sidebar custom mouse drag ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“ mirrors the calendar ghost system
   const handleSidebarMouseDown = useCallback((e: React.MouseEvent, event: Event) => {
     e.preventDefault()
     const startX = e.clientX
@@ -1193,11 +1387,11 @@ export function EventManager({
   const [searchOpen, setSearchOpen] = useState(false)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const viewLabels: Record<"day" | "week" | "month" | "year" | "3day" | "schedule" | "list", string> = {
-    day: "Día",
+    day: "DÃƒÂ­a",
     week: "Semana",
     month: "Mes",
-    year: "Año",
-    "3day": "3 días",
+    year: "AÃƒÂ±o",
+    "3day": "3 dÃƒÂ­as",
     schedule: "Agenda",
     list: "Lista",
   }
@@ -1269,10 +1463,10 @@ export function EventManager({
               <SelectValue>{viewLabels[view]}</SelectValue>
             </SelectTrigger>
             <SelectContent align="end" className="min-w-[132px] rounded-2xl border-outline-variant/10 bg-surface-container/95 p-1 shadow-2xl backdrop-blur-xl">
-              <SelectItem value="day" className="rounded-xl text-xs font-bold">Día</SelectItem>
+              <SelectItem value="day" className="rounded-xl text-xs font-bold">DÃƒÂ­a</SelectItem>
               <SelectItem value="week" className="rounded-xl text-xs font-bold">Semana</SelectItem>
               <SelectItem value="month" className="rounded-xl text-xs font-bold">Mes</SelectItem>
-              <SelectItem value="year" className="rounded-xl text-xs font-bold">Año</SelectItem>
+              <SelectItem value="year" className="rounded-xl text-xs font-bold">AÃƒÂ±o</SelectItem>
             </SelectContent>
           </Select>
 
@@ -1388,7 +1582,7 @@ export function EventManager({
                       <div className="flex items-center justify-between mb-1.5">
                         <h3 className="text-[14px] font-black tracking-tight text-foreground">Tareas de hoy</h3>
                       </div>
-                      <p className="text-[11px] text-on-surface-variant font-semibold leading-snug">Mantén presionado para arrastrar al calendario</p>
+                      <p className="text-[11px] text-on-surface-variant font-semibold leading-snug">MantÃƒÂ©n presionado para arrastrar al calendario</p>
                     </div>
 
                     {/* Folder filter bar */}
@@ -1430,24 +1624,34 @@ export function EventManager({
                       {sidebarView === 'list' ? (
                         <div className="space-y-2">
                           {filteredEvents.filter(e => {
+                            if (e.isEvent || e.id.startsWith('block-')) return false;
                             const inTimeRange = (isSameDay(e.startTime, currentDate)) || (e.startTime < startOfDay(currentDate) && !e.completed);
                             const matchesCategory = !selectedCategory || e.category === selectedCategory;
                             return inTimeRange && matchesCategory;
                           }).length > 0 ? (
                             filteredEvents
                               .filter(e => {
+                                if (e.isEvent || e.id.startsWith('block-')) return false;
                                 const inTimeRange = (isSameDay(e.startTime, currentDate)) || (e.startTime < startOfDay(currentDate) && !e.completed);
                                 const matchesCategory = !selectedCategory || e.category === selectedCategory;
                                 return inTimeRange && matchesCategory;
                               })
-                              .sort((a, b) => (b.priority || 0) - (a.priority || 0))
+                              .sort(compareSidebarTasks)
                               .map((event) => {
                                 const evColor = (event.color.startsWith('#') || event.color.startsWith('var')) ? event.color : undefined;
                                 return (
                                   <div
                                     key={event.id}
-                                    onMouseDown={(e) => handleSidebarMouseDown(e, event)}
-                                    onTouchStart={(e) => handleSidebarTouchStart(e, event)}
+                                    onMouseDown={(e) => {
+                                      if ((e.target as HTMLElement).closest('[data-sidebar-reorder-handle]')) return;
+                                      handleSidebarMouseDown(e, event);
+                                    }}
+                                    onTouchStart={(e) => {
+                                      if ((e.target as HTMLElement).closest('[data-sidebar-reorder-handle]')) return;
+                                      handleSidebarTouchStart(e, event);
+                                    }}
+                                    onDragOver={(e) => handleSidebarReorderOver(e, event)}
+                                    onDragEnd={handleSidebarReorderEnd}
                                     onClick={() => {
                                       if (onEventClick) {
                                         onEventClick(event)
@@ -1461,12 +1665,32 @@ export function EventManager({
                                       backgroundColor: (() => { const pc = priorityColors[getPriorityKey(event.urgency || false, event.importance || false)]; return pc && pc !== 'transparent' ? `${pc}4D` : 'transparent'; })(),
                                     }}
                                   >
+                                    {canReorderSidebarTask(event) ? (
+                                      <button
+                                        type="button"
+                                        draggable
+                                        data-sidebar-reorder-handle
+                                        title="Arrastra para ordenar"
+                                        aria-label="Arrastra para ordenar"
+                                        onDragStart={(e) => handleSidebarReorderStart(e, event)}
+                                        onDragEnd={handleSidebarReorderEnd}
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="mt-0.5 flex h-7 w-4 shrink-0 items-center justify-center rounded-md text-on-surface-variant/30 transition-all hover:bg-primary/10 hover:text-primary group-hover:text-primary/70 cursor-grab active:cursor-grabbing"
+                                      >
+                                        <ChevronsUpDown className="h-3.5 w-3.5" strokeWidth={1.8} />
+                                      </button>
+                                    ) : (
+                                      <div className="w-4 shrink-0" />
+                                    )}
                                     <div
                                       className="w-2 h-2 rounded-full mt-2 shrink-0"
                                       style={{ backgroundColor: evColor || priorityColors[getPriorityKey(event.urgency || false, event.importance || false)] }}
                                     />
                                     <div className={cn("flex-1 min-w-0", event.completed && "opacity-40 grayscale-[0.5]")}>
                                       <span className={cn("block text-[13px] font-semibold leading-snug tracking-normal text-foreground transition-colors group-hover:text-primary", event.completed && "line-through")}>{event.title}</span>
+                                      <div className="mt-1">
+                                        <EventLinkClips links={event.links} color={evColor} />
+                                      </div>
                                       {event.description && (
                                         <div className="flex items-center gap-2 mt-1">
                                           <span className="text-[10px] font-medium text-on-surface-variant/50 line-clamp-1 italic">{event.description}</span>
@@ -1507,7 +1731,7 @@ export function EventManager({
                                       )}
                                     </motion.div>
                                     <div className="text-left">
-                                      <span className="text-[12px] font-black text-foreground block">{folder}</span>
+                                      <span className="text-[12px] font-semibold text-foreground block">{folder}</span>
                                     </div>
                                   </div>
                                   <ChevronRight className={cn("w-4 h-4 text-on-surface-variant/30 transition-transform duration-300", expandedFolders.has(folder) && "rotate-90")} />
@@ -1528,8 +1752,16 @@ export function EventManager({
                                           return (
                                             <div
                                               key={task.id}
-                                              onMouseDown={(e) => handleSidebarMouseDown(e, task)}
-                                              onTouchStart={(e) => handleSidebarTouchStart(e, task)}
+                                              onMouseDown={(e) => {
+                                                if ((e.target as HTMLElement).closest('[data-sidebar-reorder-handle]')) return;
+                                                handleSidebarMouseDown(e, task);
+                                              }}
+                                              onTouchStart={(e) => {
+                                                if ((e.target as HTMLElement).closest('[data-sidebar-reorder-handle]')) return;
+                                                handleSidebarTouchStart(e, task);
+                                              }}
+                                              onDragOver={(e) => handleSidebarReorderOver(e, task)}
+                                              onDragEnd={handleSidebarReorderEnd}
                                               onClick={() => {
                                                 if (onEventClick) {
                                                   onEventClick(task)
@@ -1544,12 +1776,29 @@ export function EventManager({
                                                 borderColor: `color-mix(in srgb, ${priorityColors[getPriorityKey(task.urgency || false, task.importance || false)]}, transparent 80%)`
                                               }}
                                             >
+                                              {canReorderSidebarTask(task) ? (
+                                                <button
+                                                  type="button"
+                                                  draggable
+                                                  data-sidebar-reorder-handle
+                                                  title="Arrastra para ordenar"
+                                                  aria-label="Arrastra para ordenar"
+                                                  onDragStart={(e) => handleSidebarReorderStart(e, task)}
+                                                  onDragEnd={handleSidebarReorderEnd}
+                                                  onClick={(e) => e.stopPropagation()}
+                                                  className="mt-0 flex h-6 w-4 shrink-0 items-center justify-center rounded-md text-on-surface-variant/30 transition-all hover:bg-primary/10 hover:text-primary group-hover:text-primary/70 cursor-grab active:cursor-grabbing"
+                                                >
+                                                  <ChevronsUpDown className="h-3.5 w-3.5" strokeWidth={1.8} />
+                                                </button>
+                                              ) : (
+                                                <div className="w-4 shrink-0" />
+                                              )}
                                               <div
                                                 className="w-1.5 h-1.5 rounded-full mt-1.5 shrink-0"
                                                 style={{ backgroundColor: taskColor || priorityColors[getPriorityKey(task.urgency || false, task.importance || false)] }}
                                               />
                                               <div className={cn("flex-1 min-w-0", task.completed && "opacity-40 grayscale-[0.5]")}>
-                                                <span className={cn("text-[12px] font-black leading-tight block group-hover:text-primary transition-colors text-foreground", task.completed && "line-through")}>{task.title}</span>
+                                                <span className={cn("text-[13px] font-semibold leading-snug block group-hover:text-primary transition-colors text-foreground", task.completed && "line-through")}>{task.title}</span>
                                                 {task.description && (
                                                   <span className="text-[9px] font-medium text-on-surface-variant/50 line-clamp-1 italic mt-0.5">{task.description}</span>
                                                 )}
@@ -1640,7 +1889,7 @@ export function EventManager({
       </div>
 
 
-      {/* Event Dialog â€” pixel-match TaskDetailModal + time section */}
+      {/* Event Dialog ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â pixel-match TaskDetailModal + time section */}
       <AnimatePresence>
         {isDialogOpen && (() => {
           const hasTime = isCreating ? !newEvent.isAllDay : !selectedEvent?.isAllDay;
@@ -1653,6 +1902,11 @@ export function EventManager({
 
           const isTask = isCreating ? creationSource !== 'calendar_only' : selectedEvent?.id.startsWith('task-');
           const isBlock = isCreating ? (creationSource === 'calendar_only' || creationSource === 'both') : selectedEvent?.id.startsWith('block-');
+          const visibilityMode = isCreating
+            ? creationSource
+            : selectedEvent?.isEvent === false
+              ? 'both'
+              : (selectedEvent?.id.startsWith('block-') || selectedEvent?.isEvent ? 'calendar_only' : 'both');
 
           return (
             <>
@@ -1661,10 +1915,10 @@ export function EventManager({
                 key="event-backdrop"
                 initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                 className={cn(containedScroll ? "absolute" : "fixed", "inset-0 bg-black/60 z-[60]")}
-                onClick={() => setIsDialogOpen(false)}
+                onClick={requestDialogClose}
               />
 
-              {/* Modal panel â€” identical container to TaskDetailModal */}
+              {/* Modal panel ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â identical container to TaskDetailModal */}
               <motion.div
                 key="event-modal"
                 initial={{ opacity: 0, scale: 0.95, y: 10 }}
@@ -1682,11 +1936,11 @@ export function EventManager({
                 )}>
                   <div className={cn("flex flex-col gap-6", containedScroll ? "p-4" : "p-6")}>
 
-                    {/* â”€â”€ Header â”€â”€ same as TaskDetailModal */}
+                    {/* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Header ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ same as TaskDetailModal */}
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <button
-                          onClick={() => setIsDialogOpen(false)}
+                          onClick={requestDialogClose}
                           className="p-1.5 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 transition-all active:scale-90 text-muted-foreground"
                         >
                           <X className="w-4 h-4" />
@@ -1706,10 +1960,10 @@ export function EventManager({
                         className="px-5 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:scale-[1.03] active:scale-95 transition-all"
                       >
                         {isCreating
-                        ? creationSource === 'calendar_only' ? 'Confirmar Evento'
-                        : creationSource === 'task_only' ? 'Crear Tarea'
-                        : 'Guardar'
-                        : 'Guardar Cambios'}
+                          ? hasTime
+                            ? creationSource === 'calendar_only' ? 'Crear Evento' : 'Crear en Ambos'
+                            : 'Crear Tarea'
+                          : 'Guardar Cambios'}
                       </button>
                     </div>
 
@@ -1735,16 +1989,16 @@ export function EventManager({
                               : setSelectedEvent(prev => prev ? ({ ...prev, title: e.target.value }) : null)
                             }
                             className={cn(
-                              "w-full text-xl font-bold bg-surface/50 border border-outline-variant/30 rounded-[22px] px-6 py-5 focus:outline-none focus:ring-4 focus:ring-primary/10 placeholder:text-muted-foreground/20 transition-all shadow-sm",
+                              "w-full text-xl font-semibold bg-surface/50 border border-outline-variant/30 rounded-[22px] px-6 py-5 focus:outline-none focus:ring-4 focus:ring-primary/10 placeholder:text-muted-foreground/20 transition-all shadow-sm",
                               !isCreating && selectedEvent?.completed && "text-muted-foreground/50 line-through decoration-primary/30"
                             )}
-                            placeholder="Título"
+                            placeholder="TÃƒÂ­tulo"
                             autoFocus
                           />
                         </div>
                       </div>
 
-                      {/* CONFIGURACIÃ“N RÁPIDA (Grid layout) */}
+                      {/* CONFIGURACIÃƒÆ’Ã¢â‚¬Å“N RÃƒÂPIDA (Grid layout) */}
                       <div className={cn("grid gap-4", containedScroll ? "grid-cols-1" : "grid-cols-2")}>
                         {/* FECHA */}
                         <div className="space-y-2">
@@ -1823,30 +2077,38 @@ export function EventManager({
                       </div>
 
                       {/* MODO (Segmented style) */}
-                      {isCreating && (
+                      {hasTime && (isCreating || !!selectedEvent) && (
                         <div className="space-y-2">
-                          <label className="text-[11px] font-bold text-muted-foreground/60 uppercase tracking-wider ml-1">¿Dónde aparecerá?</label>
+                          <label className="text-[11px] font-bold text-muted-foreground/60 uppercase tracking-wider ml-1">Ã‚Â¿Donde quiere verlo?</label>
                           <div className="flex p-1 bg-surface-container/30 border border-outline-variant/10 rounded-[20px] gap-1">
                             {[
-                              { id: 'calendar_only' as const, label: 'Solo Calendario' },
-                              { id: 'task_only' as const, label: 'Solo Tarea' },
-                              { id: 'both' as const, label: 'Ambos' },
+                              { id: 'calendar_only' as const, label: 'SOLO CALENDARIO' },
+                              { id: 'both' as const, label: 'LISTA DE TAREAS Y CALENDARIO' },
                             ].map(opt => (
                               <button
                                 key={opt.id}
                                 type="button"
                                 onClick={() => {
-                                  setCreationSource(opt.id)
-                                  if (opt.id === 'task_only') {
-                                    setNewEvent(prev => ({ ...prev, isAllDay: true }))
+                                  if (isCreating) {
+                                    setCreationSource(opt.id)
+                                    const start = newEvent.startTime || new Date()
+                                    setNewEvent(prev => ({
+                                      ...prev,
+                                      isAllDay: false,
+                                      startTime: prev.startTime || start,
+                                      endTime: prev.endTime || addMinutes(start, durationMinutes),
+                                    }))
                                   } else {
-                                    const d = newEvent.startTime || new Date()
-                                    setNewEvent(prev => ({ ...prev, isAllDay: false, startTime: d, endTime: addMinutes(d, durationMinutes) }))
+                                    setSelectedEvent(prev => prev ? ({
+                                      ...prev,
+                                      isAllDay: false,
+                                      isEvent: opt.id === 'calendar_only',
+                                    }) : null)
                                   }
                                 }}
                                 className={cn(
                                   "flex-1 py-2.5 rounded-[14px] text-[10px] font-bold uppercase tracking-tight transition-all",
-                                  creationSource === opt.id
+                                  visibilityMode === opt.id
                                     ? "bg-primary text-primary-foreground shadow-md"
                                     : "text-muted-foreground hover:bg-black/5 dark:hover:bg-white/5"
                                 )}
@@ -1858,11 +2120,11 @@ export function EventManager({
                         </div>
                       )}
 
-                      {/* DURACIÃ“N (Pills style) */}
-                      {(creationSource === 'calendar_only' || creationSource === 'both') && isCreating && (
+                      {/* DURACIÃƒÆ’Ã¢â‚¬Å“N (Pills style) */}
+                      {(creationSource === 'calendar_only' || creationSource === 'both') && isCreating && hasTime && (
                         <div className="space-y-3">
                           <div className="flex items-center justify-between px-1">
-                             <label className="text-[11px] font-bold text-muted-foreground/60 uppercase tracking-wider">Duración estimada</label>
+                             <label className="text-[11px] font-bold text-muted-foreground/60 uppercase tracking-wider">DuraciÃƒÂ³n estimada</label>
                              <div className="flex items-center gap-2">
                                 <input
                                   type="number"
@@ -1958,7 +2220,7 @@ export function EventManager({
                         </div>
                       </div>
 
-                      {/* REPETICIÓN */}
+                      {/* REPETICIÃƒâ€œN */}
                       {(() => {
                         const priorityColorChoices = [
                           { id: 'p1', value: priorityColors.p1, label: 'P1', isCustom: false },
@@ -1979,10 +2241,10 @@ export function EventManager({
                         const weekDays = [
                           { value: 1, label: 'L', full: 'lunes' },
                           { value: 2, label: 'M', full: 'martes' },
-                          { value: 3, label: 'X', full: 'miércoles' },
+                          { value: 3, label: 'X', full: 'miÃƒÂ©rcoles' },
                           { value: 4, label: 'J', full: 'jueves' },
                           { value: 5, label: 'V', full: 'viernes' },
-                          { value: 6, label: 'S', full: 'sábado' },
+                          { value: 6, label: 'S', full: 'sÃƒÂ¡bado' },
                           { value: 0, label: 'D', full: 'domingo' },
                         ]
                         const patchRecurrence = (patch: Partial<Event>) => {
@@ -2004,16 +2266,16 @@ export function EventManager({
                           .filter(d => selectedDays.includes(d.value))
                           .map(d => d.full)
                         const unitLabel: Record<string, [string, string]> = {
-                          days: ['día', 'días'],
+                          days: ['dÃƒÂ­a', 'dÃƒÂ­as'],
                           weeks: ['semana', 'semanas'],
                           months: ['mes', 'meses'],
-                          years: ['año', 'años'],
+                          years: ['aÃƒÂ±o', 'aÃƒÂ±os'],
                         }
                         const baseSummary = (() => {
                           if (!currentRec || currentRec === 'none') return 'No se repite'
-                          if (currentRec === 'daily') return 'Se repite cada día'
+                          if (currentRec === 'daily') return 'Se repite cada dÃƒÂ­a'
                           if (currentRec === 'monthly') return 'Se repite cada mes'
-                          if (currentRec === 'yearly') return 'Se repite cada año'
+                          if (currentRec === 'yearly') return 'Se repite cada aÃƒÂ±o'
                           if (currentRec === 'weekdays') return 'Se repite de lunes a viernes'
                           if (currentRec === 'biweekly') return selectedDayNames.length ? `Se repite cada 2 semanas: ${selectedDayNames.join(', ')}` : 'Se repite cada 2 semanas'
                           if (currentRec === 'weekly') return selectedDayNames.length ? `Se repite cada ${selectedDayNames.join(', ')}` : 'Se repite cada semana'
@@ -2038,7 +2300,7 @@ export function EventManager({
                           { value: 15, label: '15 min' },
                           { value: 30, label: '30 min' },
                           { value: 60, label: '1 hora' },
-                          { value: 1440, label: '1 día' },
+                          { value: 1440, label: '1 dÃƒÂ­a' },
                         ]
                         const reminderUnitMinutes: Record<string, number> = { minutes: 1, hours: 60, days: 1440, weeks: 10080 }
                         const patchReminder = (patch: Partial<Event>) => patchRecurrence(patch)
@@ -2126,7 +2388,7 @@ export function EventManager({
 
                             <div className="space-y-2">
                               <div className="flex items-center justify-between px-1">
-                                <label className="text-[11px] font-bold text-muted-foreground/60 uppercase tracking-wider">Notificación</label>
+                                <label className="text-[11px] font-bold text-muted-foreground/60 uppercase tracking-wider">NotificaciÃƒÂ³n</label>
                                 <button
                                   type="button"
                                   onClick={() => patchReminder({ reminderEnabled: !reminderEnabled, reminderMinutesBefore: reminderMinutes || 10 })}
@@ -2134,7 +2396,7 @@ export function EventManager({
                                     "w-9 h-9 rounded-full flex items-center justify-center border transition-all",
                                     reminderEnabled ? "bg-primary/15 text-primary border-primary/25" : "bg-surface-container/30 text-muted-foreground border-outline-variant/15"
                                   )}
-                                  aria-label={reminderEnabled ? 'Desactivar notificación' : 'Activar notificación'}
+                                  aria-label={reminderEnabled ? 'Desactivar notificaciÃƒÂ³n' : 'Activar notificaciÃƒÂ³n'}
                                 >
                                   {reminderEnabled ? <Bell className="w-4 h-4" /> : <BellOff className="w-4 h-4" />}
                                 </button>
@@ -2174,7 +2436,7 @@ export function EventManager({
                                     >
                                       <option value="minutes">minutos antes</option>
                                       <option value="hours">horas antes</option>
-                                      <option value="days">días antes</option>
+                                      <option value="days">dÃƒÂ­as antes</option>
                                       <option value="weeks">semanas antes</option>
                                     </select>
                                   </div>
@@ -2183,7 +2445,7 @@ export function EventManager({
                             </div>
 
                             <div className="flex items-center justify-between gap-3">
-                              <label className="text-[11px] font-bold text-muted-foreground/60 uppercase tracking-wider ml-1">Repetición</label>
+                              <label className="text-[11px] font-bold text-muted-foreground/60 uppercase tracking-wider ml-1">RepeticiÃƒÂ³n</label>
                               <button
                                 type="button"
                                 onClick={() => patchRecurrence({
@@ -2245,7 +2507,7 @@ export function EventManager({
                                   onClick={() => patchRecurrence({ recurrence: 'none', recurrenceDays: [] })}
                                   className="w-full rounded-2xl py-2 text-[10px] font-black uppercase tracking-wider text-muted-foreground hover:text-destructive transition-colors"
                                 >
-                                  Quitar repetición
+                                  Quitar repeticiÃƒÂ³n
                                 </button>
                               )}
 
@@ -2267,10 +2529,10 @@ export function EventManager({
                                         onChange={(e) => patchRecurrence({ recurrence: 'custom', recurrenceUnit: e.target.value as Event['recurrenceUnit'] })}
                                         className="h-10 rounded-xl bg-surface/70 border border-outline-variant/20 px-3 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/30"
                                       >
-                                        <option value="days">días</option>
+                                        <option value="days">dÃƒÂ­as</option>
                                         <option value="weeks">semanas</option>
                                         <option value="months">meses</option>
-                                        <option value="years">años</option>
+                                        <option value="years">aÃƒÂ±os</option>
                                       </select>
                                     </div>
                                   </div>
@@ -2335,7 +2597,7 @@ export function EventManager({
                                     }}
                                     className="w-full rounded-2xl bg-primary text-primary-foreground py-2.5 text-[10px] font-black uppercase tracking-wider shadow-lg shadow-primary/15 hover:scale-[1.01] active:scale-95 transition-all"
                                   >
-                                    Guardar repetición
+                                    Guardar repeticiÃƒÂ³n
                                   </button>
                                 </>
                               )}
@@ -2419,9 +2681,9 @@ export function EventManager({
                         </div>
                       </div>
 
-                      {/* DESCRIPCIÃ“N */}
+                      {/* DESCRIPCIÃƒÆ’Ã¢â‚¬Å“N */}
                       <div className="space-y-1">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 ml-2">Descripción</label>
+                        <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 ml-2">DescripciÃƒÂ³n</label>
                         <Textarea
                           value={descVal}
                           onChange={(e) => isCreating
@@ -2442,6 +2704,48 @@ export function EventManager({
         })()}
       </AnimatePresence>
 
+      <AnimatePresence>
+        {confirmCloseOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className={cn(containedScroll ? "absolute" : "fixed", "inset-0 bg-black/50 z-[90]")}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96, y: 8 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96, y: 8 }}
+              className={cn(containedScroll ? "absolute" : "fixed", "inset-0 z-[100] flex items-center justify-center p-4 pointer-events-none")}
+            >
+              <div className="w-full max-w-sm rounded-[28px] border border-outline-variant/20 bg-background p-5 shadow-2xl pointer-events-auto">
+                <h3 className="text-base font-semibold text-foreground">Ã‚Â¿Quieres guardar los cambios?</h3>
+                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                  Hay cambios pendientes en este elemento.
+                </p>
+                <div className="mt-5 grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={discardDialogChanges}
+                    className="h-11 rounded-2xl border border-outline-variant/20 bg-surface-container/30 text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    Descartar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={saveAndCloseDialog}
+                    className="h-11 rounded-2xl bg-primary text-primary-foreground text-sm font-semibold shadow-lg shadow-primary/15 hover:scale-[1.01] active:scale-95 transition-all"
+                  >
+                    Guardar
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
 
 
       <Dialog open={isSheetOpen} onOpenChange={setIsSheetOpen}>
@@ -2455,7 +2759,7 @@ export function EventManager({
             </button>
 
             <div className="p-10 pb-6">
-              <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-primary mb-2">Agenda del día</h2>
+              <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-primary mb-2">Agenda del dÃƒÂ­a</h2>
               <h3 className="text-3xl font-black font-headline tracking-tighter uppercase leading-none">
                 {selectedDayForSheet && format(selectedDayForSheet, "EEEE, d 'de' MMMM", { locale: es })}
               </h3>
@@ -2495,7 +2799,7 @@ export function EventManager({
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-3 mb-0.5">
                                 <p className={cn(
-                                  "text-[16px] font-black text-foreground leading-tight group-hover:text-primary transition-colors truncate",
+                                  "text-[16px] font-semibold text-foreground leading-tight group-hover:text-primary transition-colors truncate",
                                   event.completed && "text-muted-foreground/40 line-through decoration-primary/30"
                                 )}>
                                   {event.title}
@@ -2518,7 +2822,7 @@ export function EventManager({
                       <Calendar className="w-16 h-16" />
                       <div className="space-y-2">
                         <h3 className="text-xl font-black uppercase tracking-widest">Nada planeado</h3>
-                        <p className="text-xs font-bold opacity-60">Tu agenda está despejada por ahora.</p>
+                        <p className="text-xs font-bold opacity-60">Tu agenda estÃƒÂ¡ despejada por ahora.</p>
                       </div>
                     </div>
                   )}
@@ -2619,7 +2923,6 @@ export function EventManager({
     </div>
   )
 }
-
 function TimeGridView({
   view,
   currentDate,
@@ -2878,7 +3181,7 @@ function TimeGridView({
         if (isResizingTop) {
           let newStartTime = new Date(initialStartTime.getTime() + minutesDiff * 60000);
           
-          // Mantener duraciÃ³n mínima de 5 minutos para que la tarea no desaparezca ni se trabe
+          // Mantener duraciÃƒÆ’Ã‚Â³n mÃƒÂ­nima de 5 minutos para que la tarea no desaparezca ni se trabe
           const maxStartTime = new Date(initialEndTime.getTime() - MIN_EVENT_DURATION_MINUTES * 60000);
           if (newStartTime > maxStartTime) newStartTime = maxStartTime;
 
@@ -2886,7 +3189,7 @@ function TimeGridView({
         } else {
           let newEndTime = new Date(initialEndTime.getTime() + minutesDiff * 60000);
           
-          // Mantener duraciÃ³n mínima de 5 minutos
+          // Mantener duraciÃƒÆ’Ã‚Â³n mÃƒÂ­nima de 5 minutos
           const minEndTime = new Date(initialStartTime.getTime() + MIN_EVENT_DURATION_MINUTES * 60000);
           if (newEndTime < minEndTime) newEndTime = minEndTime;
 
@@ -2902,7 +3205,7 @@ function TimeGridView({
 
         if (!isDraggingRef.current) return;
 
-        // Ghost logic â€” always visible while dragging calendar events
+        // Ghost logic ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â always visible while dragging calendar events
         if (isMoving && ghostRef.current) {
           ghostRef.current.style.transform = `translate(${clientX - 70}px, ${clientY - 20}px)`;
           ghostRef.current.style.display = 'flex';
@@ -3277,7 +3580,7 @@ function TimeGridView({
                       backgroundColor: (draggedEvent.color && (draggedEvent.color.startsWith('#') || draggedEvent.color.startsWith('var'))) ? draggedEvent.color : undefined
                     }}
                   >
-                    <p className="truncate font-black opacity-60 italic">{draggedEvent.title}</p>
+                    <p className="truncate font-semibold opacity-60 italic">{draggedEvent.title}</p>
                   </div>
                 )}
 
@@ -3300,7 +3603,7 @@ function TimeGridView({
                           onEventClick(event);
                         }}
                         className={cn(
-                          "absolute rounded-xl p-2 text-[10px] font-bold text-white cursor-grab active:cursor-grabbing hover:brightness-110 z-10 overflow-hidden group select-none touch-pan-y",
+                          "absolute rounded-xl p-2 text-[10px] font-semibold text-white cursor-grab active:cursor-grabbing hover:brightness-110 z-10 overflow-hidden group select-none touch-pan-y",
                           "transition-[opacity,transform] duration-200 ease-out", // No shadow transition - prevents shadow accumulation
                           event.color && !event.color.startsWith('#') && !event.color.startsWith('var') && getColorClasses(event.color).bg,
                           isResizing === event.id && "z-50 shadow-xl brightness-125 ring-2 ring-white/50 transition-none", // Disable transitions while resizing
@@ -3392,8 +3695,9 @@ function TimeGridView({
                             <div className="w-8 h-1 rounded-full bg-white/80 shadow-md" />
                           </div>
 
-                          <div className="flex flex-col h-full py-1 px-1 pointer-events-none">
-                            <p className={cn("truncate font-black select-none leading-tight", event.completed && "line-through")}>{event.title}</p>
+                          <div className="flex flex-col h-full py-1 px-1">
+                            <p className={cn("truncate font-semibold select-none leading-tight", event.completed && "line-through")}>{event.title}</p>
+                            <EventLinkClips links={event.links} color={event.color} />
                             {duration > 0.4 && (
                               <p className="opacity-70 text-[8px] font-medium mt-0.5 select-none">
                                 {format(event.startTime, "h:mm a", { locale: es })} - {format(event.endTime, "h:mm a", { locale: es })}
@@ -3451,7 +3755,7 @@ function TimeGridView({
                           className="absolute -top-7 left-1/2 -translate-x-1/2 whitespace-nowrap z-40"
                         >
                           <div className="bg-foreground text-background text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg shadow-lg">
-                            Arrastra los bordes â†•
+                            Arrastra los bordes ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬Â¢
                           </div>
                         </motion.div>
                       )}
@@ -3556,7 +3860,7 @@ function TimeGridView({
         </div>
       </div>
 
-      {/* Ghost element for internal calendar drag â€” always follows mouse */}
+      {/* Ghost element for internal calendar drag ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â always follows mouse */}
       <div
         ref={ghostRef}
         style={{
@@ -3643,7 +3947,7 @@ function MonthView({
   return (
     <Card className="overflow-hidden border-outline-variant/10 bg-surface-container/30 backdrop-blur-sm shadow-sm">
       <div className="grid grid-cols-7 border-b border-outline-variant/5 sticky top-[64px] z-10 bg-background/95 backdrop-blur-md">
-        {["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"].map((day) => (
+        {["Dom", "Lun", "Mar", "MiÃƒÂ©", "Jue", "Vie", "SÃƒÂ¡b"].map((day) => (
           <div key={day} className="p-3 text-center text-xs font-black uppercase tracking-widest text-muted-foreground">
             {day.toUpperCase()}
           </div>
@@ -3702,7 +4006,7 @@ function MonthView({
                       onEventClick(event)
                     }}
                     className={cn(
-                      "relative cursor-pointer rounded-md px-2 py-1 text-[9px] font-bold truncate transition-all duration-300",
+                      "relative cursor-pointer rounded-md px-2 py-1 text-[9px] font-medium truncate transition-all duration-300",
                       "hover:scale-110 hover:z-50 hover:shadow-xl hover:text-[10px] hover:py-1.5",
                       event.color && !event.color.startsWith('#') && !event.color.startsWith('var') && getColorClasses(event.color).bg,
                       "text-white shadow-sm",
@@ -3710,13 +4014,14 @@ function MonthView({
                     )}
                     style={{ backgroundColor: (event.color && (event.color.startsWith('#') || event.color.startsWith('var'))) ? event.color : undefined }}
                   >
-                    {event.title}
+                    <span className="truncate">{event.title}</span>
+                    <EventLinkClips links={event.links} color={event.color} />
                   </div>
                 ))}
                 {dayEvents.length > 3 && (
                   <div className="text-[9px] font-black text-on-surface-variant/40 pl-2 flex items-center gap-1">
                     <Plus className="w-2 h-2" />
-                    {dayEvents.length - 3} más
+                    {dayEvents.length - 3} mÃƒÂ¡s
                   </div>
                 )}
               </div>
@@ -3888,7 +4193,10 @@ function ScheduleView({
                           style={{ backgroundColor: (event.color && (event.color.startsWith('#') || event.color.startsWith('var'))) ? event.color : undefined }}
                         />
                       </div>
-                      <h3 className={cn("text-sm font-black text-foreground truncate group-hover:text-primary transition-colors", event.completed && "line-through")}>{event.title}</h3>
+                      <h3 className={cn("text-sm font-semibold text-foreground truncate group-hover:text-primary transition-colors", event.completed && "line-through")}>{event.title}</h3>
+                      <div className="mt-1">
+                        <EventLinkClips links={event.links} color={event.color} />
+                      </div>
                       {event.description && (
                         <p className="text-[11px] font-medium text-on-surface-variant/40 line-clamp-1 mt-1">{event.description}</p>
                       )}
@@ -3906,7 +4214,7 @@ function ScheduleView({
               <Calendar className="w-16 h-16" />
               <div className="space-y-2">
                 <h3 className="text-xl font-black uppercase tracking-widest">Nada planeado</h3>
-                <p className="text-xs font-bold opacity-60">Tu agenda está despejada por ahora.</p>
+                <p className="text-xs font-bold opacity-60">Tu agenda estÃƒÂ¡ despejada por ahora.</p>
               </div>
             </div>
           )}
@@ -3915,4 +4223,3 @@ function ScheduleView({
     </Card>
   )
 }
-

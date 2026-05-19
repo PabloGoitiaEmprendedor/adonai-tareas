@@ -4,11 +4,12 @@ import { useTasks } from '@/hooks/useTasks';
 import { useFolders } from '@/hooks/useFolders';
 import { format, parseISO, addMinutes } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Flame, X, Folder, Link as LinkIcon, Paperclip, GripHorizontal } from 'lucide-react';
+import { Flame, X, Folder, Link as LinkIcon, Paperclip, GripHorizontal, ChevronsUpDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { usePriorityColors } from '@/hooks/usePriorityColors';
 import AdonaiCalendarView from '@/components/calendar/AdonaiCalendarView';
 import { TaskCheckbox } from '@/components/TaskCheckbox';
+import { compareTasksWithinQuadrants, getTaskManualOrderGroupKey } from '@/lib/taskOrdering';
 
 interface MiniTaskWidgetProps {
   isOpen: boolean;
@@ -25,6 +26,8 @@ export const MiniTaskWidget = ({ isOpen, onClose }: MiniTaskWidgetProps) => {
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [showFolderBar, setShowFolderBar] = useState(true);
   const [calendarOpen, setCalendarOpen] = useState(false);
+  const [orderedTasks, setOrderedTasks] = useState<any[]>([]);
+  const [reorderIdx, setReorderIdx] = useState<number | null>(null);
   const calendarTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -83,15 +86,45 @@ export const MiniTaskWidget = ({ isOpen, onClose }: MiniTaskWidgetProps) => {
   }, [tasks, selectedFolderId]);
 
   const sortedTasks = useMemo(() => {
-    return [...filteredTasks].sort((a: any, b: any) => {
-      const doneA = a.status === 'done' ? 1 : 0;
-      const doneB = b.status === 'done' ? 1 : 0;
-      if (doneA !== doneB) return doneA - doneB;
-      const orderA = a.sort_order || 0;
-      const orderB = b.sort_order || 0;
-      return orderA - orderB;
-    });
+    return [...filteredTasks].sort(compareTasksWithinQuadrants);
   }, [filteredTasks]);
+
+  useEffect(() => {
+    setOrderedTasks(sortedTasks);
+  }, [sortedTasks]);
+
+  const persistMiniWidgetOrder = useCallback((nextOrder: any[]) => {
+    nextOrder.forEach((task, idx) => {
+      if (task.status !== 'done' && (task.sort_order ?? 0) !== idx) {
+        updateTask.mutate({ id: task.id, sort_order: idx });
+      }
+    });
+  }, [updateTask]);
+
+  const handleReorderStart = useCallback((idx: number) => {
+    if (orderedTasks[idx]?.status === 'done') return;
+    setReorderIdx(idx);
+  }, [orderedTasks]);
+
+  const handleReorderOver = useCallback((event: React.DragEvent, idx: number) => {
+    event.preventDefault();
+    if (reorderIdx === null || reorderIdx === idx) return;
+    const dragged = orderedTasks[reorderIdx];
+    const target = orderedTasks[idx];
+    if (!dragged || !target || dragged.status === 'done' || target.status === 'done') return;
+    if (getTaskManualOrderGroupKey(dragged) !== getTaskManualOrderGroupKey(target)) return;
+
+    const next = [...orderedTasks];
+    const [moved] = next.splice(reorderIdx, 1);
+    next.splice(idx, 0, moved);
+    setOrderedTasks(next);
+    setReorderIdx(idx);
+  }, [orderedTasks, reorderIdx]);
+
+  const handleReorderEnd = useCallback(() => {
+    if (reorderIdx !== null) persistMiniWidgetOrder(orderedTasks);
+    setReorderIdx(null);
+  }, [orderedTasks, persistMiniWidgetOrder, reorderIdx]);
 
   const completedCount = filteredTasks.filter((t: any) => t.status === 'done').length;
   const totalCount = filteredTasks.length;
@@ -319,7 +352,7 @@ export const MiniTaskWidget = ({ isOpen, onClose }: MiniTaskWidgetProps) => {
           </div>
         ) : (
           <AnimatePresence mode="popLayout">
-            {sortedTasks.map((task: any) => {
+            {orderedTasks.map((task: any, idx: number) => {
               const isDone = task.status === 'done';
               const isCompleting = completingId === task.id;
 
@@ -343,6 +376,10 @@ export const MiniTaskWidget = ({ isOpen, onClose }: MiniTaskWidgetProps) => {
                     scale: isCompleting ? 0.98 : 1,
                   }}
                   exit={{ opacity: 0, scale: 0.95 }}
+                  draggable={!isDone}
+                  onDragStart={() => handleReorderStart(idx)}
+                  onDragOver={(event) => handleReorderOver(event, idx)}
+                  onDragEnd={handleReorderEnd}
                   onClick={(e) => handleToggle(task, e)}
                   className={`group flex items-center gap-4 px-4 py-4 rounded-[24px] cursor-pointer transition-all border ${
                     isDone
@@ -350,6 +387,19 @@ export const MiniTaskWidget = ({ isOpen, onClose }: MiniTaskWidgetProps) => {
                       : 'bg-background border-outline-variant/10 hover:border-primary/30 hover:shadow-xl hover:shadow-primary/5'
                   }`}
                 >
+                  {!isDone && !isCompleting ? (
+                    <div
+                      title="Arrastra para ordenar"
+                      aria-label="Arrastra para ordenar"
+                      onClick={(e) => e.stopPropagation()}
+                      className="flex h-8 w-5 flex-shrink-0 items-center justify-center rounded-lg text-on-surface-variant/30 transition-all group-hover:text-primary group-hover:opacity-100 cursor-grab active:cursor-grabbing"
+                    >
+                      <ChevronsUpDown className="h-4 w-4" strokeWidth={1.8} />
+                    </div>
+                  ) : (
+                    <div className="w-5 flex-shrink-0" />
+                  )}
+
                   <div className="flex-shrink-0">
                     <motion.div
                       initial={isDone || isCompleting ? { scale: 0, rotate: -45 } : false}

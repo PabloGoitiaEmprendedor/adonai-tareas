@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Target, Sparkles, Menu } from "lucide-react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { HashRouter, Route, Routes, Navigate, useNavigate } from "react-router-dom";
+import { HashRouter, Route, Routes, Navigate, useNavigate, useLocation } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
@@ -41,6 +41,7 @@ import ExitCodesPage from './pages/ExitCodesPage';
 import NotificationManager from './components/NotificationManager';
 import { AdonaiNotifier } from '@/components/ui/adonai-notifier';
 import DownloadGuideOverlay from '@/components/DownloadGuideOverlay';
+import { trackPageView } from "@/lib/analytics";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -66,6 +67,16 @@ const ThemeSync = () => {
       setTheme(profile.theme as 'dark' | 'light' | 'system');
     }
   }, [profile?.theme, setTheme]);
+
+  return null;
+};
+
+const AnalyticsRouteTracking = () => {
+  const location = useLocation();
+
+  useEffect(() => {
+    trackPageView(location.pathname + location.search);
+  }, [location.pathname, location.search]);
 
   return null;
 };
@@ -130,6 +141,7 @@ import CalendarCallback from "./pages/CalendarCallback";
 
 const AppRoutes = () => {
   const { user, loading } = useAuth();
+  const browserPath = window.location.pathname.replace(/\/$/, '');
   
   const isElectron = !!window.electronAPI || 
                      navigator.userAgent.toLowerCase().includes('electron') ||
@@ -144,6 +156,11 @@ const AppRoutes = () => {
     <ProtectedRoute>{element}</ProtectedRoute>;
 
   const rootRouteElement = () => {
+    // HashRouter normally expects /#/mini. Keep direct localhost /mini working too.
+    if (browserPath === '/mini') {
+      return <MiniTasksPage />;
+    }
+
     if (loading) {
       return <LoadingScreen message="Sincronizando Adonai" />;
     }
@@ -280,6 +297,7 @@ const App = () => {
           <AdonaiNotifier />
           <HashRouter>
             <AuthProvider>
+              <AnalyticsRouteTracking />
               <NotificationManager />
               <NavigationWrapper>
                 <AppRoutes />

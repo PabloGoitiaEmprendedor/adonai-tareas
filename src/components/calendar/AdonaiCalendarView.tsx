@@ -267,6 +267,7 @@ const AdonaiCalendarView: React.FC<AdonaiCalendarViewProps> = ({ selectedDate, o
                 color: block.color || 'blue',
                 category: 'Calendario',
                 description: '',
+                isEvent: true,
               });
             }
           });
@@ -287,26 +288,25 @@ const AdonaiCalendarView: React.FC<AdonaiCalendarViewProps> = ({ selectedDate, o
         color: block.color || 'blue',
         category: 'Calendario',
         description: '',
+        isEvent: true,
         recurrence,
         recurrenceDays,
       });
     });
 
 tasks?.forEach((task) => {
-       // Show tasks that match the current month range or have no date (though useTasks filters)
        if (task.status !== 'done' && task.status !== 'deleted') {
          const taskDateStr = task.due_date || dateStr;
          const scheduledTime = parseTimeFromDescription(task.description);
          const parsedColor = parseColorFromDescription(task.description);
          const recurrenceConfig = getTaskRecurrence(task.recurrence_id);
          
-         // Default time or parsed time
-         const start = scheduledTime 
+         const start = scheduledTime
            ? parseISO(`${taskDateStr}T${scheduledTime.start}:00`)
            : parseISO(`${taskDateStr}T08:00:00`);
-         const end = scheduledTime 
+         const end = scheduledTime
            ? parseISO(`${taskDateStr}T${scheduledTime.end}:00`)
-           : addMinutes(start, 30); // Default to 30 minutes
+           : addMinutes(start, 30);
 
          const folder = folders.find((f: any) => f.id === task.folder_id);
          const folderName = folder ? folder.name : 'General';
@@ -366,6 +366,7 @@ tasks?.forEach((task) => {
             importance: importance,
             links: task.link ? [task.link] : [],
             priority: (urgency ? 2 : 0) + (importance ? 1 : 0),
+            sortOrder: task.sort_order,
             isAllDay: !scheduledTime,
             completed: task.status === 'done',
             isEvent: (task.metadata as any)?.creation_source === 'event',
@@ -502,6 +503,35 @@ tasks?.forEach((task) => {
     if (id.startsWith('block-')) {
       // Extract base block ID (strip date suffix from generated events like "block-{id}-2026-05-11")
       const blockId = id.replace(/^block-/, '').replace(/-\d{4}-\d{2}-\d{2}$/, '');
+
+      if (updates.isEvent === false) {
+        const start = updates.startTime || new Date();
+        const end = updates.endTime || addMinutes(start, 60);
+        const cleanDesc = stripAllPrefixes(updates.description || '');
+
+        try {
+          await createTask.mutateAsync({
+            title: updates.title || 'Nueva Tarea',
+            description: rebuildDescription(start, end, updates.color || null, cleanDesc),
+            importance: updates.importance || false,
+            urgency: updates.urgency || false,
+            link: updates.links && updates.links.length > 0 ? updates.links[0] : null,
+            due_date: format(start, 'yyyy-MM-dd'),
+            status: 'pending',
+          });
+          await deleteBlock.mutateAsync(blockId);
+          window.dispatchEvent(new CustomEvent('adonai:notify', {
+            detail: { type: 'success', message: 'Ahora aparece en tareas y calendario' }
+          }));
+        } catch (err) {
+          console.error('[calendar] Error converting block to task:', err);
+          window.dispatchEvent(new CustomEvent('adonai:notify', {
+            detail: { type: 'error', message: 'No se pudo cambiar la visibilidad' }
+          }));
+        }
+        return;
+      }
+
       const updateData: any = {};
       
       if (updates.title) updateData.title = updates.title;
@@ -520,6 +550,45 @@ tasks?.forEach((task) => {
       if (taskId.startsWith('temp-')) return;
       const originalEvent = calendarEvents.find(event => event.id === id);
       const task = tasks?.find(t => t.id === taskId);
+
+      if (updates.isEvent === true) {
+        const start = updates.startTime || originalEvent?.startTime || new Date();
+        const end = updates.endTime || originalEvent?.endTime || addMinutes(start, 60);
+        const recurrence = updates.recurrence || originalEvent?.recurrence || 'none';
+        const isRecurring = recurrence !== 'none';
+        const daysOfWeek = recurrence === 'weekdays'
+          ? [1, 2, 3, 4, 5]
+          : updates.recurrenceDays && updates.recurrenceDays.length > 0
+            ? updates.recurrenceDays
+            : originalEvent?.recurrenceDays && originalEvent.recurrenceDays.length > 0
+              ? originalEvent.recurrenceDays
+              : isRecurring
+                ? [start.getDay()]
+                : [];
+
+        try {
+          await createBlock.mutateAsync({
+            title: updates.title || originalEvent?.title || task?.title || 'Nuevo Evento',
+            start_time: format(start, 'HH:mm:ss'),
+            end_time: format(end, 'HH:mm:ss'),
+            block_date: isRecurring ? null : format(start, 'yyyy-MM-dd'),
+            color: updates.color || originalEvent?.color || priorityColors.p4,
+            is_recurring: isRecurring,
+            days_of_week: daysOfWeek,
+          });
+          await deleteTask.mutateAsync(taskId);
+          window.dispatchEvent(new CustomEvent('adonai:notify', {
+            detail: { type: 'success', message: 'Ahora aparece solo en calendario' }
+          }));
+        } catch (err) {
+          console.error('[calendar] Error converting task to block:', err);
+          window.dispatchEvent(new CustomEvent('adonai:notify', {
+            detail: { type: 'error', message: 'No se pudo cambiar la visibilidad' }
+          }));
+        }
+        return;
+      }
+
       const recurrenceId = task?.recurrence_id || originalEvent?.recurrenceId || null;
       const singleUpdateTaskId = taskParts.isGeneratedOccurrence && recurrenceId && taskParts.occurrenceDate
         ? `virtual-${recurrenceId}-${taskParts.occurrenceDate}`
@@ -529,6 +598,7 @@ tasks?.forEach((task) => {
       if (updates.title) updateData.title = updates.title;
       if (updates.urgency !== undefined) updateData.urgency = updates.urgency;
       if (updates.importance !== undefined) updateData.importance = updates.importance;
+      if (updates.sortOrder !== undefined) updateData.sort_order = updates.sortOrder;
       if (updates.links && updates.links.length > 0) updateData.link = updates.links[0];
 
 
@@ -727,6 +797,39 @@ tasks?.forEach((task) => {
       description = rebuildDescription(start, end, event.color || null, cleanDesc);
     }
 
+    if (isEvent && !event.isAllDay) {
+      const recurrence = event.recurrence || 'none';
+      const isRecurring = recurrence !== 'none';
+      const daysOfWeek = recurrence === 'weekdays'
+        ? [1, 2, 3, 4, 5]
+        : event.recurrenceDays && event.recurrenceDays.length > 0
+          ? event.recurrenceDays
+          : isRecurring
+            ? [start.getDay()]
+            : [];
+
+      try {
+        await createBlock.mutateAsync({
+          title: event.title || 'Nuevo Evento',
+          start_time: format(start, 'HH:mm:ss'),
+          end_time: format(end, 'HH:mm:ss'),
+          block_date: isRecurring ? null : eventDateStr,
+          color: event.color || priorityColors.p4,
+          is_recurring: isRecurring,
+          days_of_week: daysOfWeek,
+        });
+        window.dispatchEvent(new CustomEvent('adonai:notify', {
+          detail: { type: 'success', message: 'Evento creado' }
+        }));
+      } catch (err) {
+        console.error('[calendar] Error creating calendar block:', err);
+        window.dispatchEvent(new CustomEvent('adonai:notify', {
+          detail: { type: 'error', message: 'Error al crear evento' }
+        }));
+      }
+      return;
+    }
+
     let recurrenceId: string | null = null;
     if (event.recurrence && event.recurrence !== 'none') {
       try {
@@ -880,7 +983,7 @@ tasks?.forEach((task) => {
               onSelectDate(date);
             }
           }}
-          categories={['Calendario', 'Tarea', 'Personal', 'Trabajo']}
+          categories={['Tarea', 'Personal', 'Trabajo']}
           colors={[
             { name: "Azul", value: "blue", bg: "bg-blue-500", text: "text-blue-600 dark:text-blue-400" },
             { name: "Verde", value: "green", bg: "bg-green-500", text: "text-green-600 dark:text-green-400" },

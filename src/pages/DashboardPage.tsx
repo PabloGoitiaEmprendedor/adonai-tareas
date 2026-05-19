@@ -12,6 +12,7 @@ import { usePriorityColors, getPriorityKey } from '@/hooks/usePriorityColors';
 import { TUTORIAL_CLOSE_CAPTURE_MODAL_EVENT } from '@/lib/tutorialEvents';
 import { TaskCheckbox } from '@/components/TaskCheckbox';
 import { TaskTimerButton } from '@/components/TaskTime';
+import { compareTasksWithinQuadrants } from '@/lib/taskOrdering';
 
 const getGreeting = () => {
   const h = new Date().getHours();
@@ -53,16 +54,7 @@ const DashboardPage = () => {
   const sorted = useEisenhowerSort(pendingTasks);
 
   useEffect(() => {
-    const quadrantRank = (t: any) =>
-      t.urgency && t.importance ? 0
-      : t.urgency ? 1
-      : t.importance ? 2
-      : 3;
-    const allTasks = [...tasks].sort((a, b) => {
-      const rankDiff = quadrantRank(a) - quadrantRank(b);
-      if (rankDiff !== 0) return rankDiff;
-      return (a.sort_order || 0) - (b.sort_order || 0);
-    });
+    const allTasks = [...tasks].sort(compareTasksWithinQuadrants);
     setOrderedTasks(allTasks);
   }, [tasks]);
 

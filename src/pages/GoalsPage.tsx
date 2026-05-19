@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useGoals } from '@/hooks/useGoals';
 import { useProfile } from '@/hooks/useProfile';
 import { useTasks } from '@/hooks/useTasks';
-import { Plus, Check, Trophy, Target, Edit3, Trash2, X, Sparkles, Star, Zap, Heart, Flame, CalendarDays, ShieldCheck, ShieldAlert, ListChecks, Crown } from 'lucide-react';
+import { Plus, Check, Trophy, Target, Edit3, Trash2, X, Sparkles, Star, Zap, Heart, Flame, CalendarDays, ShieldAlert, ListChecks } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { dispatchTutorialGoalCreated } from '@/lib/tutorialEvents';
@@ -10,19 +10,79 @@ import confetti from 'canvas-confetti';
 import { CalendarRac } from '@/components/ui/calendar-rac';
 import { parseDate } from '@internationalized/date';
 
+const clamp = (value: number, min = 0, max = 100) => Math.min(max, Math.max(min, value));
+
+const parseGoalDesc = (goal: any) => {
+  if (!goal?.description) return {};
+  try {
+    return JSON.parse(goal.description);
+  } catch {
+    return {};
+  }
+};
+
+const getDeadlineDate = (deadline?: string | null) => {
+  if (!deadline) return null;
+  const normalized = deadline.includes('T') ? deadline : `${deadline}T23:59:59`;
+  const parsed = new Date(normalized);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const getGoalStats = (goal: any) => {
+  const desc = parseGoalDesc(goal);
+  const deadlineDate = getDeadlineDate(desc.deadline);
+  const createdAt = new Date(goal.created_at);
+  const now = new Date();
+  const deadlineTs = deadlineDate?.getTime() ?? Number.POSITIVE_INFINITY;
+  const daysLeft = deadlineDate ? Math.ceil((deadlineDate.getTime() - now.getTime()) / 86400000) : null;
+  const spanMs = deadlineDate ? Math.max(1, deadlineDate.getTime() - createdAt.getTime()) : null;
+  const elapsedMs = deadlineDate ? clamp(now.getTime() - createdAt.getTime(), 0, spanMs ?? 0) : null;
+  const progress = spanMs ? clamp(Math.round(((elapsedMs ?? 0) / spanMs) * 100)) : 0;
+
+  let focusState = 'SIN FECHA';
+  if (daysLeft !== null) {
+    if (daysLeft <= 0) focusState = 'HOY';
+    else if (daysLeft <= 3) focusState = 'FOCO';
+    else if (daysLeft <= 7) focusState = 'RITMO';
+    else focusState = 'EN MARCHA';
+  }
+
+  const urgencyTone =
+    daysLeft === null
+      ? 'muted'
+      : daysLeft <= 0
+        ? 'critical'
+        : daysLeft <= 3
+          ? 'hot'
+          : daysLeft <= 7
+            ? 'warm'
+            : 'cool';
+
+  return {
+    desc,
+    createdAt,
+    deadlineDate,
+    deadlineTs,
+    daysLeft,
+    progress,
+    focusState,
+    urgencyTone,
+  };
+};
+
 const horizonLabels: Record<string, string> = {
-  daily: 'Día',
+  daily: 'DÃ­a',
   weekly: 'Semana',
   monthly: 'Mes',
   quarterly: 'Trimestre',
-  annual: 'Año',
+  annual: 'AÃ±o',
 };
 
 const celebrar = (name: string, goalTitle: string, horizon: string, doneCount: number, totalCount: number, daysSinceCreation: number) => {
   const timeOfDay = () => {
     const h = new Date().getHours();
     if (h < 6) return 'de madrugada';
-    if (h < 12) return 'de la mañana';
+    if (h < 12) return 'de la maÃ±ana';
     if (h < 18) return 'de la tarde';
     if (h < 22) return 'de la noche';
     return 'de madrugada';
@@ -30,28 +90,28 @@ const celebrar = (name: string, goalTitle: string, horizon: string, doneCount: n
 
   const lines: { message: string; subtitle: string }[] = [
     {
-      message: `¡Felicidades, ${name}!`,
-      subtitle: `Has conquistado tu meta de ${horizonLabels[horizon]?.toLowerCase() || 'vida'} — "${goalTitle}"`,
+      message: `Â¡Felicidades, ${name}!`,
+      subtitle: `Has conquistado tu meta de ${horizonLabels[horizon]?.toLowerCase() || 'vida'} â€” "${goalTitle}"`,
     },
     {
-      message: `${name}, ¡LO LOGRASTE! 🔥`,
-      subtitle: `"${goalTitle}" — Completado con éxito. Esto merece celebración.`,
+      message: `${name}, Â¡LO LOGRASTE! ðŸ”¥`,
+      subtitle: `"${goalTitle}" â€” Completado con Ã©xito. Esto merece celebraciÃ³n.`,
     },
     {
-      message: `¡${name}, eres imparable! 🚀`,
+      message: `Â¡${name}, eres imparable! ðŸš€`,
       subtitle: `Meta de ${horizonLabels[horizon]?.toLowerCase() || 'vida'} alcanzada: "${goalTitle}"`,
     },
     {
-      message: `${name}, acabas de hacer historia ✨`,
-      subtitle: `"${goalTitle}" — Una meta menos en el tintero. Bien jugado.`,
+      message: `${name}, acabas de hacer historia âœ¨`,
+      subtitle: `"${goalTitle}" â€” Una meta menos en el tintero. Bien jugado.`,
     },
     {
-      message: `¡BOOM! ${name} lo hizo de nuevo. 💥`,
-      subtitle: `"${goalTitle}" está oficialmente cumplida. Disfruta este momento.`,
+      message: `Â¡BOOM! ${name} lo hizo de nuevo. ðŸ’¥`,
+      subtitle: `"${goalTitle}" estÃ¡ oficialmente cumplida. Disfruta este momento.`,
     },
     {
-      message: `¡${name}, nivel completado! ⭐`,
-      subtitle: `"${goalTitle}" — Misión cumplida ${timeOfDay()}. Toma un respiro, te lo mereces.`,
+      message: `Â¡${name}, nivel completado! â­`,
+      subtitle: `"${goalTitle}" â€” MisiÃ³n cumplida ${timeOfDay()}. Toma un respiro, te lo mereces.`,
     },
   ];
 
@@ -60,7 +120,7 @@ const celebrar = (name: string, goalTitle: string, horizon: string, doneCount: n
     extras.push(doneCount === 1 ? '1 tarea completada' : `${doneCount} tareas completadas`);
   }
   if (daysSinceCreation > 0) {
-    extras.push(daysSinceCreation === 0 ? 'en el día' : daysSinceCreation === 1 ? '1 día' : `${daysSinceCreation} días`);
+    extras.push(daysSinceCreation === 0 ? 'en el dÃ­a' : daysSinceCreation === 1 ? '1 dÃ­a' : `${daysSinceCreation} dÃ­as`);
   }
 
   const idx = Math.floor(Math.random() * lines.length);
@@ -121,13 +181,21 @@ const GoalsPage = () => {
   };
 
   const wizardQuestions = [
-    { key: 'title', label: '¿Qué quieres lograr exactamente?', description: 'Una meta clara define el rumbo. Sé específico.', example: 'Correr 5km sin pausa', type: 'input', required: true },
-    { key: 'deadline', label: '¿Para cuándo quieres haberlo conseguido?', description: 'Sin fecha, una meta es solo un sueño. Fija un compromiso real.', example: '15 de junio', type: 'date' },
-    { key: 'meaningful', label: '¿Cómo mejora esto tu vida?', description: 'Conectar con tu "por qué" te da energía cuando la motivación baja.', example: 'Me sentiré con más energía', type: 'textarea' },
-    { key: 'obstacle', label: '¿Cuál es el principal obstáculo interno que podría detenerte?', description: 'Anticipar barreras te permite prepararte para vencerlas.', example: 'Las ganas de quedarme en la cama', type: 'textarea' },
-    { key: 'taskTitle', label: '¿Cuál es la primera tarea concreta que te acerca a esta meta?', description: 'El primer paso es el más importante. Hazlo pequeño y accionable.', example: 'Comprar tenis para correr', type: 'input' },
+    { key: 'title', label: 'Â¿QuÃ© quieres lograr exactamente?', description: 'Una meta clara define el rumbo. SÃ© especÃ­fico.', example: 'Correr 5km sin pausa', type: 'input', required: true },
+    { key: 'deadline', label: 'Â¿Para cuÃ¡ndo quieres haberlo conseguido?', description: 'Sin fecha, una meta es solo un sueÃ±o. Fija un compromiso real.', example: '15 de junio', type: 'date' },
+    { key: 'meaningful', label: 'Â¿CÃ³mo mejora esto tu vida?', description: 'Conectar con tu "por quÃ©" te da energÃ­a cuando la motivaciÃ³n baja.', example: 'Me sentirÃ© con mÃ¡s energÃ­a', type: 'textarea' },
+    { key: 'obstacle', label: 'Â¿CuÃ¡l es el principal obstÃ¡culo interno que podrÃ­a detenerte?', description: 'Anticipar barreras te permite prepararte para vencerlas.', example: 'Las ganas de quedarme en la cama', type: 'textarea' },
+    { key: 'taskTitle', label: 'Â¿CuÃ¡l es la primera tarea concreta que te acerca a esta meta?', description: 'El primer paso es el mÃ¡s importante. Hazlo pequeÃ±o y accionable.', example: 'Comprar tenis para correr', type: 'input' },
   ];
-  const activeGoals = goals.filter((g) => g.active);
+  const activeGoals = useMemo(() => {
+    return [...goals.filter((g) => g.active)].sort((a, b) => {
+      const aStats = getGoalStats(a);
+      const bStats = getGoalStats(b);
+
+      if (aStats.deadlineTs !== bStats.deadlineTs) return aStats.deadlineTs - bStats.deadlineTs;
+      return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+    });
+  }, [goals]);
   const completedGoals = goals.filter((g) => !g.active);
 
   const handleCreateGoal = async () => {
@@ -147,7 +215,7 @@ const GoalsPage = () => {
       setWizardOpen(false);
       setWizardStep(0);
       dispatchTutorialGoalCreated();
-      toast.success('Nueva visión establecida');
+      toast.success('Nueva visiÃ³n establecida');
     } catch {
       toast.error('Error al proyectar meta');
     }
@@ -197,7 +265,7 @@ const GoalsPage = () => {
   };
 
   const handleSaveDetail = async () => {
-    if (!detailTitle.trim()) { toast.error('El título no puede estar vacío'); return; }
+    if (!detailTitle.trim()) { toast.error('El tÃ­tulo no puede estar vacÃ­o'); return; }
     try {
       const desc: any = {};
       if (detailDeadline) desc.deadline = detailDeadline;
@@ -226,7 +294,7 @@ const GoalsPage = () => {
   };
 
   const handleDeleteFromDetail = () => {
-    if (window.confirm('¿Eliminar esta meta y todas sus tareas vinculadas?')) {
+    if (window.confirm('Â¿Eliminar esta meta y todas sus tareas vinculadas?')) {
       deleteGoal.mutate(detailGoal.id);
       setDetailGoal(null);
       toast.success('Meta eliminada');
@@ -254,7 +322,7 @@ const GoalsPage = () => {
           <div>
             <h1 className="page-title">Metas</h1>
             <p className="text-sm text-on-surface-variant/50 mt-1">
-              {activeGoals.length} activa{activeGoals.length !== 1 && 's'} · {completedGoals.length} completa{completedGoals.length !== 1 && 's'}
+              {activeGoals.length} activa{activeGoals.length !== 1 && 's'} Â· {completedGoals.length} completa{completedGoals.length !== 1 && 's'}
             </p>
           </div>
           <motion.button
@@ -268,78 +336,110 @@ const GoalsPage = () => {
 
         {/* Active Goals */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {activeGoals.map((goal, idx) => (
-            <motion.div
-              key={goal.id}
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: idx * 0.04, type: 'spring', stiffness: 300, damping: 25 }}
-              className="group"
-            >
-              <div
-                onClick={() => openDetail(goal)}
-                className={`relative rounded-2xl p-5 cursor-pointer border-2 select-none transition-all duration-200 ${
-                  parseDesc(goal).status === 'blindada'
-                    ? 'bg-gradient-to-br from-primary/12 via-primary/8 to-primary/12 border-primary/30 shadow-md shadow-primary/15 hover:border-primary/60 hover:shadow-xl hover:shadow-primary/25 hover:-translate-y-0.5 active:translate-y-0'
-                    : 'bg-surface-container/30 border-outline-variant/10 shadow-none hover:border-outline-variant/25 hover:shadow-sm hover:shadow-black/5 hover:-translate-y-0.5 active:translate-y-0 active:shadow-none'
-                }`}
+          {activeGoals.map((goal, idx) => {
+            const stats = getGoalStats(goal);
+            const isBlindada = stats.desc.status === 'blindada';
+            const hasDeadline = stats.daysLeft !== null;
+            const chipTone =
+              stats.urgencyTone === 'critical'
+                ? 'bg-destructive/15 text-destructive border-destructive/20'
+                : stats.urgencyTone === 'hot'
+                  ? 'bg-orange-500/15 text-orange-500 border-orange-500/20'
+                  : stats.urgencyTone === 'warm'
+                    ? 'bg-amber-500/15 text-amber-500 border-amber-500/20'
+                    : 'bg-primary/10 text-primary border-primary/20';
+
+            return (
+              <motion.div
+                key={goal.id}
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: idx * 0.04, type: 'spring', stiffness: 300, damping: 25 }}
+                className="group"
               >
-                {parseDesc(goal).status === 'blindada' && (
-                  <>
-                    <div className="absolute -top-px -right-px w-20 h-20 overflow-hidden">
-                      <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-bl from-primary/20 to-transparent rounded-bl-[100%]" />
+                <div
+                  onClick={() => openDetail(goal)}
+                  className={`relative overflow-hidden rounded-2xl p-5 cursor-pointer border-2 select-none transition-all duration-200 ${
+                    isBlindada
+                      ? 'bg-gradient-to-br from-primary/12 via-primary/6 to-primary/14 border-primary/25 shadow-md shadow-primary/15 hover:border-primary/45 hover:shadow-xl hover:shadow-primary/20 hover:-translate-y-0.5 active:translate-y-0'
+                      : 'bg-surface-container/30 border-outline-variant/10 shadow-none hover:border-outline-variant/25 hover:shadow-sm hover:shadow-black/5 hover:-translate-y-0.5 active:translate-y-0 active:shadow-none'
+                  }`}
+                >
+                  {isBlindada && (
+                    <>
+                      <div className="absolute -top-px -right-px w-24 h-24 overflow-hidden pointer-events-none">
+                        <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-bl from-primary/20 to-transparent rounded-bl-[100%]" />
+                      </div>
+                      <div className="absolute -inset-[1px] rounded-2xl bg-gradient-to-br from-primary/10 via-transparent to-primary/5 pointer-events-none" />
+                    </>
+                  )}
+
+                  <div className="relative z-[1] space-y-4">
+                    <div className="flex items-start gap-4">
+                      {/* Checkbox */}
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleCompleteGoal(goal); }}
+                        className={`relative w-7 h-7 shrink-0 rounded-lg border-2 flex items-center justify-center active:scale-90 transition-all duration-200 group/check ${
+                          isBlindada
+                            ? 'border-primary/40 bg-primary/10 hover:border-primary hover:bg-primary/20'
+                            : 'border-outline-variant/20 bg-surface-container/40 hover:border-outline-variant/40'
+                        }`}
+                      >
+                        <Check className="w-3.5 h-3.5 text-transparent group-hover/check:text-current transition-colors" strokeWidth={3} />
+                        <div className={`absolute inset-0 rounded-lg transition-colors ${isBlindada ? 'bg-primary/0 group-hover/check:bg-primary/10' : 'bg-transparent'}`} />
+                      </button>
+
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-3">
+                          <h3 className="text-base font-bold tracking-tight leading-snug break-words pr-1">{goal.title}</h3>
+                          <div className={`w-6 h-6 shrink-0 rounded-lg flex items-center justify-center transition-all duration-200 ${
+                            isBlindada
+                              ? 'bg-primary/15 text-primary/60 group-hover:bg-primary/25 group-hover:text-primary'
+                              : 'bg-surface-container/40 text-on-surface-variant/30 group-hover:text-on-surface-variant/50'
+                          }`}>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="w-3.5 h-3.5" strokeWidth={2.5}>
+                              <path d="M9 18l6-6-6-6" />
+                            </svg>
+                          </div>
+                        </div>
+
+                        <div className="mt-2 flex items-center gap-2 flex-wrap">
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-[0.14em] border ${chipTone}`}>
+                            {hasDeadline ? stats.focusState : 'SIN FECHA'}
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                    <div className="absolute -inset-[1px] rounded-2xl bg-gradient-to-br from-primary/10 via-transparent to-primary/5 pointer-events-none" />
-                  </>
-                )}
-                <div className="flex items-center gap-4 relative z-[1]">
-                  {/* Checkbox */}
-                  <button
-                    onClick={(e) => { e.stopPropagation(); handleCompleteGoal(goal); }}
-                    className={`relative w-7 h-7 shrink-0 rounded-lg border-2 flex items-center justify-center active:scale-90 transition-all duration-200 group/check ${
-                      parseDesc(goal).status === 'blindada'
-                        ? 'border-primary/40 bg-primary/10 hover:border-primary hover:bg-primary/20'
-                        : 'border-outline-variant/20 bg-surface-container/40 hover:border-outline-variant/40'
-                    }`}
-                  >
-                    <Check className="w-3.5 h-3.5 text-transparent group-hover/check:text-current transition-colors" strokeWidth={3} />
-                    <div className={`absolute inset-0 rounded-lg transition-colors ${
-                      parseDesc(goal).status === 'blindada'
-                        ? 'bg-primary/0 group-hover/check:bg-primary/10'
-                        : 'bg-transparent'
-                    }`} />
-                  </button>
 
-                  {/* Title + Status */}
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-base font-bold tracking-tight leading-snug break-words pr-1">{goal.title}</h3>
-                    {(parseDesc(goal).status === 'blindada') ? (
-                      <span className="inline-flex items-center gap-1.5 mt-1.5 text-[9px] font-black uppercase tracking-[0.15em] text-primary/80">
-                        <Crown className="w-3 h-3" strokeWidth={2.5} />
-                        Meta Blindada
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 mt-1 text-[9px] font-black uppercase tracking-[0.15em] text-on-surface-variant/40">
-                        <ShieldAlert className="w-3 h-3" strokeWidth={2.5} />
-                        Borrador
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Arrow hint — always visible */}
-                  <div className={`w-6 h-6 shrink-0 rounded-lg flex items-center justify-center transition-all duration-200 ${
-                    parseDesc(goal).status === 'blindada'
-                      ? 'bg-primary/15 text-primary/60 group-hover:bg-primary/25 group-hover:text-primary'
-                      : 'bg-surface-container/40 text-on-surface-variant/30 group-hover:text-on-surface-variant/50'
-                  }`}>
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="w-3.5 h-3.5" strokeWidth={2.5}>
-                      <path d="M9 18l6-6-6-6" />
-                    </svg>
+                    <div className="space-y-2">
+                      <div className="h-2.5 rounded-full bg-surface-container/60 overflow-hidden border border-outline-variant/10">
+                        <motion.div
+                          className={`h-full rounded-full ${
+                            stats.urgencyTone === 'critical'
+                              ? 'bg-gradient-to-r from-destructive to-orange-500'
+                              : stats.urgencyTone === 'hot'
+                                ? 'bg-gradient-to-r from-orange-500 to-amber-500'
+                                : stats.urgencyTone === 'warm'
+                                  ? 'bg-gradient-to-r from-amber-400 to-primary'
+                                  : 'bg-gradient-to-r from-primary/70 to-primary'
+                          }`}
+                          initial={false}
+                          animate={{ width: `${hasDeadline ? Math.max(8, stats.progress) : 12}%` }}
+                          transition={{ type: 'spring', stiffness: 120, damping: 20 }}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between text-[11px] font-bold text-on-surface-variant/45">
+                        <span>{hasDeadline ? `${stats.progress}%` : 'Sin fecha'}</span>
+                        {hasDeadline && (
+                          <span>{stats.daysLeft === 0 ? 'Hoy' : `${Math.max(0, stats.daysLeft ?? 0)} dÃ­as`}</span>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </motion.div>
-          ))}
+              </motion.div>
+            );
+          })}
 
           {activeGoals.length === 0 && (
             <div className="col-span-full py-20 bg-surface/30 border border-dashed border-outline-variant/20 rounded-2xl text-center px-8 flex flex-col items-center">
@@ -365,7 +465,7 @@ const GoalsPage = () => {
         {completedGoals.length > 0 && (
           <div className="mt-12 space-y-4">
             <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant/30">
-              Completadas · {completedGoals.length}
+              Completadas Â· {completedGoals.length}
             </h2>
             <div className="flex flex-wrap gap-2">
               {completedGoals.map((goal) => (
@@ -420,7 +520,7 @@ const GoalsPage = () => {
                   />
                 </div>
 
-                {/* Step content — scrollable */}
+                {/* Step content â€” scrollable */}
                 <div className="flex-1 overflow-y-auto min-h-0 space-y-3">
                   <h2 className="text-lg font-black leading-tight">
                     {wizardQuestions[wizardStep].label}
@@ -440,7 +540,7 @@ const GoalsPage = () => {
                         autoFocus
                         value={wizardData[wizardQuestions[wizardStep].key as keyof typeof wizardData] as string}
                         onChange={(e) => setWizardData({ ...wizardData, [wizardQuestions[wizardStep].key]: e.target.value })}
-                        placeholder="Escribe aquí..."
+                        placeholder="Escribe aquÃ­..."
                         className="w-full bg-surface-container rounded-xl px-4 py-3 text-foreground font-bold outline-none focus:ring-2 focus:ring-primary/20 transition-shadow"
                         onKeyDown={(e) => e.key === 'Enter' && wizardStep < wizardQuestions.length - 1 && setWizardStep(wizardStep + 1)}
                       />
@@ -483,7 +583,7 @@ const GoalsPage = () => {
                         autoFocus
                         value={wizardData[wizardQuestions[wizardStep].key as keyof typeof wizardData] as string}
                         onChange={(e) => setWizardData({ ...wizardData, [wizardQuestions[wizardStep].key]: e.target.value })}
-                        placeholder="Escribe aquí..."
+                        placeholder="Escribe aquÃ­..."
                         rows={2}
                         className="w-full bg-surface-container rounded-xl px-4 py-3 text-foreground font-bold outline-none focus:ring-2 focus:ring-primary/20 transition-shadow resize-none"
                       />
@@ -499,14 +599,14 @@ const GoalsPage = () => {
                   )}
                 </div>
 
-                {/* Navigation — always at bottom */}
+                {/* Navigation â€” always at bottom */}
                 <div className="shrink-0 flex gap-2 pt-3 border-t border-outline-variant/10">
                   {wizardStep > 0 ? (
                     <button
                       onClick={() => setWizardStep(wizardStep - 1)}
                       className="flex-1 py-3 rounded-xl bg-surface-container text-on-surface-variant font-bold text-sm"
                     >
-                      Atrás
+                      AtrÃ¡s
                     </button>
                   ) : (
                     <button
@@ -575,18 +675,22 @@ const GoalsPage = () => {
                   className="w-full bg-surface-container rounded-xl px-4 py-3 text-foreground font-bold text-lg outline-none focus:ring-2 focus:ring-primary/20 transition-shadow"
                 />
 
-                {/* Status badge — live from current detail state */}
+                {/* Status badge â€” live from current detail state */}
                 {(() => {
-                  const isBlindada = detailObstacle.trim().length > 0 && (detailTaskTitle.trim().length > 0 || detailTaskId);
-                  return isBlindada ? (
-                    <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-primary/15 to-primary/8 border border-primary/30 shadow-sm shadow-primary/10">
-                      <Crown className="w-3.5 h-3.5 text-primary" strokeWidth={2.5} />
-                      <span className="text-[10px] font-black uppercase tracking-[0.15em] text-primary">Meta Blindada</span>
-                    </div>
-                  ) : (
-                    <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-container/60 border border-outline-variant/10">
-                      <ShieldAlert className="w-3.5 h-3.5 text-on-surface-variant/40" strokeWidth={2.5} />
-                      <span className="text-[10px] font-black uppercase tracking-[0.15em] text-on-surface-variant/40">Meta en borrador</span>
+                  const detailStats = getGoalStats(detailGoal);
+                  const toneClass =
+                    detailStats.focusState === "FOCO" || detailStats.focusState === "HOY"
+                      ? "bg-destructive/10 border-destructive/20 text-destructive"
+                      : detailStats.focusState === "RITMO"
+                        ? "bg-amber-500/10 border-amber-500/20 text-amber-500"
+                        : "bg-primary/10 border-primary/20 text-primary";
+
+                  return (
+                    <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border shadow-sm shadow-primary/10 ${toneClass}`}>
+                      <div className="w-2.5 h-2.5 rounded-full bg-current animate-pulse shadow-[0_0_18px_currentColor]" />
+                      <span className="text-[10px] font-black uppercase tracking-[0.15em]">
+                        {detailStats.hasDeadline ? detailStats.focusState : "SIN FECHA"}
+                      </span>
                     </div>
                   );
                 })()}
@@ -601,7 +705,7 @@ const GoalsPage = () => {
                       <CalendarDays className="w-3.5 h-3.5" strokeWidth={2.5} />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant/30">Fecha límite</p>
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant/30">Fecha lÃ­mite</p>
                       <input
                         type="date"
                         value={detailDeadline}
@@ -617,12 +721,12 @@ const GoalsPage = () => {
                       <Heart className="w-3.5 h-3.5" strokeWidth={2.5} />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant/30">¿Cómo mejora tu vida?</p>
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant/30">Â¿CÃ³mo mejora tu vida?</p>
                       <textarea
                         value={detailMeaningful}
                         onChange={(e) => setDetailMeaningful(e.target.value)}
                         rows={2}
-                        placeholder="Escribe aquí..."
+                        placeholder="Escribe aquÃ­..."
                         className="w-full bg-transparent text-sm font-bold mt-0.5 text-foreground outline-none resize-none"
                       />
                     </div>
@@ -634,12 +738,12 @@ const GoalsPage = () => {
                       <ShieldAlert className="w-3.5 h-3.5" strokeWidth={2.5} />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant/30">Obstáculo interno</p>
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant/30">ObstÃ¡culo interno</p>
                       <textarea
                         value={detailObstacle}
                         onChange={(e) => setDetailObstacle(e.target.value)}
                         rows={2}
-                        placeholder="Escribe aquí..."
+                        placeholder="Escribe aquÃ­..."
                         className="w-full bg-transparent text-sm font-bold mt-0.5 text-foreground outline-none resize-none"
                       />
                     </div>
@@ -659,7 +763,7 @@ const GoalsPage = () => {
                         className="w-full bg-transparent text-sm font-bold mt-0.5 text-foreground outline-none"
                       />
                       {detailTaskId && (
-                        <p className="text-[9px] text-on-surface-variant/30 mt-1 font-medium">✓ Tarea existente vinculada a esta meta</p>
+                        <p className="text-[9px] text-on-surface-variant/30 mt-1 font-medium">âœ“ Tarea existente vinculada a esta meta</p>
                       )}
                     </div>
                   </div>
@@ -784,7 +888,7 @@ const GoalsPage = () => {
                     >
                       <Flame className="w-4 h-4 text-amber-400/60" />
                       <span className="text-sm font-bold text-on-surface-variant/50">
-                        {celebration.extras.join(' · ')}
+                        {celebration.extras.join(' Â· ')}
                       </span>
                       <Heart className="w-4 h-4 text-rose-400/60" />
                     </motion.div>
