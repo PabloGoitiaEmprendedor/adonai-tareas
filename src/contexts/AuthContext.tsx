@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState, useRef, ReactNode } fro
 import { Session, User } from '@supabase/supabase-js';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { saveAnonymousUserId, getPreviousAnonymousUserId, migrateAnonymousData } from '@/lib/anonymousSession';
+import { ensureAnonymousSession, saveAnonymousUserId, getPreviousAnonymousUserId, migrateAnonymousData } from '@/lib/anonymousSession';
 
 interface AuthContextType {
   session: Session | null;
@@ -99,17 +99,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const prevUser = userRef.current;
         if (!manualSignOutRef.current && prevUser?.is_anonymous) {
           const oldUserId = prevUser.id;
-          supabase.auth.signInAnonymously().then(({ data }) => {
-            if (data?.session && mounted) {
-              setSession(data.session);
-              setUser(data.session.user);
-              saveSessionFlags(data.session);
+          ensureAnonymousSession().then((session) => {
+            if (session && mounted) {
+              setSession(session);
+              setUser(session.user);
+              saveSessionFlags(session);
               // Migrate data from expired session to new one
-              if (oldUserId !== data.session.user.id) {
-                migrateAnonymousData(oldUserId, data.session.user.id);
+              if (oldUserId !== session.user.id) {
+                migrateAnonymousData(oldUserId, session.user.id);
               }
             }
-          });
+          }).catch((error) => console.error('[Auth] Anonymous auto-recovery failed:', error));
         }
         if (manualSignOutRef.current) {
           clearSessionFlags();
@@ -133,15 +133,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             console.log('[Auth] Recovering expired anonymous session');
             const oldUserId = getPreviousAnonymousUserId();
             try {
-              const { data } = await supabase.auth.signInAnonymously();
-              if (data?.session && mounted) {
-                setSession(data.session);
-                setUser(data.session.user);
-                saveSessionFlags(data.session);
+              const recovered = await ensureAnonymousSession();
+              if (recovered && mounted) {
+                setSession(recovered);
+                setUser(recovered.user);
+                saveSessionFlags(recovered);
                 setLoading(false);
                 // Migrate data from old anonymous user to new one
-                if (oldUserId && oldUserId !== data.session.user.id) {
-                  migrateAnonymousData(oldUserId, data.session.user.id).then((ok) => {
+                if (oldUserId && oldUserId !== recovered.user.id) {
+                  migrateAnonymousData(oldUserId, recovered.user.id).then((ok) => {
                     if (ok) console.log('[Auth] Anonymous data migration complete');
                     else console.warn('[Auth] Anonymous data migration failed or skipped');
                   });
@@ -264,16 +264,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signInAnonymously = async () => {
     setLoading(true);
-    const { data, error } = await supabase.auth.signInAnonymously();
-    if (error) {
+    try {
+      const anonymousSession = await ensureAnonymousSession();
+      saveSessionFlags(anonymousSession);
+      setSession(anonymousSession);
+      setUser(anonymousSession.user);
+    } catch (error) {
       setLoading(false);
       throw error;
     }
-    if (data.session) {
-      saveSessionFlags(data.session);
-    }
-    setSession(data.session);
-    setUser(data.session?.user ?? null);
     setLoading(false);
   };
 

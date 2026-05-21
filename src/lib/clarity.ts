@@ -1,6 +1,6 @@
-const CLARITY_PROJECT_ID = import.meta.env.VITE_CLARITY_PROJECT_ID;
+const CLARITY_PROJECT_ID = import.meta.env.VITE_CLARITY_PROJECT_ID || "wukztvwcw3";
 const ENABLE_CLARITY_IN_DEV = import.meta.env.VITE_ENABLE_CLARITY_IN_DEV === "true";
-const ENABLE_CLARITY_IN_DESKTOP = import.meta.env.VITE_ENABLE_CLARITY_IN_DESKTOP === "true";
+const ENABLE_CLARITY_IN_DESKTOP = import.meta.env.VITE_ENABLE_CLARITY_IN_DESKTOP !== "false";
 
 type ClarityCommand = "event" | "identify" | "set" | "consent";
 

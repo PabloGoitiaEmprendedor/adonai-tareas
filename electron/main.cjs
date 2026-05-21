@@ -376,11 +376,17 @@ app.whenReady().then(() => {
     return allowedPermissions.includes(permission);
   });
 
-  // Spoof Origin and Referer for Microsoft Clarity to allow tracking from the desktop app
-  const filter = { urls: ['https://*.clarity.ms/*'] };
-  session.defaultSession.webRequest.onBeforeSendHeaders(filter, (details, callback) => {
-    details.requestHeaders['Origin'] = 'https://adonaitasks.com';
-    details.requestHeaders['Referer'] = 'https://adonaitasks.com/';
+  // Use the production website as origin for analytics requests emitted from file:// desktop windows.
+  const analyticsFilter = {
+    urls: [
+      'https://*.clarity.ms/*',
+      'https://www.googletagmanager.com/*',
+      'https://*.google-analytics.com/*',
+    ],
+  };
+  session.defaultSession.webRequest.onBeforeSendHeaders(analyticsFilter, (details, callback) => {
+    details.requestHeaders['Origin'] = 'https://webadonai.com';
+    details.requestHeaders['Referer'] = 'https://webadonai.com/';
     callback({ requestHeaders: details.requestHeaders });
   });
 

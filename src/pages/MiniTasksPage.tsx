@@ -28,6 +28,7 @@ import { usePriorityColors } from '@/hooks/usePriorityColors';
 import { useTheme } from '@/contexts/ThemeProvider';
 import AdonaiCalendarView from '@/components/calendar/AdonaiCalendarView';
 import { compareTasksWithinQuadrants, getTaskManualOrderGroupKey } from '@/lib/taskOrdering';
+import { trackAnalyticsEvent } from '@/lib/analytics';
 import '../index.css';
 
 const FOLDER_COLORS = ['#5B7CFA', '#4F6EE8', '#6FCF97', '#F4B860', '#EB5757', '#7C97FF', '#9CA3AF', '#E5E7EB'];
@@ -578,6 +579,12 @@ const MiniTaskList = () => {
  const { checkAndUnlock } = useGamification();
  const { profile } = useProfile();
  const [completingId, setCompletingId] = useState<string | null>(null);
+
+ useEffect(() => {
+ trackAnalyticsEvent('mini_window_viewed', {
+ is_electron: Boolean((window as any).electronAPI),
+ });
+ }, []);
  const [isExpanded, setIsExpanded] = useState(false);
  const [isReady, setIsReady] = useState(false);
  const [now, setNow] = useState(new Date());

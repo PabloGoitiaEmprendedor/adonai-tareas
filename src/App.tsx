@@ -41,7 +41,7 @@ import ExitCodesPage from './pages/ExitCodesPage';
 import NotificationManager from './components/NotificationManager';
 import { AdonaiNotifier } from '@/components/ui/adonai-notifier';
 import DownloadGuideOverlay from '@/components/DownloadGuideOverlay';
-import { trackPageView } from "@/lib/analytics";
+import { getAnalyticsExperience, setAnalyticsUser, trackAnalyticsEvent, trackPageView } from "@/lib/analytics";
 import CalendarCallback from "./pages/CalendarCallback";
 import SheetsCallback from "./pages/SheetsCallback";
 
@@ -78,8 +78,31 @@ const AnalyticsRouteTracking = () => {
   const location = useLocation();
 
   useEffect(() => {
+    trackAnalyticsEvent("app_surface_loaded", {
+      app_experience: getAnalyticsExperience(location.pathname),
+    });
+  }, []);
+
+  useEffect(() => {
     trackPageView(location.pathname + location.search);
   }, [location.pathname, location.search]);
+
+  return null;
+};
+
+const AnalyticsIdentity = () => {
+  const { user } = useAuth();
+  const { profile } = useProfile();
+
+  useEffect(() => {
+    setAnalyticsUser({
+      userId: user?.id,
+      email: user?.email,
+      name: profile?.name,
+      isAnonymous: user?.is_anonymous,
+      onboardingCompleted: profile?.onboarding_completed,
+    });
+  }, [user?.id, user?.email, user?.is_anonymous, profile?.name, profile?.onboarding_completed]);
 
   return null;
 };
@@ -299,6 +322,7 @@ const App = () => {
           <HashRouter>
             <AuthProvider>
               <AnalyticsRouteTracking />
+              <AnalyticsIdentity />
               <NotificationManager />
               <NavigationWrapper>
                 <AppRoutes />

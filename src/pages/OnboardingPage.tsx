@@ -1,12 +1,13 @@
-import { useRef, useState, type ClipboardEvent, type Dispatch, type KeyboardEvent, type SetStateAction } from 'react';
+import { useEffect, useRef, useState, type ClipboardEvent, type Dispatch, type KeyboardEvent, type SetStateAction } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ArrowRight, Clipboard, Clock, Download, Link2, Lock, Mail, Monitor, ShieldCheck, Smartphone, Sparkles, Trash2, User } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import { saveAnonymousUserId, getPreviousAnonymousUserId, migrateAnonymousData } from '@/lib/anonymousSession';
+import { ensureAnonymousSession, saveAnonymousUserId, getPreviousAnonymousUserId, migrateAnonymousData } from '@/lib/anonymousSession';
 import { startGuidedDownload } from '@/lib/downloadGuide';
+import { trackAnalyticsEvent } from '@/lib/analytics';
 
 type StepType = 'name' | 'brain_dump' | 'recurring_tasks' | 'commitment' | 'security_register' | 'ready';
 
@@ -61,29 +62,23 @@ const OnboardingPage = () => {
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const otpInputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
+  useEffect(() => {
+    trackAnalyticsEvent('onboarding_step_viewed', {
+      step: currentStep,
+      step_index: currentStepIndex,
+      surface: isElectron ? 'desktop' : isMobile ? 'mobile_web' : 'web',
+    });
+  }, [currentStep, currentStepIndex, isElectron, isMobile]);
+
   const ensureAnonymousUser = async (): Promise<string> => {
     if (user) return user.id;
-    const { data: sessionData } = await supabase.auth.getSession();
-    if (sessionData.session?.user) {
-      localStorage.setItem('adonai_had_session', 'true');
-      localStorage.setItem('adonai_session_type', 'anonymous');
-      saveAnonymousUserId(sessionData.session.user.id);
-      return sessionData.session.user.id;
-    }
+    const anonymousSession = await ensureAnonymousSession();
     const oldUserId = getPreviousAnonymousUserId();
-    const { data, error } = await supabase.auth.signInAnonymously();
-    if (error) throw new Error(error.message);
-    if (!data.session?.user?.id) throw new Error('No se pudo crear sesión anónima');
+    if (!anonymousSession.user?.id) throw new Error('No se pudo crear sesion anonima');
     localStorage.setItem('adonai_had_session', 'true');
     localStorage.setItem('adonai_session_type', 'anonymous');
-    saveAnonymousUserId(data.session.user.id);
-    const newUserId = data.session.user.id;
-    // Esperar a que AuthContext sincronice la nueva sesión
-    for (let i = 0; i < 30; i++) {
-      const { data: check } = await supabase.auth.getSession();
-      if (check.session?.user?.id === newUserId) break;
-      await new Promise(r => setTimeout(r, 100));
-    }
+    saveAnonymousUserId(anonymousSession.user.id);
+    const newUserId = anonymousSession.user.id;
     // Migrate data from previous expired anonymous session if needed
     if (oldUserId && oldUserId !== newUserId) {
       console.log('[onboarding] Migrating data from previous anonymous session');
@@ -169,38 +164,27 @@ const OnboardingPage = () => {
         if (urgentErr) throw urgentErr;
       }
 
-      // 3. Insert Recurring Tasks correctly (Rules + Templates)
+      // 3. Daily activities start as calendar-only blocks, not task-list items.
       const recurringTasksValid = recurringTasks.filter(t => t.title.trim());
-      for (const task of recurringTasksValid) {
-        const days = [0, 1, 2, 3, 4, 5, 6];
+      const dailyActivityRows = recurringTasksValid.map((task) => {
         const [h, m] = task.time.split(':').map(Number);
         const endTotalMin = h * 60 + m + task.duration;
-        const description = `[T:${task.time}-${String(Math.floor(endTotalMin / 60) % 24).padStart(2, '0')}:${String(endTotalMin % 60).padStart(2, '0')}]`;
-
-        const { data: rule, error: ruleErr } = await supabase
-          .from('recurrence_rules')
-          .insert({
-            user_id: userId,
-            frequency: 'weekly',
-            interval: 1,
-            days_of_week: days,
-            start_date: today,
-          })
-          .select()
-          .single();
-        
-        if (ruleErr) throw ruleErr;
-
-        const { error: taskErr } = await supabase.from('tasks').insert({
+        const endTime = `${String(Math.floor(endTotalMin / 60) % 24).padStart(2, '0')}:${String(endTotalMin % 60).padStart(2, '0')}:00`;
+        return {
           user_id: userId,
           title: task.title,
-          description,
-          recurrence_id: rule.id,
-          status: 'pending',
-          source_type: 'text',
-          estimated_minutes: task.duration,
-        });
-        if (taskErr) throw taskErr;
+          start_time: `${task.time}:00`,
+          end_time: endTime,
+          block_date: null,
+          color: 'blue',
+          is_recurring: true,
+          days_of_week: [0, 1, 2, 3, 4, 5, 6],
+        };
+      });
+
+      if (dailyActivityRows.length > 0) {
+        const { error: blocksErr } = await supabase.from('time_blocks').insert(dailyActivityRows);
+        if (blocksErr) throw blocksErr;
       }
 
       // 4. Log Usage
@@ -212,9 +196,17 @@ const OnboardingPage = () => {
 
       // 5. Success
       localStorage.setItem('adonai_onboarding_done', 'true');
+      trackAnalyticsEvent('onboarding_completed', {
+        urgent_tasks_count: urgentRows.length,
+        daily_activities_count: dailyActivityRows.length,
+        surface: isElectron ? 'desktop' : isMobile ? 'mobile_web' : 'web',
+      });
       navigate('/');
     } catch (e) {
       console.error('[onboarding] handleFinish error:', e);
+      trackAnalyticsEvent('onboarding_completion_failed', {
+        surface: isElectron ? 'desktop' : isMobile ? 'mobile_web' : 'web',
+      });
       const msg = typeof e === 'object' && e !== null ? (e as any).message || JSON.stringify(e) : String(e);
       toast.error(`Error: ${msg}`);
     } finally {
@@ -876,6 +868,8 @@ const OnboardingPage = () => {
                 <div className="mx-auto w-full max-w-2xl overflow-hidden rounded-[28px] border border-outline-variant/15 bg-surface-container-low shadow-2xl shadow-black/20">
                   <video
                     src="/videos/principal.mp4"
+                    preload="metadata"
+                    poster="/screenshots/daily-view.png"
                     className="h-[220px] w-full object-cover sm:h-[260px]"
                     autoPlay
                     muted
@@ -1016,6 +1010,8 @@ const OnboardingPage = () => {
                 <div className="mx-auto w-full max-w-2xl overflow-hidden rounded-[28px] border border-outline-variant/15 bg-surface-container-low shadow-2xl shadow-black/20">
                   <video
                     src="/videos/principal.mp4"
+                    preload="metadata"
+                    poster="/screenshots/daily-view.png"
                     className="h-[200px] w-full object-cover sm:h-[240px]"
                     autoPlay
                     muted

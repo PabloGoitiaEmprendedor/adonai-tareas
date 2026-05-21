@@ -12,6 +12,7 @@ export default function DownloadGuideOverlay() {
   const [open, setOpen] = useState(false);
   const [platform, setPlatform] = useState<DownloadPlatform>("win");
   const [progress, setProgress] = useState(0);
+  const [videoSrc, setVideoSrc] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
@@ -29,11 +30,12 @@ export default function DownloadGuideOverlay() {
   useEffect(() => {
     if (!open) return;
 
-    const video = videoRef.current;
-    if (video) {
-      video.currentTime = 0;
-      void video.play().catch(() => undefined);
-    }
+    setVideoSrc(null);
+    const loadVideo = () => setVideoSrc(DOWNLOAD_GUIDE_VIDEO_SRC);
+    const idleId = "requestIdleCallback" in window
+      ? window.requestIdleCallback(loadVideo, { timeout: 1200 })
+      : undefined;
+    const videoTimer = idleId === undefined ? window.setTimeout(loadVideo, 450) : undefined;
 
     const startedAt = Date.now();
     const timer = window.setInterval(() => {
@@ -44,10 +46,22 @@ export default function DownloadGuideOverlay() {
         if (elapsed < 6500) return Math.min(86, current + 2.4);
         return Math.min(98, current + 0.55);
       });
-    }, 240);
+    }, 400);
 
-    return () => window.clearInterval(timer);
+    return () => {
+      window.clearInterval(timer);
+      if (idleId !== undefined && "cancelIdleCallback" in window) window.cancelIdleCallback(idleId);
+      if (videoTimer !== undefined) window.clearTimeout(videoTimer);
+    };
   }, [open, platform]);
+
+  useEffect(() => {
+    if (!open || !videoSrc) return;
+    const video = videoRef.current;
+    if (!video) return;
+    video.currentTime = 0;
+    void video.play().catch(() => undefined);
+  }, [open, videoSrc]);
 
   if (!open) return null;
 
@@ -55,8 +69,8 @@ export default function DownloadGuideOverlay() {
   const label = platform === "win" ? "Windows" : "Mac";
 
   return (
-    <div className="fixed inset-0 z-[100000] flex items-start justify-center overflow-y-auto overscroll-contain bg-[#0F1115]/80 px-3 py-5 backdrop-blur-xl sm:px-4 lg:items-center">
-      <div className="relative my-auto w-full max-w-5xl overflow-hidden rounded-[24px] border border-white/10 bg-card text-card-foreground shadow-[0_24px_90px_rgba(0,0,0,0.45)] sm:rounded-[28px]">
+    <div className="fixed inset-0 z-[100000] flex items-start justify-center overflow-y-auto overscroll-contain bg-[#0F1115]/88 px-3 py-5 sm:px-4 lg:items-center">
+      <div className="relative my-auto w-full max-w-5xl overflow-hidden rounded-[24px] border border-white/10 bg-card text-card-foreground shadow-2xl sm:rounded-[28px]">
         <button
           type="button"
           onClick={() => setOpen(false)}
@@ -68,14 +82,24 @@ export default function DownloadGuideOverlay() {
 
         <div className="grid lg:min-h-[520px] lg:grid-cols-[1.2fr_0.8fr]">
           <div className="relative bg-black">
-            <video
-              ref={videoRef}
-              src={DOWNLOAD_GUIDE_VIDEO_SRC}
-              className="h-auto max-h-[46vh] min-h-[220px] w-full object-contain lg:h-full lg:max-h-[72vh] lg:min-h-[320px]"
-              controls
-              autoPlay
-              playsInline
-            />
+            {videoSrc ? (
+              <video
+                ref={videoRef}
+                src={videoSrc}
+                className="h-auto max-h-[46vh] min-h-[220px] w-full object-contain lg:h-full lg:max-h-[72vh] lg:min-h-[320px]"
+                controls
+                autoPlay
+                muted
+                playsInline
+                preload="metadata"
+                controlsList="nodownload noplaybackrate"
+                disablePictureInPicture
+              />
+            ) : (
+              <div className="flex min-h-[220px] items-center justify-center bg-black lg:min-h-[520px]">
+                <div className="h-8 w-8 rounded-full border-2 border-white/20 border-t-white/80 animate-spin" />
+              </div>
+            )}
           </div>
 
           <aside className="flex flex-col justify-between gap-6 p-5 sm:p-8 lg:gap-8">

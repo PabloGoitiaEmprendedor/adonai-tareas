@@ -82,16 +82,9 @@ function useDownload(platform: "win" | "mac") {
 }
 
 function PlatformChoiceModal({ onClose }: { onClose: () => void }) {
-  const navigate = useNavigate();
-
   const chooseDownload = (platform: "win" | "mac") => {
     startGuidedDownload(platform);
     onClose();
-  };
-
-  const chooseWeb = () => {
-    onClose();
-    navigate("/welcome");
   };
 
   return (
@@ -105,7 +98,7 @@ function PlatformChoiceModal({ onClose }: { onClose: () => void }) {
           <img src="/logo.png" alt="" className="absolute right-5 top-5 h-12 w-12 rounded-2xl object-contain opacity-20" />
           <p className="text-[11px] font-black uppercase tracking-[0.22em] text-white/42">Elige tu entrada</p>
           <h3 className="mt-3 max-w-xs text-2xl font-black leading-tight tracking-[-0.02em]">Como quieres descargar Adonai?</h3>
-          <p className="mt-2 text-sm font-semibold leading-relaxed text-white/58">La app de escritorio desbloquea la mini ventana. La version web sirve para empezar ahora.</p>
+          <p className="mt-2 text-sm font-semibold leading-relaxed text-white/58">La app de escritorio desbloquea la mini ventana y notificaciones nativas.</p>
         </div>
 
         <div className="space-y-2 p-4">
@@ -129,17 +122,6 @@ function PlatformChoiceModal({ onClose }: { onClose: () => void }) {
               <span className="mt-0.5 block text-xs font-semibold text-[#151820]/50">Descarga Adonai para macOS.</span>
             </span>
             <Apple className="h-5 w-5 text-[#5B7CFA]" />
-          </button>
-
-          <button
-            onClick={chooseWeb}
-            className="flex w-full items-center justify-between rounded-2xl border border-[#151820]/8 bg-white p-4 text-left transition hover:border-[#151820]/18 hover:bg-[#F7F6F1]"
-          >
-            <span>
-              <span className="block text-sm font-black text-[#151820]">Version web</span>
-              <span className="mt-0.5 block text-xs font-semibold text-[#151820]/50">Empieza sin instalar nada.</span>
-            </span>
-            <Globe className="h-5 w-5 text-[#151820]/54" />
           </button>
 
           <button onClick={onClose} className="w-full rounded-full px-4 py-3 text-xs font-black text-[#151820]/42 transition hover:text-[#151820]">

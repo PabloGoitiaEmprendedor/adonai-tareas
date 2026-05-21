@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { format, parseISO, eachDayOfInterval } from 'date-fns';
 import { toast } from 'sonner';
+import { trackAnalyticsEvent } from '@/lib/analytics';
 
 import type { Database } from '@/integrations/supabase/types';
 
@@ -112,7 +113,8 @@ export const useTasks = (filters?: { date?: string; startDate?: string; endDate?
       const { data: rules, error: rulesError } = await supabase
         .from('recurrence_rules')
         .select('*')
-        .eq('user_id', user.id);
+        .eq('user_id', user.id)
+        .is('deleted_at', null);
       if (rulesError) throw rulesError;
 
       // 3. Fetch template tasks for those rules
@@ -124,6 +126,7 @@ export const useTasks = (filters?: { date?: string; startDate?: string; endDate?
           .from('tasks')
           .select('*')
           .in('recurrence_id', ruleIds)
+          .neq('status', 'deleted')
           .order('created_at', { ascending: true });
 
         if (templatesError) throw templatesError;
@@ -277,6 +280,14 @@ export const useTasks = (filters?: { date?: string; startDate?: string; endDate?
         metadata: { creation_source: creationSource },
       });
 
+      trackAnalyticsEvent('task_created', {
+        creation_source: creationSource,
+        source_type: task.source_type || 'text',
+        has_due_date: Boolean(data.due_date),
+        has_link: Boolean(data.link),
+        priority: data.priority || 'none',
+      });
+
       return data;
     },
     onMutate: async (task) => {
@@ -411,6 +422,10 @@ export const useTasks = (filters?: { date?: string; startDate?: string; endDate?
           event_type: 'task_completed',
           metadata: creation_source ? { creation_source } : undefined,
         });
+        trackAnalyticsEvent('task_completed', {
+          creation_source: creation_source || 'unknown',
+          task_id: targetId,
+        });
       }
     },
     onMutate: async ({ id, ...updates }) => {
@@ -478,29 +493,44 @@ export const useTasks = (filters?: { date?: string; startDate?: string; endDate?
         recurrenceId = row?.recurrence_id ?? null;
       }
 
-      // Recurring task: wipe the whole series (template + all materialized
-      // instances) AND remove the rule so no future virtual instances appear.
+      const deletedAt = new Date().toISOString();
+
+      // Recurring task: soft-delete the whole series (template + materialized
+      // instances) AND soft-delete the rule so no future virtual instances appear.
       if (recurrenceId) {
         const { error: tasksErr } = await supabase
           .from('tasks')
-          .update({ status: 'deleted' })
+          .update({ status: 'deleted', deleted_at: deletedAt } as any)
+          .eq('user_id', user.id)
           .eq('recurrence_id', recurrenceId);
         if (tasksErr) throw tasksErr;
 
         const { error: ruleErr } = await supabase
           .from('recurrence_rules')
-          .delete()
+          .update({ deleted_at: deletedAt } as any)
+          .eq('user_id', user.id)
           .eq('id', recurrenceId);
         if (ruleErr) throw ruleErr;
+        trackAnalyticsEvent('task_deleted', {
+          recurrence: 'series',
+        });
         return;
       }
 
       // Plain (non-recurring) task: soft-delete only this one.
-      const { error } = await supabase
+      const { data: deletedRows, error } = await supabase
         .from('tasks')
-        .update({ status: 'deleted' })
-        .eq('id', id);
+        .update({ status: 'deleted', deleted_at: deletedAt } as any)
+        .eq('user_id', user.id)
+        .eq('id', id)
+        .select('id');
       if (error) throw error;
+      if (!deletedRows || deletedRows.length === 0) {
+        throw new Error('No se encontro la tarea o no tienes permisos para borrarla');
+      }
+      trackAnalyticsEvent('task_deleted', {
+        recurrence: 'none',
+      });
     },
     onMutate: async (id: string) => {
       await queryClient.cancelQueries({ queryKey: ['tasks', user?.id] });

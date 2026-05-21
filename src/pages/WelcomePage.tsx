@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { BrandLogo } from '@/components/BrandLogo';
+import { toast } from 'sonner';
+import { trackAnalyticsEvent } from '@/lib/analytics';
 
 const WelcomePage = () => {
   const navigate = useNavigate();
@@ -18,8 +20,17 @@ const WelcomePage = () => {
     setLoading(true);
     try {
       await signInAnonymously();
-    } catch {
-      // The onboarding will retry anonymous auth before saving user data.
+      trackAnalyticsEvent('guest_sign_in_completed', {
+        source: 'welcome',
+      });
+    } catch (error) {
+      console.error('[welcome] Anonymous sign in failed:', error);
+      trackAnalyticsEvent('guest_sign_in_failed', {
+        source: 'welcome',
+      });
+      toast.error('No se pudo entrar como invitado. Intenta de nuevo.');
+      setLoading(false);
+      return;
     }
     navigate('/onboarding', { replace: true });
   };

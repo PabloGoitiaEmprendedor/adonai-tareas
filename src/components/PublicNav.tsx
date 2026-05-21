@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Apple, Globe, HelpCircle, Mail, Menu, Monitor, X } from "lucide-react";
+import { Apple, HelpCircle, Mail, Menu, Monitor, X } from "lucide-react";
 import { BrandLogo } from "@/components/BrandLogo";
 import { startGuidedDownload } from "@/lib/downloadGuide";
 
@@ -15,16 +15,9 @@ const NAV_LINKS = [
 ];
 
 function NavPlatformChoice({ onClose }: { onClose: () => void }) {
-  const navigate = useNavigate();
-
   const chooseDownload = (platform: "win" | "mac") => {
     startGuidedDownload(platform);
     onClose();
-  };
-
-  const chooseWeb = () => {
-    onClose();
-    navigate("/welcome");
   };
 
   return (
@@ -43,9 +36,6 @@ function NavPlatformChoice({ onClose }: { onClose: () => void }) {
           </button>
           <button onClick={() => chooseDownload("mac")} className="flex w-full items-center justify-between rounded-2xl bg-[#F7F6F1] p-4 text-sm font-black text-[#151820] transition hover:bg-[#EEF3FF]">
             Mac <Apple className="h-4 w-4 text-[#5B7CFA]" />
-          </button>
-          <button onClick={chooseWeb} className="flex w-full items-center justify-between rounded-2xl bg-white p-4 text-sm font-black text-[#151820] ring-1 ring-[#151820]/8 transition hover:bg-[#F7F6F1]">
-            Version web <Globe className="h-4 w-4 text-[#151820]/55" />
           </button>
           <button onClick={onClose} className="w-full rounded-full px-4 py-3 text-xs font-black text-[#151820]/45 transition hover:text-[#151820]">
             Volver

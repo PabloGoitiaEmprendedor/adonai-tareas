@@ -33,6 +33,7 @@ export const useRecurrenceRules = () => {
         .from('recurrence_rules')
         .select('*')
         .eq('user_id', user.id)
+        .is('deleted_at', null)
         .order('created_at', { ascending: false });
       if (error) throw error;
       return data as RecurrenceRule[];
@@ -82,7 +83,11 @@ export const useRecurrenceRules = () => {
   const deleteRule = useMutation({
     mutationFn: async (id: string) => {
       if (!user) throw new Error('No user');
-      const { error } = await supabase.from('recurrence_rules').delete().eq('id', id).eq('user_id', user.id);
+      const { error } = await supabase
+        .from('recurrence_rules')
+        .update({ deleted_at: new Date().toISOString() } as any)
+        .eq('id', id)
+        .eq('user_id', user.id);
       if (error) throw error;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['recurrence_rules'] }),

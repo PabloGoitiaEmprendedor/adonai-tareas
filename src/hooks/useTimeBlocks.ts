@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { trackAnalyticsEvent } from '@/lib/analytics';
 
 export const useTimeBlocks = (date: string, rangeEndDate?: string) => {
   const { user } = useAuth();
@@ -82,6 +83,10 @@ export const useTimeBlocks = (date: string, rangeEndDate?: string) => {
         .maybeSingle();
       if (error) throw error;
       if (!data) throw new Error('Error al crear el bloque: no se devolvieron datos');
+      trackAnalyticsEvent('calendar_event_created', {
+        is_recurring: Boolean(block.is_recurring),
+        has_date: Boolean(block.block_date),
+      });
       return data;
     },
     onSuccess: () => {
@@ -122,6 +127,11 @@ export const useTimeBlocks = (date: string, rangeEndDate?: string) => {
         .maybeSingle();
       if (error) throw error;
       if (!data) throw new Error('Error al actualizar el bloque: no se encontró el registro');
+      trackAnalyticsEvent('calendar_event_updated', {
+        changed_start: Boolean(updates.start_time),
+        changed_end: Boolean(updates.end_time),
+        changed_recurrence: updates.is_recurring !== undefined || updates.days_of_week !== undefined,
+      });
       return data;
     },
     onSuccess: () => {
@@ -138,16 +148,26 @@ export const useTimeBlocks = (date: string, rangeEndDate?: string) => {
 
   const deleteBlock = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
+      if (!user) throw new Error('No user');
+      const { data, error } = await supabase
         .from('time_blocks')
         .delete()
-        .eq('id', id);
+        .eq('id', id)
+        .eq('user_id', user.id)
+        .select('id');
       if (error) throw error;
+      if (!data || data.length === 0) {
+        throw new Error('No se encontro el evento o no tienes permisos para borrarlo');
+      }
+      trackAnalyticsEvent('calendar_event_deleted');
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['time_blocks'] });
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
       toast.info('Bloque eliminado');
+    },
+    onError: () => {
+      toast.error('No se pudo eliminar el evento');
     },
   });
 

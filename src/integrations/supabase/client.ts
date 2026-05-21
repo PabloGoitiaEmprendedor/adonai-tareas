@@ -15,6 +15,7 @@ export const supabase = createClient<Database>(
       storage: supabaseAuthStorage as any,
       persistSession: true,
       autoRefreshToken: true,
+      lockAcquireTimeout: 15000,
     }
   }
 );

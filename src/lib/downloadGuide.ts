@@ -1,4 +1,5 @@
 import { MAC_DOWNLOAD, WIN_DOWNLOAD } from "@/lib/download-urls";
+import { trackAnalyticsEvent } from "@/lib/analytics";
 
 export type DownloadPlatform = "win" | "mac";
 
@@ -19,6 +20,10 @@ export function triggerInstallerDownload(platform: DownloadPlatform) {
 }
 
 export function startGuidedDownload(platform: DownloadPlatform) {
+  trackAnalyticsEvent("download_started", {
+    platform,
+    installer_url: getInstallerDownloadUrl(platform),
+  });
   window.dispatchEvent(new CustomEvent(START_DOWNLOAD_GUIDE_EVENT, { detail: { platform } }));
   triggerInstallerDownload(platform);
 }

@@ -943,6 +943,7 @@ tasks?.forEach((task) => {
         due_date: dueDate,
         recurrence_id: anchorTask.recurrence_id,
         status: 'deleted',
+        deleted_at: new Date().toISOString(),
         priority: anchorTask.priority || 'medium',
         importance: anchorTask.importance || false,
         urgency: anchorTask.urgency || false,
