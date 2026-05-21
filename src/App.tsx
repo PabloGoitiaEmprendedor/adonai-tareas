@@ -42,6 +42,9 @@ import NotificationManager from './components/NotificationManager';
 import { AdonaiNotifier } from '@/components/ui/adonai-notifier';
 import DownloadGuideOverlay from '@/components/DownloadGuideOverlay';
 import { trackPageView } from "@/lib/analytics";
+import CalendarCallback from "./pages/CalendarCallback";
+import SheetsCallback from "./pages/SheetsCallback";
+
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -137,8 +140,6 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
-import CalendarCallback from "./pages/CalendarCallback";
-
 const AppRoutes = () => {
   const { user, loading } = useAuth();
   const browserPath = window.location.pathname.replace(/\/$/, '');
@@ -198,12 +199,12 @@ const AppRoutes = () => {
         } />
         <Route path="/onboarding" element={<OnboardingPage />} />
         <Route path="/calendar-callback" element={appRouteElement(<CalendarCallback />)} />
+        <Route path="/sheets-callback" element={appRouteElement(<SheetsCallback />)} />
         
         <Route 
           path="/" 
           element={rootRouteElement()} 
         />
-
         <Route path="/dashboard" element={appRouteElement(<DashboardPage />)} />
         <Route path="/app" element={appRouteElement(<DashboardPage />)} />
         <Route path="/daily" element={appRouteElement(<DailyPage />)} />

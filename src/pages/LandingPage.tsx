@@ -177,9 +177,9 @@ function WebButton({ label = "Usar version web" }: { label?: string }) {
   return (
     <button
       onClick={() => navigate("/welcome")}
-      className="inline-flex h-14 w-full items-center justify-center gap-2 rounded-full border border-[#151820]/12 bg-white/70 px-6 text-sm font-black text-[#151820]/72 backdrop-blur transition hover:-translate-y-0.5 hover:border-[#151820]/22 hover:bg-white hover:text-[#151820] active:translate-y-0 sm:w-auto sm:px-7"
+      className="inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-full bg-white/30 px-4 text-xs font-medium text-[#151820]/45 backdrop-blur transition hover:bg-white/60 hover:text-[#151820]/70 active:translate-y-0 sm:w-auto sm:px-5"
     >
-      <Globe className="h-4 w-4" />
+      <Globe className="h-3.5 w-3.5" />
       {label}
     </button>
   );
@@ -269,7 +269,7 @@ function Hero() {
             Convierte tu ruido mental en accion clara, sin estres. Captura pendientes en segundos. Sin abrir apps. Crea metas, agrega amigos y pasa del caos a una vida organizada sin esfuerzo.
           </p>
 
-          <div className="mt-9 flex max-w-4xl flex-col items-start gap-3 sm:flex-row">
+          <div className="mt-9 flex max-w-4xl flex-col items-start gap-3">
             <PrimaryCTA />
             <WebButton label="Verlo en la web" />
           </div>
@@ -650,7 +650,7 @@ function Pricing() {
             <p className="mt-6 text-lg font-semibold leading-relaxed text-[#151820]/62">
               Usa Adonai Pro gratis durante 3 meses mientras construimos la herramienta junto a emprendedores reales.
             </p>
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+            <div className="mt-8 flex flex-col gap-3">
               <PrimaryCTA />
               <WebButton />
             </div>
@@ -658,7 +658,7 @@ function Pricing() {
           <div className="bg-[#151820] p-7 text-white sm:p-10 lg:p-12">
             <p className="text-xs font-black uppercase tracking-[0.22em] text-[#6FCF97]">Incluye</p>
             <div className="mt-7 space-y-4">
-              {["Brain dump rapido", "Mini ventana siempre visible", "Calendario y bloques de tiempo", "Temporizador de foco", "Niveles, rachas y progreso"].map((item) => (
+              {["Tareas ilimitadas", "Calendario", "Mini ventana", "Integraciones", "Amigos", "Racha"].map((item) => (
                 <div key={item} className="flex items-center gap-3 text-sm font-bold text-white/72">
                   <Check className="h-5 w-5 text-[#6FCF97]" />
                   {item}
@@ -742,7 +742,7 @@ function FinalCTA() {
           <p className="mx-auto mt-6 max-w-2xl text-lg font-semibold leading-relaxed text-[#151820]/62">
             Saca lo pendiente, mira lo importante y vuelve a ejecutar con calma.
           </p>
-          <div className="mt-10 flex flex-col justify-center gap-3 sm:flex-row">
+          <div className="mt-10 flex flex-col justify-center gap-3">
             <PrimaryCTA />
             <WebButton />
           </div>

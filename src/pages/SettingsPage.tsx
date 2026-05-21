@@ -20,12 +20,16 @@ import {
     Check,
     ArrowLeft,
     ArrowRight,
-    X
+    X,
+    Calendar,
+    FileSpreadsheet
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { NotionImportTask, useNotionIntegration } from '@/hooks/useNotionIntegration';
+import { useCalendarIntegration } from '@/hooks/useCalendarIntegration';
+import { useSheetsIntegration } from '@/hooks/useSheetsIntegration';
 import { usePriorityColors } from '@/hooks/usePriorityColors';
 
 const SettingsPage = () => {
@@ -35,7 +39,11 @@ const SettingsPage = () => {
   const { signOut } = useAuth();
   const navigate = useNavigate();
   const notion = useNotionIntegration();
+  const calendar = useCalendarIntegration();
+  const sheets = useSheetsIntegration();
   const { colors: priorityColors } = usePriorityColors();
+  
+  const [sheetUrl, setSheetUrl] = useState('');
 
   const [editingField, setEditingField] = useState<string | null>(null);
   const [autoStart, setAutoStart] = useState(true);
@@ -305,7 +313,7 @@ const SettingsPage = () => {
   };
 
   const handleNotionDisconnect = async () => {
-    const confirmed = window.confirm('Esto desconectarÃ¡ Notion y borrarÃ¡ las tareas y carpetas importadas desde Notion. Â¿Continuar?');
+    const confirmed = window.confirm('Esto desconectará Notion y borrará las tareas y carpetas importadas desde Notion. ¿Continuar?');
     if (!confirmed) return;
 
     try {
@@ -474,7 +482,7 @@ const SettingsPage = () => {
                         <div className="space-y-1">
                             <span className="block font-bold text-foreground">Notion</span>
                             <span className="block text-[11px] text-on-surface-variant/60 font-medium max-w-[420px]">
-                                Convierte tus bases de datos de Notion en carpetas de Adonai e importa sus pÃ¡ginas como tareas.
+                                Convierte tus bases de datos de Notion en carpetas de Adonai e importa sus páginas como tareas.
                             </span>
                             {notion.connection && (
                               <span className="block text-[10px] text-primary font-black uppercase tracking-widest pt-1">
@@ -571,7 +579,7 @@ const SettingsPage = () => {
                       <span className="block text-xs text-on-surface-variant/60 mt-1">
                         {notion.databasesError
                           ? String((notion.databasesError as Error).message || notion.databasesError)
-                          : 'Vuelve a conectar Notion y asegÃºrate de seleccionar al menos una base de datos o una pÃ¡gina que contenga bases.'}
+                          : 'Vuelve a conectar Notion y asegúrate de seleccionar al menos una base de datos o una página que contenga bases.'}
                       </span>
                     </div>
                     <button
@@ -759,6 +767,171 @@ const SettingsPage = () => {
                     </motion.div>
                   )}
                 </AnimatePresence>
+            </div>
+
+            {/* Google Calendar Integration */}
+            <div className="bg-surface-container-low border border-outline-variant/10 rounded-[32px] overflow-hidden mt-4">
+                <div className="p-6 flex flex-col md:flex-row md:items-center justify-between gap-5">
+                    <div className="flex items-start gap-4">
+                        <div className="w-12 h-12 rounded-[20px] bg-white border border-black/10 shadow-sm flex items-center justify-center shrink-0">
+                            <Calendar className="w-7 h-7 text-primary" />
+                        </div>
+                        <div className="space-y-1">
+                            <span className="block font-bold text-foreground">Google Calendar</span>
+                            <span className="block text-[11px] text-on-surface-variant/60 font-medium max-w-[420px]">
+                                Sincroniza tus eventos de Google Calendar con tus tareas y administra todo en un solo lugar.
+                            </span>
+                            {calendar.connected && (
+                              <span className="block text-[10px] text-primary font-black uppercase tracking-widest pt-1">
+                                Conectado: {calendar.email || 'Cuenta de Google'}
+                              </span>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:flex gap-2 self-stretch md:self-auto md:shrink-0">
+                        {!calendar.connected ? (
+                            <button
+                                onClick={() => {
+                                    toast.loading('Iniciando conexión...');
+                                    calendar.connect.mutate();
+                                }}
+                                disabled={calendar.connect.isPending}
+                                className="w-full md:w-auto min-h-12 px-4 py-3 rounded-2xl bg-primary text-primary-foreground text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 disabled:opacity-60"
+                            >
+                                <LinkIcon className="w-4 h-4" />
+                                Conectar
+                            </button>
+                        ) : (
+                          <>
+                            <button
+                                onClick={() => {
+                                    toast.promise(calendar.sync.mutateAsync(), {
+                                        loading: 'Sincronizando eventos...',
+                                        success: 'Calendario sincronizado correctamente',
+                                        error: 'Error al sincronizar calendario',
+                                    });
+                                }}
+                                disabled={calendar.sync.isPending}
+                                className="w-full md:w-auto min-h-12 px-4 py-3 rounded-2xl bg-primary text-primary-foreground text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 disabled:opacity-60 whitespace-normal text-center leading-tight"
+                            >
+                                <RefreshCw className={`w-4 h-4 ${calendar.sync.isPending ? 'animate-spin' : ''}`} />
+                                {calendar.sync.isPending ? 'Sincronizando' : 'Sincronizar ahora'}
+                            </button>
+                            <button
+                                onClick={() => {
+                                    toast.promise(calendar.disconnect.mutateAsync(), {
+                                        loading: 'Desconectando...',
+                                        success: 'Google Calendar desconectado',
+                                        error: 'Error al desconectar',
+                                    });
+                                }}
+                                disabled={calendar.disconnect.isPending}
+                                className="w-full md:w-auto min-h-12 px-4 py-3 rounded-2xl bg-red-500/10 text-red-500 border border-red-500/30 text-xs font-black uppercase tracking-widest disabled:opacity-60 hover:bg-red-500/15 transition-colors"
+                            >
+                                Desactivar
+                            </button>
+                          </>
+                        )}
+                    </div>
+                </div>
+            </div>
+
+            {/* Google Sheets Integration */}
+            <div className="bg-surface-container-low border border-outline-variant/10 rounded-[32px] overflow-hidden mt-4">
+                <div className="p-6 flex flex-col md:flex-row md:items-center justify-between gap-5">
+                    <div className="flex items-start gap-4">
+                        <div className="w-12 h-12 rounded-[20px] bg-emerald-500/10 border border-emerald-500/20 shadow-sm flex items-center justify-center shrink-0">
+                            <FileSpreadsheet className="w-7 h-7 text-emerald-600" />
+                        </div>
+                        <div className="space-y-1">
+                            <span className="block font-bold text-foreground">Google Sheets</span>
+                            <span className="block text-[11px] text-on-surface-variant/60 font-medium max-w-[420px]">
+                                Vincula tus hojas de cálculo para importar todas tus tareas improvisadas y administrarlas definitivamente en Adonai.
+                            </span>
+                            {sheets.connected && (
+                              <span className="block text-[10px] text-emerald-600 font-black uppercase tracking-widest pt-1">
+                                Conectado: {sheets.email || 'Cuenta de Google'}
+                              </span>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:flex gap-2 self-stretch md:self-auto md:shrink-0">
+                        {!sheets.connected && (
+                            <button
+                                onClick={() => {
+                                    toast.loading('Iniciando conexión...');
+                                    sheets.connect.mutate();
+                                }}
+                                disabled={sheets.connect.isPending}
+                                className="w-full md:w-auto min-h-12 px-4 py-3 rounded-2xl bg-primary text-primary-foreground text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 disabled:opacity-60"
+                            >
+                                <LinkIcon className="w-4 h-4" />
+                                Conectar
+                            </button>
+                        )}
+                    </div>
+                </div>
+
+                {sheets.connected && (
+                  <div className="mt-4 px-6 pb-6 space-y-4 border-t border-outline-variant/10 pt-6">
+                    <div className="space-y-2">
+                      <span className="block text-[10px] font-black text-on-surface-variant/50 uppercase tracking-widest">Enlace de tu Google Sheet</span>
+                      <div className="flex flex-col sm:flex-row gap-2">
+                        <input
+                          type="text"
+                          placeholder="Pega la URL de tu Google Sheet (ej. https://docs.google.com/spreadsheets/d/...)"
+                          value={sheetUrl}
+                          onChange={(e) => setSheetUrl(e.target.value)}
+                          className="flex-1 bg-surface-container-highest px-4 py-3 rounded-2xl text-xs font-bold outline-none border border-outline-variant/10 focus:ring-2 focus:ring-primary/50 text-foreground placeholder:text-on-surface-variant/40"
+                        />
+                        <button
+                          onClick={() => {
+                            if (!sheetUrl.trim()) {
+                              toast.error("Por favor, ingresa una URL de Google Sheet válida");
+                              return;
+                            }
+                            toast.promise(sheets.importSheets.mutateAsync(sheetUrl), {
+                              loading: 'Importando tareas...',
+                              success: (data) => {
+                                setSheetUrl('');
+                                return data.message;
+                              },
+                              error: (err) => err.message || 'Error al importar las tareas',
+                            });
+                          }}
+                          disabled={sheets.importSheets.isPending}
+                          className="px-6 py-3 rounded-2xl bg-primary text-primary-foreground text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:scale-105 active:scale-95 transition-all disabled:opacity-60 shrink-0"
+                        >
+                          {sheets.importSheets.isPending ? 'Importando...' : 'Importar'}
+                        </button>
+                      </div>
+                      <p className="text-[10px] text-on-surface-variant/40 font-medium">
+                        Nota: Asegúrate de que la primera fila contenga las cabeceras (Título, Prioridad, Vencimiento, etc.).
+                      </p>
+                    </div>
+                    
+                    <div className="flex justify-end pt-2">
+                      <button
+                        onClick={() => {
+                          const confirmed = window.confirm('¿Quieres desconectar Google Sheets?');
+                          if (confirmed) {
+                            toast.promise(sheets.disconnect.mutateAsync(), {
+                              loading: 'Desconectando...',
+                              success: 'Google Sheets desconectado',
+                              error: 'Error al desconectar',
+                            });
+                          }
+                        }}
+                        disabled={sheets.disconnect.isPending}
+                        className="px-4 py-2.5 rounded-2xl bg-red-500/10 text-red-500 border border-red-500/30 text-xs font-black uppercase tracking-widest hover:bg-red-500/15 transition-colors disabled:opacity-60"
+                      >
+                        Desactivar
+                      </button>
+                    </div>
+                  </div>
+                )}
             </div>
         </section>
 

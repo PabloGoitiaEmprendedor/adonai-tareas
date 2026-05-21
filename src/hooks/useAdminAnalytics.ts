@@ -11,7 +11,7 @@ export const useIsAdmin = () => {
 };
 
 // ─── Types ───────────────────────────────────────────────────────────────────
-interface UserStat {
+export interface UserStat {
   user_id: string;
   email: string | null;
   name: string | null;
@@ -33,18 +33,53 @@ interface UserStat {
   tasks_important: number;
   tasks_urgent: number;
   streak_current: number;
+  streak_max: number;
   first_session_date: string | null;
   last_active_date: string | null;
   avg_tasks_per_day: number;
   status: 'activo' | 'en_riesgo' | 'churned';
 }
 
-interface DailyMetric {
+export interface DailyMetric {
   date: string;
   tasks_created: number;
   tasks_completed: number;
   active_users: number;
+  users_created_tasks: number;
+  tasks_with_goal: number;
+  tasks_prioritized: number;
+  voice_tasks: number;
+  goals_created: number;
+  tasks_created_mini_plus: number;
+  tasks_created_mini_voice: number;
+  tasks_created_mini_total: number;
+  tasks_completed_mini: number;
+  mini_active_users: number;
 }
+
+export interface UsageBreakdownItem {
+  user_id: string;
+  email: string | null;
+  name: string | null;
+  count: number;
+}
+
+export type UsageBreakdownKey =
+  | 'tasks_created'
+  | 'tasks_completed'
+  | 'tasks_created_today'
+  | 'tasks_with_goal'
+  | 'goals_created'
+  | 'tasks_prioritized'
+  | 'voice_tasks'
+  | 'time_blocks'
+  | 'achievements'
+  | 'friendships'
+  | 'image_captures'
+  | 'mini_total'
+  | 'mini_plus'
+  | 'mini_voice'
+  | 'mini_completed';
 
 interface UserGrowthMetric {
   date: string;
@@ -76,7 +111,7 @@ interface CohortRetention extends CohortGroup {
   };
 }
 
-interface AdminAnalytics {
+export interface AdminAnalytics {
   totalUsers: number;
   activeToday: number;
   activeTodayOpened: number;
@@ -97,6 +132,7 @@ interface AdminAnalytics {
   tasksImportant: number;
   tasksUrgent: number;
   userStats: UserStat[];
+  excludedUserStats?: UserStat[];
   dailyMetrics: DailyMetric[];
   userGrowth: UserGrowthMetric[];
   funnel: FunnelMetrics;
@@ -112,6 +148,7 @@ interface AdminAnalytics {
   retentionD7: number;
   wau: number;
   featureRetention: FeatureRetentionItem[];
+  usageBreakdowns?: Partial<Record<UsageBreakdownKey, UsageBreakdownItem[]>>;
 }
 
 interface FeatureRetentionItem {

@@ -47,6 +47,42 @@ export type Database = {
         }
         Relationships: []
       }
+      admin_notifications: {
+        Row: {
+          body: string
+          created_at: string
+          created_by: string
+          id: string
+          read_count: number
+          sent_count: number
+          target_type: string
+          target_user_id: string | null
+          title: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          created_by: string
+          id?: string
+          read_count?: number
+          sent_count?: number
+          target_type?: string
+          target_user_id?: string | null
+          title: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          read_count?: number
+          sent_count?: number
+          target_type?: string
+          target_user_id?: string | null
+          title?: string
+        }
+        Relationships: []
+      }
       contexts: {
         Row: {
           color: string | null
@@ -282,6 +318,7 @@ export type Database = {
           access_token: string
           calendar_id: string | null
           created_at: string
+          email: string | null
           expires_at: string
           id: string
           refresh_token: string
@@ -292,6 +329,7 @@ export type Database = {
           access_token: string
           calendar_id?: string | null
           created_at?: string
+          email?: string | null
           expires_at: string
           id?: string
           refresh_token: string
@@ -302,6 +340,40 @@ export type Database = {
           access_token?: string
           calendar_id?: string | null
           created_at?: string
+          email?: string | null
+          expires_at?: string
+          id?: string
+          refresh_token?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      google_sheets_tokens: {
+        Row: {
+          access_token: string
+          created_at: string
+          email: string | null
+          expires_at: string
+          id: string
+          refresh_token: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          access_token: string
+          created_at?: string
+          email?: string | null
+          expires_at: string
+          id?: string
+          refresh_token: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          access_token?: string
+          created_at?: string
+          email?: string | null
           expires_at?: string
           id?: string
           refresh_token?: string
@@ -486,6 +558,7 @@ export type Database = {
           notifications_enabled: boolean | null
           notion_connected: boolean | null
           reminder_style: string | null
+          sheets_connected: boolean | null
           user_id: string
           voice_enabled: boolean | null
         }
@@ -497,6 +570,7 @@ export type Database = {
           notifications_enabled?: boolean | null
           notion_connected?: boolean | null
           reminder_style?: string | null
+          sheets_connected?: boolean | null
           user_id: string
           voice_enabled?: boolean | null
         }
@@ -508,6 +582,7 @@ export type Database = {
           notifications_enabled?: boolean | null
           notion_connected?: boolean | null
           reminder_style?: string | null
+          sheets_connected?: boolean | null
           user_id?: string
           voice_enabled?: boolean | null
         }
@@ -882,7 +957,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      is_adonai_admin: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
+      mark_admin_notification_sent: {
+        Args: { notification_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never

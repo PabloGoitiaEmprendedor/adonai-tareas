@@ -145,9 +145,7 @@ const NotificationManager = () => {
       sendExternalNotification(notification.title, notification.body, 'info');
       seen.add(notification.id);
       supabase
-        .from('admin_notifications')
-        .update({ sent_count: (notification.sent_count || 0) + 1 })
-        .eq('id', notification.id)
+        .rpc('mark_admin_notification_sent', { notification_id: notification.id })
         .then(({ error }) => {
           if (error) console.error('[notifications] Error updating sent_count:', error);
         });

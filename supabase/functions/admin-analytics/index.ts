@@ -9,6 +9,9 @@ const corsHeaders = {
 };
 
 const ADMIN_EMAIL = "pablogoitiaemprendedor@gmail.com";
+const DEFAULT_EXCLUDED_EMAILS = [
+  "cosaslindasparati2022@gmail.com",
+];
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -43,7 +46,10 @@ serve(async (req) => {
     const timeRange = timeRangeParam === "all" ? "all" as const : parseInt(timeRangeParam);
     const excludedUserIds: string[] = JSON.parse(excludedUsersParam);
     const excludedEmailsParam = body.excludedEmails || "[]";
-    const excludedEmails: string[] = JSON.parse(excludedEmailsParam);
+    const excludedEmails: string[] = Array.from(new Set([
+      ...DEFAULT_EXCLUDED_EMAILS,
+      ...JSON.parse(excludedEmailsParam),
+    ]));
     const clientToday = body.clientToday || "";
 
     const today = clientToday ? parseISO(clientToday) : new Date();
@@ -57,9 +63,7 @@ serve(async (req) => {
 
     const adminProfile = profilesData?.find(p => p.email === ADMIN_EMAIL);
     const adminUserId = adminProfile?.user_id;
-    const profiles = (profilesData || []).filter(p => p.user_id !== adminUserId && !excludedUserIds.includes(p.user_id) && p.email !== null);
-    const allProfiles = (profilesData || []).filter(p => p.user_id !== adminUserId && !excludedUserIds.includes(p.user_id));
-    const profileMap = new Map(allProfiles.map(p => [p.user_id, p]));
+    const rawProfileMap = new Map((profilesData || []).map(p => [p.user_id, p]));
 
     // Fetch auth users (authoritative source for email)
     const { data: authData } = await supabase.auth.admin.listUsers();
@@ -93,6 +97,10 @@ serve(async (req) => {
       });
     });
 
+    const profiles = (profilesData || []).filter(p => p.user_id !== adminUserId && !excludedUserIds.includes(p.user_id) && p.email !== null);
+    const allProfiles = (profilesData || []).filter(p => p.user_id !== adminUserId && !excludedUserIds.includes(p.user_id));
+    const profileMap = new Map(allProfiles.map(p => [p.user_id, p]));
+
     // Fetch all tasks
     const { data: allTasks, error: tasksError } = await supabase
       .from("tasks")
@@ -118,6 +126,7 @@ serve(async (req) => {
 
     const metrics = (allMetrics || []).filter(m => m.user_id !== adminUserId && !excludedUserIds.includes(m.user_id));
     const metricsMap = new Map(metrics.map(m => [m.user_id, m]));
+    const rawMetricsMap = new Map((allMetrics || []).map(m => [m.user_id, m]));
 
     // Ecosystem tables
     const [{ data: goals }, { data: timeBlocks }, { data: achievements }, { data: imageCaptures }, { data: friendships }] = await Promise.all([
@@ -245,16 +254,22 @@ serve(async (req) => {
 
     // Per-user stats — with "status" field (activo / en_riesgo / churned)
     const userIds = [...new Set([...tasks.map(t => t.user_id), ...allProfiles.map(p => p.user_id)])];
-    const userStats = userIds.map(uid => {
-      const userTasks = tasks.filter(t => t.user_id === uid);
-      const userEvents = events.filter(e => e.user_id === uid);
-      const profile = profileMap.get(uid);
-      const m = metricsMap.get(uid);
+    const buildUserStats = (
+      ids: string[],
+      sourceTasks: any[],
+      sourceEvents: any[],
+      sourceProfileMap: Map<string, any>,
+      sourceMetricsMap: Map<string, any>,
+    ) => ids.map(uid => {
+      const userTasks = sourceTasks.filter(t => t.user_id === uid);
+      const userEvents = sourceEvents.filter(e => e.user_id === uid);
+      const profile = sourceProfileMap.get(uid);
+      const m = sourceMetricsMap.get(uid);
       const userCreationEvents = userEvents.filter(e => e.event_type?.startsWith("task_created"));
       const userDaySet = new Set(userTasks.map(t => t.created_at?.slice(0, 10) || ""));
 
       // Determine user status based on last valid activity
-      const allUserEvents = events.filter(e => e.user_id === uid && VALID_ACTIVITY_EVENTS.has(e.event_type || ""));
+      const allUserEvents = sourceEvents.filter(e => e.user_id === uid && VALID_ACTIVITY_EVENTS.has(e.event_type || ""));
       let lastValidDate: string | null = null;
       allUserEvents.forEach(e => {
         const d = e.created_at?.slice(0, 10) || "";
@@ -307,16 +322,43 @@ serve(async (req) => {
         tasks_important: userTasks.filter(t => t.importance).length,
         tasks_urgent: userTasks.filter(t => t.urgency).length,
         streak_current: (m as any)?.streak_current || 0,
+        streak_max: (m as any)?.streak_max || 0,
         first_session_date: profile?.created_at?.slice(0, 10) || null,
         last_active_date: (m as any)?.last_active_date || lastValidDate || null,
         avg_tasks_per_day: userDaySet.size > 0 ? Math.round((userTasks.length / userDaySet.size) * 10) / 10 : 0,
         status,
       };
     });
+    const userStats = buildUserStats(userIds, tasks || [], events || [], profileMap, metricsMap);
     userStats.sort((a, b) => b.total_tasks - a.total_tasks);
 
+    const excludedUserStats = buildUserStats(
+      excludedUserIds.filter(uid => uid !== adminUserId),
+      allTasks || [],
+      allEvents || [],
+      rawProfileMap,
+      rawMetricsMap,
+    )
+      .filter(u => u.email || u.name || u.total_tasks > 0)
+      .sort((a, b) => b.total_tasks - a.total_tasks);
+
     // Daily trends & user growth
-    const dailyMetrics: Array<{ date: string; tasks_created: number; tasks_completed: number; active_users: number }> = [];
+    const dailyMetrics: Array<{
+      date: string;
+      tasks_created: number;
+      tasks_completed: number;
+      active_users: number;
+      users_created_tasks: number;
+      tasks_with_goal: number;
+      tasks_prioritized: number;
+      voice_tasks: number;
+      goals_created: number;
+      tasks_created_mini_plus: number;
+      tasks_created_mini_voice: number;
+      tasks_created_mini_total: number;
+      tasks_completed_mini: number;
+      mini_active_users: number;
+    }> = [];
     const userGrowth: Array<{ date: string; cumulative_users: number }> = [];
     let cumulativeUsers = profiles.filter(p => (p.created_at || "") < startDateStr).length;
 
@@ -329,7 +371,31 @@ serve(async (req) => {
       const dayTasks = filteredTasks.filter(t => t.created_at?.startsWith(d));
       const dayCompleted = filteredTasks.filter(t => t.completed_at?.startsWith(d));
       const dayActiveUsers = new Set(filteredEvents.filter(e => e.created_at?.startsWith(d)).map(e => e.user_id)).size;
-      dailyMetrics.push({ date: d, tasks_created: dayTasks.length, tasks_completed: dayCompleted.length, active_users: dayActiveUsers });
+      const dayCreationEvents = filteredEvents.filter(e => e.event_type?.startsWith("task_created") && e.created_at?.startsWith(d));
+      const dayMiniPlusEvents = dayCreationEvents.filter(e => getCreationSource(e.metadata) === "mini_plus");
+      const dayMiniVoiceEvents = dayCreationEvents.filter(e => getCreationSource(e.metadata) === "mini_voice");
+      const dayMiniCompletionEvents = filteredEvents.filter(e => {
+        if (e.event_type !== "task_completed" || !e.created_at?.startsWith(d)) return false;
+        const source = getCreationSource(e.metadata);
+        return source === "mini_plus" || source === "mini_voice";
+      });
+      const dayGoals = cleanGoals.filter(g => g.created_at?.startsWith(d));
+      dailyMetrics.push({
+        date: d,
+        tasks_created: dayTasks.length,
+        tasks_completed: dayCompleted.length,
+        active_users: dayActiveUsers,
+        users_created_tasks: new Set(dayTasks.map(t => t.user_id)).size,
+        tasks_with_goal: dayTasks.filter(t => t.goal_id).length,
+        tasks_prioritized: dayTasks.filter(t => t.importance || t.urgency).length,
+        voice_tasks: dayTasks.filter(t => t.source_type === "voice").length,
+        goals_created: dayGoals.length,
+        tasks_created_mini_plus: dayMiniPlusEvents.length,
+        tasks_created_mini_voice: dayMiniVoiceEvents.length,
+        tasks_created_mini_total: dayMiniPlusEvents.length + dayMiniVoiceEvents.length,
+        tasks_completed_mini: dayMiniCompletionEvents.length,
+        mini_active_users: new Set([...dayMiniPlusEvents, ...dayMiniVoiceEvents, ...dayMiniCompletionEvents].map(e => e.user_id)).size,
+      });
     }
 
     // Funnel
@@ -410,7 +476,9 @@ serve(async (req) => {
       sub_3_plus: { users: string[], activeDays: { [uid: string]: Set<number> } }
     }>();
 
-    profiles.forEach(p => {
+    const cohortProfiles = allProfiles.filter(p => p.email !== null || p.onboarding_completed);
+
+    cohortProfiles.forEach(p => {
       // Anchor = registration date (profiles.created_at)
       if (!p.created_at) return;
       const registrationDate = parseISO(p.created_at.slice(0, 10));
@@ -647,6 +715,51 @@ serve(async (req) => {
     // Sort by delta descending (most impactful first)
     featureRetention.sort((a, b) => b.delta - a.delta);
 
+    type CountableUser = { user_id: string; name: string | null; email: string | null };
+    const userIdentity = (uid: string): CountableUser => {
+      const profile = profileMap.get(uid) || rawProfileMap.get(uid);
+      return {
+        user_id: uid,
+        name: profile?.name || null,
+        email: authUserMap.get(uid)?.email || profile?.email || null,
+      };
+    };
+    const countByUser = (userIds: Array<string | null | undefined>) => {
+      const counts = new Map<string, number>();
+      userIds.filter(Boolean).forEach(uid => {
+        const id = uid as string;
+        counts.set(id, (counts.get(id) || 0) + 1);
+      });
+      return Array.from(counts.entries())
+        .map(([uid, count]) => ({ ...userIdentity(uid), count }))
+        .sort((a, b) => b.count - a.count);
+    };
+    const cleanFriendshipUserIds = cleanFriendships.flatMap(f => [f.requester_id, f.addressee_id]).filter(Boolean);
+    const usageBreakdowns = {
+      tasks_created: countByUser(filteredTasks.map(t => t.user_id)),
+      tasks_completed: countByUser(filteredTasks.filter(t => t.status === "done").map(t => t.user_id)),
+      tasks_created_today: countByUser(filteredTasks.filter(t => t.created_at?.startsWith(todayStr)).map(t => t.user_id)),
+      tasks_with_goal: countByUser(filteredTasks.filter(t => t.goal_id).map(t => t.user_id)),
+      goals_created: countByUser(cleanGoals.map(g => g.user_id)),
+      tasks_prioritized: countByUser(filteredTasks.filter(t => t.importance || t.urgency).map(t => t.user_id)),
+      voice_tasks: countByUser(filteredTasks.filter(t => t.source_type === "voice").map(t => t.user_id)),
+      time_blocks: countByUser(cleanTimeBlocks.map(tb => tb.user_id)),
+      achievements: countByUser(cleanAchievements.map(a => a.user_id)),
+      friendships: countByUser(cleanFriendshipUserIds),
+      image_captures: countByUser(cleanImageCaptures.map(ic => ic.user_id)),
+      mini_total: countByUser(creationEvents.filter(e => {
+        const source = getCreationSource(e.metadata);
+        return source === "mini_plus" || source === "mini_voice";
+      }).map(e => e.user_id)),
+      mini_plus: countByUser(creationEvents.filter(e => getCreationSource(e.metadata) === "mini_plus").map(e => e.user_id)),
+      mini_voice: countByUser(creationEvents.filter(e => getCreationSource(e.metadata) === "mini_voice").map(e => e.user_id)),
+      mini_completed: countByUser(filteredEvents.filter(e => {
+        if (e.event_type !== "task_completed") return false;
+        const source = getCreationSource(e.metadata);
+        return source === "mini_plus" || source === "mini_voice";
+      }).map(e => e.user_id)),
+    };
+
     return new Response(JSON.stringify({
       totalUsers, activeToday, activeTodayOpened, activeTodayAction,
       totalTasksCreated, totalTasksCompleted,
@@ -654,7 +767,7 @@ serve(async (req) => {
       tasksByVoice, tasksByText, tasksByImage, tasksByRecurrence,
       tasksByFab, tasksBySecondary, tasksByMiniPlus, tasksByMiniVoice,
       tasksWithGoal, tasksImportant, tasksUrgent,
-      userStats, dailyMetrics, userGrowth,
+      userStats, excludedUserStats, dailyMetrics, userGrowth,
       funnel: { total_users: totalUsers, users_with_first_task: usersWithFirstTask, users_with_first_completion: usersWithFirstCompletion, users_with_prioritization: usersWithPrioritization },
       goalsTotal, goalsActive, timeBlocksTotal: tbTotal, achievementsUnlocked: achTotal,
       imageCapturesTotal: cleanIC.length, tasksExtractedFromImages: cleanIC.reduce((acc, ic) => acc + (ic.tasks_extracted || 0), 0),
@@ -665,6 +778,7 @@ serve(async (req) => {
       retentionD7,
       wau,
       featureRetention,
+      usageBreakdowns,
     }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },

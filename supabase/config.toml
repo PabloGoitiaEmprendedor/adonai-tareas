@@ -12,6 +12,12 @@ verify_jwt = true
 [functions.google-analytics-event]
 verify_jwt = false
 
+[functions.google-auth]
+verify_jwt = false
+
+[functions.sync-calendar]
+verify_jwt = true
+
 [functions.notion-auth-start]
 verify_jwt = true
 
@@ -35,3 +41,6 @@ verify_jwt = true
 
 [functions.notion-webhook]
 verify_jwt = false
+
+[functions.import-sheets]
+verify_jwt = true

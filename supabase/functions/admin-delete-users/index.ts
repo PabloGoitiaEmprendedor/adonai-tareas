@@ -44,7 +44,7 @@ serve(async (req) => {
       });
     }
 
-    let deleted = 0;
+    let excluded = 0;
     let errors: { id: string; error: string }[] = [];
 
     for (const uid of userIds) {
@@ -52,19 +52,10 @@ serve(async (req) => {
         errors.push({ id: uid, error: "Invalid user ID" });
         continue;
       }
-      try {
-        const { error } = await supabase.auth.admin.deleteUser(uid);
-        if (error) {
-          errors.push({ id: uid, error: error.message });
-        } else {
-          deleted++;
-        }
-      } catch (err: any) {
-        errors.push({ id: uid, error: err.message });
-      }
+      excluded++;
     }
 
-    return new Response(JSON.stringify({ deleted, errors, total: userIds.length }), {
+    return new Response(JSON.stringify({ excluded, errors, total: userIds.length }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

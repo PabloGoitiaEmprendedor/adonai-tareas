@@ -3,10 +3,10 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { motion } from 'framer-motion';
-import { Check, Loader2, Calendar } from 'lucide-react';
+import { Check, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
-const CalendarCallback = () => {
+const SheetsCallback = () => {
  const [searchParams] = useSearchParams();
  const navigate = useNavigate();
  const { user } = useAuth();
@@ -22,13 +22,14 @@ const CalendarCallback = () => {
  }
 
  try {
- console.log("Invoking google-auth callback for user:", user?.id);
+ console.log("Invoking google-auth callback for Google Sheets, user:", user?.id);
  const { data, error } = await supabase.functions.invoke('google-auth', {
  body: { 
  action: 'callback',
  code,
- redirect_uri: window.location.origin + '/calendar-callback',
- user_id: user?.id
+ redirect_uri: window.location.origin + '/sheets-callback',
+ user_id: user?.id,
+ service: 'sheets'
  },
  });
 
@@ -36,22 +37,24 @@ const CalendarCallback = () => {
 
  if (data?.success) {
  setStatus('success');
- toast.success('¡Google Calendar conectado con éxito!');
+ toast.success('¡Google Sheets conectado con éxito!');
  setTimeout(() => {
- navigate('/week');
+ navigate('/settings');
  }, 2000);
  } else {
  throw new Error(data?.error || 'Error desconocido');
  }
  } catch (error) {
- console.error('Error en el callback de Google:', error);
+ console.error('Error en el callback de Google Sheets:', error);
  setStatus('error');
- toast.error('Error al sincronizar con Google Calendar');
+ toast.error('Error al sincronizar con Google Sheets');
  }
  };
 
+ if (user) {
  handleCallback();
- }, [searchParams, navigate]);
+ }
+ }, [searchParams, navigate, user]);
 
  return (
  <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 text-center">
@@ -82,23 +85,23 @@ const CalendarCallback = () => {
 
  <div className="space-y-4">
  <h2 className="text-2xl font-black font-headline tracking-tight">
- {status === 'loading' && 'Conectando con Google...'}
+ {status === 'loading' && 'Conectando con Google Sheets...'}
  {status === 'success' && '¡Conexión Exitosa!'}
  {status === 'error' && 'Algo salió mal'}
  </h2>
  <p className="text-on-surface-variant/60 font-medium">
- {status === 'loading' && 'Estamos sincronizando tus eventos de Google con Adonai.'}
- {status === 'success' && 'Tus calendarios están listos. Volviendo a Adonai...'}
+ {status === 'loading' && 'Estamos vinculando tu cuenta de Google Sheets con Adonai.'}
+ {status === 'success' && 'Tus hojas de cálculo están listas. Volviendo a Ajustes...'}
  {status === 'error' && 'Hubo un problema al procesar la autorización. Por favor, intenta de nuevo.'}
  </p>
  </div>
 
  {status === 'error' && (
  <button
- onClick={() => navigate('/week')}
+ onClick={() => navigate('/settings')}
  className="w-full py-4 bg-primary text-primary-foreground rounded-[24px] font-black uppercase tracking-widest text-xs hover:scale-105 active:scale-95 transition-all"
  >
- Volver al Calendario
+ Volver a Ajustes
  </button>
  )}
  </motion.div>
@@ -106,4 +109,4 @@ const CalendarCallback = () => {
  );
 };
 
-export default CalendarCallback;
+export default SheetsCallback;

@@ -12,6 +12,8 @@ import AppTutorial from './AppTutorial';
 import TitleBar from './TitleBar';
 import { useProfile } from '@/hooks/useProfile';
 import AnonymousReminder from './AnonymousReminder';
+import FirstTaskSignupModal from './FirstTaskSignupModal';
+import ExitIntentModal from './ExitIntentModal';
 import { useTasks } from '@/hooks/useTasks';
 import { usePriorityColors, getPriorityKey } from '@/hooks/usePriorityColors';
 import { useGlobalVoiceCapture } from '@/hooks/useGlobalVoiceCapture';
@@ -94,12 +96,11 @@ const SidebarContent = ({ user, profile, menuItems, location, handleNavigate, st
         </div>
         <div className="flex flex-col min-w-0">
           <span className="text-sm font-black text-foreground truncate tracking-tight">
-            {user?.is_anonymous 
-              ? 'Invitado' 
-              : ((profile?.name && profile.name.trim()) || 
-                 (user?.user_metadata?.full_name && user.user_metadata.full_name.trim()) || 
-                 user?.email?.split('@')[0] || 
-                 'Mi Espacio')}
+            {((profile?.name && profile.name.trim()) || 
+               (user?.user_metadata?.full_name && user.user_metadata.full_name.trim()) || 
+               user?.email?.split('@')[0] || 
+               'Mi Espacio')}
+            {user?.is_anonymous && <span className="text-on-surface-variant/50 font-medium ml-1">(Invitado)</span>}
           </span>
         </div>
       </div>
@@ -393,6 +394,8 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
     <div className="min-h-screen bg-background">
       <TitleBar />
       <AnonymousReminder />
+      <FirstTaskSignupModal />
+      <ExitIntentModal />
       
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent side="left" className="w-[280px] glass-sheet border-r-outline-variant/20 p-0">

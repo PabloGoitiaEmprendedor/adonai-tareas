@@ -23,7 +23,7 @@ const parseGoalDesc = (goal: any) => {
 
 const getDeadlineDate = (deadline?: string | null) => {
   if (!deadline) return null;
-  const normalized = deadline.includes('T') ? deadline : `${deadline}T23:59:59`;
+  const normalized = deadline.includes('T') ? deadline :`${deadline}T23:59:59`;
   const parsed = new Date(normalized);
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 };
@@ -71,18 +71,18 @@ const getGoalStats = (goal: any) => {
 };
 
 const horizonLabels: Record<string, string> = {
-  daily: 'DÃ­a',
+  daily: 'Día',
   weekly: 'Semana',
   monthly: 'Mes',
   quarterly: 'Trimestre',
-  annual: 'AÃ±o',
+  annual: 'Año',
 };
 
 const celebrar = (name: string, goalTitle: string, horizon: string, doneCount: number, totalCount: number, daysSinceCreation: number) => {
   const timeOfDay = () => {
     const h = new Date().getHours();
     if (h < 6) return 'de madrugada';
-    if (h < 12) return 'de la maÃ±ana';
+    if (h < 12) return 'de la mañana';
     if (h < 18) return 'de la tarde';
     if (h < 22) return 'de la noche';
     return 'de madrugada';
@@ -90,37 +90,37 @@ const celebrar = (name: string, goalTitle: string, horizon: string, doneCount: n
 
   const lines: { message: string; subtitle: string }[] = [
     {
-      message: `Â¡Felicidades, ${name}!`,
-      subtitle: `Has conquistado tu meta de ${horizonLabels[horizon]?.toLowerCase() || 'vida'} â€” "${goalTitle}"`,
+      message:`¡Felicidades, ${name}!`,
+      subtitle:`Has conquistado tu meta de ${horizonLabels[horizon]?.toLowerCase() || 'vida'} — "${goalTitle}"`,
     },
     {
-      message: `${name}, Â¡LO LOGRASTE! ðŸ”¥`,
-      subtitle: `"${goalTitle}" â€” Completado con Ã©xito. Esto merece celebraciÃ³n.`,
+      message:`${name}, ¡LO LOGRASTE!`,
+      subtitle:`"${goalTitle}" — Completado con éxito. Esto merece celebración.`,
     },
     {
-      message: `Â¡${name}, eres imparable! ðŸš€`,
-      subtitle: `Meta de ${horizonLabels[horizon]?.toLowerCase() || 'vida'} alcanzada: "${goalTitle}"`,
+      message:`¡${name}, eres imparable!`,
+      subtitle:`Meta de ${horizonLabels[horizon]?.toLowerCase() || 'vida'} alcanzada: "${goalTitle}"`,
     },
     {
-      message: `${name}, acabas de hacer historia âœ¨`,
-      subtitle: `"${goalTitle}" â€” Una meta menos en el tintero. Bien jugado.`,
+      message:`${name}, acabas de hacer historia`,
+      subtitle:`"${goalTitle}" — Una meta menos en el tintero. Bien jugado.`,
     },
     {
-      message: `Â¡BOOM! ${name} lo hizo de nuevo. ðŸ’¥`,
-      subtitle: `"${goalTitle}" estÃ¡ oficialmente cumplida. Disfruta este momento.`,
+      message:`¡BOOM! ${name} lo hizo de nuevo.`,
+      subtitle:`"${goalTitle}" está oficialmente cumplida. Disfruta este momento.`,
     },
     {
-      message: `Â¡${name}, nivel completado! â­`,
-      subtitle: `"${goalTitle}" â€” MisiÃ³n cumplida ${timeOfDay()}. Toma un respiro, te lo mereces.`,
+      message:`¡${name}, nivel completado!`,
+      subtitle:`"${goalTitle}" — Misión cumplida ${timeOfDay()}. Toma un respiro, te lo mereces.`,
     },
   ];
 
   const extras: string[] = [];
   if (doneCount > 0) {
-    extras.push(doneCount === 1 ? '1 tarea completada' : `${doneCount} tareas completadas`);
+    extras.push(doneCount === 1 ? '1 tarea completada' :`${doneCount} tareas completadas`);
   }
   if (daysSinceCreation > 0) {
-    extras.push(daysSinceCreation === 0 ? 'en el dÃ­a' : daysSinceCreation === 1 ? '1 dÃ­a' : `${daysSinceCreation} dÃ­as`);
+    extras.push(daysSinceCreation === 0 ? 'en el día' : daysSinceCreation === 1 ? '1 día' :`${daysSinceCreation} días`);
   }
 
   const idx = Math.floor(Math.random() * lines.length);
@@ -181,11 +181,11 @@ const GoalsPage = () => {
   };
 
   const wizardQuestions = [
-    { key: 'title', label: 'Â¿QuÃ© quieres lograr exactamente?', description: 'Una meta clara define el rumbo. SÃ© especÃ­fico.', example: 'Correr 5km sin pausa', type: 'input', required: true },
-    { key: 'deadline', label: 'Â¿Para cuÃ¡ndo quieres haberlo conseguido?', description: 'Sin fecha, una meta es solo un sueÃ±o. Fija un compromiso real.', example: '15 de junio', type: 'date' },
-    { key: 'meaningful', label: 'Â¿CÃ³mo mejora esto tu vida?', description: 'Conectar con tu "por quÃ©" te da energÃ­a cuando la motivaciÃ³n baja.', example: 'Me sentirÃ© con mÃ¡s energÃ­a', type: 'textarea' },
-    { key: 'obstacle', label: 'Â¿CuÃ¡l es el principal obstÃ¡culo interno que podrÃ­a detenerte?', description: 'Anticipar barreras te permite prepararte para vencerlas.', example: 'Las ganas de quedarme en la cama', type: 'textarea' },
-    { key: 'taskTitle', label: 'Â¿CuÃ¡l es la primera tarea concreta que te acerca a esta meta?', description: 'El primer paso es el mÃ¡s importante. Hazlo pequeÃ±o y accionable.', example: 'Comprar tenis para correr', type: 'input' },
+    { key: 'title', label: '¿Qué quieres lograr exactamente?', description: 'Una meta clara define el rumbo. Sé específico.', example: 'Correr 5km sin pausa', type: 'input', required: true },
+    { key: 'deadline', label: '¿Para cuándo quieres haberlo conseguido?', description: 'Sin fecha, una meta es solo un sueño. Fija un compromiso real.', example: '15 de junio', type: 'date' },
+    { key: 'meaningful', label: '¿Cómo mejora esto tu vida?', description: 'Conectar con tu "por qué" te da energía cuando la motivación baja.', example: 'Me sentiré con más energía', type: 'textarea' },
+    { key: 'obstacle', label: '¿Cuál es el principal obstáculo interno que podría detenerte?', description: 'Anticipar barreras te permite prepararte para vencerlas.', example: 'Las ganas de quedarme en la cama', type: 'textarea' },
+    { key: 'taskTitle', label: '¿Cuál es la primera tarea concreta que te acerca a esta meta?', description: 'El primer paso es el más importante. Hazlo pequeño y accionable.', example: 'Comprar tenis para correr', type: 'input' },
   ];
   const activeGoals = useMemo(() => {
     return [...goals.filter((g) => g.active)].sort((a, b) => {
@@ -215,7 +215,7 @@ const GoalsPage = () => {
       setWizardOpen(false);
       setWizardStep(0);
       dispatchTutorialGoalCreated();
-      toast.success('Nueva visiÃ³n establecida');
+      toast.success('Nueva visión establecida');
     } catch {
       toast.error('Error al proyectar meta');
     }
@@ -265,7 +265,7 @@ const GoalsPage = () => {
   };
 
   const handleSaveDetail = async () => {
-    if (!detailTitle.trim()) { toast.error('El tÃ­tulo no puede estar vacÃ­o'); return; }
+    if (!detailTitle.trim()) { toast.error('El título no puede estar vacío'); return; }
     try {
       const desc: any = {};
       if (detailDeadline) desc.deadline = detailDeadline;
@@ -294,7 +294,7 @@ const GoalsPage = () => {
   };
 
   const handleDeleteFromDetail = () => {
-    if (window.confirm('Â¿Eliminar esta meta y todas sus tareas vinculadas?')) {
+    if (window.confirm('¿Eliminar esta meta y todas sus tareas vinculadas?')) {
       deleteGoal.mutate(detailGoal.id);
       setDetailGoal(null);
       toast.success('Meta eliminada');
@@ -322,7 +322,7 @@ const GoalsPage = () => {
           <div>
             <h1 className="page-title">Metas</h1>
             <p className="text-sm text-on-surface-variant/50 mt-1">
-              {activeGoals.length} activa{activeGoals.length !== 1 && 's'} Â· {completedGoals.length} completa{completedGoals.length !== 1 && 's'}
+              {activeGoals.length} activa{activeGoals.length !== 1 && 's'} · {completedGoals.length} completa{completedGoals.length !== 1 && 's'}
             </p>
           </div>
           <motion.button
@@ -424,14 +424,14 @@ const GoalsPage = () => {
                                   : 'bg-gradient-to-r from-primary/70 to-primary'
                           }`}
                           initial={false}
-                          animate={{ width: `${hasDeadline ? Math.max(8, stats.progress) : 12}%` }}
+                          animate={{ width:`${hasDeadline ? Math.max(8, stats.progress) : 12}%` }}
                           transition={{ type: 'spring', stiffness: 120, damping: 20 }}
                         />
                       </div>
                       <div className="flex items-center justify-between text-[11px] font-bold text-on-surface-variant/45">
-                        <span>{hasDeadline ? `${stats.progress}%` : 'Sin fecha'}</span>
+                        <span>{hasDeadline ?`${stats.progress}%` : 'Sin fecha'}</span>
                         {hasDeadline && (
-                          <span>{stats.daysLeft === 0 ? 'Hoy' : `${Math.max(0, stats.daysLeft ?? 0)} dÃ­as`}</span>
+                          <span>{stats.daysLeft === 0 ? 'Hoy' :`${Math.max(0, stats.daysLeft ?? 0)} días`}</span>
                         )}
                       </div>
                     </div>
@@ -465,7 +465,7 @@ const GoalsPage = () => {
         {completedGoals.length > 0 && (
           <div className="mt-12 space-y-4">
             <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant/30">
-              Completadas Â· {completedGoals.length}
+              Completadas · {completedGoals.length}
             </h2>
             <div className="flex flex-wrap gap-2">
               {completedGoals.map((goal) => (
@@ -514,13 +514,13 @@ const GoalsPage = () => {
                 <div className="shrink-0 w-full h-1 bg-surface-container rounded-full overflow-hidden">
                   <motion.div
                     className="h-full bg-primary rounded-full"
-                    initial={{ width: `${(wizardStep / wizardQuestions.length) * 100}%` }}
-                    animate={{ width: `${((wizardStep + 1) / wizardQuestions.length) * 100}%` }}
+                    initial={{ width:`${(wizardStep / wizardQuestions.length) * 100}%` }}
+                    animate={{ width:`${((wizardStep + 1) / wizardQuestions.length) * 100}%` }}
                     transition={{ type: 'spring', stiffness: 200, damping: 20 }}
                   />
                 </div>
 
-                {/* Step content â€” scrollable */}
+                {/* Step content — scrollable */}
                 <div className="flex-1 overflow-y-auto min-h-0 space-y-3">
                   <h2 className="text-lg font-black leading-tight">
                     {wizardQuestions[wizardStep].label}
@@ -540,7 +540,7 @@ const GoalsPage = () => {
                         autoFocus
                         value={wizardData[wizardQuestions[wizardStep].key as keyof typeof wizardData] as string}
                         onChange={(e) => setWizardData({ ...wizardData, [wizardQuestions[wizardStep].key]: e.target.value })}
-                        placeholder="Escribe aquÃ­..."
+                        placeholder="Escribe aquí..."
                         className="w-full bg-surface-container rounded-xl px-4 py-3 text-foreground font-bold outline-none focus:ring-2 focus:ring-primary/20 transition-shadow"
                         onKeyDown={(e) => e.key === 'Enter' && wizardStep < wizardQuestions.length - 1 && setWizardStep(wizardStep + 1)}
                       />
@@ -583,7 +583,7 @@ const GoalsPage = () => {
                         autoFocus
                         value={wizardData[wizardQuestions[wizardStep].key as keyof typeof wizardData] as string}
                         onChange={(e) => setWizardData({ ...wizardData, [wizardQuestions[wizardStep].key]: e.target.value })}
-                        placeholder="Escribe aquÃ­..."
+                        placeholder="Escribe aquí..."
                         rows={2}
                         className="w-full bg-surface-container rounded-xl px-4 py-3 text-foreground font-bold outline-none focus:ring-2 focus:ring-primary/20 transition-shadow resize-none"
                       />
@@ -599,14 +599,14 @@ const GoalsPage = () => {
                   )}
                 </div>
 
-                {/* Navigation â€” always at bottom */}
+                {/* Navigation — always at bottom */}
                 <div className="shrink-0 flex gap-2 pt-3 border-t border-outline-variant/10">
                   {wizardStep > 0 ? (
                     <button
                       onClick={() => setWizardStep(wizardStep - 1)}
                       className="flex-1 py-3 rounded-xl bg-surface-container text-on-surface-variant font-bold text-sm"
                     >
-                      AtrÃ¡s
+                      Atrás
                     </button>
                   ) : (
                     <button
@@ -675,7 +675,7 @@ const GoalsPage = () => {
                   className="w-full bg-surface-container rounded-xl px-4 py-3 text-foreground font-bold text-lg outline-none focus:ring-2 focus:ring-primary/20 transition-shadow"
                 />
 
-                {/* Status badge â€” live from current detail state */}
+                {/* Status badge — live from current detail state */}
                 {(() => {
                   const detailStats = getGoalStats(detailGoal);
                   const toneClass =
@@ -705,7 +705,7 @@ const GoalsPage = () => {
                       <CalendarDays className="w-3.5 h-3.5" strokeWidth={2.5} />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant/30">Fecha lÃ­mite</p>
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant/30">Fecha límite</p>
                       <input
                         type="date"
                         value={detailDeadline}
@@ -721,12 +721,12 @@ const GoalsPage = () => {
                       <Heart className="w-3.5 h-3.5" strokeWidth={2.5} />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant/30">Â¿CÃ³mo mejora tu vida?</p>
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant/30">¿Cómo mejora tu vida?</p>
                       <textarea
                         value={detailMeaningful}
                         onChange={(e) => setDetailMeaningful(e.target.value)}
                         rows={2}
-                        placeholder="Escribe aquÃ­..."
+                        placeholder="Escribe aquí..."
                         className="w-full bg-transparent text-sm font-bold mt-0.5 text-foreground outline-none resize-none"
                       />
                     </div>
@@ -738,12 +738,12 @@ const GoalsPage = () => {
                       <ShieldAlert className="w-3.5 h-3.5" strokeWidth={2.5} />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant/30">ObstÃ¡culo interno</p>
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant/30">Obstáculo interno</p>
                       <textarea
                         value={detailObstacle}
                         onChange={(e) => setDetailObstacle(e.target.value)}
                         rows={2}
-                        placeholder="Escribe aquÃ­..."
+                        placeholder="Escribe aquí..."
                         className="w-full bg-transparent text-sm font-bold mt-0.5 text-foreground outline-none resize-none"
                       />
                     </div>
@@ -763,7 +763,7 @@ const GoalsPage = () => {
                         className="w-full bg-transparent text-sm font-bold mt-0.5 text-foreground outline-none"
                       />
                       {detailTaskId && (
-                        <p className="text-[9px] text-on-surface-variant/30 mt-1 font-medium">âœ“ Tarea existente vinculada a esta meta</p>
+                        <p className="text-[9px] text-on-surface-variant/30 mt-1 font-medium">Tarea existente vinculada a esta meta</p>
                       )}
                     </div>
                   </div>
@@ -816,9 +816,9 @@ const GoalsPage = () => {
                 <motion.div
                   key={i}
                   className="absolute text-amber-400/10"
-                  initial={{ x: `${15 + (i * 7) % 70}%`, y: `${10 + (i * 9) % 75}%`, scale: 0, opacity: 0 }}
+                  initial={{ x:`${15 + (i * 7) % 70}%`, y:`${10 + (i * 9) % 75}%`, scale: 0, opacity: 0 }}
                   animate={{
-                    y: [`${10 + (i * 9) % 75}%`, `${5 + (i * 11) % 70}%`, `${15 + (i * 8) % 75}%`],
+                    y: [`${10 + (i * 9) % 75}%`,`${5 + (i * 11) % 70}%`,`${15 + (i * 8) % 75}%`],
                     scale: [0, 1, 0.8, 1.2, 0],
                     opacity: [0, 0.3, 0.2, 0.4, 0],
                   }}
@@ -888,7 +888,7 @@ const GoalsPage = () => {
                     >
                       <Flame className="w-4 h-4 text-amber-400/60" />
                       <span className="text-sm font-bold text-on-surface-variant/50">
-                        {celebration.extras.join(' Â· ')}
+                        {celebration.extras.join(' · ')}
                       </span>
                       <Heart className="w-4 h-4 text-rose-400/60" />
                     </motion.div>

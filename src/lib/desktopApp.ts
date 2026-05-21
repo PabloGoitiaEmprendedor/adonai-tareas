@@ -21,6 +21,11 @@ export function downloadDesktopApp() {
  */
 export const OPEN_DOWNLOAD_DIALOG_EVENT = "adonai:open-download-dialog";
 
+export function detectPlatform(): "win" | "mac" {
+  if (typeof navigator === 'undefined') return "win";
+  return navigator.platform.includes('Mac') ? "mac" : "win";
+}
+
 export function openDownloadDialog() {
-  startGuidedDownload("win");
+  startGuidedDownload(detectPlatform());
 }

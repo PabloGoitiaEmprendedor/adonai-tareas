@@ -1,23 +1,11 @@
-import { useRef, useState, type ClipboardEvent, type Dispatch, type SetStateAction } from 'react';
+import { useRef, useState, type ClipboardEvent, type Dispatch, type KeyboardEvent, type SetStateAction } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
-import { useAuth } from '@/contexts/AuthContext';
+import { AnimatePresence, motion } from 'framer-motion';
+import { ArrowRight, Clipboard, Clock, Download, Link2, Lock, Mail, Monitor, ShieldCheck, Smartphone, Sparkles, Trash2, User } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { 
-  ArrowRight, 
-  Check, 
-  Brain, 
-  User, 
-  Clock,
-  Sparkles,
-  Monitor,
-  Zap,
-  Lock,
-  Moon,
-  ShieldCheck,
-  Mail
-} from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { saveAnonymousUserId, getPreviousAnonymousUserId, migrateAnonymousData } from '@/lib/anonymousSession';
 import { startGuidedDownload } from '@/lib/downloadGuide';
 
 type StepType = 'name' | 'brain_dump' | 'recurring_tasks' | 'commitment' | 'security_register' | 'ready';
@@ -28,9 +16,11 @@ const OnboardingPage = () => {
 
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [isFinishing, setIsFinishing] = useState(false);
+  const [showWebChoiceModal, setShowWebChoiceModal] = useState(false);
+  const [showEmailAuthModal, setShowEmailAuthModal] = useState(false);
 
   // Steps definition
-  const steps: StepType[] = ['name', 'brain_dump', 'recurring_tasks', 'commitment', 'security_register', 'ready'];
+  const steps: StepType[] = ['name', 'brain_dump', 'recurring_tasks', 'commitment', 'ready'];
   const currentStep = steps[currentStepIndex];
 
   type UrgentTask = { title: string; link: string; importance: boolean; urgency: boolean };
@@ -39,16 +29,15 @@ const OnboardingPage = () => {
   // State
   const [name, setName] = useState('');
   const [urgentTasks, setUrgentTasks] = useState<UrgentTask[]>([defaultUrgentTask(), defaultUrgentTask(), defaultUrgentTask()]);
-  type RecurringTaskItem = { title: string; link: string; days: number[]; time: string; duration: number };
-  const defaultRecurringTask = (): RecurringTaskItem => ({ title: '', link: '', days: [], time: '09:00', duration: 30 });
-  const [recurringTasks, setRecurringTasks] = useState<RecurringTaskItem[]>([defaultRecurringTask(), defaultRecurringTask(), defaultRecurringTask()]);
+  type RecurringTaskItem = { title: string; time: string; duration: number };
+  const defaultRecurringTask = (): RecurringTaskItem => ({ title: '', time: '08:00', duration: 30 });
+  const [recurringTasks, setRecurringTasks] = useState<RecurringTaskItem[]>([defaultRecurringTask(), defaultRecurringTask()]);
   const [floatingActivated, setFloatingActivated] = useState(false);
-  const timeScrollRefs = useRef<(HTMLDivElement | null)[]>([]);
-  const durationScrollRefs = useRef<(HTMLDivElement | null)[]>([]);
-  const audioCtxRef = useRef<AudioContext | null>(null);
-  const lastTickRef = useRef<string>('');
   const isMobile = typeof navigator !== 'undefined' && /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
   const isElectron = typeof window !== 'undefined' && !!(window as any).electronAPI;
+  const hasUrgentTask = urgentTasks.some(t => t.title.trim());
+  const hasRecurringTask = recurringTasks.some(t => t.title.trim());
+  const preferredDownloadPlatform = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/i.test(navigator.platform) ? 'mac' : 'win';
 
   const handleLinkPaste = <T extends { link: string }>(
     event: ClipboardEvent<HTMLInputElement>,
@@ -65,25 +54,6 @@ const OnboardingPage = () => {
     });
   };
 
-  const playTick = () => {
-    try {
-      if (!audioCtxRef.current) {
-        audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-      }
-      const ctx = audioCtxRef.current;
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.frequency.value = 600;
-      osc.type = 'sine';
-      gain.gain.setValueAtTime(0.02, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.04);
-      osc.start(ctx.currentTime);
-      osc.stop(ctx.currentTime + 0.04);
-    } catch {}
-  };
-  
   // Auth state
   const [email, setEmail] = useState('');
   const [otpCode, setOtpCode] = useState(['', '', '', '', '', '']);
@@ -93,10 +63,35 @@ const OnboardingPage = () => {
 
   const ensureAnonymousUser = async (): Promise<string> => {
     if (user) return user.id;
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (sessionData.session?.user) {
+      localStorage.setItem('adonai_had_session', 'true');
+      localStorage.setItem('adonai_session_type', 'anonymous');
+      saveAnonymousUserId(sessionData.session.user.id);
+      return sessionData.session.user.id;
+    }
+    const oldUserId = getPreviousAnonymousUserId();
     const { data, error } = await supabase.auth.signInAnonymously();
     if (error) throw new Error(error.message);
     if (!data.session?.user?.id) throw new Error('No se pudo crear sesión anónima');
-    return data.session.user.id;
+    localStorage.setItem('adonai_had_session', 'true');
+    localStorage.setItem('adonai_session_type', 'anonymous');
+    saveAnonymousUserId(data.session.user.id);
+    const newUserId = data.session.user.id;
+    // Esperar a que AuthContext sincronice la nueva sesión
+    for (let i = 0; i < 30; i++) {
+      const { data: check } = await supabase.auth.getSession();
+      if (check.session?.user?.id === newUserId) break;
+      await new Promise(r => setTimeout(r, 100));
+    }
+    // Migrate data from previous expired anonymous session if needed
+    if (oldUserId && oldUserId !== newUserId) {
+      console.log('[onboarding] Migrating data from previous anonymous session');
+      migrateAnonymousData(oldUserId, newUserId).then((ok) => {
+        if (ok) console.log('[onboarding] Data migration complete');
+      });
+    }
+    return newUserId;
   };
 
   const next = async () => {
@@ -127,6 +122,8 @@ const OnboardingPage = () => {
   };
 
   const handleFinish = async () => {
+    setShowWebChoiceModal(false);
+    setShowEmailAuthModal(false);
     let userId: string;
     try {
       userId = await ensureAnonymousUser();
@@ -135,6 +132,8 @@ const OnboardingPage = () => {
       return;
     }
     setIsFinishing(true);
+
+    console.log('[onboarding] handleFinish userId:', userId, 'auth user:', user?.id);
 
     try {
       // 1. Update Profile
@@ -166,20 +165,17 @@ const OnboardingPage = () => {
         });
 
       if (urgentRows.length > 0) {
-        await supabase.from('tasks').insert(urgentRows);
+        const { error: urgentErr } = await supabase.from('tasks').insert(urgentRows);
+        if (urgentErr) throw urgentErr;
       }
 
       // 3. Insert Recurring Tasks correctly (Rules + Templates)
       const recurringTasksValid = recurringTasks.filter(t => t.title.trim());
       for (const task of recurringTasksValid) {
-        const days = task.days.length > 0 ? task.days : [new Date().getDay()];
-        const startTimeStr = task.time + ':00';
+        const days = [0, 1, 2, 3, 4, 5, 6];
         const [h, m] = task.time.split(':').map(Number);
         const endTotalMin = h * 60 + m + task.duration;
-        const endH = Math.floor(endTotalMin / 60) % 24;
-        const endM = endTotalMin % 60;
-        const endTimeStr = `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`;
-        const description = `[T:${task.time}-${endTimeStr}]`;
+        const description = `[T:${task.time}-${String(Math.floor(endTotalMin / 60) % 24).padStart(2, '0')}:${String(endTotalMin % 60).padStart(2, '0')}]`;
 
         const { data: rule, error: ruleErr } = await supabase
           .from('recurrence_rules')
@@ -195,48 +191,24 @@ const OnboardingPage = () => {
         
         if (ruleErr) throw ruleErr;
 
-        // Find next valid day
-        let firstDate = new Date();
-        for (let i = 0; i <= 7; i++) {
-          const d = new Date();
-          d.setDate(d.getDate() + i);
-          if (days.includes(d.getDay())) {
-            firstDate = d;
-            break;
-          }
-        }
-
-        const y = firstDate.getFullYear();
-        const mo = String(firstDate.getMonth() + 1).padStart(2, '0');
-        const da = String(firstDate.getDate()).padStart(2, '0');
-        const nextDateStr = `${y}-${mo}-${da}`;
-
-        const taskData: any = {
+        const { error: taskErr } = await supabase.from('tasks').insert({
           user_id: userId,
           title: task.title,
-          link: task.link.trim() || null,
           description,
           recurrence_id: rule.id,
           status: 'pending',
           source_type: 'text',
           estimated_minutes: task.duration,
-        };
-
-        // Create the template task
-        await supabase.from('tasks').insert(taskData);
-
-        // Materialize the first instance on the next valid day
-        await supabase.from('tasks').insert({
-          ...taskData,
-          due_date: nextDateStr,
         });
+        if (taskErr) throw taskErr;
       }
 
       // 4. Log Usage
-      await supabase.from('usage_events').insert({
+      const { error: usageErr } = await supabase.from('usage_events').insert({
         user_id: userId,
         event_type: 'onboarding_completed_relief',
       });
+      if (usageErr) console.warn('[onboarding] Failed to log usage:', usageErr.message);
 
       // 5. Success
       localStorage.setItem('adonai_onboarding_done', 'true');
@@ -284,7 +256,7 @@ const OnboardingPage = () => {
         });
         if (error) throw error;
         toast.success('¡Acceso verificado!');
-        next();
+        await handleFinish();
     } catch (err: any) {
         toast.error(err.message || 'Código incorrecto');
         setOtpCode(['', '', '', '', '', '']);
@@ -309,6 +281,21 @@ const OnboardingPage = () => {
     }
   };
 
+  const handlePasteCode = async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      const digits = text.replace(/\D/g, '').slice(0, 6).split('');
+      const newCode = ['', '', '', '', '', ''];
+      digits.forEach((d, i) => { newCode[i] = d; });
+      setOtpCode(newCode);
+      if (digits.length === 6) {
+        handleVerifyOtp(newCode.join(''));
+      } else if (digits.length > 0) {
+        otpInputRefs.current[digits.length]?.focus();
+      }
+    } catch {}
+  };
+
   const activateFloatingWindow = () => {
     if (window.electronAPI?.toggleMiniWindow) {
       window.electronAPI.toggleMiniWindow();
@@ -320,22 +307,248 @@ const OnboardingPage = () => {
     }
   };
 
+  const handleEnterContinue = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key !== 'Enter' || isMobile) return;
+
+    if (currentStep === 'name' && name.trim()) {
+      event.preventDefault();
+      next();
+    }
+
+    if (currentStep === 'brain_dump' && hasUrgentTask) {
+      event.preventDefault();
+      next();
+    }
+
+    if (currentStep === 'recurring_tasks') {
+      event.preventDefault();
+      next();
+    }
+  };
+
+  const updateRecurringTask = (index: number, updates: Partial<RecurringTaskItem>) => {
+    setRecurringTasks((current) => {
+      const next = [...current];
+      next[index] = { ...next[index], ...updates };
+      return next;
+    });
+  };
+
+  const addDailyActivity = () => {
+    setRecurringTasks((current) => [...current, defaultRecurringTask()]);
+  };
+
+  const quickDurations = [
+    { label: '15m', value: 15 },
+    { label: '30m', value: 30 },
+    { label: '45m', value: 45 },
+    { label: '1h', value: 60 },
+  ];
+
+  const removeUrgentTask = (index: number) => {
+    if (index < 3) return;
+    setUrgentTasks((current) => current.filter((_, i) => i !== index));
+  };
+
+  const urgentPreviewRows = urgentTasks
+    .map((task, index) => ({ ...task, index }))
+    .filter((task) => task.title.trim())
+    .sort((a, b) => {
+      const rankA = a.importance && a.urgency ? 0 : a.urgency ? 1 : a.importance ? 2 : 3;
+      const rankB = b.importance && b.urgency ? 0 : b.urgency ? 1 : b.importance ? 2 : 3;
+      if (rankA !== rankB) return rankA - rankB;
+      return a.index - b.index;
+    });
+
+  const renderAccessChoiceModal = () => (
+    <div className="fixed inset-0 z-[110] flex items-end justify-center bg-black/55 px-4 py-4 backdrop-blur-md sm:items-center">
+      <motion.div
+        initial={{ opacity: 0, y: 16, scale: 0.98 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        className="w-full max-w-md overflow-hidden rounded-[28px] border border-outline-variant/15 bg-surface-container-low shadow-2xl"
+      >
+        <div className="relative overflow-hidden px-6 pb-6 pt-7 text-center">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(91,124,250,0.14),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(111,207,151,0.10),transparent_30%)]" />
+          <div className="relative space-y-4">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-[22px] border border-primary/20 bg-primary/10">
+              <img src="/logo.png" alt="Adonai" className="h-9 w-9 rounded-[18px] object-contain" />
+            </div>
+            <div className="space-y-2">
+              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-on-surface-variant/45">Tu acceso en la web</p>
+              <h3 className="text-2xl font-black tracking-tight text-foreground">¿Quieres tener tus tareas siempre contigo?</h3>
+              <p className="mx-auto max-w-sm text-sm leading-relaxed text-on-surface-variant/70">
+                Inicia sesión y llévalas a cualquier equipo. O entra como invitado — tus tareas se quedan en este navegador.
+              </p>
+            </div>
+          </div>
+        </div>
+        <div className="space-y-3 px-4 pb-4">
+          <button
+            type="button"
+            onClick={() => {
+              setShowWebChoiceModal(false);
+              setAuthSubStep('email');
+              setShowEmailAuthModal(true);
+            }}
+            className="w-full rounded-[22px] border border-primary/20 bg-primary/10 px-4 py-4 text-left transition-colors hover:bg-primary/15"
+          >
+            <span className="block text-sm font-black text-primary">Iniciar sesión <span className="text-[9px] font-black uppercase tracking-widest text-primary/60 ml-2">Recomendado</span></span>
+            <span className="mt-1 block text-xs font-semibold text-on-surface-variant/65">Tus tareas en cualquier equipo.</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setShowWebChoiceModal(false);
+              void handleFinish();
+            }}
+            className="w-full rounded-[22px] border border-outline-variant/20 bg-surface-container-high px-4 py-4 text-left transition-colors hover:bg-surface-container-highest"
+          >
+            <span className="block text-sm font-black text-foreground">Entrar como invitado</span>
+            <span className="mt-1 block text-xs font-semibold text-on-surface-variant/60">Empieza sin correo y decide después.</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowWebChoiceModal(false)}
+            className="mx-auto block px-3 py-2 text-[10px] font-black uppercase tracking-[0.22em] text-on-surface-variant/35 hover:text-on-surface-variant/70 transition-colors"
+          >
+            Volver
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+
+  const renderEmailAuthModal = () => (
+    <div className="fixed inset-0 z-[120] flex items-end justify-center bg-black/60 px-4 py-4 backdrop-blur-md sm:items-center">
+      <motion.div
+        initial={{ opacity: 0, y: 16, scale: 0.98 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        className="w-full max-w-md overflow-hidden rounded-[28px] border border-outline-variant/15 bg-surface-container-low shadow-2xl"
+      >
+        <div className="relative px-6 pb-6 pt-7 text-center">
+          <div className="space-y-3">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-[22px] border border-primary/20 bg-primary/10">
+              <ShieldCheck className="w-7 h-7 text-primary" />
+            </div>
+            <div className="space-y-1">
+              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-on-surface-variant/45">Protege tus tareas</p>
+              <h3 className="text-2xl font-black tracking-tight text-foreground">Inicia sesión con tu correo</h3>
+              <p className="mx-auto max-w-sm text-sm leading-relaxed text-on-surface-variant/70">
+                Así guardas tu progreso aunque cambies de equipo. Si quieres, puedes cerrar esto y entrar como invitado.
+              </p>
+            </div>
+          </div>
+        </div>
+        <div className="space-y-4 px-4 pb-4">
+          {authSubStep === 'email' ? (
+            <div className="space-y-4">
+              <input
+                autoFocus
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSendOtp()}
+                placeholder="tu@email.com"
+                className="w-full rounded-[24px] border-2 border-outline-variant/30 bg-surface-container-lowest px-5 h-16 outline-none transition-all text-base font-bold placeholder:text-on-surface-variant/50 focus:border-primary/70"
+              />
+              <button
+                onClick={handleSendOtp}
+                disabled={isAuthenticating || !email.includes('@')}
+                className="w-full h-16 primary-gradient text-primary-foreground rounded-[24px] font-black text-base flex items-center justify-center gap-3 shadow-2xl shadow-primary/30 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isAuthenticating ? 'Enviando…' : 'Proteger mis tareas'} <Mail className="w-5 h-5" />
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <p className="text-center text-sm font-bold text-on-surface-variant/80">Ingresa el código enviado a <br /><span className="text-primary">{email}</span></p>
+              <div className="flex gap-2 justify-center">
+                {otpCode.map((digit, i) => (
+                  <input
+                    key={i}
+                    ref={(el) => { otpInputRefs.current[i] = el; }}
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={1}
+                    value={digit}
+                    onChange={(e) => handleOtpChange(i, e.target.value)}
+                    className="w-12 h-16 text-center text-2xl font-black bg-surface-container-lowest border-2 border-outline-variant/30 rounded-2xl text-foreground focus:outline-none focus:border-primary transition-all"
+                  />
+                ))}
+                <button
+                  onClick={handlePasteCode}
+                  className="w-12 h-16 flex items-center justify-center rounded-2xl border-2 border-dashed border-outline-variant/30 text-on-surface-variant/50 hover:text-primary hover:border-primary/40 transition-all"
+                  title="Pegar código"
+                >
+                  <Clipboard className="w-5 h-5" />
+                </button>
+              </div>
+              <button
+                onClick={() => setAuthSubStep('email')}
+                className="w-full text-[10px] font-black uppercase tracking-widest text-on-surface-variant/70 hover:text-primary transition-colors"
+              >
+                Cambiar email
+              </button>
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={() => {
+              setShowEmailAuthModal(false);
+              setAuthSubStep('email');
+            }}
+            className="mx-auto block px-3 py-2 text-[10px] font-black uppercase tracking-[0.22em] text-on-surface-variant/35 hover:text-on-surface-variant/70 transition-colors"
+          >
+            Cancelar
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-background flex flex-col items-center px-6 pb-32 pt-12 selection:bg-primary/30 relative overflow-hidden">
       {/* Dynamic Background */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-[10%] -left-[10%] w-[60%] h-[60%] bg-primary/5 rounded-full blur-[120px] animate-pulse" />
-        <div className="absolute -bottom-[10%] -right-[10%] w-[60%] h-[60%] bg-secondary/5 rounded-full blur-[120px] animate-pulse" style={{ animationDelay: '2s' }} />
+        <motion.div
+          aria-hidden="true"
+          className="absolute inset-0 bg-[linear-gradient(180deg,rgba(6,10,18,0.92)_0%,rgba(11,16,28,0.98)_100%)]"
+        />
+        <motion.div
+          aria-hidden="true"
+          animate={{ opacity: [0.58, 0.72, 0.58], scale: [1, 1.02, 1] }}
+          transition={{ duration: 18, repeat: Infinity, ease: 'easeInOut' }}
+          className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(91,124,250,0.13),transparent_38%),radial-gradient(circle_at_bottom_left,rgba(111,207,151,0.09),transparent_32%),radial-gradient(circle_at_70%_30%,rgba(255,255,255,0.05),transparent_24%)]"
+        />
+        <motion.div
+          aria-hidden="true"
+          animate={{ x: ['-6%', '6%', '-6%'] }}
+          transition={{ duration: 30, repeat: Infinity, ease: 'easeInOut' }}
+          className="absolute inset-x-0 top-[-8%] h-[55%] bg-[linear-gradient(120deg,transparent_0%,rgba(91,124,250,0.10)_35%,rgba(255,255,255,0.04)_55%,transparent_100%)] blur-3xl"
+        />
+        <motion.div
+          aria-hidden="true"
+          animate={{ x: ['6%', '-6%', '6%'] }}
+          transition={{ duration: 36, repeat: Infinity, ease: 'easeInOut' }}
+          className="absolute inset-x-0 bottom-[-14%] h-[42%] bg-[linear-gradient(90deg,transparent_0%,rgba(111,207,151,0.08)_35%,rgba(91,124,250,0.06)_65%,transparent_100%)] blur-3xl"
+        />
+        <div className="absolute inset-0 opacity-[0.06] [background-image:linear-gradient(rgba(255,255,255,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.04)_1px,transparent_1px)] [background-size:52px_52px] [mask-image:linear-gradient(180deg,transparent_0%,black_18%,black_82%,transparent_100%)]" />
       </div>
 
       <div className="relative z-10 w-full max-w-[500px] flex-1 flex flex-col">
         {/* Progress */}
-        <div className="flex justify-center gap-1.5 mb-16">
-          {steps.map((_, i) => (
-            <div key={i} className={`h-1.5 rounded-full transition-all duration-700 ease-out ${
-              i === currentStepIndex ? 'w-12 bg-primary shadow-[0_0_15px_rgba(var(--primary-rgb),0.5)]' : i < currentStepIndex ? 'w-4 bg-primary/40' : 'w-4 bg-surface-container-high'
-            }`} />
-          ))}
+        <div className="mb-14 space-y-4">
+          <p className="text-center text-[10px] font-black uppercase tracking-[0.24em] text-on-surface-variant/50">
+            Paso {currentStepIndex + 1} de {steps.length}
+          </p>
+          <div className="flex justify-center gap-1.5">
+            {steps.map((_, i) => (
+              <div key={i} className={`h-1.5 rounded-full transition-all duration-700 ease-out ${
+                i === currentStepIndex ? 'w-12 bg-primary shadow-[0_0_15px_rgba(var(--primary-rgb),0.5)]' : i < currentStepIndex ? 'w-4 bg-primary/40' : 'w-4 bg-surface-container-high'
+              }`} />
+            ))}
+          </div>
         </div>
 
         <AnimatePresence mode="wait">
@@ -349,15 +562,18 @@ const OnboardingPage = () => {
           >
             {/* STEP: NAME */}
             {currentStep === 'name' && (
-              <div className="space-y-12">
+              <div className="space-y-12 text-center">
                 <div className="space-y-4">
-                  <div className="w-16 h-16 rounded-[24px] bg-primary/10 flex items-center justify-center mb-6">
+                  <div className="w-16 h-16 rounded-[24px] bg-primary/10 flex items-center justify-center mb-6 mx-auto">
                     <User className="w-8 h-8 text-primary" />
                   </div>
                   <h1 className="page-title leading-tight text-foreground">
                     Hola. <br />
                     <span className="text-foreground/70">¿Cómo te llamas?</span>
                   </h1>
+                  <p className="text-on-surface-variant/70 text-base font-semibold leading-relaxed max-w-lg mx-auto">
+                    En dos minutos sacas lo pendiente de tu cabeza y entras con tu primer dia armado.
+                  </p>
                 </div>
                 
                 <div className="space-y-6">
@@ -365,6 +581,7 @@ const OnboardingPage = () => {
                     autoFocus
                     value={name}
                     onChange={(e) => setName(e.target.value)}
+                    onKeyDown={handleEnterContinue}
                     placeholder="Tu nombre aquí…"
                     className="w-full bg-surface-container-lowest border-2 border-outline-variant/40 focus:border-primary/70 rounded-[28px] px-8 h-20 outline-none transition-all text-2xl font-black placeholder:text-foreground/55"
                   />
@@ -386,43 +603,55 @@ const OnboardingPage = () => {
 
             {/* STEP: BRAIN DUMP */}
             {currentStep === 'brain_dump' && (
-              <div className="space-y-10">
-                <div className="space-y-4">
-                  <div className="w-16 h-16 rounded-[24px] bg-primary/10 flex items-center justify-center">
-                    <Brain className="w-8 h-8 text-primary" />
+              <div className="space-y-8 text-center">
+                <div className="space-y-5">
+                  <div className="w-16 h-16 rounded-[24px] bg-white/6 border border-white/10 flex items-center justify-center mx-auto shadow-[0_12px_30px_rgba(0,0,0,0.14)]">
+                    <ShieldCheck className="h-8 w-8 text-primary" />
                   </div>
-                  <h2 className="text-3xl font-black tracking-tight leading-tight">
-                    Bienvenido, {name}. <br />
-                    <span className="text-primary">Este es el fin de la culpa.</span>
+                  <h2 className="text-3xl font-black tracking-tight leading-tight max-w-md mx-auto">
+                    Bienvenido, {name}.
                   </h2>
-                  <p className="text-on-surface-variant text-lg leading-relaxed">
-                    No necesitas ser disciplinado ni tener mil apps. Solo dinos: 
-                    <span className="font-bold text-foreground"> ¿Qué 3 cosas te están quitando el sueño hoy?</span>
+                  <p className="text-primary text-xl font-black leading-tight max-w-lg mx-auto">
+                    Vacia tu cabeza sin presion.
+                  </p>
+                  <p className="text-on-surface-variant text-lg leading-relaxed max-w-xl mx-auto">
+                    Anota 3 pendientes y toca el boton correspondiente para priorizarlo.
                   </p>
                 </div>
 
-                <div className="space-y-5">
+                <div className="space-y-5 text-left">
                   {urgentTasks.map((task, i) => (
-                    <div key={i} className="bg-surface-container-lowest border-2 border-outline-variant/30 focus-within:border-primary/50 rounded-[24px] p-1 transition-all">
+                    <div key={i} className="relative bg-surface-container-lowest border-2 border-outline-variant/30 focus-within:border-primary/50 rounded-[24px] p-1 transition-all">
+                      {i >= 3 && (
+                        <button
+                          type="button"
+                          onClick={() => removeUrgentTask(i)}
+                          className="absolute right-2 top-2 inline-flex h-8 w-8 items-center justify-center rounded-full border border-outline-variant/20 bg-surface-container-high/70 text-on-surface-variant/50 transition-colors hover:text-foreground hover:bg-surface-container-high"
+                          aria-label={`Eliminar tarea ${i + 1}`}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
                       <div className="flex items-center gap-3 px-4">
                         <span className="w-8 h-8 rounded-full bg-surface-container-highest flex items-center justify-center text-xs font-black text-on-surface-variant/70 flex-shrink-0">
                           {i + 1}
                         </span>
-                        <input 
+                        <input
                           value={task.title}
                           onChange={(e) => {
                             const newTasks = [...urgentTasks];
                             newTasks[i] = { ...newTasks[i], title: e.target.value };
                             setUrgentTasks(newTasks);
                           }}
-                          placeholder={`Tarea urgente ${i + 1}…`}
+                          onKeyDown={handleEnterContinue}
+                          placeholder={`Tarea ${i + 1}...`}
                           className="flex-1 bg-transparent h-14 outline-none font-bold text-lg text-foreground placeholder:text-on-surface-variant/50"
                         />
                       </div>
 
                       <div className="flex items-center gap-2 px-4 pb-3 pt-1">
-                        <span className="text-on-surface-variant/60 text-sm">🔗</span>
-                        <input 
+                        <Link2 className="h-4 w-4 text-on-surface-variant/55" />
+                        <input
                           value={task.link}
                           onChange={(e) => {
                             const newTasks = [...urgentTasks];
@@ -432,6 +661,7 @@ const OnboardingPage = () => {
                           onPaste={(e) => handleLinkPaste(e, setUrgentTasks, i)}
                           autoComplete="off"
                           spellCheck={false}
+                          onKeyDown={handleEnterContinue}
                           placeholder="Link (opcional)"
                           className="flex-1 bg-transparent h-8 outline-none text-sm text-on-surface-variant/80 placeholder:text-on-surface-variant/50"
                         />
@@ -452,7 +682,7 @@ const OnboardingPage = () => {
                             }`}
                           >
                             IMPORTANTE
-                            <span className="text-[7px] lowercase tracking-normal font-medium opacity-60">Toca si es importante</span>
+                            <span className="text-[8px] lowercase tracking-normal font-semibold opacity-75">Toca si es importante</span>
                           </button>
                           <button
                             onClick={() => {
@@ -467,20 +697,28 @@ const OnboardingPage = () => {
                             }`}
                           >
                             URGENTE
-                            <span className="text-[7px] lowercase tracking-normal font-medium opacity-60">Toca si es urgente</span>
+                            <span className="text-[8px] lowercase tracking-normal font-semibold opacity-75">Toca si es urgente</span>
                           </button>
                         </div>
                       </div>
                     </div>
                   ))}
+
+                  <button
+                    type="button"
+                    onClick={() => setUrgentTasks((current) => [...current, defaultUrgentTask()])}
+                    className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-black text-on-surface-variant/50 transition-colors hover:text-on-surface-variant/80"
+                  >
+                    <span className="text-base leading-none">+</span>
+                    Agregar otro pendiente
+                  </button>
                 </div>
 
-                {/* Priority Preview */}
-                {urgentTasks.some(t => t.title.trim()) && (
-                  <div className="bg-surface-container-lowest border-2 border-outline-variant/30 rounded-[24px] p-5 space-y-3">
+                {urgentPreviewRows.length > 0 && (
+                  <div className="bg-surface-container-lowest border-2 border-outline-variant/30 rounded-[24px] p-5 space-y-3 text-left">
                     <h3 className="text-xs font-black uppercase tracking-widest text-on-surface-variant/60">Preview de prioridad</h3>
                     <div className="space-y-1.5">
-                      {urgentTasks.filter(t => t.title.trim()).map((task, i) => {
+                      {urgentPreviewRows.map((task, i) => {
                         const isHigh = task.importance && task.urgency;
                         const isMedium = task.importance || task.urgency;
                         const label = isHigh ? 'Alta' : isMedium ? 'Media' : 'Baja';
@@ -495,243 +733,94 @@ const OnboardingPage = () => {
                         );
                       })}
                     </div>
-                    <p className="text-[9px] text-on-surface-variant/60 text-center italic">Así de fácil. Prioriza sin pensar.</p>
+                    <p className="text-[9px] text-on-surface-variant/60 text-center italic">Asi de facil. Prioriza sin pensar.</p>
                   </div>
                 )}
 
-                <button 
+                <button
                   onClick={next}
-                  disabled={urgentTasks.some(t => !t.title.trim())}
+                  disabled={!hasUrgentTask}
                   className="w-full h-20 primary-gradient text-primary-foreground rounded-[28px] font-black text-xl flex items-center justify-center gap-3 shadow-2xl shadow-primary/30 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Soltar carga <Zap className="w-6 h-6" />
+                  Soltar carga
+                </button>
+                <button
+                  type="button"
+                  onClick={next}
+                  className="mx-auto block px-4 py-2 text-[10px] font-black uppercase tracking-[0.22em] text-on-surface-variant/35 hover:text-on-surface-variant/70 transition-colors"
+                >
+                  Saltar
                 </button>
               </div>
             )}
-
             {/* STEP: RECURRING TASKS */}
             {currentStep === 'recurring_tasks' && (
-              <div className="space-y-10">
+              <div className="space-y-8 text-center">
                 <div className="space-y-4">
-                  <div className="w-16 h-16 rounded-[24px] bg-primary/10 flex items-center justify-center">
+                  <div className="w-16 h-16 rounded-[24px] bg-primary/10 flex items-center justify-center mx-auto">
                     <Clock className="w-8 h-8 text-primary" />
                   </div>
                   <h2 className="text-3xl font-black tracking-tight leading-tight">
-                    Tus Rutinas.
+                    Actividades diarias
                   </h2>
-                  <p className="text-on-surface-variant text-lg leading-relaxed">
-                    ¿Qué tareas haces todas las semanas?
+                  <p className="text-on-surface-variant text-lg leading-relaxed max-w-xl mx-auto">
+                    {`¿Qué actividades haces cada día?`}
                     <span className="text-on-surface-variant/70 block mt-1">(Ej: Revisar correo, Leer, Planificar)</span>
                   </p>
+                  <div className="rounded-[22px] border border-primary/20 bg-primary/10 p-4 text-sm font-bold leading-relaxed text-primary max-w-xl mx-auto">
+                    Todo lo que agregues aqui se pone en tu calendario diario con nombre, hora y duracion.
+                  </div>
                 </div>
 
-                <div className="space-y-5">
+                <div className="space-y-4 text-left">
                   {recurringTasks.map((task, i) => (
-                    <div key={i} className="bg-surface-container-lowest border-2 border-outline-variant/30 focus-within:border-primary/50 rounded-[24px] p-4 space-y-4 transition-all">
-                      {/* Title */}
+                    <div key={i} className="bg-surface-container-lowest border-2 border-outline-variant/30 focus-within:border-primary/50 rounded-[24px] p-4 space-y-5 transition-all">
                       <div className="flex items-center gap-3">
                         <span className="w-8 h-8 rounded-full bg-surface-container-highest flex items-center justify-center text-xs font-black text-on-surface-variant/70 flex-shrink-0">
                           {i + 1}
                         </span>
-                        <input 
+                        <input
                           value={task.title}
-                          onChange={(e) => {
-                            const newTasks = [...recurringTasks];
-                            newTasks[i] = { ...newTasks[i], title: e.target.value };
-                            setRecurringTasks(newTasks);
-                          }}
-                          placeholder={`Tarea recurrente ${i + 1}…`}
+                          onKeyDown={handleEnterContinue}
+                          onChange={(e) => updateRecurringTask(i, { title: e.target.value })}
+                          placeholder={`Actividad diaria ${i + 1}...`}
                           className="flex-1 bg-transparent h-12 outline-none font-bold text-lg text-foreground placeholder:text-on-surface-variant/50"
                         />
                       </div>
+                      <p className="px-1 text-[10px] font-black uppercase tracking-[0.18em] text-on-surface-variant/45">
+                        Nombre del evento que verás en tu calendario
+                      </p>
 
-                      {/* Link */}
-                      <div className="flex items-center gap-2 pl-11">
-                        <span className="text-on-surface-variant/60 text-sm">🔗</span>
-                        <input 
-                          value={task.link}
-                          onChange={(e) => {
-                            const newTasks = [...recurringTasks];
-                            newTasks[i] = { ...newTasks[i], link: e.target.value };
-                            setRecurringTasks(newTasks);
-                          }}
-                          onPaste={(e) => handleLinkPaste(e, setRecurringTasks, i)}
-                          autoComplete="off"
-                          spellCheck={false}
-                          placeholder="Link (opcional)"
-                          className="flex-1 bg-transparent h-8 outline-none text-sm text-on-surface-variant/80 placeholder:text-on-surface-variant/50"
-                        />
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/60">Hora</p>
+                          <input
+                            type="time"
+                            onKeyDown={handleEnterContinue}
+                            value={task.time}
+                            onChange={(e) => updateRecurringTask(i, { time: e.target.value })}
+                            className="h-11 rounded-2xl border border-outline-variant/20 bg-surface-container px-4 text-sm font-black text-foreground outline-none focus:border-primary/50"
+                          />
+                        </div>
                       </div>
 
-                      {/* Days */}
-                      <div className="pl-11 space-y-2">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/60">Días</p>
-                        <div className="flex gap-1.5">
-                          {[{label:'L',v:1},{label:'M',v:2},{label:'X',v:3},{label:'J',v:4},{label:'V',v:5},{label:'S',v:6},{label:'D',v:0}].map(d => (
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/60">Duracion</p>
+                          <div className="grid grid-cols-4 gap-2">
+                          {quickDurations.map((option) => (
                             <button
-                              key={d.v}
-                              onClick={() => {
-                                const newTasks = [...recurringTasks];
-                                const days = newTasks[i].days;
-                                newTasks[i] = { 
-                                  ...newTasks[i], 
-                                  days: days.includes(d.v) ? days.filter((x: number) => x !== d.v) : [...days, d.v].sort()
-                                };
-                                setRecurringTasks(newTasks);
-                              }}
-                              className={`w-9 h-9 rounded-full text-[10px] font-black transition-all ${
-                                task.days.includes(d.v)
-                                  ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20 scale-110'
-                                  : 'bg-surface-container text-on-surface-variant/70 hover:bg-surface-container-high'
+                              key={option.value}
+                              onClick={() => updateRecurringTask(i, { duration: option.value })}
+                              className={`h-11 rounded-2xl border px-3 text-[11px] font-black transition-all ${
+                                task.duration === option.value
+                                  ? 'border-primary bg-primary text-primary-foreground shadow-lg shadow-primary/20'
+                                  : 'border-outline-variant/20 bg-surface-container text-on-surface-variant hover:border-primary/40 hover:text-foreground'
                               }`}
                             >
-                              {d.label}
+                              {option.label}
                             </button>
                           ))}
-                        </div>
-                      </div>
-
-                      {/* Time + Duration */}
-                      <div className="pl-11 grid grid-cols-2 gap-3">
-                        {/* Time scroll picker */}
-                        <div className="space-y-1.5">
-                          <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/60">Hora</p>
-                          <div className="relative">
-                            <div
-                              ref={el => {
-                                if (el && timeScrollRefs.current[i] !== el) {
-                                  timeScrollRefs.current[i] = el;
-                                  const [hh, mm] = task.time.split(':').map(Number);
-                                  const idx = hh * 2 + (mm === 30 ? 1 : 0);
-                                  el.scrollTop = idx * 31;
-                                }
-                              }}
-                              className="h-[155px] overflow-y-auto snap-y snap-mandatory rounded-[14px] bg-surface-container/40 border border-outline-variant/20"
-                              style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-                              onScroll={(e) => {
-                                const container = e.currentTarget;
-                                const centerY = container.scrollTop + container.clientHeight / 2;
-                                const items = container.querySelectorAll('[data-value]');
-                                for (let j = 0; j < items.length; j++) {
-                                  const el = items[j] as HTMLElement;
-                                  const itemCenter = el.offsetTop + el.offsetHeight / 2;
-                                  if (Math.abs(itemCenter - centerY) < el.offsetHeight) {
-                                    const val = el.getAttribute('data-value');
-                                    if (val) {
-                                      if (lastTickRef.current !== `t${i}:${val}`) {
-                                        lastTickRef.current = `t${i}:${val}`;
-                                        playTick();
-                                      }
-                                      setRecurringTasks(prev => {
-                                        if (prev[i].time === val) return prev;
-                                        const next = [...prev];
-                                        next[i] = { ...next[i], time: val };
-                                        return next;
-                                      });
-                                    }
-                                    break;
-                                  }
-                                }
-                              }}
-                            >
-                              <div className="h-[62px] shrink-0" />
-                              {Array.from({ length: 48 }, (_, idx) => {
-                                const hh = Math.floor(idx / 2);
-                                const mm = idx % 2 === 0 ? '00' : '30';
-                                const t = `${String(hh).padStart(2, '0')}:${mm}`;
-                                const period = hh >= 12 ? 'PM' : 'AM';
-                                const h12 = hh === 0 ? 12 : hh > 12 ? hh - 12 : hh;
-                                const display = `${h12}:${mm} ${period}`;
-                                const selected = task.time === t;
-                                return (
-                                  <div
-                                    key={t}
-                                    data-value={t}
-                                     className={`h-[31px] shrink-0 flex items-center justify-center font-bold transition-all cursor-pointer snap-center rounded-[10px] ${
-                                      selected
-                                        ? 'text-primary text-[13px] font-black bg-primary/[0.07]'
-                                        : 'text-on-surface-variant/45 text-[10px] hover:text-on-surface-variant/70'
-                                    }`}
-                                  >
-                                    {display}
-                                  </div>
-                                );
-                              })}
-                              <div className="h-[62px] shrink-0" />
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Duration scroll picker */}
-                        <div className="space-y-1.5">
-                          <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/60">Duración</p>
-                          <div className="relative">
-                            <div
-                              ref={el => {
-                                if (el && durationScrollRefs.current[i] !== el) {
-                                  durationScrollRefs.current[i] = el;
-                                  const getIdx = (val: number) => val <= 60 ? val - 1 : 60 + (val - 90) / 30;
-                                  el.scrollTop = getIdx(task.duration) * 31;
-                                }
-                              }}
-                              className="h-[155px] overflow-y-auto snap-y snap-mandatory rounded-[14px] bg-surface-container/40 border border-outline-variant/20"
-                              style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-                              onScroll={(e) => {
-                                const container = e.currentTarget;
-                                const centerY = container.scrollTop + container.clientHeight / 2;
-                                const items = container.querySelectorAll('[data-value]');
-                                for (let j = 0; j < items.length; j++) {
-                                  const el = items[j] as HTMLElement;
-                                  const itemCenter = el.offsetTop + el.offsetHeight / 2;
-                                  if (Math.abs(itemCenter - centerY) < el.offsetHeight) {
-                                    const val = el.getAttribute('data-value');
-                                    if (val) {
-                                      const numVal = parseInt(val, 10);
-                                      if (lastTickRef.current !== `d${i}:${val}`) {
-                                        lastTickRef.current = `d${i}:${val}`;
-                                        playTick();
-                                      }
-                                      setRecurringTasks(prev => {
-                                        if (prev[i].duration === numVal) return prev;
-                                        const next = [...prev];
-                                        next[i] = { ...next[i], duration: numVal };
-                                        return next;
-                                      });
-                                    }
-                                    break;
-                                  }
-                                }
-                              }}
-                            >
-                              <div className="h-[62px] shrink-0" />
-                              {(() => {
-                                const items: { value: number; label: string }[] = [];
-                                for (let n = 1; n <= 60; n++) items.push({ value: n, label: `${n}m` });
-                                for (let n = 90; n <= 1440; n += 30) {
-                                  const h = Math.floor(n / 60);
-                                  const m = n % 60;
-                                  const label = m === 0 ? `${h}h` : `${h}h ${m}m`;
-                                  items.push({ value: n, label });
-                                }
-                                return items.map(item => {
-                                  const selected = task.duration === item.value;
-                                  return (
-                                    <div
-                                      key={item.value}
-                                      data-value={item.value}
-                                      className={`h-[31px] shrink-0 flex items-center justify-center font-bold transition-all cursor-pointer snap-center rounded-[10px] ${
-                                        selected
-                                          ? 'text-primary text-[13px] font-black bg-primary/[0.07]'
-                                          : 'text-on-surface-variant/45 text-[10px] hover:text-on-surface-variant/70'
-                                      }`}
-                                    >
-                                      {item.label}
-                                    </div>
-                                  );
-                                });
-                              })()}
-                              <div className="h-[62px] shrink-0" />
-                            </div>
                           </div>
                         </div>
                       </div>
@@ -739,56 +828,60 @@ const OnboardingPage = () => {
                   ))}
                 </div>
 
-                {/* Calendar hint */}
-                <p className="text-center text-xs text-on-surface-variant/60 italic">
-                  Estas tareas aparecerán automáticamente en tu calendario con la hora y duración que elegiste.
-                </p>
+                <button
+                  type="button"
+                  onClick={addDailyActivity}
+                  className="w-full h-14 rounded-[22px] border border-dashed border-primary/35 bg-primary/5 text-primary font-black text-sm hover:bg-primary/10 transition-colors"
+                >
+                  + Agregar otra actividad diaria
+                </button>
 
-                {isMobile ? (
+                <div className="space-y-3">
                   <button
-                    onClick={handleFinish}
-                    disabled={isFinishing || recurringTasks.some(t => !t.title.trim())}
+                    onClick={isMobile ? handleFinish : next}
+                    disabled={isFinishing}
                     className="w-full h-20 primary-gradient text-primary-foreground rounded-[28px] font-black text-xl flex items-center justify-center gap-3 shadow-2xl shadow-primary/30 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isFinishing ? (
                       <div className="w-6 h-6 border-3 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
                     ) : (
-                      'Listo, entrar'
+                      <>Soltar carga</>
                     )}
                   </button>
-                ) : (
-                  <div className="flex gap-4">
-                    <button onClick={back} className="px-8 h-20 bg-surface-container-lowest border-2 border-outline-variant/30 text-on-surface-variant font-black rounded-[28px] hover:bg-surface-container-low transition-colors">
-                      Atrás
-                    </button>
-                    <button 
-                      onClick={next}
-                      disabled={recurringTasks.some(t => !t.title.trim())}
-                      className="flex-1 h-20 primary-gradient text-primary-foreground rounded-[28px] font-black text-xl flex items-center justify-center gap-3 shadow-2xl shadow-primary/30 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      Fijar rutinas <Check className="w-6 h-6" />
-                    </button>
-                  </div>
-                )}
+                  <button
+                    type="button"
+                    onClick={isMobile ? handleFinish : next}
+                    className="mx-auto block px-4 py-2 text-[10px] font-black uppercase tracking-[0.22em] text-on-surface-variant/35 hover:text-on-surface-variant/70 transition-colors"
+                  >
+                    Saltar
+                  </button>
+                </div>
               </div>
             )}
-
             {/* STEP: COMMITMENT */}
             {currentStep === 'commitment' && (
-              <div className="space-y-12">
-                <div className="space-y-6">
-                  <div className="w-16 h-16 rounded-[24px] bg-primary/10 flex items-center justify-center">
+              <div className="space-y-10 text-center">
+                <div className="space-y-4">
+                  <div className="w-16 h-16 rounded-[24px] bg-primary/10 flex items-center justify-center mx-auto">
                     <Lock className="w-8 h-8 text-primary" />
                   </div>
                   <h2 className="text-4xl font-black tracking-tight leading-tight">
-                    Listo, {name.split(' ')[0]}.
+                    Todo listo, {name.split(' ')[0]}.
                   </h2>
-                  <p className="text-2xl font-medium text-on-surface-variant leading-relaxed">
-                    Estas tareas se quedan aquí <span className="text-primary font-black">flotando contigo.</span> No tienes que abrir nada más.
+                  <p className="text-2xl font-medium text-on-surface-variant leading-relaxed max-w-2xl mx-auto">
+                    Tu flujo ya esta armado. En la web puedes explorar y seguir capturando ideas. En la app de escritorio se activa la mini ventana.
                   </p>
-                  <p className="text-lg text-on-surface-variant/80 bg-surface-container-low p-6 rounded-[24px] border border-outline-variant/30 italic">
-                    "Ahora, cierra Notion, tu agenda, notas y todas esas pestañas. Enfócate. Siempre estaré aquí en tu ordenador."
-                  </p>
+                </div>
+
+                <div className="mx-auto w-full max-w-2xl overflow-hidden rounded-[28px] border border-outline-variant/15 bg-surface-container-low shadow-2xl shadow-black/20">
+                  <video
+                    src="/videos/principal.mp4"
+                    className="h-[220px] w-full object-cover sm:h-[260px]"
+                    autoPlay
+                    muted
+                    loop
+                    playsInline
+                  />
                 </div>
 
                 <div className="space-y-4">
@@ -802,23 +895,39 @@ const OnboardingPage = () => {
                       }`}
                     >
                       <Monitor className="w-6 h-6" />
-                      {floatingActivated ? 'Ventana Activada' : 'Activar Ventana Flotante'}
+                      {floatingActivated ? 'Ventana activada' : 'Activar mini ventana'}
                     </button>
                   ) : (
-                    <button 
-                      onClick={() => startGuidedDownload('win')}
-                      className="w-full h-20 rounded-[28px] font-black text-xl flex items-center justify-center gap-3 transition-all bg-foreground text-background hover:scale-[1.02]"
-                    >
-                      <Monitor className="w-6 h-6" />
-                      Descargar App
-                    </button>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <button 
+                        onClick={() => startGuidedDownload(preferredDownloadPlatform === 'mac' ? 'mac' : 'win')}
+                        className="w-full h-20 rounded-[28px] font-black text-xl flex items-center justify-center gap-3 transition-all bg-foreground text-background hover:scale-[1.02]"
+                      >
+                        <Monitor className="w-6 h-6" />
+                        Descargar {preferredDownloadPlatform === 'mac' ? 'Mac' : 'Windows'}
+                      </button>
+                      <button 
+                        onClick={() => startGuidedDownload(preferredDownloadPlatform === 'mac' ? 'win' : 'mac')}
+                        className="w-full h-20 rounded-[28px] font-black text-xl flex items-center justify-center gap-3 transition-all bg-surface-container-high text-foreground border border-outline-variant/20 hover:bg-surface-container-highest hover:scale-[1.02]"
+                      >
+                        <Monitor className="w-6 h-6" />
+                        Descargar {preferredDownloadPlatform === 'mac' ? 'Windows' : 'Mac'}
+                      </button>
+                    </div>
                   )}
 
                   <button 
-                    onClick={next}
-                    className="w-full h-16 text-on-surface-variant/70 font-black uppercase tracking-widest text-[10px] hover:text-primary transition-colors"
+                    onClick={() => setShowWebChoiceModal(true)}
+                    className="w-full h-16 rounded-[24px] border border-outline-variant/15 bg-surface-container-low/70 text-on-surface-variant/70 font-black uppercase tracking-widest text-[10px] hover:text-primary transition-colors"
                   >
-                    Continuar al resumen
+                    Seguir en la web
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleFinish}
+                    className="mx-auto block px-4 py-2 text-[10px] font-black uppercase tracking-[0.22em] text-on-surface-variant/35 hover:text-on-surface-variant/70 transition-colors"
+                  >
+                    Saltar
                   </button>
                 </div>
               </div>
@@ -889,41 +998,94 @@ const OnboardingPage = () => {
 
             {/* STEP: READY */}
             {currentStep === 'ready' && (
-              <div className="text-center space-y-12 py-8">
-                <div className="relative mx-auto w-32 h-32">
-                  <motion.div 
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    transition={{ type: "spring", damping: 12, stiffness: 200 }}
-                    className="w-full h-full rounded-full primary-gradient flex items-center justify-center shadow-[0_20px_50px_rgba(var(--primary-rgb),0.3)]"
-                  >
-                    <Sparkles className="w-14 h-14 text-primary-foreground" />
-                  </motion.div>
-                </div>
-
+              <div className="space-y-10 text-center py-6">
                 <div className="space-y-4">
-                  <h2 className="text-4xl font-black tracking-tight text-foreground">Estás en control.</h2>
-                  <p className="text-on-surface-variant text-xl px-4">Tu carga mental ahora vive en Adonai. Relájate y empieza con la primera tarea.</p>
+                  <div className="w-16 h-16 rounded-[24px] bg-primary/10 flex items-center justify-center mx-auto">
+                    <Sparkles className="w-8 h-8 text-primary" />
+                  </div>
+                  <h2 className="text-4xl font-black tracking-tight leading-tight">
+                    Elige cómo usarlo, {name.split(' ')[0]}.
+                  </h2>
+                  <p className="text-lg font-medium text-on-surface-variant leading-relaxed max-w-xl mx-auto">
+                    {isMobile
+                      ? "Agrega Adonai a tu pantalla de inicio para acceder siempre con 1 toque."
+                      : "Descarga la app de escritorio y desbloquea la mini ventana. O empieza ya en la web — puedes descargarla después cuando quieras."}
+                  </p>
                 </div>
 
-                <button 
-                  onClick={handleFinish}
-                  disabled={isFinishing}
-                  className="w-full h-24 primary-gradient text-primary-foreground rounded-[32px] font-black text-2xl flex items-center justify-center gap-4 shadow-2xl shadow-primary/40 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50"
-                >
-                  {isFinishing ? (
-                    <div className="w-8 h-8 border-4 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+                <div className="mx-auto w-full max-w-2xl overflow-hidden rounded-[28px] border border-outline-variant/15 bg-surface-container-low shadow-2xl shadow-black/20">
+                  <video
+                    src="/videos/principal.mp4"
+                    className="h-[200px] w-full object-cover sm:h-[240px]"
+                    autoPlay
+                    muted
+                    loop
+                    playsInline
+                  />
+                </div>
+
+                <div className="space-y-3 max-w-md mx-auto">
+                  {isElectron ? (
+                    <button 
+                      onClick={activateFloatingWindow}
+                      className={`w-full h-20 rounded-[28px] font-black text-xl flex items-center justify-center gap-3 transition-all ${
+                        floatingActivated 
+                          ? 'bg-primary/10 text-primary border-2 border-primary/40' 
+                          : 'bg-foreground text-background hover:scale-[1.02]'
+                      }`}
+                    >
+                      <Monitor className="w-6 h-6" />
+                      {floatingActivated ? 'Ventana activada' : 'Activar mini ventana'}
+                    </button>
+                  ) : isMobile ? (
+                    <button
+                      onClick={handleFinish}
+                      className="w-full h-20 rounded-[28px] font-black text-xl flex items-center justify-center gap-3 transition-all bg-foreground text-background hover:scale-[1.02]"
+                    >
+                      <Smartphone className="w-6 h-6" />
+                      Ir a la app
+                    </button>
                   ) : (
-                    <>Entrar</>
+                    <div className="space-y-3">
+                      <button
+                        onClick={() => startGuidedDownload(preferredDownloadPlatform === 'mac' ? 'mac' : 'win')}
+                        className="w-full h-20 rounded-[28px] font-black text-xl flex items-center justify-center gap-3 transition-all bg-foreground text-background hover:scale-[1.02]"
+                      >
+                        <Download className="w-6 h-6" />
+                        Descargar para {preferredDownloadPlatform === 'mac' ? 'Mac' : 'Windows'}
+                      </button>
+                      <p className="text-xs font-semibold text-on-surface-variant/50 leading-relaxed">
+                        La mini ventana está disponible <span className="text-primary">solo en la app de escritorio</span>. Tendrás Adonai siempre visible mientras trabajas.
+                      </p>
+                    </div>
                   )}
-                </button>
+
+                  <button
+                    onClick={() => setShowWebChoiceModal(true)}
+                    className="w-full h-14 rounded-[24px] border border-outline-variant/15 bg-surface-container-low/50 text-on-surface-variant/60 font-bold text-sm hover:text-primary hover:border-primary/30 transition-colors"
+                  >
+                    Seguir en la web
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleFinish}
+                    className="mx-auto block px-4 py-2 text-[10px] font-black uppercase tracking-[0.22em] text-on-surface-variant/35 hover:text-on-surface-variant/70 transition-colors"
+                  >
+                    Saltar
+                  </button>
+                </div>
               </div>
             )}
           </motion.div>
         </AnimatePresence>
       </div>
+      {showWebChoiceModal && renderAccessChoiceModal()}
+      {showEmailAuthModal && renderEmailAuthModal()}
     </div>
   );
 };
 
 export default OnboardingPage;
+
+

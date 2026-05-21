@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { BrandLogo } from '@/components/BrandLogo';
 
@@ -14,12 +14,12 @@ const WelcomePage = () => {
       navigate('/onboarding', { replace: true });
       return;
     }
+
     setLoading(true);
     try {
       await signInAnonymously();
     } catch {
-      // Si falla la creación anónima, igual va al onboarding.
-      // El onboarding mismo lo intentará de nuevo al finalizar.
+      // The onboarding will retry anonymous auth before saving user data.
     }
     navigate('/onboarding', { replace: true });
   };
@@ -43,9 +43,7 @@ const WelcomePage = () => {
           </div>
 
           <div className="space-y-3">
-            <h1 className="page-title">
-              Adonai
-            </h1>
+            <h1 className="page-title">Adonai</h1>
             <p className="text-on-surface-variant font-medium text-base max-w-xs mx-auto leading-relaxed">
               Recupera el control de tu semana
             </p>
@@ -54,32 +52,32 @@ const WelcomePage = () => {
 
         <div className="space-y-6">
           <p className="text-center text-on-surface-variant/60 text-sm font-bold uppercase tracking-[0.15em]">
-            ¿Ya tienes una cuenta?
+            Tu primera descarga mental
           </p>
 
           <div className="space-y-3">
             <button
-              onClick={() => navigate('/auth')}
-              className="w-full h-16 rounded-[24px] bg-primary text-black font-black text-lg flex items-center justify-center gap-3 shadow-xl shadow-primary/20 hover:opacity-90 active:scale-[0.98] transition-all"
+              onClick={handleStartAsGuest}
+              disabled={loading}
+              className="w-full h-16 rounded-[24px] bg-primary text-black font-black text-lg flex items-center justify-center gap-3 shadow-xl shadow-primary/20 hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-50"
             >
-              Sí, iniciar sesión
+              {loading ? (
+                <div className="w-5 h-5 border-2 border-black/30 border-t-black rounded-full animate-spin" />
+              ) : (
+                'Empezar gratis'
+              )}
             </button>
 
             <button
-              onClick={handleStartAsGuest}
-              disabled={loading}
-              className="w-full h-16 rounded-[24px] bg-surface-container text-foreground font-bold text-base flex items-center justify-center gap-3 border border-outline-variant/30 hover:bg-surface-container-high active:scale-[0.98] transition-all disabled:opacity-50"
+              onClick={() => navigate('/auth')}
+              className="w-full h-16 rounded-[24px] bg-surface-container text-foreground font-bold text-base flex items-center justify-center gap-3 border border-outline-variant/30 hover:bg-surface-container-high active:scale-[0.98] transition-all"
             >
-              {loading ? (
-                <div className="w-5 h-5 border-2 border-on-surface-variant/30 border-t-foreground rounded-full animate-spin" />
-              ) : (
-                'No, empezar gratis'
-              )}
+              Ya tengo cuenta
             </button>
           </div>
 
           <p className="text-center text-on-surface-variant/40 text-xs leading-relaxed max-w-sm mx-auto">
-            Puedes usar Adonai sin registro. Tus tareas se guardan localmente y puedes vincularlas a un correo más tarde.
+            Empieza sin registro. Primero saca lo pendiente de tu cabeza; despues puedes protegerlo con tu correo.
           </p>
         </div>
       </motion.div>

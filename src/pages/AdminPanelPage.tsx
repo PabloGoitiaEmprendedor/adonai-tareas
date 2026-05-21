@@ -1,4 +1,4 @@
-/**
+﻿/**
  * AdminPanelPage — CEO-only analytics dashboard.
  * Accessible only by pablogoitiaemprendedor@gmail.com
  * 
@@ -12,7 +12,7 @@
  * - Custom event query builder for future metrics
  */
 import { useState, useMemo } from 'react';
-import { useAdminAnalytics, useIsAdmin } from '@/hooks/useAdminAnalytics';
+import { useAdminAnalytics, useIsAdmin, type UserStat, type UsageBreakdownKey, type UsageBreakdownItem } from '@/hooks/useAdminAnalytics';
 import { Navigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { addDays, differenceInCalendarDays, format, parseISO } from 'date-fns';
@@ -20,13 +20,13 @@ import {
   BarChart3, Users, CheckCircle2, Mic, Type, Camera, Repeat,
   Plus, Zap, Target, TrendingUp, Flame, Clock, UserCheck,
   ChevronDown, ChevronUp, ExternalLink, Search, RefreshCw, Trash2,
-  Trophy, CalendarRange, Users2, Image as ImageIcon, Monitor
+  Trophy, CalendarRange, Users2, Image as ImageIcon, Monitor,
+  FolderOpen, Bell, Activity, Pin, AlertTriangle
 } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area, CartesianGrid, Legend } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area, CartesianGrid, Legend, LineChart, Line } from 'recharts';
 import { useAdminNotifications } from '@/hooks/useAdminNotifications';
-import { useAdminDeleteUsers } from '@/hooks/useAdminDeleteUsers';
 
 // ─── Section Wrapper ─────────────────────────────────────────────────────────
 const Section = ({ title, icon: Icon, description, children }: { title: string; icon: any; description?: string; children: React.ReactNode }) => (
@@ -182,6 +182,58 @@ const CohortRetentionChart = ({ data, title }: { data: { day: string; retention:
   </div>
 );
 
+const UsageAverageChart = ({ data }: { data: any[] }) => {
+  const chartData = data.map((day) => ({
+    ...day,
+    avg_tasks_per_active_user: day.active_users > 0 ? Math.round((day.tasks_created / day.active_users) * 10) / 10 : 0,
+  }));
+
+  return (
+    <div className="h-64 w-full mt-4">
+      <ResponsiveContainer width="100%" height="100%">
+        <LineChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--outline-variant) / 0.2)" />
+          <XAxis dataKey="date" tick={{ fontSize: 10 }} tickFormatter={(val) => val.slice(5)} stroke="hsl(var(--on-surface-variant) / 0.5)" />
+          <YAxis tick={{ fontSize: 10 }} stroke="hsl(var(--on-surface-variant) / 0.5)" />
+          <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }} />
+          <Legend wrapperStyle={{ fontSize: '12px' }} />
+          <Line type="monotone" dataKey="avg_tasks_per_active_user" name="Promedio tareas/usuario activo" stroke="hsl(var(--primary))" strokeWidth={3} dot={false} />
+          <Line type="monotone" dataKey="users_created_tasks" name="Usuarios que crearon tareas" stroke="#22c55e" strokeWidth={2} dot={false} />
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  );
+};
+
+const MiniWindowTrendsChart = ({ data }: { data: any[] }) => (
+  <div className="h-64 w-full mt-4">
+    <ResponsiveContainer width="100%" height="100%">
+      <BarChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--outline-variant) / 0.2)" />
+        <XAxis dataKey="date" tick={{ fontSize: 10 }} tickFormatter={(val) => val.slice(5)} stroke="hsl(var(--on-surface-variant) / 0.5)" />
+        <YAxis tick={{ fontSize: 10 }} stroke="hsl(var(--on-surface-variant) / 0.5)" />
+        <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }} />
+        <Legend wrapperStyle={{ fontSize: '12px' }} />
+        <Bar dataKey="tasks_created_mini_plus" name="Mini +" fill="hsl(38, 92%, 50%)" radius={[4, 4, 0, 0]} />
+        <Bar dataKey="tasks_created_mini_voice" name="Mini voz" fill="hsl(199, 89%, 48%)" radius={[4, 4, 0, 0]} />
+        <Bar dataKey="tasks_completed_mini" name="Tachadas desde mini" fill="hsl(var(--success))" radius={[4, 4, 0, 0]} />
+      </BarChart>
+    </ResponsiveContainer>
+  </div>
+);
+
+type AdminFolder = 'usuarios' | 'beta' | 'retencion' | 'core' | 'uso' | 'notificaciones' | 'mini';
+
+const ADMIN_FOLDERS: Array<{ key: AdminFolder; label: string; icon: any; description: string }> = [
+  { key: 'usuarios', label: 'Usuarios nuevos', icon: Users, description: 'Registros y detalle' },
+  { key: 'beta', label: 'Beta', icon: Clock, description: 'Prueba gratuita y vencimientos' },
+  { key: 'retencion', label: 'Retencion', icon: Flame, description: 'Cohortes y usuarios retenidos' },
+  { key: 'core', label: 'Core actions', icon: Zap, description: 'Acciones centrales y embudo' },
+  { key: 'uso', label: 'Uso', icon: Activity, description: 'Volumen, metas y prioridades' },
+  { key: 'notificaciones', label: 'Notificaciones', icon: Bell, description: 'Envios y lecturas' },
+  { key: 'mini', label: 'Mini ventana', icon: Monitor, description: 'Uso de la ventana flotante' },
+];
+
 const TRIAL_DAYS = 90;
 const getBetaTrialFromDate = (registrationDate: string | null) => {
   if (!registrationDate) return null;
@@ -210,6 +262,7 @@ const AdminPanelPage = () => {
     'pablogoitiabusiness@gmail.com',
     'marketingadonai.c.a@gmail.com',
     'pablogoitiameprendedor@gmail.com',
+    'cosaslindasparati2022@gmail.com',
     'pablo@example.com',
     'test@example.com',
     'test@test.com',
@@ -230,14 +283,30 @@ const AdminPanelPage = () => {
   const [viewingInvited, setViewingInvited] = useState(false);
   const [invitedFilter, setInvitedFilter] = useState<'active' | 'oneTime'>('active');
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
-  const deleteUsers = useAdminDeleteUsers();
+  const [activeFolder, setActiveFolder] = useState<AdminFolder>('usuarios');
+  const [showExcludedUsers, setShowExcludedUsers] = useState(false);
+  const [viewingUsage, setViewingUsage] = useState<{ key: UsageBreakdownKey; title: string; value: number | string } | null>(null);
 
   const handleExcludeUser = (userId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     if (confirm('¿Excluir a este usuario de las analíticas? No contará para las métricas.')) {
-      const newExcluded = [...excludedUsers, userId];
+      const newExcluded = Array.from(new Set([...excludedUsers, userId]));
       setExcludedUsers(newExcluded);
       localStorage.setItem('adonai_admin_excluded_users', JSON.stringify(newExcluded));
+      queryClient.invalidateQueries({ queryKey: ['admin-analytics'] });
+    }
+  };
+
+  const handleExcludeSelectedUsers = () => {
+    const selectedIds = Array.from(selectedUserIds);
+    if (selectedIds.length === 0) return;
+
+    if (confirm(`¿Excluir ${selectedIds.length} usuario${selectedIds.length !== 1 ? 's' : ''} de las métricas? Sus datos y acceso se conservan.`)) {
+      const newExcluded = Array.from(new Set([...excludedUsers, ...selectedIds]));
+      setExcludedUsers(newExcluded);
+      localStorage.setItem('adonai_admin_excluded_users', JSON.stringify(newExcluded));
+      setSelectedUserIds(new Set());
+      queryClient.invalidateQueries({ queryKey: ['admin-analytics'] });
     }
   };
 
@@ -287,7 +356,7 @@ const AdminPanelPage = () => {
   if (error) {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4 p-8">
-        <div className="text-red-500 text-4xl">⚠️</div>
+        <AlertTriangle className="h-10 w-10 text-red-500" />
         <p className="text-red-400 font-bold text-lg">Error cargando Analytics</p>
         <p className="text-on-surface-variant/60 text-sm max-w-md text-center">{(error as Error).message}</p>
         <button onClick={() => refetch()} className="px-6 py-2 bg-primary text-primary-foreground rounded-xl font-bold text-sm hover:opacity-80 transition-opacity">
@@ -310,6 +379,7 @@ const AdminPanelPage = () => {
   const invitedUsers = analytics.userStats.filter(u => u.email === null);
   const activeInvitedUsers = invitedUsers.filter(u => u.onboarding_completed);
   const oneTimeVisitors = invitedUsers.filter(u => !u.onboarding_completed);
+  const anonymousUsers = invitedUsers;
   const betaRows = registeredUsers
     .map((u) => {
       const trial = getBetaTrialFromDate(u.registration_date || u.first_session_date);
@@ -325,8 +395,18 @@ const AdminPanelPage = () => {
     const q = userSearch.toLowerCase();
     return (u.email?.toLowerCase().includes(q) || u.name?.toLowerCase().includes(q) || u.user_id.includes(q));
   });
+  const excludedVisibleUsers = analytics.excludedUserStats || [];
+  const miniTasksCreated = analytics.tasksByMiniPlus + analytics.tasksByMiniVoice;
+  const miniUsers = analytics.userStats.filter(u => u.mini_plus_tasks + u.mini_voice_tasks > 0);
+  const topRetainedUsers = [...analytics.userStats]
+    .filter(u => u.email || u.onboarding_completed)
+    .sort((a, b) => (b.streak_current - a.streak_current) || (b.avg_tasks_per_day - a.avg_tasks_per_day) || (b.completed_tasks - a.completed_tasks))
+    .slice(0, 10);
 
   const pct = (v: number, t: number) => t > 0 ? `${Math.round((v / t) * 100)}%` : '0%';
+  const openUsage = (key: UsageBreakdownKey, title: string, value: number | string) => {
+    setViewingUsage({ key, title, value });
+  };
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -375,17 +455,39 @@ const AdminPanelPage = () => {
         </div>
 
         {/* ═══ Métricas Generales ═══════════════════════════════════════ */}
-        <Section title="Métricas Generales" icon={BarChart3} description="Visión general del negocio">
+        <div className="grid grid-cols-2 gap-3 mb-8 md:grid-cols-4 xl:grid-cols-7">
+          {ADMIN_FOLDERS.map((folder) => {
+            const Icon = folder.icon;
+            const active = activeFolder === folder.key;
+            return (
+              <button
+                key={folder.key}
+                onClick={() => setActiveFolder(folder.key)}
+                className={`group rounded-2xl border p-4 text-left transition-all ${
+                  active
+                    ? 'border-primary/30 bg-primary/10 shadow-sm'
+                    : 'border-outline-variant/10 bg-card hover:border-primary/20 hover:bg-surface-container-low'
+                }`}
+              >
+                <div className="mb-3 flex items-center justify-between">
+                  <div className={`flex h-9 w-9 items-center justify-center rounded-xl ${active ? 'bg-primary text-primary-foreground' : 'bg-surface-container-high text-on-surface-variant'}`}>
+                    <FolderOpen className="h-4 w-4" />
+                  </div>
+                  <Icon className={`h-4 w-4 ${active ? 'text-primary' : 'text-on-surface-variant/40 group-hover:text-primary'}`} />
+                </div>
+                <p className="text-xs font-black uppercase tracking-[0.14em] text-foreground">{folder.label}</p>
+                <p className="mt-1 text-[10px] font-bold leading-snug text-on-surface-variant/50">{folder.description}</p>
+              </button>
+            );
+          })}
+        </div>
+
+        {activeFolder === 'usuarios' && (
+          <>
+        <Section title="Usuarios nuevos" icon={Users} description="Registros y actividad">
           <section className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
             <StatCard icon={Users} label="Usuarios registrados" value={registeredUsers.length} color="primary" />
-            <StatCard icon={UserCheck} label="Abrieron app hoy" value={analytics.activeTodayOpened ?? analytics.activeToday} sub="Sesión" color="primary" />
-            <StatCard icon={Zap} label="Hicieron acción hoy" value={analytics.activeTodayAction ?? 0} sub="Tarea creada/completada" color="primary" />
-            <StatCard icon={BarChart3} label="Tareas creadas" value={analytics.totalTasksCreated} sub="Total" color="primary" />
-            <StatCard icon={CheckCircle2} label="Tareas completadas" value={analytics.totalTasksCompleted} sub={pct(analytics.totalTasksCompleted, analytics.totalTasksCreated)} color="primary" />
-            <StatCard icon={TrendingUp} label="Promedio tareas/usuario/día" value={analytics.avgTasksPerUserPerDay} color="primary" />
-            <StatCard icon={Clock} label="Sesión promedio (min)" value={analytics.avgSessionMinutes || '—'} color="primary" />
-            <StatCard icon={Target} label="Con meta vinculada" value={analytics.tasksWithGoal} sub={pct(analytics.tasksWithGoal, analytics.totalTasksCreated)} color="primary" />
-            <StatCard icon={Zap} label="Priorizadas" value={analytics.tasksImportant + analytics.tasksUrgent} sub={pct(analytics.tasksImportant + analytics.tasksUrgent, analytics.totalTasksCreated)} color="primary" />
+            <StatCard icon={UserCheck} label="Abrieron app hoy" value={analytics.activeTodayOpened ?? analytics.activeToday} sub="Usuarios" color="primary" />
             <StatCard
               icon={Users2}
               label="Invitados activos"
@@ -394,17 +496,85 @@ const AdminPanelPage = () => {
               color="green-500"
               onClick={() => { setInvitedFilter('active'); setViewingInvited(true); }}
             />
-            <StatCard
-              icon={Users2}
-              label="Visitas únicas"
-              value={oneTimeVisitors.length}
-              sub="Entraron 1 vez"
-              color="amber-500"
-              onClick={() => { setInvitedFilter('oneTime'); setViewingInvited(true); }}
-            />
           </section>
         </Section>
 
+        {excludedVisibleUsers.length > 0 && (
+          <section className="bg-card rounded-2xl border border-outline-variant/10 shadow-sm mb-8 overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setShowExcludedUsers(prev => !prev)}
+              className="w-full flex items-center justify-between gap-4 p-5 text-left hover:bg-surface-container-low transition-colors"
+            >
+              <div>
+                <h2 className="text-sm font-black uppercase tracking-widest text-on-surface-variant/60">
+                  Usuarios excluidos ({excludedVisibleUsers.length})
+                </h2>
+                <p className="mt-1 text-[10px] font-bold text-on-surface-variant/50">
+                  Ocultos de las métricas generales. Despliega solo cuando necesites auditar.
+                </p>
+              </div>
+              {showExcludedUsers ? <ChevronUp className="h-5 w-5 text-on-surface-variant/50" /> : <ChevronDown className="h-5 w-5 text-on-surface-variant/50" />}
+            </button>
+            <AnimatePresence initial={false}>
+              {showExcludedUsers && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  className="overflow-hidden border-t border-outline-variant/10"
+                >
+                  <div className="overflow-x-auto p-5">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-outline-variant/10">
+                          <th className="text-left py-3 px-2 text-[10px] font-black uppercase tracking-widest text-on-surface-variant/50">Usuario</th>
+                          <th className="text-center py-3 px-2 text-[10px] font-black uppercase tracking-widest text-on-surface-variant/50">Estado</th>
+                          <th className="text-right py-3 px-2 text-[10px] font-black uppercase tracking-widest text-on-surface-variant/50">Tareas</th>
+                          <th className="text-right py-3 px-2 text-[10px] font-black uppercase tracking-widest text-on-surface-variant/50">Completadas</th>
+                          <th className="text-right py-3 px-2 text-[10px] font-black uppercase tracking-widest text-on-surface-variant/50">Racha</th>
+                          <th className="text-right py-3 px-2 text-[10px] font-black uppercase tracking-widest text-on-surface-variant/50">Avg/dia</th>
+                          <th className="text-right py-3 px-2 text-[10px] font-black uppercase tracking-widest text-on-surface-variant/50">Ultima actividad</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {excludedVisibleUsers.map(u => (
+                          <tr key={u.user_id} className="border-b border-outline-variant/5 hover:bg-surface-container-low/50 transition-colors">
+                            <td className="py-3 px-2">
+                              <div className="flex flex-col">
+                                <span className="font-bold text-foreground truncate max-w-[240px]">{u.name || u.email?.split('@')[0] || u.user_id.slice(0, 8)}</span>
+                                <span className="text-[10px] text-on-surface-variant/50">{u.email || u.user_id}</span>
+                              </div>
+                            </td>
+                            <td className="text-center py-3 px-2">
+                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                                u.status === 'activo' ? 'bg-green-500/15 text-green-500' :
+                                u.status === 'en_riesgo' ? 'bg-yellow-500/15 text-yellow-500' :
+                                'bg-red-500/10 text-red-400'
+                              }`}>
+                                {u.status}
+                              </span>
+                            </td>
+                            <td className="text-right py-3 px-2 font-bold tabular-nums">{u.total_tasks}</td>
+                            <td className="text-right py-3 px-2 font-bold tabular-nums text-green-500">{u.completed_tasks}</td>
+                            <td className="text-right py-3 px-2 font-bold tabular-nums text-orange-400">{u.streak_current}</td>
+                            <td className="text-right py-3 px-2 font-bold tabular-nums">{u.avg_tasks_per_day}</td>
+                            <td className="text-right py-3 px-2 font-bold tabular-nums">{u.last_active_date || '-'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </section>
+        )}
+
+          </>
+        )}
+
+        {activeFolder === 'beta' && (
         <Section title="Beta 3 Meses" icon={Clock} description="Estado de prueba gratuita">
           <section className="grid grid-cols-1 gap-3 md:grid-cols-3 mb-5">
             <StatCard icon={Users} label="Usuarios en beta activa" value={betaActiveCount} color="primary" />
@@ -435,8 +605,10 @@ const AdminPanelPage = () => {
             </div>
           </div>
         </Section>
+        )}
 
         {/* ═══ Core Actions ═══════════════════════════════════════════════ */}
+        {activeFolder === 'core' && (
         <Section title="Core Actions" icon={Zap} description="Cómo crean tareas los usuarios">
           <section className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
             <div className="bg-card rounded-2xl p-6 border border-outline-variant/10 shadow-sm">
@@ -444,10 +616,10 @@ const AdminPanelPage = () => {
                 Método de creación
               </h2>
               <div className="space-y-3">
-                <MiniBar label="📝 Texto" value={analytics.tasksByText} max={analytics.totalTasksCreated} color="hsl(142, 71%, 45%)" />
-                <MiniBar label="🎤 Voz" value={analytics.tasksByVoice} max={analytics.totalTasksCreated} color="hsl(262, 83%, 58%)" />
-                <MiniBar label="📸 Imagen" value={analytics.tasksByImage} max={analytics.totalTasksCreated} color="hsl(38, 92%, 50%)" />
-                <MiniBar label="🔁 Recurrente" value={analytics.tasksByRecurrence} max={analytics.totalTasksCreated} color="hsl(199, 89%, 48%)" />
+                <MiniBar label="Texto" value={analytics.tasksByText} max={analytics.totalTasksCreated} color="hsl(142, 71%, 45%)" />
+                <MiniBar label="Voz" value={analytics.tasksByVoice} max={analytics.totalTasksCreated} color="hsl(262, 83%, 58%)" />
+                <MiniBar label="Imagen" value={analytics.tasksByImage} max={analytics.totalTasksCreated} color="hsl(38, 92%, 50%)" />
+                <MiniBar label="Recurrente" value={analytics.tasksByRecurrence} max={analytics.totalTasksCreated} color="hsl(199, 89%, 48%)" />
               </div>
             </div>
             <div className="bg-card rounded-2xl p-6 border border-outline-variant/10 shadow-sm">
@@ -455,8 +627,8 @@ const AdminPanelPage = () => {
                 Punto de creación
               </h2>
               <div className="space-y-3">
-                <MiniBar label="➕ Botón principal (FAB)" value={analytics.tasksByFab} max={analytics.totalTasksCreated} color="hsl(142, 71%, 45%)" />
-                <MiniBar label="📥 Botón secundario" value={analytics.tasksBySecondary} max={analytics.totalTasksCreated} color="hsl(262, 83%, 58%)" />
+                <MiniBar label="Botón principal (FAB)" value={analytics.tasksByFab} max={analytics.totalTasksCreated} color="hsl(142, 71%, 45%)" />
+                <MiniBar label="Botón secundario" value={analytics.tasksBySecondary} max={analytics.totalTasksCreated} color="hsl(262, 83%, 58%)" />
               </div>
             </div>
           </section>
@@ -473,14 +645,22 @@ const AdminPanelPage = () => {
             </div>
           </section>
         </Section>
+        )}
 
         {/* ═══ Mini Window ════════════════════════════════════════════════ */}
+        {activeFolder === 'mini' && (
         <Section title="Mini Window" icon={Monitor} description="Uso de la ventana flotante">
+          <section className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+            <StatCard icon={Monitor} label="Tareas creadas desde mini" value={miniTasksCreated} sub={pct(miniTasksCreated, analytics.totalTasksCreated)} color="amber-500" onClick={() => openUsage('mini_total', 'Tareas creadas desde mini', miniTasksCreated)} />
+            <StatCard icon={Users} label="Usuarios que usaron mini" value={miniUsers.length} color="primary" />
+            <StatCard icon={Plus} label="Mini +" value={analytics.tasksByMiniPlus} color="amber-500" onClick={() => openUsage('mini_plus', 'Mini +', analytics.tasksByMiniPlus)} />
+            <StatCard icon={Mic} label="Mini voz" value={analytics.tasksByMiniVoice} color="purple-500" onClick={() => openUsage('mini_voice', 'Mini voz', analytics.tasksByMiniVoice)} />
+          </section>
           <section className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
             <div className="bg-card rounded-2xl p-6 border border-outline-variant/10 shadow-sm">
               <div className="flex items-center gap-2 mb-5">
                 <div className="w-8 h-8 rounded-xl bg-amber-500/15 flex items-center justify-center">
-                  <span className="text-sm">🖥️</span>
+                  <Monitor className="h-4 w-4 text-amber-500" />
                 </div>
                 <div>
                   <h2 className="text-sm font-black text-foreground">Mini +</h2>
@@ -494,7 +674,7 @@ const AdminPanelPage = () => {
             <div className="bg-card rounded-2xl p-6 border border-outline-variant/10 shadow-sm">
               <div className="flex items-center gap-2 mb-5">
                 <div className="w-8 h-8 rounded-xl bg-purple-500/15 flex items-center justify-center">
-                  <span className="text-sm">🎙️</span>
+                  <Mic className="h-4 w-4 text-purple-500" />
                 </div>
                 <div>
                   <h2 className="text-sm font-black text-foreground">Mini Voz</h2>
@@ -506,20 +686,56 @@ const AdminPanelPage = () => {
               </div>
             </div>
           </section>
+          <section className="bg-card rounded-2xl p-6 border border-outline-variant/10 shadow-sm mb-8">
+            <h2 className="text-sm font-black uppercase tracking-widest text-on-surface-variant/60 mb-2">
+              Uso de mini ventana en el tiempo
+            </h2>
+            <MiniWindowTrendsChart data={analytics.dailyMetrics} />
+            <p className="mt-3 text-xs font-bold text-on-surface-variant/50">
+              Las tareas tachadas desde mini aparecen cuando el evento de completado trae metadata de origen mini.
+            </p>
+          </section>
         </Section>
+        )}
 
         {/* ═══ App Ecosystem ═══════════════════════════════════════════════ */}
-        <Section title="App Ecosystem" icon={Target} description="Métricas del ecosistema">
+        {activeFolder === 'uso' && (
+        <Section title="Uso" icon={Activity} description="Tareas, metas, prioridades y uso promedio">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
-            <StatCard icon={Target} label="Metas Totales" value={analytics.goalsTotal} sub={`${analytics.goalsActive} Activas`} color="blue-500" />
-            <StatCard icon={CalendarRange} label="Bloques de Tiempo" value={analytics.timeBlocksTotal} color="purple-500" />
-            <StatCard icon={Trophy} label="Logros Desbloqueados" value={analytics.achievementsUnlocked} color="orange-500" />
-            <StatCard icon={Users2} label="Amistades Creadas" value={analytics.friendshipsTotal} color="pink-500" />
-            <StatCard icon={ImageIcon} label="Fotos Analizadas (IA)" value={analytics.imageCapturesTotal} sub={`${analytics.tasksExtractedFromImages} tareas extraídas`} color="indigo-500" />
+            <StatCard icon={BarChart3} label="Tareas creadas" value={analytics.totalTasksCreated} sub="Total" color="primary" onClick={() => openUsage('tasks_created', 'Tareas creadas', analytics.totalTasksCreated)} />
+            <StatCard icon={CheckCircle2} label="Tareas tachadas" value={analytics.totalTasksCompleted} sub={pct(analytics.totalTasksCompleted, analytics.totalTasksCreated)} color="green-500" onClick={() => openUsage('tasks_completed', 'Tareas tachadas', analytics.totalTasksCompleted)} />
+            <StatCard icon={Users} label="Usuarios crearon tareas hoy" value={analytics.dailyMetrics.at(-1)?.users_created_tasks ?? 0} color="primary" onClick={() => openUsage('tasks_created_today', 'Usuarios que crearon tareas hoy', analytics.dailyMetrics.at(-1)?.users_created_tasks ?? 0)} />
+            <StatCard icon={TrendingUp} label="Promedio tareas/usuario/día" value={analytics.avgTasksPerUserPerDay} color="primary" />
+            <StatCard icon={Target} label="Tareas ancladas a metas" value={analytics.tasksWithGoal} sub={pct(analytics.tasksWithGoal, analytics.totalTasksCreated)} color="blue-500" onClick={() => openUsage('tasks_with_goal', 'Tareas ancladas a metas', analytics.tasksWithGoal)} />
+            <StatCard icon={Target} label="Metas creadas" value={analytics.goalsTotal} sub={`${analytics.goalsActive} activas`} color="blue-500" onClick={() => openUsage('goals_created', 'Metas creadas', analytics.goalsTotal)} />
+            <StatCard icon={Zap} label="Tareas priorizadas" value={analytics.tasksImportant + analytics.tasksUrgent} sub={pct(analytics.tasksImportant + analytics.tasksUrgent, analytics.totalTasksCreated)} color="amber-500" onClick={() => openUsage('tasks_prioritized', 'Tareas priorizadas', analytics.tasksImportant + analytics.tasksUrgent)} />
+            <StatCard icon={Mic} label="Tareas por voz" value={analytics.tasksByVoice} sub={pct(analytics.tasksByVoice, analytics.totalTasksCreated)} color="purple-500" onClick={() => openUsage('voice_tasks', 'Tareas por voz', analytics.tasksByVoice)} />
+          </div>
+          <section className="bg-card rounded-2xl p-6 border border-outline-variant/10 shadow-sm mb-8">
+            <h2 className="text-sm font-black uppercase tracking-widest text-on-surface-variant/60 mb-2">
+              Uso diario
+            </h2>
+            <DailyTrendsChart data={analytics.dailyMetrics} />
+          </section>
+          <section className="bg-card rounded-2xl p-6 border border-outline-variant/10 shadow-sm mb-8">
+            <h2 className="text-sm font-black uppercase tracking-widest text-on-surface-variant/60 mb-2">
+              Uso promedio
+            </h2>
+            <UsageAverageChart data={analytics.dailyMetrics} />
+          </section>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
+            <StatCard icon={CalendarRange} label="Bloques de Tiempo" value={analytics.timeBlocksTotal} color="purple-500" onClick={() => openUsage('time_blocks', 'Bloques de tiempo', analytics.timeBlocksTotal)} />
+            <StatCard icon={Trophy} label="Logros Desbloqueados" value={analytics.achievementsUnlocked} color="orange-500" onClick={() => openUsage('achievements', 'Logros desbloqueados', analytics.achievementsUnlocked)} />
+            <StatCard icon={Users2} label="Amistades Creadas" value={analytics.friendshipsTotal} color="pink-500" onClick={() => openUsage('friendships', 'Amistades creadas', analytics.friendshipsTotal)} />
+            <StatCard icon={ImageIcon} label="Fotos Analizadas (IA)" value={analytics.imageCapturesTotal} sub={`${analytics.tasksExtractedFromImages} tareas extraídas`} color="indigo-500" onClick={() => openUsage('image_captures', 'Fotos analizadas', analytics.imageCapturesTotal)} />
           </div>
         </Section>
 
+        )}
+
         {/* ═══ Retención ══════════════════════════════════════════════════ */}
+        {activeFolder === 'retencion' && (
+          <>
         <section className="grid grid-cols-3 gap-3 mb-8">
           <div className="bg-card rounded-2xl p-5 border border-purple-500/20 shadow-sm">
             <p className="text-[10px] font-black uppercase tracking-widest text-purple-400/70 mb-1">Retención Día 1</p>
@@ -535,60 +751,6 @@ const AdminPanelPage = () => {
             <p className="text-[10px] font-black uppercase tracking-widest text-[hsl(var(--success))]/70 mb-1">WAU (7 días)</p>
             <p className="text-3xl font-black tabular-nums text-[hsl(var(--success))]">{analytics.wau ?? 0}</p>
             <p className="text-[10px] text-on-surface-variant/50 mt-1">Usuarios activos últimos 7d</p>
-          </div>
-        </section>
-
-        {/* ─── Creation Method Breakdown ─────────────────────────────────── */}
-        <section className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-          <div className="bg-card rounded-2xl p-6 border border-outline-variant/10 shadow-sm">
-            <h2 className="text-sm font-black uppercase tracking-widest text-on-surface-variant/60 mb-5">
-              Método de creación
-            </h2>
-            <div className="space-y-3">
-              <MiniBar label="📝 Texto" value={analytics.tasksByText} max={analytics.totalTasksCreated} color="hsl(142, 71%, 45%)" />
-              <MiniBar label="🎤 Voz" value={analytics.tasksByVoice} max={analytics.totalTasksCreated} color="hsl(262, 83%, 58%)" />
-              <MiniBar label="📸 Imagen" value={analytics.tasksByImage} max={analytics.totalTasksCreated} color="hsl(38, 92%, 50%)" />
-              <MiniBar label="🔁 Recurrente" value={analytics.tasksByRecurrence} max={analytics.totalTasksCreated} color="hsl(199, 89%, 48%)" />
-            </div>
-          </div>
-
-          <div className="bg-card rounded-2xl p-6 border border-outline-variant/10 shadow-sm">
-            <h2 className="text-sm font-black uppercase tracking-widest text-on-surface-variant/60 mb-5">
-              Punto de creación
-            </h2>
-            <div className="space-y-3">
-              <MiniBar label="➕ Botón principal (FAB)" value={analytics.tasksByFab} max={analytics.totalTasksCreated} color="hsl(142, 71%, 45%)" />
-              <MiniBar label="📥 Botón secundario" value={analytics.tasksBySecondary} max={analytics.totalTasksCreated} color="hsl(262, 83%, 58%)" />
-              <MiniBar label="🖥️ Mini + (ventana)" value={analytics.tasksByMiniPlus} max={analytics.totalTasksCreated} color="hsl(38, 92%, 50%)" />
-              <MiniBar label="🎙️ Mini voz (ventana)" value={analytics.tasksByMiniVoice} max={analytics.totalTasksCreated} color="hsl(199, 89%, 48%)" />
-            </div>
-          </div>
-        </section>
-
-        {/* ─── Funnel Analysis ──────────────────────────────────────────── */}
-        <section className="bg-card rounded-2xl p-6 border border-outline-variant/10 shadow-sm mb-8">
-          <h2 className="text-sm font-black uppercase tracking-widest text-on-surface-variant/60 mb-5">
-            Flujo y fricción — Embudo
-          </h2>
-          <div className="space-y-4">
-            <FunnelStep step={1} label="Se registraron" value={analytics.funnel.total_users} total={analytics.funnel.total_users} />
-            <FunnelStep step={2} label="Crearon ≥1 tarea (primera sesión)" value={analytics.funnel.users_with_first_task} total={analytics.funnel.total_users} />
-            <FunnelStep step={3} label="Completaron ≥1 tarea (primera sesión)" value={analytics.funnel.users_with_first_completion} total={analytics.funnel.total_users} />
-            <FunnelStep step={4} label="Usaron priorización/metas (primera semana)" value={analytics.funnel.users_with_prioritization} total={analytics.funnel.total_users} />
-          </div>
-        </section>
-
-        {/* ─── Ecosystem Metrics ──────────────────────────────────────────── */}
-        <section className="mb-8">
-          <h2 className="text-sm font-black uppercase tracking-widest text-on-surface-variant/60 mb-4 px-2">
-            Métricas de Ecosistema (Nuevas)
-          </h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <StatCard icon={Target} label="Metas Totales" value={analytics.goalsTotal} sub={`${analytics.goalsActive} Activas`} color="blue-500" />
-            <StatCard icon={CalendarRange} label="Bloques de Tiempo" value={analytics.timeBlocksTotal} color="purple-500" />
-            <StatCard icon={Trophy} label="Logros Desbloqueados" value={analytics.achievementsUnlocked} color="orange-500" />
-            <StatCard icon={Users2} label="Amistades Creadas" value={analytics.friendshipsTotal} color="pink-500" />
-            <StatCard icon={ImageIcon} label="Fotos Analizadas (IA)" value={analytics.imageCapturesTotal} sub={`${analytics.tasksExtractedFromImages} tareas extraídas`} color="indigo-500" />
           </div>
         </section>
 
@@ -771,14 +933,12 @@ const AdminPanelPage = () => {
           </section>
         )}
 
-        {/* ─── Daily Trends ─────────────────────────────────────────────── */}
-        <section className="bg-card rounded-2xl p-6 border border-outline-variant/10 shadow-sm mb-8">
-          <h2 className="text-sm font-black uppercase tracking-widest text-on-surface-variant/60 mb-2">
-            Tendencia de Actividad
-          </h2>
-          <DailyTrendsChart data={analytics.dailyMetrics} />
-        </section>
+          </>
+        )}
 
+        {/* ─── User Growth ──────────────────────────────────────────────── */}
+        {activeFolder === 'usuarios' && (
+          <>
         {/* ─── User Growth ──────────────────────────────────────────────── */}
         <section className="bg-card rounded-2xl p-6 border border-outline-variant/10 shadow-sm mb-8">
           <h2 className="text-sm font-black uppercase tracking-widest text-on-surface-variant/60 mb-2">
@@ -805,8 +965,8 @@ const AdminPanelPage = () => {
           </div>
 
           {selectedUserIds.size > 0 && (
-            <div className="flex items-center justify-between mb-3 px-2 py-3 bg-red-500/10 rounded-xl border border-red-500/20">
-              <span className="text-sm font-bold text-red-500">
+            <div className="flex items-center justify-between mb-3 px-2 py-3 bg-amber-500/10 rounded-xl border border-amber-500/20">
+              <span className="text-sm font-bold text-amber-600">
                 {selectedUserIds.size} usuario{selectedUserIds.size !== 1 ? 's' : ''} seleccionado{selectedUserIds.size !== 1 ? 's' : ''}
               </span>
               <div className="flex items-center gap-2">
@@ -817,17 +977,10 @@ const AdminPanelPage = () => {
                   Cancelar
                 </button>
                 <button
-                  onClick={() => {
-                    if (confirm(`¿Eliminar ${selectedUserIds.size} usuario${selectedUserIds.size !== 1 ? 's' : ''}? Esta acción no se puede deshacer.`)) {
-                      deleteUsers.mutate(Array.from(selectedUserIds), {
-                        onSuccess: () => setSelectedUserIds(new Set()),
-                      });
-                    }
-                  }}
-                  disabled={deleteUsers.isPending}
-                  className="px-4 py-2 rounded-xl text-sm font-bold bg-red-500 text-white hover:bg-red-600 transition-colors disabled:opacity-50"
+                  onClick={handleExcludeSelectedUsers}
+                  className="px-4 py-2 rounded-xl text-sm font-bold bg-amber-500 text-white hover:bg-amber-600 transition-colors"
                 >
-                  {deleteUsers.isPending ? 'Eliminando...' : `Eliminar ${selectedUserIds.size}`}
+                  Excluir {selectedUserIds.size}
                 </button>
               </div>
             </div>
@@ -940,7 +1093,7 @@ const AdminPanelPage = () => {
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
                       >
-                        <td colSpan={9} className="py-4 px-4">
+                        <td colSpan={10} className="py-4 px-4">
                           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
                             <div className="bg-surface-container-low rounded-xl p-3">
                               <p className="text-on-surface-variant/50 font-bold mb-1">Texto</p>
@@ -1005,15 +1158,81 @@ const AdminPanelPage = () => {
           </div>
         </section>
 
+          </>
+        )}
+
         {/* ─── Notificaciones ─────────────────────────────────────────────── */}
-        <section className="bg-card rounded-2xl p-6 border border-outline-variant/10 shadow-sm mb-8">
-          <div className="flex items-center justify-between mb-5">
-            <h2 className="text-sm font-black uppercase tracking-widest text-on-surface-variant/60">
-              Notificaciones a Usuarios
-            </h2>
-          </div>
-          <NotificationsPanel />
-        </section>
+        {activeFolder === 'notificaciones' && (
+          <Section title="Notificaciones" icon={Bell} description="Envios y lecturas">
+            <section className="bg-card rounded-2xl p-6 border border-outline-variant/10 shadow-sm mb-8">
+              <NotificationsPanel />
+            </section>
+          </Section>
+        )}
+
+        {/* ─── Usage Metric Detail Modal ───────────────────────────────────── */}
+        <AnimatePresence>
+          {viewingUsage && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm"
+              onClick={() => setViewingUsage(null)}
+            >
+              <motion.div
+                initial={{ scale: 0.95, opacity: 0, y: 20 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                exit={{ scale: 0.95, opacity: 0, y: 20 }}
+                className="bg-card w-full max-w-3xl max-h-[85vh] rounded-3xl border border-outline-variant/10 shadow-2xl overflow-hidden flex flex-col"
+                onClick={e => e.stopPropagation()}
+              >
+                <div className="p-6 border-b border-outline-variant/10 flex items-center justify-between bg-surface-container-low">
+                  <div>
+                    <h2 className="text-xl font-black tracking-tight text-foreground">{viewingUsage.title}</h2>
+                    <p className="text-xs font-bold text-on-surface-variant/50 uppercase tracking-widest mt-1">
+                      {viewingUsage.value} total · usuarios ordenados por acción
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setViewingUsage(null)}
+                    className="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center hover:bg-surface-container-highest transition-colors"
+                  >
+                    <Plus className="w-6 h-6 rotate-45 text-on-surface-variant" />
+                  </button>
+                </div>
+                <div className="flex-1 overflow-y-auto p-4">
+                  {(() => {
+                    const rows = (analytics.usageBreakdowns?.[viewingUsage.key] || []) as UsageBreakdownItem[];
+                    if (rows.length === 0) {
+                      return (
+                        <div className="text-center py-12 px-6">
+                          <p className="text-on-surface-variant/60 font-bold">No hay usuarios con acciones para esta métrica.</p>
+                        </div>
+                      );
+                    }
+                    return (
+                      <div className="space-y-2">
+                        {rows.map(row => (
+                          <div key={row.user_id} className="flex items-center justify-between gap-4 rounded-2xl bg-surface-container-low p-4 border border-outline-variant/5">
+                            <div className="min-w-0">
+                              <p className="font-black text-foreground truncate">{row.name || row.email?.split('@')[0] || 'Invitado'}</p>
+                              <p className="text-[11px] font-bold text-on-surface-variant/50 truncate">{row.email || row.user_id}</p>
+                            </div>
+                            <div className="text-right shrink-0">
+                              <p className="text-2xl font-black tabular-nums text-primary">{row.count}</p>
+                              <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/40">acciones</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* ─── Cohort User Details Modal ────────────────────────────────────── */}
         <AnimatePresence>
@@ -1072,13 +1291,13 @@ const AdminPanelPage = () => {
 
                           usersToShow = analytics.userStats
                             .filter(stat => {
-                              const regDate = new Date(stat.created_at);
+                              const regDate = new Date(stat.registration_date || stat.first_session_date || '');
                               return regDate >= startDate && regDate < endDate;
                             })
                             .sort((a, b) => b.completed_tasks - a.completed_tasks)
                             .map(stat => ({
                               uid: stat.user_id,
-                              activeDaysCount: stat.streak_max || 0, // Fallback to max streak
+                              activeDaysCount: stat.streak_max || stat.streak_current || 0,
                               days: [] // No day-by-day data in fallback
                             }));
                         }

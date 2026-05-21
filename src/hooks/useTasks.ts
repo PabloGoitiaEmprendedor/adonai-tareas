@@ -409,6 +409,7 @@ export const useTasks = (filters?: { date?: string; startDate?: string; endDate?
         await supabase.from('usage_events').insert({
           user_id: user.id,
           event_type: 'task_completed',
+          metadata: creation_source ? { creation_source } : undefined,
         });
       }
     },

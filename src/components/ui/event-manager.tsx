@@ -482,7 +482,7 @@ export function EventManager({
       const selectedLabels = [...days].sort().map(d => dayLabels[d]).join(', ');
       const interval = (event as any)?.recurrenceInterval || 1;
       const unit = (event as any)?.recurrenceUnit || 'weeks';
-      const unitMap: Record<string, string> = { days: interval === 1 ? 'dÃƒÂ­a' : 'dÃƒÂ­as', weeks: interval === 1 ? 'semana' : 'semanas', months: interval === 1 ? 'mes' : 'meses', years: interval === 1 ? 'aÃƒÂ±o' : 'aÃƒÂ±os' };
+      const unitMap: Record<string, string> = { days: interval === 1 ? 'día' : 'días', weeks: interval === 1 ? 'semana' : 'semanas', months: interval === 1 ? 'mes' : 'meses', years: interval === 1 ? 'año' : 'años' };
       let text = `Cada ${interval} ${unitMap[unit] || unit}`;
       if (unit === 'weeks') text += ` en ${selectedLabels}`;
       void text;
@@ -1038,7 +1038,7 @@ export function EventManager({
     [onEventUpdate, selectedEvent?.id],
   )
 
-  // ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Shared ghost ref for both sidebar and grid drags ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
+  // ─── Shared ghost ref for both sidebar and grid drags ───
   const globalGhostRef = useRef<HTMLDivElement>(null)
   const [globalDragEvent, setGlobalDragEvent] = useState<Event | null>(null)
   const globalDragEventRef = useRef<Event | null>(null)
@@ -1080,7 +1080,7 @@ export function EventManager({
     onEventUpdate?.(event.id, updatedEvent)
   }, [onEventUpdate, events])
 
-  // Sidebar custom mouse drag ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“ mirrors the calendar ghost system
+  // Sidebar custom mouse drag – mirrors the calendar ghost system
   const handleSidebarMouseDown = useCallback((e: React.MouseEvent, event: Event) => {
     e.preventDefault()
     const startX = e.clientX
@@ -1387,11 +1387,11 @@ export function EventManager({
   const [searchOpen, setSearchOpen] = useState(false)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const viewLabels: Record<"day" | "week" | "month" | "year" | "3day" | "schedule" | "list", string> = {
-    day: "DÃƒÂ­a",
+    day: "Día",
     week: "Semana",
     month: "Mes",
-    year: "AÃƒÂ±o",
-    "3day": "3 dÃƒÂ­as",
+    year: "Año",
+    "3day": "3 días",
     schedule: "Agenda",
     list: "Lista",
   }
@@ -1463,10 +1463,10 @@ export function EventManager({
               <SelectValue>{viewLabels[view]}</SelectValue>
             </SelectTrigger>
             <SelectContent align="end" className="min-w-[132px] rounded-2xl border-outline-variant/10 bg-surface-container/95 p-1 shadow-2xl backdrop-blur-xl">
-              <SelectItem value="day" className="rounded-xl text-xs font-bold">DÃƒÂ­a</SelectItem>
+              <SelectItem value="day" className="rounded-xl text-xs font-bold">Día</SelectItem>
               <SelectItem value="week" className="rounded-xl text-xs font-bold">Semana</SelectItem>
               <SelectItem value="month" className="rounded-xl text-xs font-bold">Mes</SelectItem>
-              <SelectItem value="year" className="rounded-xl text-xs font-bold">AÃƒÂ±o</SelectItem>
+              <SelectItem value="year" className="rounded-xl text-xs font-bold">Año</SelectItem>
             </SelectContent>
           </Select>
 
@@ -1582,7 +1582,7 @@ export function EventManager({
                       <div className="flex items-center justify-between mb-1.5">
                         <h3 className="text-[14px] font-black tracking-tight text-foreground">Tareas de hoy</h3>
                       </div>
-                      <p className="text-[11px] text-on-surface-variant font-semibold leading-snug">MantÃƒÂ©n presionado para arrastrar al calendario</p>
+                      <p className="text-[11px] text-on-surface-variant font-semibold leading-snug">Mantén presionado para arrastrar al calendario</p>
                     </div>
 
                     {/* Folder filter bar */}
@@ -1889,7 +1889,7 @@ export function EventManager({
       </div>
 
 
-      {/* Event Dialog ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â pixel-match TaskDetailModal + time section */}
+      {/* Event Dialog — pixel-match TaskDetailModal + time section */}
       <AnimatePresence>
         {isDialogOpen && (() => {
           const hasTime = isCreating ? !newEvent.isAllDay : !selectedEvent?.isAllDay;
@@ -1918,7 +1918,7 @@ export function EventManager({
                 onClick={requestDialogClose}
               />
 
-              {/* Modal panel ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â identical container to TaskDetailModal */}
+              {/* Modal panel — identical container to TaskDetailModal */}
               <motion.div
                 key="event-modal"
                 initial={{ opacity: 0, scale: 0.95, y: 10 }}
@@ -1936,7 +1936,7 @@ export function EventManager({
                 )}>
                   <div className={cn("flex flex-col gap-6", containedScroll ? "p-4" : "p-6")}>
 
-                    {/* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Header ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ same as TaskDetailModal */}
+                    {/* ── Header ── same as TaskDetailModal */}
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <button
@@ -1992,13 +1992,13 @@ export function EventManager({
                               "w-full text-xl font-semibold bg-surface/50 border border-outline-variant/30 rounded-[22px] px-6 py-5 focus:outline-none focus:ring-4 focus:ring-primary/10 placeholder:text-muted-foreground/20 transition-all shadow-sm",
                               !isCreating && selectedEvent?.completed && "text-muted-foreground/50 line-through decoration-primary/30"
                             )}
-                            placeholder="TÃƒÂ­tulo"
+                            placeholder="Título"
                             autoFocus
                           />
                         </div>
                       </div>
 
-                      {/* CONFIGURACIÃƒÆ’Ã¢â‚¬Å“N RÃƒÂPIDA (Grid layout) */}
+                      {/* CONFIGURACION RAPIDA (Grid layout) */}
                       <div className={cn("grid gap-4", containedScroll ? "grid-cols-1" : "grid-cols-2")}>
                         {/* FECHA */}
                         <div className="space-y-2">
@@ -2079,7 +2079,7 @@ export function EventManager({
                       {/* MODO (Segmented style) */}
                       {hasTime && (isCreating || !!selectedEvent) && (
                         <div className="space-y-2">
-                          <label className="text-[11px] font-bold text-muted-foreground/60 uppercase tracking-wider ml-1">Ã‚Â¿Donde quiere verlo?</label>
+                          <label className="text-[11px] font-bold text-muted-foreground/60 uppercase tracking-wider ml-1">¿Donde quiere verlo?</label>
                           <div className="flex p-1 bg-surface-container/30 border border-outline-variant/10 rounded-[20px] gap-1">
                             {[
                               { id: 'calendar_only' as const, label: 'SOLO CALENDARIO' },
@@ -2120,11 +2120,11 @@ export function EventManager({
                         </div>
                       )}
 
-                      {/* DURACIÃƒÆ’Ã¢â‚¬Å“N (Pills style) */}
+                      {/* DURACIÓN (Pills style) */}
                       {(creationSource === 'calendar_only' || creationSource === 'both') && isCreating && hasTime && (
                         <div className="space-y-3">
                           <div className="flex items-center justify-between px-1">
-                             <label className="text-[11px] font-bold text-muted-foreground/60 uppercase tracking-wider">DuraciÃƒÂ³n estimada</label>
+                             <label className="text-[11px] font-bold text-muted-foreground/60 uppercase tracking-wider">Duración estimada</label>
                              <div className="flex items-center gap-2">
                                 <input
                                   type="number"
@@ -2220,7 +2220,7 @@ export function EventManager({
                         </div>
                       </div>
 
-                      {/* REPETICIÃƒâ€œN */}
+                      {/* REPETICIÓN */}
                       {(() => {
                         const priorityColorChoices = [
                           { id: 'p1', value: priorityColors.p1, label: 'P1', isCustom: false },
@@ -2241,10 +2241,10 @@ export function EventManager({
                         const weekDays = [
                           { value: 1, label: 'L', full: 'lunes' },
                           { value: 2, label: 'M', full: 'martes' },
-                          { value: 3, label: 'X', full: 'miÃƒÂ©rcoles' },
+                          { value: 3, label: 'X', full: 'miércoles' },
                           { value: 4, label: 'J', full: 'jueves' },
                           { value: 5, label: 'V', full: 'viernes' },
-                          { value: 6, label: 'S', full: 'sÃƒÂ¡bado' },
+                          { value: 6, label: 'S', full: 'sábado' },
                           { value: 0, label: 'D', full: 'domingo' },
                         ]
                         const patchRecurrence = (patch: Partial<Event>) => {
@@ -2266,16 +2266,16 @@ export function EventManager({
                           .filter(d => selectedDays.includes(d.value))
                           .map(d => d.full)
                         const unitLabel: Record<string, [string, string]> = {
-                          days: ['dÃƒÂ­a', 'dÃƒÂ­as'],
+                          days: ['día', 'días'],
                           weeks: ['semana', 'semanas'],
                           months: ['mes', 'meses'],
-                          years: ['aÃƒÂ±o', 'aÃƒÂ±os'],
+                          years: ['año', 'años'],
                         }
                         const baseSummary = (() => {
                           if (!currentRec || currentRec === 'none') return 'No se repite'
-                          if (currentRec === 'daily') return 'Se repite cada dÃƒÂ­a'
+                          if (currentRec === 'daily') return 'Se repite cada día'
                           if (currentRec === 'monthly') return 'Se repite cada mes'
-                          if (currentRec === 'yearly') return 'Se repite cada aÃƒÂ±o'
+                          if (currentRec === 'yearly') return 'Se repite cada año'
                           if (currentRec === 'weekdays') return 'Se repite de lunes a viernes'
                           if (currentRec === 'biweekly') return selectedDayNames.length ? `Se repite cada 2 semanas: ${selectedDayNames.join(', ')}` : 'Se repite cada 2 semanas'
                           if (currentRec === 'weekly') return selectedDayNames.length ? `Se repite cada ${selectedDayNames.join(', ')}` : 'Se repite cada semana'
@@ -2300,7 +2300,7 @@ export function EventManager({
                           { value: 15, label: '15 min' },
                           { value: 30, label: '30 min' },
                           { value: 60, label: '1 hora' },
-                          { value: 1440, label: '1 dÃƒÂ­a' },
+                          { value: 1440, label: '1 día' },
                         ]
                         const reminderUnitMinutes: Record<string, number> = { minutes: 1, hours: 60, days: 1440, weeks: 10080 }
                         const patchReminder = (patch: Partial<Event>) => patchRecurrence(patch)
@@ -2388,7 +2388,7 @@ export function EventManager({
 
                             <div className="space-y-2">
                               <div className="flex items-center justify-between px-1">
-                                <label className="text-[11px] font-bold text-muted-foreground/60 uppercase tracking-wider">NotificaciÃƒÂ³n</label>
+                                <label className="text-[11px] font-bold text-muted-foreground/60 uppercase tracking-wider">Notificación</label>
                                 <button
                                   type="button"
                                   onClick={() => patchReminder({ reminderEnabled: !reminderEnabled, reminderMinutesBefore: reminderMinutes || 10 })}
@@ -2396,7 +2396,7 @@ export function EventManager({
                                     "w-9 h-9 rounded-full flex items-center justify-center border transition-all",
                                     reminderEnabled ? "bg-primary/15 text-primary border-primary/25" : "bg-surface-container/30 text-muted-foreground border-outline-variant/15"
                                   )}
-                                  aria-label={reminderEnabled ? 'Desactivar notificaciÃƒÂ³n' : 'Activar notificaciÃƒÂ³n'}
+                                  aria-label={reminderEnabled ? 'Desactivar notificación' : 'Activar notificación'}
                                 >
                                   {reminderEnabled ? <Bell className="w-4 h-4" /> : <BellOff className="w-4 h-4" />}
                                 </button>
@@ -2436,7 +2436,7 @@ export function EventManager({
                                     >
                                       <option value="minutes">minutos antes</option>
                                       <option value="hours">horas antes</option>
-                                      <option value="days">dÃƒÂ­as antes</option>
+                                      <option value="days">días antes</option>
                                       <option value="weeks">semanas antes</option>
                                     </select>
                                   </div>
@@ -2445,7 +2445,7 @@ export function EventManager({
                             </div>
 
                             <div className="flex items-center justify-between gap-3">
-                              <label className="text-[11px] font-bold text-muted-foreground/60 uppercase tracking-wider ml-1">RepeticiÃƒÂ³n</label>
+                              <label className="text-[11px] font-bold text-muted-foreground/60 uppercase tracking-wider ml-1">Repetición</label>
                               <button
                                 type="button"
                                 onClick={() => patchRecurrence({
@@ -2507,7 +2507,7 @@ export function EventManager({
                                   onClick={() => patchRecurrence({ recurrence: 'none', recurrenceDays: [] })}
                                   className="w-full rounded-2xl py-2 text-[10px] font-black uppercase tracking-wider text-muted-foreground hover:text-destructive transition-colors"
                                 >
-                                  Quitar repeticiÃƒÂ³n
+                                  Quitar repetición
                                 </button>
                               )}
 
@@ -2529,10 +2529,10 @@ export function EventManager({
                                         onChange={(e) => patchRecurrence({ recurrence: 'custom', recurrenceUnit: e.target.value as Event['recurrenceUnit'] })}
                                         className="h-10 rounded-xl bg-surface/70 border border-outline-variant/20 px-3 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/30"
                                       >
-                                        <option value="days">dÃƒÂ­as</option>
+                                        <option value="days">días</option>
                                         <option value="weeks">semanas</option>
                                         <option value="months">meses</option>
-                                        <option value="years">aÃƒÂ±os</option>
+                                        <option value="years">años</option>
                                       </select>
                                     </div>
                                   </div>
@@ -2597,7 +2597,7 @@ export function EventManager({
                                     }}
                                     className="w-full rounded-2xl bg-primary text-primary-foreground py-2.5 text-[10px] font-black uppercase tracking-wider shadow-lg shadow-primary/15 hover:scale-[1.01] active:scale-95 transition-all"
                                   >
-                                    Guardar repeticiÃƒÂ³n
+                                    Guardar repetición
                                   </button>
                                 </>
                               )}
@@ -2681,9 +2681,9 @@ export function EventManager({
                         </div>
                       </div>
 
-                      {/* DESCRIPCIÃƒÆ’Ã¢â‚¬Å“N */}
+                      {/* DESCRIPCIÓN */}
                       <div className="space-y-1">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 ml-2">DescripciÃƒÂ³n</label>
+                        <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 ml-2">Descripción</label>
                         <Textarea
                           value={descVal}
                           onChange={(e) => isCreating
@@ -2720,7 +2720,7 @@ export function EventManager({
               className={cn(containedScroll ? "absolute" : "fixed", "inset-0 z-[100] flex items-center justify-center p-4 pointer-events-none")}
             >
               <div className="w-full max-w-sm rounded-[28px] border border-outline-variant/20 bg-background p-5 shadow-2xl pointer-events-auto">
-                <h3 className="text-base font-semibold text-foreground">Ã‚Â¿Quieres guardar los cambios?</h3>
+                <h3 className="text-base font-semibold text-foreground">¿Quieres guardar los cambios?</h3>
                 <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
                   Hay cambios pendientes en este elemento.
                 </p>
@@ -2759,7 +2759,7 @@ export function EventManager({
             </button>
 
             <div className="p-10 pb-6">
-              <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-primary mb-2">Agenda del dÃƒÂ­a</h2>
+              <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-primary mb-2">Agenda del día</h2>
               <h3 className="text-3xl font-black font-headline tracking-tighter uppercase leading-none">
                 {selectedDayForSheet && format(selectedDayForSheet, "EEEE, d 'de' MMMM", { locale: es })}
               </h3>
@@ -2822,7 +2822,7 @@ export function EventManager({
                       <Calendar className="w-16 h-16" />
                       <div className="space-y-2">
                         <h3 className="text-xl font-black uppercase tracking-widest">Nada planeado</h3>
-                        <p className="text-xs font-bold opacity-60">Tu agenda estÃƒÂ¡ despejada por ahora.</p>
+                        <p className="text-xs font-bold opacity-60">Tu agenda está despejada por ahora.</p>
                       </div>
                     </div>
                   )}
@@ -3181,7 +3181,7 @@ function TimeGridView({
         if (isResizingTop) {
           let newStartTime = new Date(initialStartTime.getTime() + minutesDiff * 60000);
           
-          // Mantener duraciÃƒÆ’Ã‚Â³n mÃƒÂ­nima de 5 minutos para que la tarea no desaparezca ni se trabe
+          // Mantener duracion minima de 5 minutos para que la tarea no desaparezca ni se trabe
           const maxStartTime = new Date(initialEndTime.getTime() - MIN_EVENT_DURATION_MINUTES * 60000);
           if (newStartTime > maxStartTime) newStartTime = maxStartTime;
 
@@ -3189,7 +3189,7 @@ function TimeGridView({
         } else {
           let newEndTime = new Date(initialEndTime.getTime() + minutesDiff * 60000);
           
-          // Mantener duraciÃƒÆ’Ã‚Â³n mÃƒÂ­nima de 5 minutos
+          // Mantener duracion minima de 5 minutos
           const minEndTime = new Date(initialStartTime.getTime() + MIN_EVENT_DURATION_MINUTES * 60000);
           if (newEndTime < minEndTime) newEndTime = minEndTime;
 
@@ -3205,7 +3205,7 @@ function TimeGridView({
 
         if (!isDraggingRef.current) return;
 
-        // Ghost logic ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â always visible while dragging calendar events
+        // Ghost logic — always visible while dragging calendar events
         if (isMoving && ghostRef.current) {
           ghostRef.current.style.transform = `translate(${clientX - 70}px, ${clientY - 20}px)`;
           ghostRef.current.style.display = 'flex';
@@ -3755,7 +3755,7 @@ function TimeGridView({
                           className="absolute -top-7 left-1/2 -translate-x-1/2 whitespace-nowrap z-40"
                         >
                           <div className="bg-foreground text-background text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg shadow-lg">
-                            Arrastra los bordes ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬Â¢
+                            Arrastra los bordes ↕
                           </div>
                         </motion.div>
                       )}
@@ -3860,7 +3860,7 @@ function TimeGridView({
         </div>
       </div>
 
-      {/* Ghost element for internal calendar drag ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â always follows mouse */}
+      {/* Ghost element for internal calendar drag — always follows mouse */}
       <div
         ref={ghostRef}
         style={{
@@ -3947,7 +3947,7 @@ function MonthView({
   return (
     <Card className="overflow-hidden border-outline-variant/10 bg-surface-container/30 backdrop-blur-sm shadow-sm">
       <div className="grid grid-cols-7 border-b border-outline-variant/5 sticky top-[64px] z-10 bg-background/95 backdrop-blur-md">
-        {["Dom", "Lun", "Mar", "MiÃƒÂ©", "Jue", "Vie", "SÃƒÂ¡b"].map((day) => (
+        {["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"].map((day) => (
           <div key={day} className="p-3 text-center text-xs font-black uppercase tracking-widest text-muted-foreground">
             {day.toUpperCase()}
           </div>
@@ -4021,7 +4021,7 @@ function MonthView({
                 {dayEvents.length > 3 && (
                   <div className="text-[9px] font-black text-on-surface-variant/40 pl-2 flex items-center gap-1">
                     <Plus className="w-2 h-2" />
-                    {dayEvents.length - 3} mÃƒÂ¡s
+                    {dayEvents.length - 3} más
                   </div>
                 )}
               </div>
@@ -4214,7 +4214,7 @@ function ScheduleView({
               <Calendar className="w-16 h-16" />
               <div className="space-y-2">
                 <h3 className="text-xl font-black uppercase tracking-widest">Nada planeado</h3>
-                <p className="text-xs font-bold opacity-60">Tu agenda estÃƒÂ¡ despejada por ahora.</p>
+                <p className="text-xs font-bold opacity-60">Tu agenda está despejada por ahora.</p>
               </div>
             </div>
           )}

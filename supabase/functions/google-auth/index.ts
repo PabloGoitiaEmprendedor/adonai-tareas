@@ -12,12 +12,22 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-const SCOPES = [
-  "openid",
-  "email",
-  "profile",
-  "https://www.googleapis.com/auth/calendar",
-].join(" ");
+const getScopes = (service?: string) => {
+  if (service === "sheets") {
+    return [
+      "openid",
+      "email",
+      "profile",
+      "https://www.googleapis.com/auth/spreadsheets.readonly",
+    ].join(" ");
+  }
+  return [
+    "openid",
+    "email",
+    "profile",
+    "https://www.googleapis.com/auth/calendar",
+  ].join(" ");
+};
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -25,14 +35,14 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { action, code, redirect_uri, user_id } = await req.json();
+    const { action, code, redirect_uri, user_id, service } = await req.json();
 
     if (action === "get-url") {
       const params = new URLSearchParams({
         client_id: GOOGLE_CLIENT_ID,
         redirect_uri,
         response_type: "code",
-        scope: SCOPES,
+        scope: getScopes(service),
         access_type: "offline",
         prompt: "consent",
       });
@@ -43,7 +53,7 @@ Deno.serve(async (req) => {
     }
 
     if (action === "callback") {
-      console.log("Processing callback with code and redirect_uri:", redirect_uri);
+      console.log("Processing callback with code and redirect_uri:", redirect_uri, "service:", service);
       
       // Exchange code for tokens
       const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
@@ -95,15 +105,27 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Store calendar tokens
+      // Store tokens
       const expiresAt = new Date(Date.now() + tokens.expires_in * 1000).toISOString();
-      
+      const tokenTable = service === "sheets" ? "google_sheets_tokens" : "google_calendar_tokens";
+      let refreshToken = tokens.refresh_token;
+
+      if (!refreshToken) {
+        const { data: existingToken } = await supabaseAdmin
+          .from(tokenTable)
+          .select("refresh_token")
+          .eq("user_id", targetUserId)
+          .maybeSingle();
+
+        refreshToken = existingToken?.refresh_token;
+      }
+
       const { error: tokenError } = await supabaseAdmin
-        .from("google_calendar_tokens")
+        .from(tokenTable)
         .upsert({
           user_id: targetUserId,
           access_token: tokens.access_token,
-          refresh_token: tokens.refresh_token || "",
+          refresh_token: refreshToken || "",
           expires_at: expiresAt,
           email: userInfo.email,
         }, { onConflict: "user_id" });
@@ -113,7 +135,7 @@ Deno.serve(async (req) => {
         throw tokenError;
       }
 
-      // Mark calendar as connected in settings
+      // Mark service as connected in settings
       // Check if setting row exists first
       const { data: existingSettings } = await supabaseAdmin
         .from("settings")
@@ -121,10 +143,12 @@ Deno.serve(async (req) => {
         .eq("user_id", targetUserId)
         .single();
 
+      const connectionField = service === "sheets" ? "sheets_connected" : "calendar_connected";
+
       if (existingSettings) {
-        await supabaseAdmin.from("settings").update({ calendar_connected: true }).eq("user_id", targetUserId);
+        await supabaseAdmin.from("settings").update({ [connectionField]: true }).eq("user_id", targetUserId);
       } else {
-        await supabaseAdmin.from("settings").insert({ user_id: targetUserId, calendar_connected: true });
+        await supabaseAdmin.from("settings").insert({ user_id: targetUserId, [connectionField]: true });
       }
 
       return new Response(JSON.stringify({
@@ -132,6 +156,48 @@ Deno.serve(async (req) => {
         email: userInfo.email,
         name: userInfo.name,
       }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "disconnect") {
+      let targetUserId = user_id;
+
+      if (!targetUserId) {
+        const authHeader = req.headers.get("Authorization");
+        if (!authHeader) throw new Error("No authorization header");
+        const token = authHeader.replace("Bearer ", "");
+        const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+        if (authError || !user) throw new Error("Unauthorized");
+        targetUserId = user.id;
+      }
+
+      const tokenTable = service === "sheets" ? "google_sheets_tokens" : "google_calendar_tokens";
+      const connectionField = service === "sheets" ? "sheets_connected" : "calendar_connected";
+
+      // Delete tokens
+      const { error: tokenError } = await supabaseAdmin
+        .from(tokenTable)
+        .delete()
+        .eq("user_id", targetUserId);
+
+      if (tokenError) {
+        console.error("Error deleting tokens:", tokenError);
+        throw tokenError;
+      }
+
+      // Mark disconnected in settings
+      const { error: settingsError } = await supabaseAdmin
+        .from("settings")
+        .update({ [connectionField]: false })
+        .eq("user_id", targetUserId);
+
+      if (settingsError) {
+        console.error("Error updating settings:", settingsError);
+        throw settingsError;
+      }
+
+      return new Response(JSON.stringify({ success: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }

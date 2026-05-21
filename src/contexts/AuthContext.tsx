@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, useRef, ReactNode } fro
 import { Session, User } from '@supabase/supabase-js';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { saveAnonymousUserId, getPreviousAnonymousUserId, migrateAnonymousData } from '@/lib/anonymousSession';
 
 interface AuthContextType {
   session: Session | null;
@@ -31,6 +32,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (session?.user) {
       localStorage.setItem('adonai_had_session', 'true');
       localStorage.setItem('adonai_session_type', session.user.is_anonymous ? 'anonymous' : 'email');
+      if (session.user.is_anonymous) {
+        saveAnonymousUserId(session.user.id);
+      }
     } else {
       localStorage.removeItem('adonai_had_session');
       localStorage.removeItem('adonai_session_type');
@@ -40,6 +44,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const clearSessionFlags = () => {
     localStorage.removeItem('adonai_had_session');
     localStorage.removeItem('adonai_session_type');
+    localStorage.removeItem('adonai_anonymous_user_id_prev');
   };
 
   useEffect(() => {
@@ -93,11 +98,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         // Auto-recover anonymous sessions that expired (not manual sign out)
         const prevUser = userRef.current;
         if (!manualSignOutRef.current && prevUser?.is_anonymous) {
+          const oldUserId = prevUser.id;
           supabase.auth.signInAnonymously().then(({ data }) => {
             if (data?.session && mounted) {
               setSession(data.session);
               setUser(data.session.user);
               saveSessionFlags(data.session);
+              // Migrate data from expired session to new one
+              if (oldUserId !== data.session.user.id) {
+                migrateAnonymousData(oldUserId, data.session.user.id);
+              }
             }
           });
         }
@@ -120,8 +130,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           const sessionType = localStorage.getItem('adonai_session_type');
 
           if (hadSession && sessionType === 'anonymous') {
-            // El usuario tenía una sesión anónima que expiró — recuperar automáticamente
             console.log('[Auth] Recovering expired anonymous session');
+            const oldUserId = getPreviousAnonymousUserId();
             try {
               const { data } = await supabase.auth.signInAnonymously();
               if (data?.session && mounted) {
@@ -129,6 +139,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 setUser(data.session.user);
                 saveSessionFlags(data.session);
                 setLoading(false);
+                // Migrate data from old anonymous user to new one
+                if (oldUserId && oldUserId !== data.session.user.id) {
+                  migrateAnonymousData(oldUserId, data.session.user.id).then((ok) => {
+                    if (ok) console.log('[Auth] Anonymous data migration complete');
+                    else console.warn('[Auth] Anonymous data migration failed or skipped');
+                  });
+                }
                 return;
               }
             } catch {
