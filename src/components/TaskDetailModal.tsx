@@ -14,6 +14,7 @@ import SubtasksSection from './SubtasksSection';
 import { AutoTextarea } from '@/components/ui/auto-textarea';
 import { CalendarDatePicker } from '@/components/ui/calendar-date-picker';
 import { DurationPicker } from '@/components/ui/duration-picker';
+import { REMINDER_OPTIONS, buildReminderMetadata, getReminderSettings } from '@/lib/reminders';
 
 interface TaskDetailModalProps {
   task: any;
@@ -44,6 +45,8 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
   const [selectedMonthDay, setSelectedMonthDay] = useState<number | null>(null);
   const [selectedYearMonth, setSelectedYearMonth] = useState<number | null>(null);
   const [selectedYearDay, setSelectedYearDay] = useState<number | null>(null);
+  const [reminderEnabled, setReminderEnabled] = useState(false);
+  const [reminderMinutesBefore, setReminderMinutesBefore] = useState<number>(15);
   const [hasChanges, setHasChanges] = useState(false);
 
   const originalData = useRef<any>(null);
@@ -66,6 +69,9 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
       setSelectedMonthDay(null);
       setSelectedYearMonth(null);
       setSelectedYearDay(null);
+      const reminder = getReminderSettings(task.metadata, 'task');
+      setReminderEnabled(!!reminder);
+      setReminderMinutesBefore(reminder?.minutes_before ?? 15);
       setShowRecurrence(false);
       setHasChanges(false);
       originalData.current = {
@@ -136,6 +142,7 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
       folder_id: folderId, goal_id: goalId, status,
       recurrence_id: recurrenceId,
       link: links.filter(l => l.trim() !== '').join(' ') || null,
+      metadata: buildReminderMetadata(task.metadata, 'task', reminderEnabled, reminderMinutesBefore),
       ...(status === 'done' ? { completed_at: new Date().toISOString() } : {}),
     };
 
@@ -253,8 +260,36 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
                           value={estimatedMinutes} 
                           onChange={(val) => { setEstimatedMinutes(val); markChanged(); }}
                           className="bg-surface-container/30 border border-outline-variant/10 rounded-[20px] pl-11 pr-4 py-3"
-                        />
+                          />
                         </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Recordatorio</label>
+                      <div className="rounded-[22px] border border-outline-variant/10 bg-surface-container/30 p-3 space-y-3">
+                        <button
+                          type="button"
+                          onClick={() => { setReminderEnabled((value) => !value); markChanged(); }}
+                          className={`w-full flex items-center justify-between rounded-2xl px-4 py-3 text-[10px] font-black uppercase tracking-widest transition-all border ${reminderEnabled ? 'bg-primary/10 text-primary border-primary/20' : 'bg-surface/40 text-muted-foreground border-outline-variant/10'}`}
+                        >
+                          <span>Activar alerta</span>
+                          <span>{reminderEnabled ? 'ON' : 'OFF'}</span>
+                        </button>
+                        {reminderEnabled && (
+                          <div className="grid grid-cols-2 gap-2">
+                            {REMINDER_OPTIONS.map((option) => (
+                              <button
+                                key={option.value}
+                                type="button"
+                                onClick={() => { setReminderMinutesBefore(option.value); markChanged(); }}
+                                className={`h-10 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${reminderMinutesBefore === option.value ? 'bg-primary/15 text-primary border-primary/30' : 'bg-surface/40 text-muted-foreground border-outline-variant/10 hover:text-foreground'}`}
+                              >
+                                {option.label}
+                              </button>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
 

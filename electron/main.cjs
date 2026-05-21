@@ -864,6 +864,7 @@ ipcMain.on('show-notification', (event, data) => {
     new Notification({
       title: data?.title || 'Adonai',
       body: data?.body || '',
+      icon: path.join(__dirname, '../build/icon.png'),
       silent: false,
     }).show();
     return;

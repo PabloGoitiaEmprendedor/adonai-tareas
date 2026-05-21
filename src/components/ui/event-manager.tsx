@@ -24,6 +24,7 @@ import { Calendar, Clock, LayoutGrid, List, Folder, FolderOpen, Plus, Search, Fi
 import ScrollableTimePicker from "./scrollable-time-picker"
 import { usePriorityColors, getPriorityKey } from "@/hooks/usePriorityColors"
 import { cn } from "@/lib/utils"
+import { REMINDER_OPTIONS } from "@/lib/reminders"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -74,6 +75,7 @@ export interface Event {
   urgency?: boolean
   importance?: boolean
   links?: string[]
+  metadata?: Record<string, unknown>
   isAllDay?: boolean
   completed?: boolean
   isEvent?: boolean
@@ -331,7 +333,7 @@ export function EventManager({
     category: categories[0],
     tags: [],
     reminderEnabled: false,
-    reminderMinutesBefore: 10,
+    reminderMinutesBefore: 15,
   })
 
   const [selectedCategory, setSelectedCategory] = useState<string | null>('General');
@@ -842,7 +844,7 @@ export function EventManager({
       recurrenceUnit: 'weeks',
       recurrenceEndType: 'never',
       reminderEnabled: false,
-      reminderMinutesBefore: 10,
+      reminderMinutesBefore: 15,
     });
     setCreationSource('calendar_only');
     setDurationMinutes(30);
@@ -893,7 +895,7 @@ export function EventManager({
         recurrence: 'none',
         links: [],
         reminderEnabled: false,
-        reminderMinutesBefore: 10,
+        reminderMinutesBefore: 15,
       })
       return
     }
@@ -953,7 +955,7 @@ export function EventManager({
       recurrenceEndType: 'never',
       links: [],
       reminderEnabled: false,
-      reminderMinutesBefore: 10,
+      reminderMinutesBefore: 15,
     })
   }, [newEvent, colors, categories, onEventCreate, creationSource, events])
 
@@ -2291,29 +2293,9 @@ export function EventManager({
                         const liveSummary = `${titleVal || 'Nombre del evento'}: ${baseSummary}${endSummary}.`
                         const customOpen = currentRec === 'custom'
                         const reminderEnabled = !!recEvent?.reminderEnabled
-                        const reminderMinutes = recEvent?.reminderMinutesBefore || 10
-                        const reminderCustomValue = recEvent?.reminderCustomValue || 1
-                        const reminderCustomUnit = recEvent?.reminderCustomUnit || 'hours'
-                        const quickReminders = [
-                          { value: 5, label: '5 min' },
-                          { value: 10, label: '10 min' },
-                          { value: 15, label: '15 min' },
-                          { value: 30, label: '30 min' },
-                          { value: 60, label: '1 hora' },
-                          { value: 1440, label: '1 día' },
-                        ]
-                        const reminderUnitMinutes: Record<string, number> = { minutes: 1, hours: 60, days: 1440, weeks: 10080 }
+                        const reminderMinutes = recEvent?.reminderMinutesBefore ?? 15
+                        const quickReminders = REMINDER_OPTIONS
                         const patchReminder = (patch: Partial<Event>) => patchRecurrence(patch)
-                        const patchCustomReminder = (value: number, unit: Event['reminderCustomUnit']) => {
-                          const safeValue = Math.max(1, value || 1)
-                          const safeUnit = unit || 'hours'
-                          patchReminder({
-                            reminderEnabled: true,
-                            reminderCustomValue: safeValue,
-                            reminderCustomUnit: safeUnit,
-                            reminderMinutesBefore: safeValue * reminderUnitMinutes[safeUnit],
-                          })
-                        }
 
                         return (
                           <div className="space-y-3">
@@ -2403,7 +2385,7 @@ export function EventManager({
                               </div>
                               {reminderEnabled && (
                                 <div className="rounded-[22px] border border-outline-variant/15 bg-surface-container/25 p-3 space-y-3">
-                                  <div className="grid grid-cols-3 gap-1.5">
+                                  <div className="grid grid-cols-2 gap-1.5">
                                     {quickReminders.map((option) => (
                                       <button
                                         key={option.value}
@@ -2419,26 +2401,6 @@ export function EventManager({
                                         {option.label}
                                       </button>
                                     ))}
-                                  </div>
-                                  <div className="grid grid-cols-[72px_1fr] gap-2">
-                                    <input
-                                      type="number"
-                                      min={1}
-                                      max={999}
-                                      value={reminderCustomValue}
-                                      onChange={(e) => patchCustomReminder(Number(e.target.value), reminderCustomUnit)}
-                                      className="h-10 rounded-xl bg-surface/70 border border-outline-variant/20 px-3 text-sm font-black focus:outline-none focus:ring-2 focus:ring-primary/30"
-                                    />
-                                    <select
-                                      value={reminderCustomUnit}
-                                      onChange={(e) => patchCustomReminder(reminderCustomValue, e.target.value as Event['reminderCustomUnit'])}
-                                      className="h-10 rounded-xl bg-surface/70 border border-outline-variant/20 px-3 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/30"
-                                    >
-                                      <option value="minutes">minutos antes</option>
-                                      <option value="hours">horas antes</option>
-                                      <option value="days">días antes</option>
-                                      <option value="weeks">semanas antes</option>
-                                    </select>
                                   </div>
                                 </div>
                               )}

@@ -12,6 +12,7 @@ import { Sparkles, Calendar as CalendarIcon, Plus } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
+import { buildReminderMetadata, getReminderSettings } from '@/lib/reminders';
 
 interface AdonaiCalendarViewProps {
   selectedDate: Date;
@@ -288,6 +289,7 @@ const AdonaiCalendarView: React.FC<AdonaiCalendarViewProps> = ({ selectedDate, o
         color: block.color || 'blue',
         category: 'Calendario',
         description: '',
+        metadata: block.metadata || {},
         isEvent: true,
         recurrence,
         recurrenceDays,
@@ -362,6 +364,7 @@ tasks?.forEach((task) => {
             color: color,
             category: folderName,
              description: stripAllPrefixes(scheduledTime ? scheduledTime.cleanDescription : (task.description || '')) || undefined,
+            metadata: task.metadata || {},
             urgency: urgency,
             importance: importance,
             links: task.link ? [task.link] : [],
@@ -378,10 +381,8 @@ tasks?.forEach((task) => {
             recurrenceEndDate: recurrenceConfig.recurrenceEndDate,
             expandRecurrence: false,
             recurrenceId: task.recurrence_id || undefined,
-            reminderEnabled: !!(task.metadata as any)?.event_reminder?.enabled,
-            reminderMinutesBefore: (task.metadata as any)?.event_reminder?.minutes_before,
-            reminderCustomValue: (task.metadata as any)?.event_reminder?.custom_value,
-            reminderCustomUnit: (task.metadata as any)?.event_reminder?.custom_unit,
+            reminderEnabled: !!getReminderSettings(task.metadata, (task.metadata as any)?.creation_source === 'event' ? 'event' : 'task')?.enabled,
+            reminderMinutesBefore: getReminderSettings(task.metadata, (task.metadata as any)?.creation_source === 'event' ? 'event' : 'task')?.minutes_before,
           });
        }
      });
@@ -518,6 +519,7 @@ tasks?.forEach((task) => {
             link: updates.links && updates.links.length > 0 ? updates.links[0] : null,
             due_date: format(start, 'yyyy-MM-dd'),
             status: 'pending',
+            metadata: buildReminderMetadata((updates as any).metadata, 'task', !!updates.reminderEnabled, updates.reminderMinutesBefore ?? 15),
           });
           await deleteBlock.mutateAsync(blockId);
           window.dispatchEvent(new CustomEvent('adonai:notify', {
@@ -575,6 +577,7 @@ tasks?.forEach((task) => {
             color: updates.color || originalEvent?.color || priorityColors.p4,
             is_recurring: isRecurring,
             days_of_week: daysOfWeek,
+            metadata: buildReminderMetadata((updates as any).metadata || originalEvent?.metadata || task?.metadata, 'event', !!updates.reminderEnabled, updates.reminderMinutesBefore ?? (getReminderSettings(originalEvent?.metadata, 'event')?.minutes_before ?? 15)),
           });
           await deleteTask.mutateAsync(taskId);
           window.dispatchEvent(new CustomEvent('adonai:notify', {
@@ -600,6 +603,16 @@ tasks?.forEach((task) => {
       if (updates.importance !== undefined) updateData.importance = updates.importance;
       if (updates.sortOrder !== undefined) updateData.sort_order = updates.sortOrder;
       if (updates.links && updates.links.length > 0) updateData.link = updates.links[0];
+      if (updates.reminderEnabled !== undefined || updates.reminderMinutesBefore !== undefined) {
+        const reminderSource = task?.metadata || originalEvent?.metadata || {};
+        const reminderKind = (reminderSource as any)?.creation_source === 'event' || task?.id?.startsWith('block-') || originalEvent?.id?.startsWith('block-') ? 'event' : 'task';
+        updateData.metadata = buildReminderMetadata(
+          reminderSource,
+          reminderKind,
+          updates.reminderEnabled ?? getReminderSettings(reminderSource, reminderKind)?.enabled ?? false,
+          updates.reminderMinutesBefore ?? getReminderSettings(reminderSource, reminderKind)?.minutes_before ?? 15,
+        );
+      }
 
 
       // ── Rebuild description from all sources ──────────────────────────
@@ -817,6 +830,7 @@ tasks?.forEach((task) => {
           color: event.color || priorityColors.p4,
           is_recurring: isRecurring,
           days_of_week: daysOfWeek,
+          metadata: buildReminderMetadata(event.metadata, 'event', !!event.reminderEnabled, event.reminderMinutesBefore ?? 15),
         });
         window.dispatchEvent(new CustomEvent('adonai:notify', {
           detail: { type: 'success', message: 'Evento creado' }

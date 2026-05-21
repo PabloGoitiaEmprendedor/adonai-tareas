@@ -8,7 +8,7 @@ import { trackAnalyticsEvent } from '@/lib/analytics';
 
 import type { Database } from '@/integrations/supabase/types';
 
-type TaskUpdate = Database['public']['Tables']['tasks']['Update'];
+type TaskUpdate = Database['public']['Tables']['tasks']['Update'] & { metadata?: Record<string, unknown> | null };
 
 const VIRTUAL_TASK_ID_REGEX = /^virtual-(.+)-(\d{4}-\d{2}-\d{2})$/;
 
@@ -258,9 +258,10 @@ export const useTasks = (filters?: { date?: string; startDate?: string; endDate?
         .from('tasks')
         .insert({
           ...cleanData,
+          ...(metadata ? { metadata } : {}),
           user_id: user.id,
           due_date: cleanData.due_date || format(new Date(), 'yyyy-MM-dd'),
-        })
+        } as any)
         .select()
         .single();
 
@@ -365,7 +366,7 @@ export const useTasks = (filters?: { date?: string; startDate?: string; endDate?
         );
 
         if (existingRealTask) {
-          const { error } = await supabase.from('tasks').update(updates).eq('id', existingRealTask.id);
+          const { error } = await supabase.from('tasks').update(updates as any).eq('id', existingRealTask.id);
           if (error) throw error;
           targetId = existingRealTask.id;
         } else {
@@ -407,7 +408,7 @@ export const useTasks = (filters?: { date?: string; startDate?: string; endDate?
           targetId = data.id;
         }
       } else {
-        const { data: updated, error } = await supabase.from('tasks').update(updates).eq('id', id).select();
+        const { data: updated, error } = await supabase.from('tasks').update(updates as any).eq('id', id).select();
         if (error) throw error;
         if (!updated || updated.length === 0) {
           throw new Error('No se encontró la tarea (sesión expirada o sin permisos)');

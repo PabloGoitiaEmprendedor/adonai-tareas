@@ -14,25 +14,26 @@
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { CheckCircle2, XCircle, Info, X } from 'lucide-react';
+import { CheckCircle2, XCircle, Info, X, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type NotificationType = 'success' | 'error' | 'info';
+export type NotificationType = 'success' | 'error' | 'info' | 'warning';
 
 interface Notification {
   id: string;
   type: NotificationType;
   message: string;
+  title?: string;
 }
 
 // ─── Global imperative API ────────────────────────────────────────────────────
 
 /** Call anywhere in the app: notify('Tarea guardada', 'success') */
-export const notify = (message: string, type: NotificationType = 'success') => {
+export const notify = (message: string, type: NotificationType = 'success', title?: string) => {
   window.dispatchEvent(
-    new CustomEvent('adonai:notify', { detail: { type, message } })
+    new CustomEvent('adonai:notify', { detail: { type, message, title } })
   );
 };
 
@@ -44,6 +45,7 @@ const icons: Record<NotificationType, React.ReactNode> = {
   success: <CheckCircle2 className="w-4 h-4 shrink-0" />,
   error:   <XCircle     className="w-4 h-4 shrink-0" />,
   info:    <Info        className="w-4 h-4 shrink-0" />,
+  warning: <AlertTriangle className="w-4 h-4 shrink-0" />,
 };
 
 const palettes: Record<NotificationType, { bar: string; icon: string; glow: string }> = {
@@ -62,6 +64,11 @@ const palettes: Record<NotificationType, { bar: string; icon: string; glow: stri
     icon: 'text-sky-400',
     glow: 'shadow-sky-500/20',
   },
+  warning: {
+    bar: 'bg-amber-500',
+    icon: 'text-amber-400',
+    glow: 'shadow-amber-500/20',
+  },
 };
 
 function NotificationItem({
@@ -71,7 +78,7 @@ function NotificationItem({
   notification: Notification;
   onDismiss: (id: string) => void;
 }) {
-  const { type, message, id } = notification;
+  const { type, message, id, title } = notification;
   const pal   = palettes[type];
   const timer = useRef<ReturnType<typeof setTimeout>>();
 
@@ -110,9 +117,16 @@ function NotificationItem({
       </span>
 
       {/* Text */}
-      <p className="flex-1 text-[13px] font-black text-foreground leading-snug pr-2">
-        {message}
-      </p>
+      <div className="flex-1 min-w-0 pr-2">
+        {title && (
+          <p className="truncate text-[11px] font-black uppercase tracking-[0.18em] text-muted-foreground/70">
+            {title}
+          </p>
+        )}
+        <p className="text-[13px] font-black text-foreground leading-snug">
+          {message}
+        </p>
+      </div>
 
       {/* Close */}
       <button
@@ -139,9 +153,9 @@ function NotificationItem({
 export function AdonaiNotifier() {
   const [items, setItems] = useState<Notification[]>([]);
 
-  const add = useCallback((type: NotificationType, message: string) => {
+  const add = useCallback((type: NotificationType, message: string, title?: string) => {
     const id = `notif-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    setItems(prev => [...prev, { id, type, message }]);
+    setItems(prev => [...prev, { id, type, message, title }]);
   }, []);
 
   const dismiss = useCallback((id: string) => {
@@ -150,8 +164,8 @@ export function AdonaiNotifier() {
 
   useEffect(() => {
     const handler = (e: Event) => {
-      const { type, message } = (e as CustomEvent<{ type: NotificationType; message: string }>).detail;
-      add(type ?? 'info', message ?? '');
+      const { type, message, title } = (e as CustomEvent<{ type: NotificationType; message: string; title?: string }>).detail;
+      add(type ?? 'info', message ?? '', title);
     };
     window.addEventListener('adonai:notify', handler);
     return () => window.removeEventListener('adonai:notify', handler);

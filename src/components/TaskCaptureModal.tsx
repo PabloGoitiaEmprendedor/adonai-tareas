@@ -15,6 +15,7 @@ import { useGoals } from '@/hooks/useGoals';
 import { CalendarDatePicker } from './ui/calendar-date-picker';
 import { Badge } from './ui/badge';
 import { cn } from '@/lib/utils';
+import { REMINDER_OPTIONS, buildReminderMetadata } from '@/lib/reminders';
 
 interface TaskCaptureModalProps {
  open: boolean;
@@ -51,6 +52,8 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
  const [titleEditValue, setTitleEditValue] = useState('');
  const [classificationSource, setClassificationSource] = useState('');
  const [fallbackEstimatedMinutes, setFallbackEstimatedMinutes] = useState<number | null>(null);
+ const [reminderEnabled, setReminderEnabled] = useState(false);
+ const [reminderMinutesBefore, setReminderMinutesBefore] = useState<number>(15);
  const [extractedTasks, setExtractedTasks] = useState<{ raw_text: string; has_date: boolean; detected_date: string | null; assigned_date?: string }[]>([]);
  const [currentTaskIndex, setCurrentTaskIndex] = useState(0);
  const [savingMessage, setSavingMessage] = useState('Creando tarea...');
@@ -84,6 +87,8 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
  setTimePrefix(null);
  setClassificationSource('');
  setFallbackEstimatedMinutes(null);
+ setReminderEnabled(false);
+ setReminderMinutesBefore(15);
  setSelectedGoalId(null);
  setReviewImportance(false);
  setReviewUrgency(false);
@@ -123,26 +128,30 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
  }, [resetTranscript, startRecording]);
 
  useImperativeHandle(ref, () => ({
- openInVoiceMode: async () => {
- requestedVoiceOpenRef.current = true;
- setPhase('input');
- setTitle('');
- setDueDate(format(new Date(), 'yyyy-MM-dd'));
- setClassificationSource('');
- setFallbackEstimatedMinutes(null);
- return beginVoiceCapture();
- },
+openInVoiceMode: async () => {
+requestedVoiceOpenRef.current = true;
+setPhase('input');
+setTitle('');
+setDueDate(format(new Date(), 'yyyy-MM-dd'));
+setClassificationSource('');
+setFallbackEstimatedMinutes(null);
+ setReminderEnabled(false);
+ setReminderMinutesBefore(15);
+return beginVoiceCapture();
+},
  openInTextMode: (date?: string, initialTitle?: string, initialDescription?: string, timePrefixArg?: string) => {
  requestedVoiceOpenRef.current = false;
  setPhase('input');
  setTitle(initialTitle || '');
  setDescription(initialDescription || '');
- setTimePrefix(timePrefixArg || null);
- setDueDate(date || format(new Date(), 'yyyy-MM-dd'));
- setClassificationSource('');
- setFallbackEstimatedMinutes(null);
- setSourceType('text');
- setShowTextInput(true);
+setTimePrefix(timePrefixArg || null);
+setDueDate(date || format(new Date(), 'yyyy-MM-dd'));
+setClassificationSource('');
+setFallbackEstimatedMinutes(null);
+ setReminderEnabled(false);
+ setReminderMinutesBefore(15);
+setSourceType('text');
+setShowTextInput(true);
  }
  }), [beginVoiceCapture]);
 
@@ -223,6 +232,7 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
  due_date: finalDate,
  time_block_id: timeBlockId || null,
  creation_source: creationSource,
+ metadata: buildReminderMetadata(undefined, 'task', reminderEnabled, reminderMinutesBefore),
  });
 
  if (!task) {
@@ -676,6 +686,40 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
  )}
  </div>
  ))}
+</div>
+</div>
+
+ <div className="space-y-2" id="task-reminder-selector">
+ <label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60 ml-2">Recordatorio</label>
+ <div className="rounded-[22px] border border-outline-variant/15 bg-surface-container/25 p-3 space-y-3">
+ <button
+ type="button"
+ onClick={() => setReminderEnabled((value) => !value)}
+ className={cn(
+ "w-full flex items-center justify-between rounded-2xl px-4 py-3 text-[10px] font-black uppercase tracking-widest transition-all border",
+ reminderEnabled ? "bg-primary/10 text-primary border-primary/20" : "bg-surface/40 text-muted-foreground border-outline-variant/10"
+ )}
+ >
+ <span>Activar alerta</span>
+ <span>{reminderEnabled ? 'ON' : 'OFF'}</span>
+ </button>
+ {reminderEnabled && (
+ <div className="grid grid-cols-2 gap-2">
+ {REMINDER_OPTIONS.map((option) => (
+ <button
+ key={option.value}
+ type="button"
+ onClick={() => setReminderMinutesBefore(option.value)}
+ className={cn(
+ "h-10 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all",
+ reminderMinutesBefore === option.value ? "bg-primary/15 text-primary border-primary/30" : "bg-surface/40 text-muted-foreground border-outline-variant/10 hover:text-foreground"
+ )}
+ >
+ {option.label}
+ </button>
+ ))}
+ </div>
+ )}
  </div>
  </div>
 

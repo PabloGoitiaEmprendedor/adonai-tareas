@@ -2,8 +2,10 @@ import { useEffect, useMemo, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { addDays, format, parseISO } from 'date-fns';
 import { useTasks } from '@/hooks/useTasks';
+import { useTimeBlocks } from '@/hooks/useTimeBlocks';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { getReminderLabel, getReminderSettings } from '@/lib/reminders';
 
 const TIME_PREFIX_REGEX = /^\[T:(\d{2}:\d{2})-(\d{2}:\d{2})\]/;
 
@@ -19,10 +21,17 @@ const canNotify = () => localStorage.getItem('adonai_notifications_enabled') !==
 const sendExternalNotification = async (title: string, body: string, type: 'info' | 'warning' | 'success' = 'info') => {
   if (!canNotify()) return false;
 
-  if (window.electronAPI?.showNotification) {
+  window.dispatchEvent(new CustomEvent('adonai:notify', {
+    detail: { title, message: body, type },
+  }));
+
+  const shouldShowNative = !!window.electronAPI?.showNotification && document.visibilityState !== 'visible';
+  if (shouldShowNative) {
     window.electronAPI.showNotification(title, body, type);
     return true;
   }
+
+  if (window.electronAPI?.showNotification) return true;
 
   if (!('Notification' in window)) return false;
   if (Notification.permission === 'default') {
@@ -43,8 +52,10 @@ const NotificationManager = () => {
   const today = format(new Date(), 'yyyy-MM-dd');
   const rangeEnd = format(addDays(new Date(), 30), 'yyyy-MM-dd');
   const { tasks } = useTasks({ startDate: today, endDate: rangeEnd });
+  const { timeBlocks } = useTimeBlocks(today, rangeEnd);
   const lastMinuteRef = useRef<string | null>(null);
   const firedRemindersRef = useRef<Set<string>>(new Set());
+  const permissionRequestedRef = useRef(false);
 
   const { data: adminNotifications = [] } = useQuery({
     queryKey: ['admin-notifications-feed', user?.id],
@@ -63,12 +74,52 @@ const NotificationManager = () => {
     refetchInterval: 60000,
   });
 
-  const eventTasks = useMemo(() => {
-    return tasks.filter((task: any) => {
-      const metadata = task.metadata as any;
-      return metadata?.creation_source === 'event' && metadata?.event_reminder?.enabled;
-    });
-  }, [tasks]);
+  const scheduledReminders = useMemo(() => {
+    const taskReminders = tasks
+      .map((task: any) => {
+        const kind = (task.metadata as any)?.creation_source === 'event' ? 'event' : 'task';
+        const reminder = getReminderSettings(task.metadata, kind);
+        const start = parseTaskStart(task.description, task.due_date);
+        if (!reminder || !start || task.status !== 'pending') return null;
+        return {
+          id: `task-${task.id}`,
+          title: task.title,
+          start,
+          reminder,
+          kind,
+        };
+      })
+      .filter(Boolean);
+
+    const blockReminders = timeBlocks
+      .map((block: any) => {
+        const reminder = getReminderSettings(block.metadata, 'event');
+        if (!reminder) return null;
+        if (block.is_recurring && Array.isArray(block.days_of_week) && block.days_of_week.length > 0) {
+          const todayDay = new Date(`${today}T12:00:00`).getDay();
+          if (!block.days_of_week.includes(todayDay)) return null;
+        }
+
+        const blockDate = block.block_date || today;
+        const start = parseISO(`${blockDate}T${String(block.start_time).slice(0, 5)}:00`);
+        return {
+          id: `block-${block.id}-${format(start, 'yyyy-MM-dd')}`,
+          title: block.title,
+          start,
+          reminder,
+          kind: 'event' as const,
+        };
+      })
+      .filter(Boolean);
+
+    return [...taskReminders, ...blockReminders] as Array<{
+      id: string;
+      title: string;
+      start: Date;
+      reminder: { enabled: boolean; minutes_before: number };
+      kind: 'task' | 'event';
+    }>;
+  }, [tasks, timeBlocks, today]);
 
   useEffect(() => {
     if (!user) return;
@@ -81,46 +132,16 @@ const NotificationManager = () => {
       if (lastMinuteRef.current === minuteKey) return;
       lastMinuteRef.current = minuteKey;
 
-      const bedtime = localStorage.getItem('adonai_notif_bedtime') || '20:00';
-      const streakEnabled = localStorage.getItem('adonai_notif_streak') !== 'false';
-      const healthEnabled = localStorage.getItem('adonai_notif_health') !== 'false';
-      const todayTasks = tasks.filter((task: any) => task.due_date === today);
-      const completedCount = todayTasks.filter((task: any) => task.status === 'done').length;
-      const pendingCount = todayTasks.filter((task: any) => task.status === 'pending').length;
-      const timeStr = format(now, 'HH:mm');
+      scheduledReminders.forEach((item) => {
+        const reminderAt = new Date(item.start.getTime() - item.reminder.minutes_before * 60000);
+        const diffMs = now.getTime() - reminderAt.getTime();
+        const reminderKey = `${item.id}-${format(reminderAt, 'yyyy-MM-dd-HH-mm')}`;
 
-      if (streakEnabled && timeStr === '18:00' && completedCount === 0 && todayTasks.length > 0) {
-        sendExternalNotification(
-          'Tu racha peligra',
-          'Aún no has completado ninguna tarea hoy. Haz una rápida para mantener tu racha viva.',
-          'warning'
-        );
-      }
-
-      if (timeStr === bedtime) {
-        const message = pendingCount > 0
-          ? `Te quedan ${pendingCount} tareas. ¿Quieres organizarlas para mañana y descansar tranquilo?`
-          : 'Día despejado. ¿Quieres dedicar 1 min a planificar tus victorias de mañana?';
-        sendExternalNotification('Planifica tu éxito', message, 'info');
-      }
-
-      if (healthEnabled && now.getMinutes() === 0 && now.getHours() >= 10 && now.getHours() <= 18 && now.getHours() % 2 === 0) {
-        sendExternalNotification('Pausa breve', 'Toma agua, respira y revisa si necesitas un descanso corto.', 'info');
-      }
-
-      eventTasks.forEach((task: any) => {
-        const reminder = (task.metadata as any)?.event_reminder;
-        const start = parseTaskStart(task.description, task.due_date);
-        if (!start || !reminder?.minutes_before) return;
-        const reminderAt = new Date(start.getTime() - reminder.minutes_before * 60000);
-        const diffMs = Math.abs(now.getTime() - reminderAt.getTime());
-        const reminderKey = `${task.id}-${format(reminderAt, 'yyyy-MM-dd-HH-mm')}`;
-
-        if (diffMs <= 30000 && !firedRemindersRef.current.has(reminderKey)) {
+        if (diffMs >= 0 && diffMs <= 15 * 60 * 1000 && !firedRemindersRef.current.has(reminderKey)) {
           firedRemindersRef.current.add(reminderKey);
           sendExternalNotification(
-            task.title,
-            `Empieza a las ${format(start, 'HH:mm')}.`,
+            item.kind === 'event' ? item.title : `Tarea: ${item.title}`,
+            `${getReminderLabel(item.reminder.minutes_before)}. Empieza a las ${format(item.start, 'HH:mm')}.`,
             'info'
           );
         }
@@ -130,10 +151,15 @@ const NotificationManager = () => {
     checkNotifications();
     const timer = setInterval(checkNotifications, 30000);
     return () => clearInterval(timer);
-  }, [user, tasks, eventTasks, today]);
+  }, [user, tasks, scheduledReminders, today]);
 
   useEffect(() => {
     if (!user || !canNotify()) return;
+
+    if (!permissionRequestedRef.current && !window.electronAPI?.showNotification && 'Notification' in window && Notification.permission === 'default') {
+      permissionRequestedRef.current = true;
+      Notification.requestPermission().catch(() => {});
+    }
 
     const seenKey = `adonai_admin_notifications_seen_${user.id}`;
     const seen = new Set<string>(JSON.parse(localStorage.getItem(seenKey) || '[]'));

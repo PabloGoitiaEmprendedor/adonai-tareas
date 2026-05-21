@@ -69,7 +69,7 @@ export const useTimeBlocks = (date: string, rangeEndDate?: string) => {
   };
 
   const createBlock = useMutation({
-    mutationFn: async (block: { title: string; start_time: string; end_time: string; block_date: string | null; color?: string; is_recurring?: boolean; days_of_week?: number[] }) => {
+    mutationFn: async (block: { title: string; start_time: string; end_time: string; block_date: string | null; color?: string; is_recurring?: boolean; days_of_week?: number[]; metadata?: Record<string, unknown> }) => {
       if (!user) throw new Error('No user');
       
       if (hasCollision(block)) {
@@ -78,7 +78,7 @@ export const useTimeBlocks = (date: string, rangeEndDate?: string) => {
 
       const { data, error } = await supabase
         .from('time_blocks')
-        .insert({ ...block, user_id: user.id })
+        .insert({ ...block, user_id: user.id } as any)
         .select()
         .maybeSingle();
       if (error) throw error;
@@ -102,7 +102,7 @@ export const useTimeBlocks = (date: string, rangeEndDate?: string) => {
   });
 
   const updateBlock = useMutation({
-    mutationFn: async ({ id, ...updates }: { id: string; title?: string; start_time?: string; end_time?: string; block_date?: string | null; color?: string; is_recurring?: boolean; days_of_week?: number[] }) => {
+    mutationFn: async ({ id, ...updates }: { id: string; title?: string; start_time?: string; end_time?: string; block_date?: string | null; color?: string; is_recurring?: boolean; days_of_week?: number[]; metadata?: Record<string, unknown> }) => {
       if (!user) throw new Error('No user');
 
       if (updates.start_time || updates.end_time) {
@@ -121,7 +121,7 @@ export const useTimeBlocks = (date: string, rangeEndDate?: string) => {
 
       const { data, error } = await supabase
         .from('time_blocks')
-        .update(updates)
+        .update(updates as any)
         .eq('id', id)
         .select()
         .maybeSingle();

@@ -1,7 +1,7 @@
 {
   "name": "adonai",
   "private": true,
-  "version": "1.0.138",
+  "version": "1.0.139",
   "type": "module",
   "main": "electron/main.cjs",
   "repository": {
@@ -12,8 +12,8 @@
     "electron:dev": "concurrently \"npm run dev\" \"wait-on http://localhost:5173 && electron .\"",
     "electron:start": "electron .",
     "electron:build": "npm run build && electron-builder --publish always",
-    "dev": "vite --host",
-    "build": "tsc && vite build",
+    "dev": "vite --config vite.config.js --host",
+    "build": "tsc && vite build --config vite.config.js",
     "build:dev": "tsc && vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",
