@@ -1,14 +1,14 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Plus, 
-  ChevronDown, 
-  Search, 
-  X, 
-  Folder, 
-  FolderOpen, 
+import {
+  Plus,
+  ChevronDown,
+  Search,
+  X,
+  Notebook,
+  NotebookText,
   Users,
-  GripHorizontal 
+  GripHorizontal
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
@@ -170,7 +170,7 @@ export const MobileDynamicIsland = ({
   const tasksByFolder = useMemo(() => {
     const groups: Record<string, any[]> = {};
     sortedTasks.forEach(t => {
-      const folder = t.folder_name || t.category || 'Sin carpeta';
+      const folder = t.folder_name || t.category || 'Sin cuaderno';
       if (!groups[folder]) groups[folder] = [];
       groups[folder].push(t);
     });
@@ -223,7 +223,7 @@ export const MobileDynamicIsland = ({
                 />
               </div>
 
-              {/* Folders Navigation (Matching MiniTasksPage aesthetic) */}
+              {/* Notebooks Navigation (Matching MiniTasksPage aesthetic) */}
               <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-2 border-b border-outline-variant/10">
                 <button
                   onClick={() => setSelectedFolderId('all')}
@@ -235,9 +235,9 @@ export const MobileDynamicIsland = ({
                   )}
                 >
                   {selectedFolderId === 'all' ? (
-                    <FolderOpen className="w-3 h-3" />
+                    <NotebookText className="w-3 h-3" />
                   ) : (
-                    <Folder className="w-3 h-3" />
+                    <Notebook className="w-3 h-3" />
                   )}
                   General
                 </button>
@@ -272,9 +272,9 @@ export const MobileDynamicIsland = ({
                           transition={{ type: 'spring', stiffness: 400, damping: 15 }}
                         >
                           {selectedFolderId === folder.id ? (
-                            <FolderOpen className="w-3 h-3" />
+                            <NotebookText className="w-3 h-3" />
                           ) : (
-                            <Folder className="w-3 h-3" style={{ color: folder.color || 'inherit' }} />
+                            <Notebook className="w-3 h-3" style={{ color: folder.color || 'inherit' }} />
                           )}
                         </motion.div>
                       )}

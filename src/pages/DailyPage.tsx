@@ -1,21 +1,16 @@
 // DailyPage — Dark mode, no time blocks, no calendar view
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useTasks } from '@/hooks/useTasks';
-import { useGoals } from '@/hooks/useGoals';
 import { useFolders } from '@/hooks/useFolders';
 import { useProfile } from '@/hooks/useProfile';
 import { useStreaks } from '@/hooks/useStreaks';
-import { useAuth } from '@/contexts/AuthContext';
 import { format, differenceInDays, parseISO } from 'date-fns';
-import { es } from 'date-fns/locale';
-import { Bell, Flame, Monitor, Apple, Sparkles, Folder, FolderOpen, Trophy, Snowflake, X, Download } from 'lucide-react';
+import { Flame, Monitor, Apple, Sparkles, Notebook, NotebookText, Trophy, Snowflake, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { triggerTaskCelebration, triggerDailyCelebration, triggerOnTimeCelebration } from '@/lib/celebrations';
-import { usePriorityColors, getPriorityKey } from '@/hooks/usePriorityColors';
 import TaskDetailModal from '@/components/TaskDetailModal';
 import FullscreenTimer from '@/components/FullscreenTimer';
-import GamificationBar from '@/components/GamificationBar';
-import { useGamification, xpProgressInLevel } from '@/hooks/useGamification';
+import { useGamification } from '@/hooks/useGamification';
 import { TaskCard } from '@/components/TaskCard';
 import { openDownloadDialog } from '@/lib/desktopApp';
 import { startGuidedDownload } from '@/lib/downloadGuide';
@@ -24,121 +19,51 @@ import { ChaosBuddiesTrigger } from '@/components/ChaosBuddiesTrigger';
 import { WeeklySummaryModal } from '@/components/WeeklySummaryModal';
 import { compareTasksWithinQuadrants, getTaskManualOrderGroupKey } from '@/lib/taskOrdering';
 
-const getDynamicGreeting = (
- name: string,
- completedCount: number,
- totalCount: number,
- mainGoalTitle?: string,
-) => {
- const h = new Date().getHours();
- const progress = totalCount > 0? completedCount / totalCount: 0;
- const greetings: string[] = [];
+const NOTEBOOK_PAGE_COUNT = 30;
+const TASKS_PER_NOTEBOOK_PAGE = 15;
+const NOTEBOOK_PAGE_STORAGE_KEY = 'adonai_daily_notebook_page';
 
- if (h < 6) {
- greetings.push(
- `Madrugando, ${name}. El silencio es tuyo.`,
- `Noche productiva, ${name}?`,
- `El mundo duerme, tú avanzas.`,
- );
- } else if (h < 12) {
- if (totalCount === 0) {
- greetings.push(
- `Buenos días, ${name}. Día en blanco, todo es posible.`,
- `Nuevo día, nuevas victorias, ${name}.`,
- );
- } else if (completedCount === 0) {
- greetings.push(
- `Buenos días, ${name}. ${totalCount} tarea${totalCount > 1? 's': ''} te esperan.`,
- `Arranca fuerte, ${name}.`,
- );
- } else {
- greetings.push(
- `Buen ritmo, ${name}. Ya llevas ${completedCount}.`,
- `Sigue así, ${name}. Vas por buen camino.`,
- );
- }
- } else if (h < 18) {
- if (progress >= 1) {
- greetings.push(
- `Todo listo, ${name}. Tarde libre merecida.`,
- `Misión cumplida hoy, ${name}. `,
- );
- } else if (progress > 0.5) {
- greetings.push(
- `Más de la mitad hecho, ${name}. Cierra fuerte.`,
- `La tarde es tuya, ${name}. Quedan pocas.`,
- );
- } else {
- greetings.push(
- `Buenas tardes, ${name}. Aún hay tiempo.`,
- `La tarde empieza, ${name}. Tú decides el ritmo.`,
- );
- }
- } else {
- if (progress >= 1) {
- greetings.push(
- `Día redondo, ${name}. Descansa bien.`,
- `Todo hecho. Buenas noches, ${name}.`,
- );
- } else if (totalCount > 0) {
- greetings.push(
- `Buenas noches, ${name}. ¿Un último empujón?`,
- `La noche es joven, ${name}. Quedan ${totalCount - completedCount}.`,
- );
- } else {
- greetings.push(
- `Buenas noches, ${name}. Mañana será un gran día.`,
- );
- }
- }
-
- if (mainGoalTitle && Math.random() > 0.5) {
- greetings.push(`Cada tarea te acerca a "${mainGoalTitle}", ${name}.`);
- }
-
- const seed = new Date().getDate() + h;
- return greetings[seed % greetings.length];
-};
+const clampNotebookPage = (page: number) => Math.min(NOTEBOOK_PAGE_COUNT, Math.max(1, page || 1));
 
 const DailyPage = () => {
  const today = useMemo(() => format(new Date(), 'yyyy-MM-dd'), []);
  const tasksFilter = useMemo(() => ({ date: today, excludeEvents: false }), [today]);
+ const getInitialNotebookPage = () => {
+ try {
+ const raw = localStorage.getItem(NOTEBOOK_PAGE_STORAGE_KEY);
+ if (!raw) return 1;
+ const saved = JSON.parse(raw) as { date?: string; page?: number };
+ if (saved.date === today) return clampNotebookPage(saved.page || 1);
+ return clampNotebookPage((saved.page || 1) + 1);
+ } catch {
+ return 1;
+ }
+ };
 
- const { user } = useAuth();
  const { tasks, updateTask, isLoading } = useTasks(tasksFilter);
  const { createTask } = useTasks();
- const { goals } = useGoals();
  const { folders } = useFolders();
  const { profile } = useProfile();
  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
  const { metrics, trackDayActive } = useStreaks();
- const { checkAndUnlock, unlocked } = useGamification();
+ const { checkAndUnlock } = useGamification();
 
- // Calculate if streak is frozen (missed days)
  const isStreakFrozen = useMemo(() => {
  if (!metrics?.last_active_date) return false;
  const lastActive = parseISO(metrics.last_active_date);
- const today = new Date();
- today.setHours(0, 0, 0, 0);
+ const todayDate = new Date();
+ todayDate.setHours(0, 0, 0, 0);
  lastActive.setHours(0, 0, 0, 0);
- const diff = differenceInDays(today, lastActive);
- return diff >= 2;
+ return differenceInDays(todayDate, lastActive) >= 2;
  }, [metrics?.last_active_date]);
-
- const { priorityColors } = usePriorityColors();
- const streakCount = metrics?.streak_current || 0;
  const [selectedTask, setSelectedTask] = useState<any>(null);
  const [timerTask, setTimerTask] = useState<any>(null);
  const [dragIdx, setDragIdx] = useState<number | null>(null);
  const [orderedTasks, setOrderedTasks] = useState<any[]>([]);
- const [touchIdx, setTouchIdx] = useState<number | null>(null);
- const [touchY, setTouchY] = useState(0);
+ const [notebookPage, setNotebookPage] = useState(getInitialNotebookPage);
+ const [pageTurnDirection, setPageTurnDirection] = useState(1);
+ const [pagePeel, setPagePeel] = useState<'next' | 'prev' | null>(null);
  const [completingTaskId, setCompletingTaskId] = useState<string | null>(null);
- const [currentTime, setCurrentTime] = useState(new Date());
- const levelProgress = useMemo(() => {
- if (!metrics?.xp_total) return 0;
- return xpProgressInLevel(metrics.xp_total).percent;
- }, [metrics?.xp_total]);
  const timerDurationRef = useRef(0);
  const hasTrackedDayRef = useRef(false);
  const tasksRef = useRef(tasks);
@@ -149,15 +74,11 @@ const DailyPage = () => {
  const [showMiniLeadModal, setShowMiniLeadModal] = useState(false);
 
  useEffect(() => {
- const t = setInterval(() => setCurrentTime(new Date()), 30_000);
- 
  if (window.electronAPI) {
  window.electronAPI.onMiniWindowClosed(() => {
  setMiniWidgetOpen(false);
  });
  }
- 
- return () => clearInterval(t);
  }, []);
 
 
@@ -192,17 +113,21 @@ const DailyPage = () => {
  }, []);
 
  const sortedTasks = useMemo(() => {
- let filtered = tasks;
+ let filtered = tasks.filter((t: any) => t.due_date === today || (t.due_date < today && t.status!== 'done'));
  if (selectedFolderId!== 'all') {
- filtered =!selectedFolderId? tasks.filter((t: any) =>!t.folder_id): tasks.filter((t: any) => t.folder_id === selectedFolderId);
+ filtered =!selectedFolderId? filtered.filter((t: any) =>!t.folder_id): filtered.filter((t: any) => t.folder_id === selectedFolderId);
  }
  
  return [...filtered].sort(compareTasksWithinQuadrants);
- }, [tasks, selectedFolderId]);
+ }, [tasks, selectedFolderId, today]);
 
  useEffect(() => {
  setOrderedTasks(sortedTasks);
  }, [sortedTasks]);
+
+ useEffect(() => {
+ localStorage.setItem(NOTEBOOK_PAGE_STORAGE_KEY, JSON.stringify({ date: today, page: notebookPage }));
+ }, [notebookPage, today]);
 
  const persistVisibleOrder = useCallback((nextOrder: any[]) => {
  nextOrder.forEach((task, idx) => {
@@ -237,45 +162,14 @@ const DailyPage = () => {
  setDragIdx(null);
  }, [dragIdx, orderedTasks, persistVisibleOrder]);
 
- const handleTouchStart = useCallback((idx: number, e: React.TouchEvent) => {
- if (orderedTasks[idx]?.status === 'done') return;
- setTouchIdx(idx);
- setTouchY(e.touches[0].clientY);
- }, [orderedTasks]);
-
- const handleTouchMove = useCallback((e: React.TouchEvent) => {
- if (touchIdx === null) return;
- const steps = Math.round((e.touches[0].clientY - touchY) / 72);
- if (steps === 0) return;
- const nextIdx = Math.max(0, Math.min(orderedTasks.length - 1, touchIdx + steps));
- const dragged = orderedTasks[touchIdx];
- const target = orderedTasks[nextIdx];
- if (!dragged ||!target || dragged.status === 'done' || target.status === 'done') return;
- if (getTaskManualOrderGroupKey(dragged)!== getTaskManualOrderGroupKey(target)) return;
-
- const next = [...orderedTasks];
- const [moved] = next.splice(touchIdx, 1);
- next.splice(nextIdx, 0, moved);
- setOrderedTasks(next);
- setTouchIdx(nextIdx);
- setTouchY(e.touches[0].clientY);
- }, [orderedTasks, touchIdx, touchY]);
-
- const handleTouchEnd = useCallback(() => {
- if (touchIdx!== null) persistVisibleOrder(orderedTasks);
- setTouchIdx(null);
- }, [orderedTasks, persistVisibleOrder, touchIdx]);
-
- const completedCount = useMemo(() => tasks.filter((t) => t.status === 'done').length, [tasks]);
-
- const greeting = useMemo(() => getDynamicGreeting(
- profile?.name || user?.user_metadata?.full_name || (user?.email?.split('@')[0]) || 'Emprendedor',
- completedCount,
- sortedTasks.length,
- profile?.main_goal_id? goals.find((g: any) => g.id === profile.main_goal_id)?.title: undefined
- ), [profile, user, completedCount, sortedTasks.length, goals]);
-
  const profileName = useMemo(() => profile?.name, [profile?.name]);
+
+ const visibleNotebookTasks = useMemo(() => {
+ const start = (notebookPage - 1) * TASKS_PER_NOTEBOOK_PAGE;
+ return orderedTasks.slice(start, start + TASKS_PER_NOTEBOOK_PAGE);
+ }, [notebookPage, orderedTasks]);
+
+ const shouldShowTaskPage = notebookPage <= NOTEBOOK_PAGE_COUNT;
 
  const handleComplete = useCallback(async (task: any, e: React.MouseEvent) => {
  e.stopPropagation();
@@ -340,189 +234,161 @@ const DailyPage = () => {
  setTimerTask(task);
  }, []);
 
+ const playPageTurnSound = useCallback(() => {
+ try {
+ const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+ if (!AudioContextClass) return;
+ const context = new AudioContextClass();
+ const bufferSize = context.sampleRate * 0.28;
+ const buffer = context.createBuffer(1, bufferSize, context.sampleRate);
+ const output = buffer.getChannelData(0);
+ for (let i = 0; i < bufferSize; i += 1) {
+ const progress = i / bufferSize;
+ const attack = Math.min(1, progress * 10);
+ const release = Math.max(0, 1 - progress);
+ const flutter = 0.65 + Math.sin(progress * Math.PI * 7) * 0.22;
+ output[i] = (Math.random() * 2 - 1) * attack * release * flutter * 0.07;
+ }
+ const source = context.createBufferSource();
+ const highpass = context.createBiquadFilter();
+ const lowpass = context.createBiquadFilter();
+ const gain = context.createGain();
+ highpass.type = 'highpass';
+ highpass.frequency.value = 520;
+ lowpass.type = 'lowpass';
+ lowpass.frequency.value = 3600;
+ gain.gain.setValueAtTime(0.001, context.currentTime);
+ gain.gain.linearRampToValueAtTime(0.16, context.currentTime + 0.035);
+ gain.gain.exponentialRampToValueAtTime(0.001, context.currentTime + 0.28);
+ source.buffer = buffer;
+ source.connect(highpass);
+ highpass.connect(lowpass);
+ lowpass.connect(gain);
+ gain.connect(context.destination);
+ source.start();
+ source.stop(context.currentTime + 0.28);
+ source.onended = () => context.close();
+ } catch {
+ // Page audio is decorative; ignore browser restrictions.
+ }
+ }, []);
+
+ const turnNotebookPage = useCallback((direction: 1 | -1) => {
+ setPageTurnDirection(direction);
+ setNotebookPage((page) => {
+ const next = clampNotebookPage(page + direction);
+ if (next!== page) playPageTurnSound();
+ return next;
+ });
+ }, [playPageTurnSound]);
+
+ const goToPrevPage = useCallback(() => {
+ turnNotebookPage(-1);
+ }, [turnNotebookPage]);
+
+ const goToNextPage = useCallback(() => {
+ turnNotebookPage(1);
+ }, [turnNotebookPage]);
+
+ const pageTurnVariants = {
+ enter: (direction: number) => ({
+ opacity: 0,
+ rotateY: direction > 0? -8: 8,
+ x: direction > 0? 10: -10,
+ }),
+ center: {
+ opacity: 1,
+ rotateY: 0,
+ x: 0,
+ },
+ exit: (direction: number) => ({
+ opacity: 0,
+ rotateY: direction > 0? 10: -10,
+ x: direction > 0? -12: 12,
+ }),
+ };
+
+ const renderBlankNotebookPage = (compact = false) => (
+ <div className={compact ? 'min-h-[360px]' : 'min-h-[52vh]'} />
+ );
+
+ const renderNotebookControls = (compact = false) => (
+ <div className={`relative z-20 flex items-center justify-start ${compact ? 'mt-4 pt-2' : 'mt-auto pt-4'}`}>
+ <div className="rounded-full bg-transparent px-1.5 py-1 text-[10px] font-black tabular-nums tracking-[0.16em] text-[#6f7a8d]/35">
+ {notebookPage}/{NOTEBOOK_PAGE_COUNT}
+ </div>
+ </div>
+ );
+
+ const renderPageDragHandles = (compact = false) => (
+ <>
+ <motion.div
+ role="button"
+ aria-label="Arrastrar para volver la pagina"
+ drag="x"
+ dragConstraints={{ left: 0, right: 0 }}
+ dragElastic={0.28}
+ onDragStart={() => setPagePeel('prev')}
+ onDragEnd={(_, info) => {
+ setPagePeel(null);
+ if (info.offset.x > 34 || info.velocity.x > 260) goToPrevPage();
+ }}
+ className={`cursor-hand group absolute left-0 z-40 ${compact ? 'top-24 bottom-14 w-10' : 'top-24 bottom-16 w-14'}`}
+ >
+ <div className={`absolute left-0 top-1/2 flex -translate-y-1/2 items-center justify-center rounded-r-2xl border border-l-0 border-outline-variant/18 bg-background/45 shadow-sm backdrop-blur-sm transition-opacity ${compact ? 'h-20 w-5' : 'h-24 w-6'} ${notebookPage === 1 ? 'opacity-25' : 'opacity-70 group-hover:opacity-100'}`}>
+ <div className="space-y-1">
+ <span className="block h-5 w-px rounded-full bg-on-surface-variant/30" />
+ <span className="block h-5 w-px rounded-full bg-on-surface-variant/20" />
+ <span className="block h-5 w-px rounded-full bg-on-surface-variant/30" />
+ </div>
+ </div>
+ </motion.div>
+ <motion.div
+ role="button"
+ aria-label="Arrastrar para pasar la pagina"
+ drag="x"
+ dragConstraints={{ left: 0, right: 0 }}
+ dragElastic={0.28}
+ onDragStart={() => setPagePeel('next')}
+ onDragEnd={(_, info) => {
+ setPagePeel(null);
+ if (info.offset.x < -34 || info.velocity.x < -260) goToNextPage();
+ }}
+ className={`cursor-hand group absolute right-0 z-40 ${compact ? 'top-24 bottom-14 w-10' : 'top-24 bottom-16 w-14'}`}
+ >
+ <div className={`absolute right-0 top-1/2 flex -translate-y-1/2 items-center justify-center rounded-l-2xl border border-r-0 border-outline-variant/18 bg-background/45 shadow-sm backdrop-blur-sm transition-opacity ${compact ? 'h-20 w-5' : 'h-24 w-6'} ${notebookPage === NOTEBOOK_PAGE_COUNT ? 'opacity-25' : 'opacity-70 group-hover:opacity-100'}`}>
+ <div className="space-y-1">
+ <span className="block h-5 w-px rounded-full bg-on-surface-variant/30" />
+ <span className="block h-5 w-px rounded-full bg-on-surface-variant/20" />
+ <span className="block h-5 w-px rounded-full bg-on-surface-variant/30" />
+ </div>
+ </div>
+ </motion.div>
+ <AnimatePresence>
+ {pagePeel && (
+ <motion.div
+ key={pagePeel}
+ initial={{ opacity: 0, scaleX: 0.12, skewY: pagePeel === 'next'? -4: 4 }}
+ animate={{ opacity: 0.78, scaleX: 1, skewY: pagePeel === 'next'? -1: 1 }}
+ exit={{ opacity: 0, scaleX: 0.1 }}
+ transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+ className={`pointer-events-none absolute top-7 bottom-7 z-30 w-[42%] bg-background/65 shadow-2xl ${
+ pagePeel === 'next' ? 'right-0 origin-right rounded-l-[32px]' : 'left-0 origin-left rounded-r-[32px]'
+ }`}
+ style={{
+ backgroundImage: 'linear-gradient(90deg, rgba(255,255,255,0.18), transparent 42%, rgba(0,0,0,0.045))',
+ }}
+ />
+ )}
+ </AnimatePresence>
+ </>
+ );
+
  return (
  <div className="min-h-screen bg-background text-foreground selection:bg-primary/20">
- <div className="max-w-[430px] lg:max-w-4xl mx-auto px-6 pt-4 pb-32 space-y-6 relative">
- 
- {/* Header */}
- <div className="flex items-center justify-center pt-2 pb-0 relative">
- <div id="app-logo" className="flex flex-col items-center flex-1 md:flex-none">
- {/* Desktop-only greeting/logo in header */}
- <motion.div
- key={format(currentTime, 'h:mm')}
- initial={{ opacity: 0, y: 10 }}
- animate={{ opacity: 1, y: 0 }}
- className="hidden md:flex flex-col items-center"
- >
- <div className="flex items-baseline gap-2">
- <span className="text-5xl font-black tracking-[-0.05em] tabular-nums text-foreground">
- {format(currentTime, 'h:mm')}
- </span>
- <span className="text-sm font-black text-on-surface-variant uppercase tracking-widest">
- {format(currentTime, 'a')}
- </span>
- </div>
- <div className="mt-2 flex flex-col items-center gap-1">
- <span className="text-xs uppercase tracking-[0.2em] font-bold text-on-surface-variant/60">
- {format(currentTime, "EEEE, d 'de' MMMM", { locale: es })}
- </span>
- </div>
- </motion.div>
+ <div className="mx-auto w-full max-w-[440px] px-3 pt-4 pb-24 md:max-w-[980px] md:px-6 md:pt-6 md:pb-8 relative">
 
- {/* Mobile-only prominent stats in header */}
- <motion.div
- initial={{ opacity: 0, scale: 0.9 }}
- animate={{ opacity: 1, scale: 1 }}
- className="md:hidden flex items-center gap-5 px-4 py-1.5 rounded-2xl bg-surface-container-highest/40 backdrop-blur-xl border border-outline-variant/15 shadow-sm"
- >
- <div className="flex items-center gap-2 pr-3 border-r border-outline-variant/20">
- {isStreakFrozen? (
- <motion.div
- animate={{ x: [-0.5, 0.5, -0.5, 0.5, 0], scale: [1, 1.02, 1] }}
- transition={{ repeat: Infinity, duration: 3 }}
- className="flex items-center gap-1.5"
- >
- <div className="relative flex items-center justify-center">
- <motion.div 
- className="absolute inset-0 bg-cyan-400/30 blur-md rounded-full"
- animate={{ opacity: [0.3, 0.7, 0.3], scale: [0.8, 1.2, 0.8] }}
- transition={{ repeat: Infinity, duration: 3 }}
- />
- <Snowflake className="relative z-10 w-4 h-4 text-cyan-400 fill-cyan-400/20" />
- </div>
- <span className="text-xs font-black text-cyan-400">{metrics?.streak_current || 0}d </span>
- </motion.div>
- ): (
- <div className="flex items-center gap-1.5">
- <div className="relative flex items-center justify-center w-5 h-5">
- {/* Fire Glow - Mobile */}
- <motion.div 
- className="absolute inset-0 bg-[#E65100]/40 blur-lg rounded-full"
- animate={{ 
- opacity: [0.4, 0.8, 0.4],
- scale: [0.9, 1.4, 0.9],
- }}
- transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
- />
-
- {/* Floating Embers - Mobile */}
- {[...Array(2)].map((_, i) => (
- <motion.div
- key={i}
- className="absolute w-0.5 h-0.5 bg-[#FFD54F] rounded-full"
- initial={{ opacity: 0, y: 5 }}
- animate={{ 
- opacity: [0, 1, 0],
- y: [-5, -15],
- x: [(i - 0.5) * 6],
- }}
- transition={{ 
- repeat: Infinity, 
- duration: 1.2, 
- delay: i * 0.6,
- ease: "easeOut"
- }}
- />
- ))}
-
- {/* Flame Layers - Mobile */}
- <motion.div
- className="relative z-10 flex items-center justify-center"
- animate={{ 
- y: [0, -1, 0],
- scaleY: [1, 1.1, 1],
- rotate: [-2, 2, -2]
- }}
- transition={{ repeat: Infinity, duration: 0.8, ease: "easeInOut" }}
- >
- <Flame className="w-4 h-4 text-[#E65100] fill-[#E65100]/40 filter drop-shadow-[0_0_5px_rgba(230,81,0,0.4)]" />
- 
- <motion.div
- className="absolute inset-0 flex items-center justify-center"
- animate={{ 
- scale: [0.5, 0.6, 0.55],
- opacity: [1, 0.8, 1]
- }}
- transition={{ repeat: Infinity, duration: 0.5, ease: "linear" }}
- >
- <Flame className="w-3 h-3 text-[#FFC107] fill-[#FFC107] filter blur-[0.3px]" />
- </motion.div>
- </motion.div>
- </div>
- <span className="text-xs font-black text-foreground">{metrics?.streak_current || 0}d</span>
- </div>
- )}
- </div>
- <div className="flex items-center gap-2">
- <div className="relative flex items-center justify-center">
- <motion.div 
- className="absolute inset-0 bg-[#FFD700]/40 blur-lg rounded-full"
- animate={{ 
- opacity: [0.3, 0.7, 0.3],
- scale: [0.8, 1.2, 0.8]
- }}
- transition={{ repeat: Infinity, duration: 5, ease: "easeInOut" }}
- />
- <Trophy className="relative z-10 w-4 h-4 text-[#FFD700] fill-[#FFD700]/30 filter drop-shadow-[0_0_8px_rgba(255,215,0,0.4)]" />
- </div>
- <span className="text-xs font-black text-foreground">Lvl {metrics?.level || 1}</span>
- </div>
- </motion.div>
- </div>
- 
- {/* Date Box on top-right for mobile - Fixed to match menu trigger */}
- <div className={`md:hidden fixed z-[70] flex flex-shrink-0 flex-col items-center justify-center bg-surface-container-high/60 backdrop-blur-md border border-outline-variant/20 rounded-xl px-2 py-1 min-w-[40px] right-4 ${
- (window as any).electronAPI? 'top-12': 'top-4'
- }`}>
- <span className="text-lg font-black leading-none text-primary">
- {format(new Date(), 'd')}
- </span>
- <span className="text-[8px] font-black uppercase tracking-wider text-on-surface-variant/60 leading-none mt-0.5">
- {format(new Date(), 'MMM', { locale: es }).replace('.', '')}
- </span>
- </div>
-
- {/* PC Control Center - Only Mini Window Toggle remains */}
- <div className="hidden md:flex absolute top-4 right-6 flex-col items-end gap-2 z-[80]">
- <div className="flex items-center gap-3 bg-surface-container-highest/30 backdrop-blur-md px-4 py-2 rounded-full border border-outline-variant/10 shadow-sm hover:shadow-md transition-all group">
- <span className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant/70">Mini Ventana</span>
- {!window.electronAPI &&!localStorage.getItem('adonai_mini_btn_clicked') && (
- <span className="text-[7px] font-black uppercase tracking-widest text-primary/80 bg-primary/10 px-1.5 py-0.5 rounded-full animate-pulse-soft">
- Escritorio
- </span>
- )}
- <button
- id="mini-window-btn"
- onClick={toggleMiniWidget}
- className={`relative w-10 h-5 rounded-full transition-all border flex items-center px-0.5 ${
- miniWidgetOpen? 'bg-primary/20 border-primary/30': 'bg-surface-container-highest border-outline-variant/30'
- }`}
- >
- <motion.div
- animate={{ x: miniWidgetOpen? 20: 0 }}
- transition={{ type: "spring", stiffness: 500, damping: 30 }}
- className={`w-3.5 h-3.5 rounded-full shadow-sm ${
- miniWidgetOpen? 'bg-primary': 'bg-on-surface-variant/40'
- }`}
- />
- </button>
- </div>
- </div>
- </div>
-
- {/* Mobile Greeting - Centered and visible only on mobile */}
- <div className="md:hidden flex justify-center py-2">
- <motion.p 
- initial={{ opacity: 0, y: 10 }}
- animate={{ opacity: 1, y: 0 }}
- className="text-sm font-black text-foreground/80 text-center px-6"
- >
- {greeting}
- </motion.p>
- </div>
-
- {/* Compact Stats Bar - Centered for Desktop */}
- <div className="hidden md:flex justify-center mb-6">
+ {false && (
  <motion.div 
  initial={{ opacity: 0, y: 10 }}
  animate={{ opacity: 1, y: 0 }}
@@ -652,26 +518,78 @@ const DailyPage = () => {
  </div>
  </div>
  </motion.div>
- </div>
+ )}
 
- {/* Folder filter bar */}
-
- {/* Desktop Task Island - Unifying Folders and Tasks */}
+ {/* Desktop Task Notebook */}
  <motion.div 
  initial={{ opacity: 0, y: 20 }}
  animate={{ opacity: 1, y: 0 }}
- className="hidden md:flex flex-col bg-surface-container/40 backdrop-blur-3xl border border-outline-variant/15 rounded-[48px] p-10 shadow-2xl shadow-black/20"
+ className="relative hidden min-h-[min(740px,calc(100vh-8rem))] w-full md:flex flex-col overflow-hidden rounded-[36px] bg-surface/95 border border-outline-variant/12 py-7 pl-24 pr-10 shadow-[0_18px_45px_rgba(0,0,0,0.10)] backdrop-blur-xl"
+ style={{
+ backgroundImage: 'radial-gradient(circle at 18% 22%, rgba(255,255,255,0.09) 0 1px, transparent 1.6px), radial-gradient(circle at 73% 58%, rgba(0,0,0,0.05) 0 1px, transparent 1.7px), radial-gradient(circle at 42% 76%, rgba(255,255,255,0.045) 0 1px, transparent 1.8px), linear-gradient(90deg, transparent 0 70px, rgba(235,120,120,0.20) 70px 71px, transparent 71px calc(100% - 46px), rgba(235,120,120,0.13) calc(100% - 46px) calc(100% - 45px), transparent calc(100% - 45px))',
+ backgroundPosition: '0 18px',
+ borderRadius: '36px 34px 38px 35px',
+ }}
  >
+ <div className="absolute inset-x-0 top-0 h-12 bg-gradient-to-b from-white/[0.035] to-transparent pointer-events-none" />
+ <div className="pointer-events-none absolute bottom-5 right-0 top-5 w-10">
+ {[0, 1, 2, 3, 4, 5].map((page) => (
+ <span
+ key={page}
+ className="absolute right-0 block h-[calc(100%-8px)] rounded-r-[22px] border-r border-y border-outline-variant/10 bg-background/20"
+ style={{
+ top: `${page * 4}px`,
+ width: `${12 + page * 4}px`,
+ opacity: 0.18 - page * 0.018,
+ }}
+ />
+ ))}
+ </div>
+ <div className="absolute bottom-8 left-16 top-8 w-px bg-rose-300/18" />
+ <div className="absolute bottom-8 right-14 top-8 w-px bg-rose-300/12" />
+ <div className="absolute inset-y-3 left-5 flex flex-col justify-between">
+ {Array.from({ length: 18 }).map((_, ring) => (
+ <span
+ key={ring}
+ className="h-3.5 w-12 rounded-full border-2 border-outline-variant/28 bg-background/20 shadow-[inset_0_1px_1px_rgba(255,255,255,0.25),0_1px_2px_rgba(0,0,0,0.12)]"
+ />
+ ))}
+ </div>
 
+ <div className="relative z-10 mb-4 flex items-start justify-end">
+ <button
+ id="mini-window-btn"
+ onClick={toggleMiniWidget}
+ className="inline-flex items-center gap-2 rounded-full border border-outline-variant/16 bg-background/55 px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-on-surface-variant/65 shadow-sm transition-all hover:border-primary/25 hover:text-primary active:scale-95"
+ >
+ <Monitor className="h-3.5 w-3.5" />
+ Mini cuaderno
+ <span className={`h-2 w-2 rounded-full ${miniWidgetOpen? 'bg-primary': 'bg-on-surface-variant/30'}`} />
+ </button>
+ </div>
 
- {/* Folder Filter Bar - Integrated into Desktop Island */}
- <div className="flex items-center gap-3 overflow-x-auto no-scrollbar pb-6 mb-2 border-b border-outline-variant/10">
+ <AnimatePresence mode="wait" custom={pageTurnDirection}>
+ <motion.div
+ key={`desktop-page-${notebookPage}`}
+ custom={pageTurnDirection}
+ variants={pageTurnVariants}
+ initial="enter"
+ animate="center"
+ exit="exit"
+ transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+ className="relative z-10 flex flex-1 flex-col"
+ style={{ transformOrigin: pageTurnDirection > 0? 'right center': 'left center', transformStyle: 'preserve-3d' }}
+ >
+ {shouldShowTaskPage? (
+ <>
+ {/* Cuadernos Bar */}
+ <div className="relative z-10 flex items-center gap-2 overflow-x-auto no-scrollbar pb-5 mb-2 border-b border-outline-variant/10">
  <motion.button
  onClick={() => setSelectedFolderId(null)}
  whileHover={{ scale: 1.02 }}
  whileTap={{ scale: 0.98 }}
- className={`flex-shrink-0 px-5 py-2.5 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all border ${
- selectedFolderId === null? 'bg-primary text-primary-foreground border-primary shadow-lg shadow-primary/20': 'bg-surface-container-high/50 text-on-surface-variant/70 hover:text-primary border-outline-variant/15 hover:border-primary/30'
+ className={`flex-shrink-0 px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-widest transition-all border ${
+ selectedFolderId === null? 'bg-primary text-primary-foreground border-primary shadow-lg shadow-primary/15': 'bg-background/45 text-on-surface-variant/70 hover:text-primary border-outline-variant/15 hover:border-primary/30'
  }`}
  >
  General
@@ -684,8 +602,8 @@ const DailyPage = () => {
  onClick={() => setSelectedFolderId(isSelected? null: folder.id)}
  whileHover={{ scale: 1.02 }}
  whileTap={{ scale: 0.98 }}
- className={`flex-shrink-0 flex items-center gap-2.5 px-5 py-2.5 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all border ${
- isSelected? 'bg-primary text-primary-foreground border-primary shadow-lg shadow-primary/20': 'bg-surface-container-high/50 text-on-surface-variant/70 hover:text-primary border-outline-variant/15 hover:border-primary/30'
+ className={`flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-widest transition-all border ${
+ isSelected? 'bg-primary text-primary-foreground border-primary shadow-lg shadow-primary/15': 'bg-background/45 text-on-surface-variant/70 hover:text-primary border-outline-variant/15 hover:border-primary/30'
  }`}
  >
  <motion.div
@@ -696,9 +614,9 @@ const DailyPage = () => {
  style={{ display: 'flex' }}
  >
  {isSelected? (
- <FolderOpen className="w-4 h-4" />
+ <NotebookText className="w-4 h-4" />
  ): (
- <Folder className="w-4 h-4" />
+ <Notebook className="w-4 h-4" />
  )}
  </motion.div>
  {folder.name}
@@ -707,32 +625,32 @@ const DailyPage = () => {
  })}
  </div>
 
- {/* Task List - Inside Desktop Island */}
- <div className="mt-8">
+ {/* Task List - Inside Desktop Notebook */}
+ <div
+ className="relative z-10 mt-3 pb-5 pt-[2px]"
+ style={{
+ backgroundImage: 'repeating-linear-gradient(180deg, rgba(120,145,190,0.16) 0 1px, transparent 1px 42px)',
+ }}
+ >
  {isLoading? (
  <div className="space-y-6">
  {[1, 2, 3].map((i) => (
  <div key={i} className="h-24 bg-surface-container-highest/20 border border-outline-variant/10 rounded-[32px] animate-pulse" />
  ))}
  </div>
- ): sortedTasks.length > 0? (
- <div className="space-y-4">
- <AnimatePresence mode="popLayout">
- {orderedTasks.map((task, idx) => (
+ ): visibleNotebookTasks.length > 0? (
+ <div className="space-y-0">
+ {visibleNotebookTasks.map((task, idx) => (
  <TaskCard
  key={task.id}
  task={task}
- taskIdx={idx}
+ taskIdx={(notebookPage - 1) * TASKS_PER_NOTEBOOK_PAGE + idx}
  isDone={task.status === 'done'}
  completingTaskId={completingTaskId}
  dragIdx={dragIdx}
- touchIdx={touchIdx}
  handleDragStart={handleDragStart}
  handleDragOver={handleDragOver}
  handleDragEnd={handleDragEnd}
- handleTouchStart={handleTouchStart}
- handleTouchMove={handleTouchMove}
- handleTouchEnd={handleTouchEnd}
  setSelectedTask={setSelectedTask}
  handleComplete={handleComplete}
  handleUncomplete={handleUncomplete}
@@ -740,9 +658,9 @@ const DailyPage = () => {
  view="daily"
  />
  ))}
- </AnimatePresence>
  </div>
  ): (
+ notebookPage === 1? (
  <motion.div 
  initial={{ opacity: 0, scale: 0.95 }}
  animate={{ opacity: 1, scale: 1 }}
@@ -756,18 +674,84 @@ const DailyPage = () => {
  Tu isla de tareas está despejada. Es el momento perfecto para enfocarte en lo que sigue o disfrutar el progreso.
  </p>
  </motion.div>
+ ): (
+ renderBlankNotebookPage(false)
+ )
  )}
  </div>
+ </>
+ ): (
+ <div className="relative z-10">
+ {renderBlankNotebookPage(false)}
+ </div>
+ )}
+ </motion.div>
+ </AnimatePresence>
+ {renderPageDragHandles(false)}
+ {renderNotebookControls(false)}
  </motion.div>
 
  {/* Mobile Task Island */}
  <motion.div 
  initial={{ opacity: 0, y: 15 }}
  animate={{ opacity: 1, y: 0 }}
- className="md:hidden flex flex-col bg-surface-container/30 backdrop-blur-2xl border border-outline-variant/10 rounded-[32px] p-5 shadow-xl shadow-black/10"
+ className="relative md:hidden flex min-h-[min(680px,calc(100vh-8rem))] w-full flex-col overflow-hidden rounded-[30px] bg-surface/95 border border-outline-variant/12 py-4 pl-12 pr-4 shadow-xl shadow-black/10 backdrop-blur-xl"
+ style={{
+ backgroundImage: 'radial-gradient(circle at 20% 22%, rgba(255,255,255,0.09) 0 1px, transparent 1.6px), radial-gradient(circle at 78% 62%, rgba(0,0,0,0.05) 0 1px, transparent 1.7px), radial-gradient(circle at 44% 76%, rgba(255,255,255,0.045) 0 1px, transparent 1.8px), linear-gradient(90deg, transparent 0 38px, rgba(235,120,120,0.18) 38px 39px, transparent 39px calc(100% - 28px), rgba(235,120,120,0.11) calc(100% - 28px) calc(100% - 27px), transparent calc(100% - 27px))',
+ backgroundPosition: '0 17px',
+ borderRadius: '30px 28px 32px 29px',
+ }}
  >
+ <div className="absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-white/[0.035] to-transparent pointer-events-none" />
+ <div className="pointer-events-none absolute bottom-4 right-0 top-4 w-7">
+ {[0, 1, 2, 3, 4].map((page) => (
+ <span
+ key={page}
+ className="absolute right-0 block h-[calc(100%-6px)] rounded-r-[18px] border-r border-y border-outline-variant/10 bg-background/20"
+ style={{
+ top: `${page * 3}px`,
+ width: `${8 + page * 3}px`,
+ opacity: 0.16 - page * 0.018,
+ }}
+ />
+ ))}
+ </div>
+ <div className="absolute bottom-7 left-8 top-7 w-px bg-rose-300/18" />
+ <div className="absolute bottom-7 right-7 top-7 w-px bg-rose-300/12" />
+ <div className="absolute inset-y-3 left-3 flex flex-col justify-between">
+ {Array.from({ length: 15 }).map((_, ring) => (
+ <span
+ key={ring}
+ className="h-3 w-8 rounded-full border-2 border-outline-variant/28 bg-background/20 shadow-[inset_0_1px_1px_rgba(255,255,255,0.25),0_1px_2px_rgba(0,0,0,0.12)]"
+ />
+ ))}
+ </div>
+ <div className="relative z-10 mb-4 flex justify-end">
+ <button
+ id="mini-window-btn-mobile"
+ onClick={toggleMiniWidget}
+ className="inline-flex items-center gap-1.5 rounded-full border border-outline-variant/16 bg-background/65 px-2 py-1 text-[8px] font-black uppercase tracking-[0.1em] text-on-surface-variant/60 shadow-sm transition-all active:scale-95"
+ >
+ <Monitor className="h-3 w-3" />
+ Mini
+ </button>
+ </div>
+ <AnimatePresence mode="wait" custom={pageTurnDirection}>
+ <motion.div
+ key={`mobile-page-${notebookPage}`}
+ custom={pageTurnDirection}
+ variants={pageTurnVariants}
+ initial="enter"
+ animate="center"
+ exit="exit"
+ transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+ className="relative z-10 flex flex-1 flex-col"
+ style={{ transformOrigin: pageTurnDirection > 0? 'right center': 'left center', transformStyle: 'preserve-3d' }}
+ >
+ {shouldShowTaskPage? (
+ <>
  {/* Mobile Folders - Centered */}
- <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-2 justify-center border-b border-outline-variant/10 pb-4 mb-4">
+ <div className="relative z-10 flex items-center gap-2 overflow-x-auto no-scrollbar py-2 justify-center border-b border-outline-variant/10 pb-4 mb-4">
  <motion.button
  onClick={() => setSelectedFolderId(null)}
  whileTap={{ scale: 0.95 }}
@@ -796,9 +780,9 @@ const DailyPage = () => {
  style={{ display: 'flex' }}
  >
  {isSelected? (
- <FolderOpen className="w-3.5 h-3.5" />
+ <NotebookText className="w-3.5 h-3.5" />
  ): (
- <Folder className="w-3.5 h-3.5" />
+ <Notebook className="w-3.5 h-3.5" />
  )}
  </motion.div>
  {folder.name}
@@ -808,31 +792,31 @@ const DailyPage = () => {
  </div>
 
  {/* Mobile Task List */}
- <div>
+ <div
+ className="relative z-10 pb-5 pt-[2px]"
+ style={{
+ backgroundImage: 'repeating-linear-gradient(180deg, rgba(120,145,190,0.16) 0 1px, transparent 1px 42px)',
+ }}
+ >
  {isLoading? (
  <div className="space-y-4">
  {[1, 2, 3].map((i) => (
  <div key={i} className="h-20 bg-surface-container-highest/10 border border-outline-variant/10 rounded-2xl animate-pulse" />
  ))}
  </div>
- ): sortedTasks.length > 0? (
- <div className="space-y-3">
- <AnimatePresence mode="popLayout">
- {orderedTasks.map((task, idx) => (
+ ): visibleNotebookTasks.length > 0? (
+ <div className="space-y-0">
+ {visibleNotebookTasks.map((task, idx) => (
  <TaskCard
  key={task.id}
  task={task}
- taskIdx={idx}
+ taskIdx={(notebookPage - 1) * TASKS_PER_NOTEBOOK_PAGE + idx}
  isDone={task.status === 'done'}
  completingTaskId={completingTaskId}
  dragIdx={dragIdx}
- touchIdx={touchIdx}
  handleDragStart={handleDragStart}
  handleDragOver={handleDragOver}
  handleDragEnd={handleDragEnd}
- handleTouchStart={handleTouchStart}
- handleTouchMove={handleTouchMove}
- handleTouchEnd={handleTouchEnd}
  setSelectedTask={setSelectedTask}
  handleComplete={handleComplete}
  handleUncomplete={handleUncomplete}
@@ -840,9 +824,9 @@ const DailyPage = () => {
  view="daily"
  />
  ))}
- </AnimatePresence>
  </div>
  ): (
+ notebookPage === 1? (
  <motion.div 
  initial={{ opacity: 0, scale: 0.95 }}
  animate={{ opacity: 1, scale: 1 }}
@@ -856,8 +840,21 @@ const DailyPage = () => {
  No hay tareas para hoy. Es un buen momento para descansar.
  </p>
  </motion.div>
+ ): (
+ renderBlankNotebookPage(true)
+ )
  )}
  </div>
+ </>
+ ): (
+ <div className="relative z-10">
+ {renderBlankNotebookPage(true)}
+ </div>
+ )}
+ </motion.div>
+ </AnimatePresence>
+ {renderPageDragHandles(true)}
+ {renderNotebookControls(true)}
  </motion.div>
 
  </div>
@@ -900,10 +897,10 @@ const DailyPage = () => {
 
  <div className="text-center space-y-2">
  <h2 className="text-xl font-black tracking-tight text-foreground">
- Mini ventana exclusiva de escritorio
+ Mini cuaderno exclusivo de escritorio
  </h2>
  <p className="text-on-surface-variant text-sm font-medium leading-relaxed">
- La mini ventana solo está disponible en la app de escritorio. Descárgala y ten Adonai siempre visible mientras trabajas.
+ El mini cuaderno solo está disponible en la app de escritorio. Descárgala y ten Adonai siempre visible mientras trabajas.
  </p>
  </div>
 

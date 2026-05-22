@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
 import { motion, AnimatePresence } from "framer-motion"
-import { Calendar, Clock, LayoutGrid, List, Folder, FolderOpen, Plus, Search, Filter, X, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Check, MoreHorizontal, Link as LinkIcon, Trash2, Repeat, Zap, Menu, GripHorizontal, GripVertical, Bell, BellOff, Palette, Paperclip, ChevronsUpDown } from "lucide-react"
+import { Calendar, Clock, LayoutGrid, List, Notebook, NotebookText, Plus, Search, Filter, X, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Check, MoreHorizontal, Link as LinkIcon, Trash2, Repeat, Zap, Menu, GripHorizontal, GripVertical, Bell, BellOff, Palette, Paperclip, ChevronsUpDown } from "lucide-react"
 import ScrollableTimePicker from "./scrollable-time-picker"
 import { usePriorityColors, getPriorityKey } from "@/hooks/usePriorityColors"
 import { cn } from "@/lib/utils"
@@ -1587,7 +1587,7 @@ export function EventManager({
                       <p className="text-[11px] text-on-surface-variant font-semibold leading-snug">Mantén presionado para arrastrar al calendario</p>
                     </div>
 
-                    {/* Folder filter bar */}
+                    {/* Notebook filter bar */}
                     {uniqueCategories.length > 0 && (
                       <div className="flex items-center gap-2 overflow-x-auto px-4 py-3 border-b border-outline-variant/10 bg-surface-container-low/40">
                         {uniqueCategories.map(cat => {
@@ -1610,9 +1610,9 @@ export function EventManager({
                                 style={{ display: 'flex' }}
                               >
                                 {isSelected ? (
-                                  <FolderOpen className="w-3 h-3" />
+                                  <NotebookText className="w-3 h-3" />
                                 ) : (
-                                  <Folder className="w-3 h-3" />
+                                  <Notebook className="w-3 h-3" />
                                 )}
                               </motion.div>
                               {cat}
@@ -1727,9 +1727,9 @@ export function EventManager({
                                       className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0 transition-transform group-hover:scale-110"
                                     >
                                       {expandedFolders.has(folder) ? (
-                                        <FolderOpen className="w-4 h-4 fill-primary/20" />
+                                        <NotebookText className="w-4 h-4 fill-primary/20" />
                                       ) : (
-                                        <Folder className="w-4 h-4 fill-primary/20" />
+                                        <Notebook className="w-4 h-4 fill-primary/20" />
                                       )}
                                     </motion.div>
                                     <div className="text-left">
@@ -1816,8 +1816,8 @@ export function EventManager({
                             ))
                           ) : (
                             <div className="flex flex-col items-center justify-center py-8 opacity-40 text-center px-2">
-                              <Folder className="w-6 h-6 mb-2" />
-                              <p className="text-[9px] font-black uppercase tracking-widest">Sin carpetas</p>
+                              <Notebook className="w-6 h-6 mb-2" />
+                              <p className="text-[9px] font-black uppercase tracking-widest">Sin cuadernos</p>
                             </div>
                           )}
                         </div>
@@ -2423,7 +2423,7 @@ export function EventManager({
                                   customOpen ? "bg-primary/15 text-primary" : "bg-surface-container/40 text-muted-foreground hover:text-primary"
                                 )}
                               >
-                                Personalizado
+                                A medida
                               </button>
                               <button
                                 type="button"

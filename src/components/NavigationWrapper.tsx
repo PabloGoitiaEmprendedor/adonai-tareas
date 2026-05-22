@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { FolderOpen, Users, User, Calendar, Settings, Bell, HelpCircle, Menu, Trash2, Home, Target, Trophy, BarChart3, Sun, History, Palette, Download, Monitor, Apple, Loader2, X, Clock } from 'lucide-react';
+import { NotebookTabs, Users, User, Calendar, Settings, Menu, Target, Trophy, BarChart3, Sun, History, Palette, Download, Monitor, Apple, Loader2, X, Flame, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
 import { startGuidedDownload } from '@/lib/downloadGuide';
 
@@ -25,6 +25,7 @@ import { format, addMinutes } from 'date-fns';
 import { useFolders } from '@/hooks/useFolders';
 import { useNotionIntegration } from '@/hooks/useNotionIntegration';
 import { useRef, useCallback } from 'react';
+import { useStreaks } from '@/hooks/useStreaks';
 
 // Detect if running inside Electron (desktop app)
 const isElectronEnv: boolean =
@@ -84,17 +85,54 @@ interface NavigationWrapperProps {
   children: React.ReactNode;
 }
 
-const SidebarContent = ({ user, profile, menuItems, location, handleNavigate, startTutorial, isSheet, toggleSidebar }: any) => (
+const ProfileProgress = ({ metrics }: { metrics: any }) => (
+  <div className="grid grid-cols-2 gap-2 pt-1">
+    <div className="relative overflow-hidden rounded-2xl border border-[#E65100]/20 bg-gradient-to-br from-[#E65100]/16 to-[#FFB300]/5 px-3 py-2.5 shadow-sm">
+      <div className="absolute -right-3 -top-3 h-10 w-10 rounded-full bg-[#E65100]/25 blur-xl" />
+      <div className="relative flex items-center gap-2">
+        <div className="relative flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl bg-[#E65100]/15">
+          <span className="absolute h-5 w-5 rounded-full bg-[#E65100]/25 blur-md animate-pulse" />
+          <Flame className="relative z-10 h-4 w-4 text-[#E65100] fill-[#E65100]/35 drop-shadow-[0_0_6px_rgba(230,81,0,0.35)]" />
+        </div>
+        <div className="min-w-0">
+          <p className="text-[8px] font-black uppercase tracking-[0.16em] text-[#E65100]/70">Racha</p>
+          <p className="text-sm font-black leading-none text-foreground">{metrics?.streak_current || 0}d</p>
+        </div>
+      </div>
+    </div>
+
+    <div className="relative overflow-hidden rounded-2xl border border-[#FFD700]/25 bg-gradient-to-br from-[#FFD700]/18 to-[#F59E0B]/5 px-3 py-2.5 shadow-sm">
+      <div className="absolute -right-3 -top-3 h-10 w-10 rounded-full bg-[#FFD700]/25 blur-xl" />
+      <div className="relative flex items-center gap-2">
+        <div className="relative flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl bg-[#FFD700]/15">
+          <span className="absolute h-5 w-5 rounded-full bg-[#FFD700]/25 blur-md animate-pulse" />
+          <Trophy className="relative z-10 h-4 w-4 text-[#D9A600] fill-[#FFD700]/35 drop-shadow-[0_0_6px_rgba(255,215,0,0.35)]" />
+        </div>
+        <div className="min-w-0">
+          <p className="text-[8px] font-black uppercase tracking-[0.16em] text-[#B88A00]/75">Nivel</p>
+          <p className="text-sm font-black leading-none text-foreground">{metrics?.level || 1}</p>
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
+const SidebarContent = ({ user, profile, metrics, menuItems, location, handleNavigate, startTutorial, isSheet, toggleSidebar }: any) => {
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const settingsPaths = ['/profile', '/achievements', '/settings', '/priority-settings', '/trash'];
+  const settingsActive = settingsPaths.includes(location.pathname);
+
+  return (
   <div className="flex flex-col h-full bg-surface text-foreground">
     <div className={`p-6 border-b border-outline-variant flex items-center justify-between gap-4 ${isSheet ? 'pr-16' : ''}`}>
       <div 
         onClick={() => handleNavigate('/profile')}
-        className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity group flex-1 min-w-0"
+        className="flex items-start gap-3 cursor-pointer hover:opacity-80 transition-opacity group flex-1 min-w-0"
       >
         <div className="w-12 h-12 rounded-2xl bg-surface-container flex items-center justify-center border border-outline-variant group-hover:bg-surface-container-high transition-colors flex-shrink-0">
           <User className="w-6 h-6 text-primary" />
         </div>
-        <div className="flex flex-col min-w-0">
+        <div className="flex flex-col min-w-0 gap-2">
           <span className="text-sm font-black text-foreground truncate tracking-tight">
             {((profile?.name && profile.name.trim()) || 
                (user?.user_metadata?.full_name && user.user_metadata.full_name.trim()) || 
@@ -102,6 +140,7 @@ const SidebarContent = ({ user, profile, menuItems, location, handleNavigate, st
                'Mi Espacio')}
             {user?.is_anonymous && <span className="text-on-surface-variant/50 font-medium ml-1">(Invitado)</span>}
           </span>
+          <ProfileProgress metrics={metrics} />
         </div>
       </div>
 
@@ -154,19 +193,43 @@ const SidebarContent = ({ user, profile, menuItems, location, handleNavigate, st
         )}
       </div>
 
-      <div className="mt-8 px-6">
-        <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-on-surface-variant mb-4">Ajustes</p>
-        <div className="space-y-1">
-          <Button id="nav-personalizar" onClick={() => handleNavigate('/priority-settings')} variant="ghost" className="w-full justify-start gap-4 h-11 text-on-surface-variant hover:text-foreground hover:bg-surface-container">
-            <Palette className="w-4 h-4" /> <span className="text-xs">Personalizar</span>
-          </Button>
-          <Button id="nav-profile" onClick={() => handleNavigate('/profile')} variant="ghost" className="w-full justify-start gap-4 h-11 text-on-surface-variant hover:text-foreground hover:bg-surface-container">
-            <User className="w-4 h-4" /> <span className="text-xs">Perfil</span>
-          </Button>
-          <Button id="nav-settings" onClick={() => handleNavigate('/settings')} variant="ghost" className="w-full justify-start gap-4 h-11 text-on-surface-variant hover:text-foreground hover:bg-surface-container">
-            <Settings className="w-4 h-4" /> <span className="text-xs">Ajustes</span>
-          </Button>
-        </div>
+      <div className="mt-8 px-3">
+        <button
+          type="button"
+          onClick={() => setSettingsOpen((open) => !open)}
+          className={`w-full h-11 px-3 rounded-xl flex items-center justify-between transition-all ${
+            settingsActive
+              ? 'bg-surface-container text-foreground'
+              : 'text-on-surface-variant hover:bg-surface-container hover:text-foreground'
+          }`}
+          aria-expanded={settingsOpen}
+        >
+          <span className="flex items-center gap-4">
+            <Settings className="w-4 h-4" />
+            <span className="text-xs font-bold">Ajustes</span>
+          </span>
+          <ChevronDown className={`w-4 h-4 transition-transform ${settingsOpen ? 'rotate-180' : ''}`} />
+        </button>
+
+        {settingsOpen && (
+          <div className="mt-2 space-y-1 pl-2">
+            <Button id="nav-profile" onClick={() => handleNavigate('/profile')} variant="ghost" className={`w-full justify-start gap-4 h-10 text-xs ${location.pathname === '/profile' ? 'text-foreground bg-surface-container font-bold' : 'text-on-surface-variant hover:text-foreground hover:bg-surface-container'}`}>
+              <User className="w-4 h-4" /> <span>Perfil</span>
+            </Button>
+            <Button id="nav-achievements" onClick={() => handleNavigate('/achievements')} variant="ghost" className={`w-full justify-start gap-4 h-10 text-xs ${location.pathname === '/achievements' ? 'text-foreground bg-surface-container font-bold' : 'text-on-surface-variant hover:text-foreground hover:bg-surface-container'}`}>
+              <Trophy className="w-4 h-4" /> <span>Logros</span>
+            </Button>
+            <Button id="nav-settings" onClick={() => handleNavigate('/settings')} variant="ghost" className={`w-full justify-start gap-4 h-10 text-xs ${location.pathname === '/settings' ? 'text-foreground bg-surface-container font-bold' : 'text-on-surface-variant hover:text-foreground hover:bg-surface-container'}`}>
+              <Settings className="w-4 h-4" /> <span>Ajustes</span>
+            </Button>
+            <Button id="nav-personalizar" onClick={() => handleNavigate('/priority-settings')} variant="ghost" className={`w-full justify-start gap-4 h-10 text-xs ${location.pathname === '/priority-settings' ? 'text-foreground bg-surface-container font-bold' : 'text-on-surface-variant hover:text-foreground hover:bg-surface-container'}`}>
+              <Palette className="w-4 h-4" /> <span>Personalizar</span>
+            </Button>
+            <Button id="nav-trash" onClick={() => handleNavigate('/trash')} variant="ghost" className={`w-full justify-start gap-4 h-10 text-xs ${location.pathname === '/trash' ? 'text-foreground bg-surface-container font-bold' : 'text-on-surface-variant hover:text-foreground hover:bg-surface-container'}`}>
+              <History className="w-4 h-4" /> <span>Historial</span>
+            </Button>
+          </div>
+        )}
       </div>
     </div>
 
@@ -188,7 +251,8 @@ const SidebarContent = ({ user, profile, menuItems, location, handleNavigate, st
       )}
     </div>
   </div>
-);
+  );
+};
 
 const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
   const [open, setOpen] = useState(false);
@@ -254,6 +318,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
 
   const { user, loading } = useAuth();
   const { profile } = useProfile();
+  const { metrics } = useStreaks();
   const navigate = useNavigate();
   const location = useLocation();
   const isWeeklyPage = location.pathname === '/week';
@@ -321,12 +386,10 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
 
   const menuItems = [
     { label: 'Hoy', icon: Sun, path: '/daily' },
+    { label: 'Cuadernos', icon: NotebookTabs, path: '/folders' },
     { label: 'Calendario', icon: Calendar, path: '/week' },
     { label: 'Metas', icon: Target, path: '/goals' },
-    { label: 'Carpetas', icon: FolderOpen, path: '/folders' },
-    { label: 'Logros', icon: Trophy, path: '/achievements' },
     { label: 'Amigos', icon: Users, path: '/friends' },
-    { label: 'Historial', icon: History, path: '/trash' },
   ];
 
   const handleNavigate = (path: string) => {
@@ -402,6 +465,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
           <SidebarContent 
             user={user} 
             profile={profile} 
+            metrics={metrics}
             menuItems={menuItems} 
             location={location} 
             handleNavigate={handleNavigate} 
@@ -452,6 +516,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
         <SidebarContent 
           user={user} 
           profile={profile} 
+          metrics={metrics}
           menuItems={menuItems} 
           location={location} 
           handleNavigate={handleNavigate} 

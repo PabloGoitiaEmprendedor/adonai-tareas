@@ -13,7 +13,7 @@ import { useFolders } from '@/hooks/useFolders';
 import { useSubtasks } from '@/hooks/useSubtasks';
 import { format, parseISO, addMinutes } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Check, ChevronRight, CalendarDays, Plus, Mic, Repeat, Paperclip, Folder, FolderOpen, X, Users as UsersIcon, GripHorizontal, ChevronsUpDown } from 'lucide-react';
+import { Check, ChevronRight, CalendarDays, Plus, Mic, Repeat, Paperclip, Notebook, NotebookText, X, Users as UsersIcon, GripHorizontal, ChevronsUpDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import TaskCaptureModal, { type TaskCaptureModalHandle } from '@/components/TaskCaptureModal';
 import TaskDetailModal from '@/components/TaskDetailModal';
@@ -911,11 +911,11 @@ const MiniTaskList = () => {
  }, [tasks, activeTimerId, updateTask]);
 
  const filteredTasks = useMemo(() => {
- // La pestaña "General" (null) solo muestra las tareas que NO tienen carpeta asignada
+ // La pestaña "General" (null) solo muestra las tareas que NO tienen cuaderno asignado
  if (!selectedFolderId) {
  return tasks.filter((t: any) =>!t.folder_id);
  }
- // Si hay una carpeta seleccionada, muestra solo las tareas de esa carpeta
+ // Si hay un cuaderno seleccionado, muestra solo las tareas de ese cuaderno
  return tasks.filter((t: any) => t.folder_id === selectedFolderId);
  }, [tasks, selectedFolderId]);
 
@@ -1243,9 +1243,9 @@ const MiniTaskList = () => {
  cursor: 'pointer', flexShrink: 0,
  transition: 'all 0.2s ease',
  }}
- title="Ver carpetas"
+ title="Ver cuadernos"
  >
- <Folder style={{ width: 14, height: 14, color: showFolderBar? C.accent: C.text }} />
+ <Notebook style={{ width: 14, height: 14, color: showFolderBar? C.accent: C.text }} />
  </div>
 
  {/* 4. RECURRENCE button — Repeat icon */}
@@ -1288,7 +1288,7 @@ const MiniTaskList = () => {
  </div>
  )}
 
- {/* Folder bar — Toggleable */}
+ {/* Notebook bar — Toggleable */}
  <AnimatePresence>
  {showFolderBar && (
  <motion.div 
@@ -1346,9 +1346,9 @@ const MiniTaskList = () => {
  style={{ display: 'flex' }}
  >
  {selectedFolderId === folder.id? (
- <FolderOpen style={{ width: 10, height: 10, color: C.accent }} />
+ <NotebookText style={{ width: 10, height: 10, color: C.accent }} />
  ): (
- <Folder style={{ width: 10, height: 10, color: folder.color }} />
+ <Notebook style={{ width: 10, height: 10, color: folder.color }} />
  )}
  </motion.div>
  )}
@@ -1426,7 +1426,7 @@ const MiniTaskList = () => {
  background: 'transparent', color: C.muted, border: `1px dashed ${C.border}`,
  display: 'flex', alignItems: 'center', gap: 4, transition: 'all 0.2s ease', cursor: 'pointer'
  }}
- title="Crear nueva carpeta"
+ title="Crear nuevo cuaderno"
  >
  <Plus style={{ width: 10, height: 10 }} />
  </button>
@@ -1476,7 +1476,7 @@ const MiniTaskList = () => {
  <div style={{ textAlign: 'center', padding: 24 }}>
  <span style={{ fontSize: 28 }}></span>
  <p style={{ fontSize: 11, fontWeight: 800, marginTop: 8, color: C.text, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
- {selectedFolderId? 'Sin tareas en esta carpeta': '¡Día despejado!'}
+ {selectedFolderId? 'Sin tareas en este cuaderno': '¡Día despejado!'}
  </p>
  </div>
  ): (

@@ -6,7 +6,7 @@ import { useFolderShares } from '@/hooks/useFolderShares';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProfile } from '@/hooks/useProfile';
 import { supabase } from '@/integrations/supabase/client';
-import { Folder, Plus, ChevronRight, Users, Trash2, Check, Clock, Edit2, ArrowLeft, Share2, Settings, Sparkles, X } from 'lucide-react';
+import { Notebook, Plus, ChevronRight, Users, Trash2, Check, Clock, Edit2, ArrowLeft, Share2, Settings, Sparkles, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import TaskDetailModal from '@/components/TaskDetailModal';
 import FullscreenTimer from '@/components/FullscreenTimer';
@@ -51,9 +51,9 @@ const FoldersPage = () => {
           setNewColor(FOLDER_COLORS[0]);
           setShowCreate(false);
           dispatchTutorialFolderCreated();
-          toast.success('Proyecto creado con éxito');
+          toast.success('Cuaderno creado con éxito');
         },
-        onError: () => toast.error('Error al crear proyecto'),
+        onError: () => toast.error('Error al crear cuaderno'),
       }
     );
   };
@@ -63,14 +63,14 @@ const FoldersPage = () => {
     updateFolder.mutate({ id, name: newName.trim(), color: newColor });
     setEditingFolder(null);
     setNewName('');
-    toast.success('Proyecto actualizado');
+    toast.success('Cuaderno actualizado');
   };
 
   const handleDelete = (id: string) => {
-    if (window.confirm('¿Estás seguro de que quieres eliminar este proyecto y todas sus tareas?')) {
+    if (window.confirm('¿Estás seguro de que quieres eliminar este cuaderno y todas sus tareas?')) {
       deleteFolder.mutate(id);
       if (selectedFolder === id) setSelectedFolder(null);
-      toast.success('Proyecto eliminado');
+      toast.success('Cuaderno eliminado');
     }
   };
 
@@ -152,7 +152,7 @@ const FoldersPage = () => {
             >
               <div className="space-y-2 text-center">
                 <h2 className="text-2xl font-black font-headline tracking-tight">
-                  {editingFolder ? 'Editar Proyecto' : 'Nuevo Proyecto'}
+                  {editingFolder ? 'Editar Cuaderno' : 'Nuevo Cuaderno'}
                 </h2>
                 <p className="text-sm text-on-surface-variant/60">
                   {editingFolder ? 'Ajusta los detalles de tu espacio.' : 'Crea un espacio dedicado para tus metas.'}
@@ -199,7 +199,7 @@ const FoldersPage = () => {
                     onClick={() => editingFolder ? handleUpdate(editingFolder) : handleCreate()} 
                     className="flex-[1.5] py-4 rounded-[20px] bg-primary text-primary-foreground font-black text-sm shadow-lg shadow-primary/20"
                   >
-                    {editingFolder ? 'Guardar' : 'Crear Proyecto'}
+                    {editingFolder ? 'Guardar' : 'Crear Cuaderno'}
                   </button>
                 </div>
               </div>
@@ -233,7 +233,7 @@ const FoldersPage = () => {
           <div className="flex justify-between items-center">
             <div className="space-y-1">
               <h2 className="text-2xl font-black font-headline tracking-tight">Compartir</h2>
-              <p className="text-xs text-on-surface-variant/60">Gestiona accesos al proyecto.</p>
+              <p className="text-xs text-on-surface-variant/60">Gestiona accesos al cuaderno.</p>
             </div>
             <button onClick={() => setSharingFolder(null)} className="p-2 rounded-full hover:bg-surface-container transition-colors">
               <X className="w-5 h-5 opacity-40" />
@@ -314,13 +314,13 @@ const FoldersPage = () => {
             <div id="folders-header" className="flex flex-col md:flex-row md:items-end justify-between gap-6">
               <div className="space-y-2">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-1 bg-primary rounded-full" />
+                  <div className="h-8 w-1.5 rounded-full bg-primary" />
                   <span className="text-[11px] font-black uppercase tracking-[0.2em] text-primary/60">
-                    Organización
+                    Biblioteca personal
                   </span>
                 </div>
                 <h1 className="page-title">
-                  Proyectos
+                  Cuadernos
                 </h1>
               </div>
 
@@ -329,46 +329,50 @@ const FoldersPage = () => {
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 onClick={() => { setNewName(''); setNewColor(FOLDER_COLORS[0]); setShowCreate(true); }}
-                className="flex items-center gap-3 px-6 py-4 rounded-[24px] bg-foreground text-background font-black text-sm hover:opacity-90 transition-all shadow-xl shadow-foreground/10 group self-start md:self-end"
+                className="flex items-center gap-3 px-6 py-4 rounded-[18px] bg-foreground text-background font-black text-sm hover:opacity-90 transition-all shadow-xl shadow-foreground/10 group self-start md:self-end"
               >
                 <Plus className="w-5 h-5 group-hover:rotate-90 transition-transform duration-300" />
-                Nuevo Proyecto
+                Nuevo Cuaderno
               </motion.button>
             </div>
 
             {/* Folders Grid */}
             {isLoading ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-10">
                 {[1, 2, 3].map(i => (
                   <div key={i} className="h-48 rounded-[32px] bg-surface-container/50 animate-pulse" />
                 ))}
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {/* Virtual: General (tareas sin carpeta) */}
+                {/* Virtual: General (tareas sin cuaderno) */}
                 {tasks.filter(t => !t.folder_id).length > 0 && (
                   <motion.div
                     onClick={() => setSelectedFolder('__uncategorized__')}
-                    whileHover={{ y: -8 }}
-                    className="group cursor-pointer relative"
+                    whileHover={{ y: -6, rotate: -0.5 }}
+                    className="group cursor-pointer relative min-h-[250px]"
                   >
-                    <div className="absolute inset-0 rounded-[32px] opacity-0 group-hover:opacity-100 transition-opacity blur-2xl -z-10"
+                    <div className="absolute inset-x-5 -bottom-3 h-8 rounded-[50%] opacity-40 blur-xl -z-10"
                       style={{ backgroundColor: '#6B728020' }}
                     />
-                    <div className="bg-surface border border-dashed border-outline-variant/50 rounded-[32px] p-6 h-full flex flex-col justify-between hover:border-primary/30 transition-colors shadow-sm group-hover:shadow-xl group-hover:shadow-primary/5">
-                      <div className="space-y-4">
-                        <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-2"
-                          style={{ backgroundColor: '#6B728015' }}
-                        >
-                          <Folder className="w-6 h-6" style={{ color: '#6B7280' }} />
+                    <div className="absolute inset-y-3 right-[-8px] w-8 rounded-r-[22px] bg-surface-container-high border border-outline-variant/20 -z-10" />
+                    <div className="relative overflow-hidden bg-surface border border-dashed border-outline-variant/50 rounded-[24px] p-6 pl-16 min-h-[250px] h-full flex flex-col justify-between hover:border-primary/30 transition-colors shadow-[0_18px_45px_rgba(0,0,0,0.12)]">
+                      <div className="absolute inset-y-0 left-0 w-12 bg-[#6B7280]/15 border-r border-white/10" />
+                      <div className="absolute left-6 top-5 bottom-5 w-px bg-white/20" />
+                      <div className="space-y-5 relative z-10">
+                        <div className="w-12 h-12 rounded-[16px] flex items-center justify-center mb-2 bg-background/35 border border-white/10">
+                          <Notebook className="w-6 h-6" style={{ color: '#6B7280' }} />
                         </div>
                         <div>
-                          <h3 className="text-xl font-black tracking-tight font-headline group-hover:text-primary transition-colors">
+                          <h3 className="text-2xl font-black tracking-tight font-headline group-hover:text-primary transition-colors">
                             General
                           </h3>
+                          <p className="mt-2 text-xs font-semibold text-on-surface-variant/55 leading-relaxed">
+                            Hojas sueltas sin cuaderno asignado.
+                          </p>
                         </div>
                       </div>
-                      <div className="flex items-center justify-between mt-8 pt-4 border-t border-outline-variant/30">
+                      <div className="relative z-10 flex items-center justify-between mt-8 pt-4 border-t border-outline-variant/30">
                         <div className="flex items-center gap-2">
                           <div className="w-6 h-6 rounded-full bg-surface-container border-2 border-surface flex items-center justify-center">
                             <span className="text-[10px] font-black">
@@ -389,47 +393,58 @@ const FoldersPage = () => {
                     key={folder.id}
                     layoutId={folder.id}
                     onClick={() => setSelectedFolder(folder.id)}
-                    whileHover={{ y: -8 }}
-                    className="group cursor-pointer relative"
+                    whileHover={{ y: -6, rotate: -0.5 }}
+                    className="group cursor-pointer relative min-h-[250px]"
                   >
                     <div 
-                      className="absolute inset-0 rounded-[32px] opacity-0 group-hover:opacity-100 transition-opacity blur-2xl -z-10"
+                      className="absolute inset-x-5 -bottom-3 h-8 rounded-[50%] opacity-40 blur-xl -z-10"
                       style={{ backgroundColor: `${folder.color}20` }}
                     />
-                    <div className="bg-surface border border-outline-variant/50 rounded-[32px] p-6 h-full flex flex-col justify-between hover:border-primary/30 transition-colors shadow-sm group-hover:shadow-xl group-hover:shadow-primary/5">
-                      <div className="space-y-4">
+                    <div className="absolute inset-y-3 right-[-8px] w-8 rounded-r-[22px] bg-surface-container-high border border-outline-variant/20 -z-10" />
+                    <div
+                      className="relative overflow-hidden border border-white/10 rounded-[24px] p-6 pl-16 min-h-[250px] h-full flex flex-col justify-between transition-all shadow-[0_18px_45px_rgba(0,0,0,0.16)] group-hover:shadow-[0_24px_55px_rgba(0,0,0,0.2)] text-white"
+                      style={{ backgroundColor: folder.color }}
+                    >
+                      <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.26),rgba(255,255,255,0.03)_42%,rgba(0,0,0,0.18))]" />
+                      <div className="absolute inset-y-0 left-0 w-12 bg-black/16 border-r border-white/16" />
+                      <div className="absolute left-6 top-5 bottom-5 w-px bg-white/25" />
+                      <div className="absolute right-0 top-8 h-px w-16 bg-white/20" />
+                      <div className="absolute right-0 top-14 h-px w-20 bg-white/12" />
+                      <div className="space-y-5 relative z-10">
                         <div 
-                          className="w-12 h-12 rounded-2xl flex items-center justify-center mb-2"
-                          style={{ backgroundColor: `${folder.color}15` }}
+                          className="w-12 h-12 rounded-[16px] flex items-center justify-center mb-2 bg-white/18 border border-white/20 backdrop-blur-sm"
                         >
-                          <Folder className="w-6 h-6" style={{ color: folder.color }} />
+                          <Notebook className="w-6 h-6" />
                         </div>
                         <div>
-                          <h3 className="text-xl font-black tracking-tight font-headline group-hover:text-primary transition-colors">
+                          <h3 className="text-2xl font-black tracking-tight font-headline drop-shadow-sm">
                             {folder.name}
                           </h3>
+                          <p className="mt-2 text-xs font-semibold text-white/72 leading-relaxed">
+                            Cuaderno de trabajo
+                          </p>
                         </div>
                       </div>
 
-                      <div className="flex items-center justify-between mt-8 pt-4 border-t border-outline-variant/30">
+                      <div className="relative z-10 flex items-center justify-between mt-8 pt-4 border-t border-white/15">
                         <div className="flex items-center gap-2">
-                          <div className="w-6 h-6 rounded-full bg-surface-container border-2 border-surface flex items-center justify-center">
+                          <div className="w-7 h-7 rounded-full bg-white/18 border border-white/20 flex items-center justify-center backdrop-blur-sm">
                             <span className="text-[10px] font-black">
                               {tasks.filter(t => t.folder_id === folder.id).length}
                             </span>
                           </div>
-                          <span className="text-[10px] font-black uppercase tracking-wider text-on-surface-variant/40">
+                          <span className="text-[10px] font-black uppercase tracking-wider text-white/70">
                             Tareas
                           </span>
                         </div>
-                        <ChevronRight className="w-5 h-5 text-on-surface-variant/30 group-hover:translate-x-1 transition-transform" />
+                        <ChevronRight className="w-5 h-5 text-white/60 group-hover:translate-x-1 transition-transform" />
                       </div>
                     </div>
                   </motion.div>
                 ))}
                 {folders.length === 0 && (
                   <div className="col-span-full py-20 bg-surface/30 border border-dashed border-outline-variant rounded-[40px] text-center">
-                    <p className="text-on-surface-variant/40 font-black uppercase tracking-[0.2em] text-xs">Sin proyectos activos</p>
+                    <p className="text-on-surface-variant/40 font-black uppercase tracking-[0.2em] text-xs">Sin cuadernos activos</p>
                   </div>
                 )}
               </div>
@@ -445,8 +460,8 @@ const FoldersPage = () => {
           >
             {/* Project Header Area */}
             <div 
-              className="w-full h-48 md:h-64 relative overflow-hidden flex items-end p-8 md:p-12"
-              style={{ backgroundColor: `${currentFolder?.color}05` }}
+              className="w-full h-56 md:h-72 relative overflow-hidden flex items-end p-8 md:p-12"
+              style={{ background: `linear-gradient(135deg, ${currentFolder?.color}34, transparent 58%), var(--background)` }}
             >
               <div className="absolute top-8 left-8 z-20">
                 <motion.button
@@ -455,7 +470,7 @@ const FoldersPage = () => {
                   className="p-3 rounded-2xl bg-surface/80 backdrop-blur-md border border-outline-variant/30 shadow-sm flex items-center gap-2 group"
                 >
                   <ArrowLeft className="w-5 h-5" />
-                  <span className="text-xs font-black uppercase tracking-widest hidden md:inline">Proyectos</span>
+                  <span className="text-xs font-black uppercase tracking-widest hidden md:inline">Cuadernos</span>
                 </motion.button>
               </div>
 
@@ -483,11 +498,11 @@ const FoldersPage = () => {
               <div className="max-w-[430px] lg:max-w-4xl mx-auto w-full relative z-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
                 <div className="space-y-2">
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ backgroundColor: `${currentFolder?.color}20` }}>
-                      <Folder className="w-4 h-4" style={{ color: currentFolder?.color }} />
+                    <div className="w-12 h-12 rounded-[16px] flex items-center justify-center shadow-lg shadow-black/10 border border-white/15" style={{ backgroundColor: currentFolder?.color }}>
+                      <Notebook className="w-6 h-6 text-white" />
                     </div>
                     <span className="text-[11px] font-black uppercase tracking-[0.2em] opacity-40">
-                      Arquitectura
+                      Cuaderno abierto
                     </span>
                   </div>
                   <h1 className="page-title">
@@ -521,10 +536,18 @@ const FoldersPage = () => {
 
             {/* Project Tasks Area */}
             <div className="max-w-[430px] lg:max-w-4xl mx-auto px-6 py-12">
-              <div className="space-y-6">
+              <div
+                className="relative overflow-hidden rounded-[28px] border border-outline-variant/20 bg-surface px-5 py-6 md:px-8 md:py-8 shadow-[0_22px_60px_rgba(0,0,0,0.12)]"
+                style={{
+                  backgroundImage: 'linear-gradient(90deg, rgba(244,63,94,0.18) 0 1px, transparent 1px 100%), linear-gradient(180deg, rgba(255,255,255,0.04) 0 1px, transparent 1px 34px)',
+                  backgroundPosition: '56px 0, 0 18px',
+                }}
+              >
+                <div className="absolute bottom-0 left-14 top-0 w-px bg-rose-400/20" />
+                <div className="space-y-6 relative z-10">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-xl font-black font-headline tracking-tight flex items-center gap-3">
-                    Tareas del Proyecto
+                    Tareas del cuaderno
                     <span className="text-xs px-2 py-0.5 bg-surface-container border border-outline-variant/30 rounded-full opacity-60">
                       {folderTasks.length}
                     </span>
@@ -569,12 +592,13 @@ const FoldersPage = () => {
                     <div className="w-16 h-16 rounded-3xl bg-surface-container flex items-center justify-center mb-6">
                       <Sparkles className="w-8 h-8 opacity-20" />
                     </div>
-                    <h3 className="text-lg font-black font-headline mb-2">Proyecto Limpio</h3>
+                    <h3 className="text-lg font-black font-headline mb-2">Cuaderno limpio</h3>
                     <p className="text-sm text-on-surface-variant/60 max-w-[280px]">
-                      Aún no hay tareas asociadas a este proyecto.
+                      Aún no hay tareas asociadas a este cuaderno.
                     </p>
                   </div>
                 )}
+                </div>
               </div>
             </div>
           </motion.div>

@@ -26,7 +26,7 @@ const QUICK_PRESETS: { id: Frequency; icon: LucideIcon; label: string; sub: stri
  { id: 'weekly', icon: Calendar, label: 'Una vez/semana', sub: 'Elige el día' },
  { id: 'biweekly', icon: RotateCw, label: 'Cada 2 semanas', sub: 'Quincenal' },
  { id: 'monthly', icon: CalendarRange, label: 'Cada mes', sub: 'Elige el día' },
- { id: 'custom', icon: SlidersHorizontal, label: 'Personalizado', sub: 'Tú decides' },
+ { id: 'custom', icon: SlidersHorizontal, label: 'A medida', sub: 'A tu ritmo' },
 ];
 
 const WEEKDAY_LABELS = [
@@ -513,7 +513,7 @@ const QuickRecurrenceFlow = ({ open, onClose }: QuickRecurrenceFlowProps) => {
  {frequency === 'custom' && (
  <div className="space-y-5">
  <div className="text-center space-y-1">
- <p className="text-[10px] font-black uppercase tracking-[0.3em] text-primary mb-2">Personalizado</p>
+ <p className="text-[10px] font-black uppercase tracking-[0.3em] text-primary mb-2">A medida</p>
  <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">Configura el intervalo</p>
  </div>
  <div className="flex gap-2 p-1 bg-surface-container/30 border border-border/50 rounded-[24px]">

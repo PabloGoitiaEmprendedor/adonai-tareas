@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { PublicNav } from "@/components/PublicNav";
 import { PublicFooter } from "@/components/PublicFooter";
-import { Monitor, Apple, Loader2, Flame, Trophy, Target, CalendarDays, Users, Timer, FolderOpen, Sparkles, Check, ArrowRight } from "lucide-react";
+import { Monitor, Apple, Loader2, Flame, Trophy, Target, CalendarDays, Users, Timer, NotebookTabs, Sparkles, Check, ArrowRight } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { motion, useInView } from "framer-motion";
 import { startGuidedDownload, type DownloadPlatform } from "@/lib/downloadGuide";
@@ -365,14 +365,14 @@ export default function CaracteristicasPage() {
           reversed={false}
         />
 
-        {/* 8 — Carpetas */}
+        {/* 8 — Cuadernos */}
         <FeatureBlock
-          icon={FolderOpen}
+          icon={NotebookTabs}
           index={7}
-          tag="Organización Lógica"
+          tag="Cuadernos"
           title="Cada cosa en su lugar."
           highlight="su lugar."
-          body="Organiza tus tareas por proyectos, áreas de vida o categorías mediante un sistema de carpetas intuitivo. Mantén tu mente despejada sabiendo que todo está organizado."
+          body="Organiza tus tareas por proyectos, áreas de vida o categorías mediante cuadernos claros. Mantén tu mente despejada sabiendo que todo está organizado."
           reversed={true}
           screenshot="/screenshots/folders-view.png"
         />

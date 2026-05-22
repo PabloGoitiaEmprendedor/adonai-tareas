@@ -16,7 +16,7 @@ import {
     ChevronLeft,
     RefreshCw,
     Link as LinkIcon,
-    FolderOpen,
+    Notebook,
     Check,
     ArrowLeft,
     ArrowRight,
@@ -313,7 +313,7 @@ const SettingsPage = () => {
   };
 
   const handleNotionDisconnect = async () => {
-    const confirmed = window.confirm('Esto desconectará Notion y borrará las tareas y carpetas importadas desde Notion. ¿Continuar?');
+    const confirmed = window.confirm('Esto desconectará Notion y borrará las tareas y cuadernos importados desde Notion. ¿Continuar?');
     if (!confirmed) return;
 
     try {
@@ -482,7 +482,7 @@ const SettingsPage = () => {
                         <div className="space-y-1">
                             <span className="block font-bold text-foreground">Notion</span>
                             <span className="block text-[11px] text-on-surface-variant/60 font-medium max-w-[420px]">
-                                Convierte tus bases de datos de Notion en carpetas de Adonai e importa sus páginas como tareas.
+                                Convierte tus bases de datos de Notion en cuadernos de Adonai e importa sus páginas como tareas.
                             </span>
                             {notion.connection && (
                               <span className="block text-[10px] text-primary font-black uppercase tracking-widest pt-1">
@@ -625,7 +625,7 @@ const SettingsPage = () => {
                                 {activeReviewTask.title || 'Tarea sin titulo'}
                               </h4>
                               <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-on-surface-variant/50">
-                                <FolderOpen className="w-4 h-4" />
+                                <Notebook className="w-4 h-4" />
                                 {activeReviewGroup?.title || activeReviewTask.database_title || 'Base de Notion'}
                               </div>
                             </div>
