@@ -40,24 +40,22 @@ const WeeklyPage = () => {
     const hadActiveTimer = timerTask?.id === task.id;
     if (hadActiveTimer) setTimerTask(null);
 
-    setTimeout(() => {
-      const remainingTasks = selectedDayTasks.filter((t: any) => t.status !== 'done' && t.id !== task.id);
-      const isLastTask = selectedDayTasks.length > 0 && remainingTasks.length === 0;
+    const remainingTasks = selectedDayTasks.filter((t: any) => t.status !== 'done' && t.id !== task.id);
+    const isLastTask = selectedDayTasks.length > 0 && remainingTasks.length === 0;
 
-      updateTask.mutate({ 
-        id: task.id, 
-        status: 'done', 
-        completed_at: new Date().toISOString() 
-      }, {
-        onSuccess: () => {
-          setCompletingTaskId(null);
-          if (isLastTask) triggerDailyCelebration(profile?.name);
-          else if (hadActiveTimer) triggerOnTimeCelebration(task.title, profile?.name);
-          else triggerTaskCelebration(task.title, profile?.name);
-        },
-        onError: () => setCompletingTaskId(null)
-      });
-    }, 500);
+    updateTask.mutate({ 
+      id: task.id, 
+      status: 'done', 
+      completed_at: new Date().toISOString() 
+    }, {
+      onSuccess: () => {
+        setCompletingTaskId(null);
+        if (isLastTask) triggerDailyCelebration(profile?.name);
+        else if (hadActiveTimer) triggerOnTimeCelebration(task.title, profile?.name);
+        else triggerTaskCelebration(task.title, profile?.name);
+      },
+      onError: () => setCompletingTaskId(null)
+    });
   };
 
   const handleUncomplete = (task: any, e: React.MouseEvent) => {

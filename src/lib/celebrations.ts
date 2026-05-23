@@ -33,7 +33,7 @@ const playSound = (url: string, volume: number = 0.2) => {
 
 export const triggerTaskCelebration = (taskTitle: string, userName: string = 'Emprendedor') => {
   // Play subtle check sound
-  playSound('https://www.soundjay.com/buttons/sounds/button-16.mp3', 0.50);
+  playSound('/sounds/task-complete.mp3', 0.50);
 
   // Confetti effect
   const duration = 3 * 1000;
@@ -72,7 +72,7 @@ const ON_TIME_MESSAGES = [
 
 export const triggerOnTimeCelebration = (taskTitle: string, userName: string = 'Emprendedor') => {
   // Play a triumphant sound
-  playSound('https://www.soundjay.com/buttons/sounds/button-3.mp3', 0.50);
+  playSound('/sounds/task-complete.mp3', 0.50);
 
   // Gold star burst confetti
   const count = 200;
@@ -103,7 +103,7 @@ export const triggerOnTimeCelebration = (taskTitle: string, userName: string = '
 
 export const triggerDailyCelebration = (userName: string = 'Emprendedor') => {
   // Play success sound
-  playSound('https://www.soundjay.com/misc/sounds/bell-ring-01.mp3', 0.50);
+  playSound('/sounds/task-complete.mp3', 0.50);
 
   confetti({
     particleCount: 150,

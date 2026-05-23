@@ -1,6 +1,5 @@
 import { memo } from 'react';
 import type { MouseEvent } from 'react';
-import { Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface TaskCheckboxProps {
@@ -18,11 +17,11 @@ const sizeClasses = {
   lg: 'h-8 w-8',
 };
 
-const iconClasses = {
-  sm: 'h-3 w-3',
-  md: 'h-3.5 w-3.5',
-  lg: 'h-4 w-4',
-};
+const checkSvg = (
+  <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 fill-none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M4 13l4 4L19 7" />
+  </svg>
+);
 
 export const TaskCheckbox = memo(({
   checked,
@@ -36,32 +35,37 @@ export const TaskCheckbox = memo(({
     ? 'hsl(var(--primary))'
     : priorityColor;
 
+  const checkedBg = `linear-gradient(135deg, ${color}dd, ${color}88)`;
+
   return (
     <button
       type="button"
       onClick={onClick}
       className={cn(
-        'group/check flex shrink-0 items-center justify-center border-2 transition-all active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
+        'group/check flex shrink-0 items-center justify-center transition-all active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
         sizeClasses[size],
         className,
       )}
       style={{
         background: checked
-          ? `radial-gradient(circle at 35% 30%, rgba(255,255,255,0.32), transparent 26%), ${color}`
-          : 'linear-gradient(135deg, hsl(var(--surface-container-high) / 0.45), hsl(var(--surface) / 0.72))',
+          ? checkedBg
+          : 'transparent',
         borderColor: checked
           ? color
-          : (!priorityColor || priorityColor === 'transparent' ? 'hsl(var(--outline) / 0.65)' : `${color}85`),
-        borderRadius: checked ? '13px 10px 14px 11px' : '12px 14px 11px 13px',
+          : (!priorityColor || priorityColor === 'transparent' ? 'hsl(var(--outline) / 0.55)' : `${color}80`),
+        borderRadius: checked ? '10px 12px 9px 11px' : '11px 10px 12px 9px',
+        borderWidth: checked ? '2px' : '2.5px',
         boxShadow: checked
-          ? `0 6px 14px color-mix(in srgb, ${color}, transparent 72%), inset 0 0 0 1px rgba(255,255,255,0.22)`
-          : 'inset 0 0 0 1px hsl(var(--background) / 0.25), 0 2px 8px hsl(var(--foreground) / 0.06)',
-        transform: checked ? 'rotate(-1.5deg)' : 'rotate(0.5deg)',
+          ? `0 3px 8px color-mix(in srgb, ${color}, transparent 78%)`
+          : 'none',
+        transform: checked ? 'rotate(-2deg)' : 'rotate(0.8deg)',
       }}
       aria-label={ariaLabel || (checked ? 'Marcar como pendiente' : 'Completar tarea')}
     >
       {checked && (
-        <Check className={cn('text-primary-foreground stroke-[3.5]', iconClasses[size])} />
+        <span className="text-primary-foreground" style={{ filter: 'contrast(0.85)' }}>
+          {checkSvg}
+        </span>
       )}
     </button>
   );

@@ -12,15 +12,16 @@ import TaskDetailModal from '@/components/TaskDetailModal';
 import FullscreenTimer from '@/components/FullscreenTimer';
 import { useGamification } from '@/hooks/useGamification';
 import { TaskCard } from '@/components/TaskCard';
-import { openDownloadDialog } from '@/lib/desktopApp';
 import { startGuidedDownload } from '@/lib/downloadGuide';
 import MiniTaskWidget from '@/components/MiniTaskWidget';
 import { ChaosBuddiesTrigger } from '@/components/ChaosBuddiesTrigger';
 import { WeeklySummaryModal } from '@/components/WeeklySummaryModal';
 import { compareTasksWithinQuadrants, getTaskManualOrderGroupKey } from '@/lib/taskOrdering';
+import { playPageTurnSound } from '@/lib/soundEffects';
+import { QuickNotebookTaskAdd } from '@/components/QuickNotebookTaskAdd';
 
 const NOTEBOOK_PAGE_COUNT = 30;
-const TASKS_PER_NOTEBOOK_PAGE = 15;
+const TASKS_PER_NOTEBOOK_PAGE = 10;
 const NOTEBOOK_PAGE_STORAGE_KEY = 'adonai_daily_notebook_page';
 
 const clampNotebookPage = (page: number) => Math.min(NOTEBOOK_PAGE_COUNT, Math.max(1, page || 1));
@@ -73,7 +74,7 @@ const DailyPage = () => {
  const [miniWidgetOpen, setMiniWidgetOpen] = useState(() =>!!window.electronAPI);
  const [showMiniLeadModal, setShowMiniLeadModal] = useState(false);
 
- useEffect(() => {
+  useEffect(() => {
  if (window.electronAPI) {
  window.electronAPI.onMiniWindowClosed(() => {
  setMiniWidgetOpen(false);
@@ -88,18 +89,14 @@ const DailyPage = () => {
  trackDayActive.mutate();
  }, [trackDayActive]);
 
- const toggleMiniWidget = useCallback(() => {
- if (window.electronAPI) {
- window.electronAPI.toggleMiniWindow();
- setMiniWidgetOpen(prev =>!prev);
- return;
- }
- if (!localStorage.getItem('adonai_mini_btn_clicked')) {
- setShowMiniLeadModal(true);
- return;
- }
- openDownloadDialog();
- }, []);
+  const toggleMiniWidget = useCallback(() => {
+    if (window.electronAPI) {
+      window.electronAPI.toggleMiniWindow();
+      setMiniWidgetOpen(prev =>!prev);
+      return;
+    }
+    setShowMiniLeadModal(true);
+  }, []);
 
  const handleMiniLeadInstall = useCallback((platform: 'win' | 'mac') => {
  setShowMiniLeadModal(false);
@@ -107,10 +104,9 @@ const DailyPage = () => {
  startGuidedDownload(platform);
  }, []);
 
- const handleMiniLeadDismiss = useCallback(() => {
- setShowMiniLeadModal(false);
- localStorage.setItem('adonai_mini_btn_clicked', 'true');
- }, []);
+  const handleMiniLeadDismiss = useCallback(() => {
+    setShowMiniLeadModal(false);
+  }, []);
 
  const sortedTasks = useMemo(() => {
  let filtered = tasks.filter((t: any) => t.due_date === today || (t.due_date < today && t.status!== 'done'));
@@ -182,9 +178,8 @@ const DailyPage = () => {
  setTimerTask(null);
  }
 
- setTimeout(() => {
  const currentTasks = tasksRef.current;
- const remainingTasks = currentTasks.filter((t: any) => t.status!== 'done' && t.id!== task.id);
+ const remainingTasks = currentTasks.filter((t: any) => t.status !== 'done' && t.id !== task.id);
  const isLastTask = currentTasks.length > 0 && remainingTasks.length === 0;
 
  updateTask.mutate({ 
@@ -221,7 +216,6 @@ const DailyPage = () => {
  },
  onError: () => setCompletingTaskId(null)
  });
- }, 500);
  }, [timerTask, updateTask, checkAndUnlock, profileName]);
 
  const handleUncomplete = useCallback((task: any, e: React.MouseEvent) => {
@@ -234,53 +228,19 @@ const DailyPage = () => {
  setTimerTask(task);
  }, []);
 
- const playPageTurnSound = useCallback(() => {
- try {
- const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
- if (!AudioContextClass) return;
- const context = new AudioContextClass();
- const bufferSize = context.sampleRate * 0.28;
- const buffer = context.createBuffer(1, bufferSize, context.sampleRate);
- const output = buffer.getChannelData(0);
- for (let i = 0; i < bufferSize; i += 1) {
- const progress = i / bufferSize;
- const attack = Math.min(1, progress * 10);
- const release = Math.max(0, 1 - progress);
- const flutter = 0.65 + Math.sin(progress * Math.PI * 7) * 0.22;
- output[i] = (Math.random() * 2 - 1) * attack * release * flutter * 0.07;
- }
- const source = context.createBufferSource();
- const highpass = context.createBiquadFilter();
- const lowpass = context.createBiquadFilter();
- const gain = context.createGain();
- highpass.type = 'highpass';
- highpass.frequency.value = 520;
- lowpass.type = 'lowpass';
- lowpass.frequency.value = 3600;
- gain.gain.setValueAtTime(0.001, context.currentTime);
- gain.gain.linearRampToValueAtTime(0.16, context.currentTime + 0.035);
- gain.gain.exponentialRampToValueAtTime(0.001, context.currentTime + 0.28);
- source.buffer = buffer;
- source.connect(highpass);
- highpass.connect(lowpass);
- lowpass.connect(gain);
- gain.connect(context.destination);
- source.start();
- source.stop(context.currentTime + 0.28);
- source.onended = () => context.close();
- } catch {
- // Page audio is decorative; ignore browser restrictions.
- }
- }, []);
+  const selectFolderWithSound = useCallback((folderId: string | null) => {
+    playPageTurnSound();
+    setSelectedFolderId(folderId);
+  }, []);
 
- const turnNotebookPage = useCallback((direction: 1 | -1) => {
- setPageTurnDirection(direction);
- setNotebookPage((page) => {
- const next = clampNotebookPage(page + direction);
- if (next!== page) playPageTurnSound();
- return next;
- });
- }, [playPageTurnSound]);
+  const turnNotebookPage = useCallback((direction: 1 | -1) => {
+    setPageTurnDirection(direction);
+    setNotebookPage((page) => {
+      const next = clampNotebookPage(page + direction);
+      if (next !== page) playPageTurnSound();
+      return next;
+    });
+  }, []);
 
  const goToPrevPage = useCallback(() => {
  turnNotebookPage(-1);
@@ -520,13 +480,26 @@ const DailyPage = () => {
  </motion.div>
  )}
 
- {/* Desktop Task Notebook */}
- <motion.div 
- initial={{ opacity: 0, y: 20 }}
- animate={{ opacity: 1, y: 0 }}
- className="relative hidden min-h-[min(740px,calc(100vh-8rem))] w-full md:flex flex-col overflow-hidden rounded-[36px] bg-surface/95 border border-outline-variant/12 py-7 pl-24 pr-10 shadow-[0_18px_45px_rgba(0,0,0,0.10)] backdrop-blur-xl"
+  {/* Mini notebook button (outside notebook, top-right) */}
+  <div className="hidden md:flex justify-end mb-2">
+    <button
+      id="mini-window-btn"
+      onClick={toggleMiniWidget}
+      className="inline-flex items-center gap-2 rounded-full border border-outline-variant/16 bg-background/55 px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-on-surface-variant/65 shadow-sm transition-all hover:border-primary/25 hover:text-primary active:scale-95"
+    >
+      <Monitor className="h-3.5 w-3.5" />
+      Mini cuaderno
+      <span className={`h-2 w-2 rounded-full ${miniWidgetOpen? 'bg-primary': 'bg-on-surface-variant/30'}`} />
+    </button>
+  </div>
+
+  {/* Desktop Task Notebook */}
+  <motion.div 
+  initial={{ opacity: 0, y: 20 }}
+  animate={{ opacity: 1, y: 0 }}
+  className="relative hidden min-h-[min(740px,calc(100vh-8rem))] w-full md:flex flex-col overflow-hidden rounded-[36px] notebook-cream-bg border border-outline-variant/12 pt-3 pb-3 pl-24 pr-10 shadow-[0_18px_45px_rgba(0,0,0,0.10)] backdrop-blur-xl"
  style={{
- backgroundImage: 'radial-gradient(circle at 18% 22%, rgba(255,255,255,0.09) 0 1px, transparent 1.6px), radial-gradient(circle at 73% 58%, rgba(0,0,0,0.05) 0 1px, transparent 1.7px), radial-gradient(circle at 42% 76%, rgba(255,255,255,0.045) 0 1px, transparent 1.8px), linear-gradient(90deg, transparent 0 70px, rgba(235,120,120,0.20) 70px 71px, transparent 71px calc(100% - 46px), rgba(235,120,120,0.13) calc(100% - 46px) calc(100% - 45px), transparent calc(100% - 45px))',
+ backgroundImage: 'radial-gradient(circle at 18% 22%, rgba(255,255,255,0.09) 0 1px, transparent 1.6px), radial-gradient(circle at 73% 58%, rgba(0,0,0,0.05) 0 1px, transparent 1.7px), radial-gradient(circle at 42% 76%, rgba(255,255,255,0.045) 0 1px, transparent 1.8px), linear-gradient(90deg, transparent 0 70px, rgba(235,120,120,0.26) 70px 71px, transparent 71px calc(100% - 46px), rgba(235,120,120,0.18) calc(100% - 46px) calc(100% - 45px), transparent calc(100% - 45px))',
  backgroundPosition: '0 18px',
  borderRadius: '36px 34px 38px 35px',
  }}
@@ -556,17 +529,7 @@ const DailyPage = () => {
  ))}
  </div>
 
- <div className="relative z-10 mb-4 flex items-start justify-end">
- <button
- id="mini-window-btn"
- onClick={toggleMiniWidget}
- className="inline-flex items-center gap-2 rounded-full border border-outline-variant/16 bg-background/55 px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-on-surface-variant/65 shadow-sm transition-all hover:border-primary/25 hover:text-primary active:scale-95"
- >
- <Monitor className="h-3.5 w-3.5" />
- Mini cuaderno
- <span className={`h-2 w-2 rounded-full ${miniWidgetOpen? 'bg-primary': 'bg-on-surface-variant/30'}`} />
- </button>
- </div>
+
 
  <AnimatePresence mode="wait" custom={pageTurnDirection}>
  <motion.div
@@ -582,54 +545,46 @@ const DailyPage = () => {
  >
  {shouldShowTaskPage? (
  <>
- {/* Cuadernos Bar */}
- <div className="relative z-10 flex items-center gap-2 overflow-x-auto no-scrollbar pb-5 mb-2 border-b border-outline-variant/10">
- <motion.button
- onClick={() => setSelectedFolderId(null)}
- whileHover={{ scale: 1.02 }}
- whileTap={{ scale: 0.98 }}
- className={`flex-shrink-0 px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-widest transition-all border ${
- selectedFolderId === null? 'bg-primary text-primary-foreground border-primary shadow-lg shadow-primary/15': 'bg-background/45 text-on-surface-variant/70 hover:text-primary border-outline-variant/15 hover:border-primary/30'
- }`}
- >
- General
- </motion.button>
- {folders.map((folder: any) => {
- const isSelected = selectedFolderId === folder.id;
- return (
- <motion.button
- key={folder.id}
- onClick={() => setSelectedFolderId(isSelected? null: folder.id)}
- whileHover={{ scale: 1.02 }}
- whileTap={{ scale: 0.98 }}
- className={`flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-widest transition-all border ${
- isSelected? 'bg-primary text-primary-foreground border-primary shadow-lg shadow-primary/15': 'bg-background/45 text-on-surface-variant/70 hover:text-primary border-outline-variant/15 hover:border-primary/30'
- }`}
- >
- <motion.div
- key={isSelected? 'open': 'closed'}
- initial={{ rotateY: isSelected? 180: -180, scale: 0.8 }}
- animate={{ rotateY: 0, scale: 1 }}
- transition={{ type: 'spring', stiffness: 400, damping: 15 }}
- style={{ display: 'flex' }}
- >
- {isSelected? (
- <NotebookText className="w-4 h-4" />
- ): (
- <Notebook className="w-4 h-4" />
- )}
- </motion.div>
- {folder.name}
- </motion.button>
- );
- })}
+ {/* Cuadernos Bar — minimal pill tabs */}
+  <div className="relative z-10 mb-1">
+    <h2 className="text-lg font-bold font-headline tracking-tight notebook-handwriting text-foreground/70">
+      Tareas de hoy
+    </h2>
+  </div>
+  <div className="relative z-10 flex items-center gap-2 overflow-x-auto no-scrollbar py-1 pb-1 mb-1 border-b border-outline-variant/10 justify-start">
+     <button
+       onClick={() => selectFolderWithSound(null)}
+       className={`flex-shrink-0 px-4 py-1.5 rounded-full text-[11px] font-black uppercase tracking-wide transition-all border ${
+         selectedFolderId === null
+           ? 'bg-foreground text-background border-foreground'
+           : 'bg-white/40 text-on-surface-variant/80 border-outline-variant/40 hover:text-foreground hover:border-outline-variant/60'
+       }`}
+     >
+       Hoy
+     </button>
+    {folders.map((folder: any) => {
+      const isSelected = selectedFolderId === folder.id;
+      return (
+        <button
+          key={folder.id}
+          onClick={() => selectFolderWithSound(isSelected ? null : folder.id)}
+          className={`flex-shrink-0 px-4 py-1.5 rounded-full text-[11px] font-black uppercase tracking-wide transition-all border notebook-handwriting ${
+            isSelected
+              ? 'bg-foreground text-background border-foreground'
+              : 'bg-white/40 text-on-surface-variant/80 border-outline-variant/40 hover:text-foreground hover:border-outline-variant/60'
+          }`}
+        >
+          {folder.name}
+        </button>
+      );
+    })}
  </div>
 
  {/* Task List - Inside Desktop Notebook */}
  <div
- className="relative z-10 mt-3 pb-5 pt-[2px]"
+ className="relative z-10 mt-1.5 pb-5 pt-[2px]"
  style={{
- backgroundImage: 'repeating-linear-gradient(180deg, rgba(120,145,190,0.16) 0 1px, transparent 1px 42px)',
+ backgroundImage: 'repeating-linear-gradient(180deg, rgba(120,145,190,0.08) 0 1px, transparent 1px 42px)',
  }}
  >
  {isLoading? (
@@ -659,25 +614,16 @@ const DailyPage = () => {
  />
  ))}
  </div>
- ): (
- notebookPage === 1? (
- <motion.div 
- initial={{ opacity: 0, scale: 0.95 }}
- animate={{ opacity: 1, scale: 1 }}
- className="flex flex-col items-center justify-center py-20 px-6 text-center bg-surface-container-highest/10 border border-dashed border-outline-variant/20 rounded-[40px]"
- >
- <div className="w-20 h-20 rounded-3xl bg-primary/5 flex items-center justify-center mb-6">
- <Sparkles className="w-10 h-10 text-primary/30" />
- </div>
- <h3 className="text-xl font-black mb-2 text-foreground/80">Todo en orden</h3>
- <p className="text-sm text-muted-foreground max-w-[280px] font-medium leading-relaxed">
- Tu isla de tareas está despejada. Es el momento perfecto para enfocarte en lo que sigue o disfrutar el progreso.
- </p>
- </motion.div>
- ): (
- renderBlankNotebookPage(false)
- )
- )}
+ ) : null}
+   {/* ── Quick-add row desktop ── */}
+   {!isLoading && (
+     <div className="relative z-10 mt-1">
+       <QuickNotebookTaskAdd folderId={selectedFolderId} />
+     </div>
+   )}
+   {visibleNotebookTasks.length === 0 && notebookPage !== 1 && (
+   renderBlankNotebookPage(false)
+   )}
  </div>
  </>
  ): (
@@ -691,13 +637,25 @@ const DailyPage = () => {
  {renderNotebookControls(false)}
  </motion.div>
 
- {/* Mobile Task Island */}
- <motion.div 
- initial={{ opacity: 0, y: 15 }}
- animate={{ opacity: 1, y: 0 }}
- className="relative md:hidden flex min-h-[min(680px,calc(100vh-8rem))] w-full flex-col overflow-hidden rounded-[30px] bg-surface/95 border border-outline-variant/12 py-4 pl-12 pr-4 shadow-xl shadow-black/10 backdrop-blur-xl"
+  {/* Mini notebook button (outside mobile notebook) */}
+  <div className="md:hidden flex justify-end mb-2">
+    <button
+      id="mini-window-btn-mobile"
+      onClick={toggleMiniWidget}
+      className="inline-flex items-center gap-1.5 rounded-full border border-outline-variant/16 bg-background/65 px-2 py-1 text-[8px] font-black uppercase tracking-[0.1em] text-on-surface-variant/60 shadow-sm transition-all active:scale-95"
+    >
+      <Monitor className="h-3 w-3" />
+      Mini
+    </button>
+  </div>
+
+  {/* Mobile Task Island */}
+  <motion.div 
+  initial={{ opacity: 0, y: 15 }}
+  animate={{ opacity: 1, y: 0 }}
+  className="relative md:hidden flex min-h-[min(680px,calc(100vh-8rem))] w-full flex-col overflow-hidden rounded-[30px] notebook-cream-bg border border-outline-variant/12 py-4 pl-12 pr-4 shadow-xl shadow-black/10 backdrop-blur-xl"
  style={{
- backgroundImage: 'radial-gradient(circle at 20% 22%, rgba(255,255,255,0.09) 0 1px, transparent 1.6px), radial-gradient(circle at 78% 62%, rgba(0,0,0,0.05) 0 1px, transparent 1.7px), radial-gradient(circle at 44% 76%, rgba(255,255,255,0.045) 0 1px, transparent 1.8px), linear-gradient(90deg, transparent 0 38px, rgba(235,120,120,0.18) 38px 39px, transparent 39px calc(100% - 28px), rgba(235,120,120,0.11) calc(100% - 28px) calc(100% - 27px), transparent calc(100% - 27px))',
+ backgroundImage: 'radial-gradient(circle at 20% 22%, rgba(255,255,255,0.09) 0 1px, transparent 1.6px), radial-gradient(circle at 78% 62%, rgba(0,0,0,0.05) 0 1px, transparent 1.7px), radial-gradient(circle at 44% 76%, rgba(255,255,255,0.045) 0 1px, transparent 1.8px), linear-gradient(90deg, transparent 0 38px, rgba(235,120,120,0.24) 38px 39px, transparent 39px calc(100% - 28px), rgba(235,120,120,0.16) calc(100% - 28px) calc(100% - 27px), transparent calc(100% - 27px))',
  backgroundPosition: '0 17px',
  borderRadius: '30px 28px 32px 29px',
  }}
@@ -726,16 +684,7 @@ const DailyPage = () => {
  />
  ))}
  </div>
- <div className="relative z-10 mb-4 flex justify-end">
- <button
- id="mini-window-btn-mobile"
- onClick={toggleMiniWidget}
- className="inline-flex items-center gap-1.5 rounded-full border border-outline-variant/16 bg-background/65 px-2 py-1 text-[8px] font-black uppercase tracking-[0.1em] text-on-surface-variant/60 shadow-sm transition-all active:scale-95"
- >
- <Monitor className="h-3 w-3" />
- Mini
- </button>
- </div>
+
  <AnimatePresence mode="wait" custom={pageTurnDirection}>
  <motion.div
  key={`mobile-page-${notebookPage}`}
@@ -750,52 +699,47 @@ const DailyPage = () => {
  >
  {shouldShowTaskPage? (
  <>
- {/* Mobile Folders - Centered */}
- <div className="relative z-10 flex items-center gap-2 overflow-x-auto no-scrollbar py-2 justify-center border-b border-outline-variant/10 pb-4 mb-4">
- <motion.button
- onClick={() => setSelectedFolderId(null)}
- whileTap={{ scale: 0.95 }}
- className={`flex-shrink-0 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border ${
- selectedFolderId === null? 'bg-primary text-primary-foreground border-primary shadow-md shadow-primary/20': 'bg-surface-container-high/40 text-on-surface-variant/70 border-outline-variant/20'
- }`}
- >
- General
- </motion.button>
- {folders.map((folder: any) => {
- const isSelected = selectedFolderId === folder.id;
- return (
- <motion.button
- key={folder.id}
- onClick={() => setSelectedFolderId(isSelected? null: folder.id)}
- whileTap={{ scale: 0.95 }}
- className={`flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border ${
- isSelected? 'bg-primary text-primary-foreground border-primary shadow-md shadow-primary/20': 'bg-surface-container-high/40 text-on-surface-variant/70 border-outline-variant/20'
- }`}
- >
- <motion.div
- key={isSelected? 'open': 'closed'}
- initial={{ rotateY: isSelected? 180: -180, scale: 0.8 }}
- animate={{ rotateY: 0, scale: 1 }}
- transition={{ type: 'spring', stiffness: 400, damping: 15 }}
- style={{ display: 'flex' }}
- >
- {isSelected? (
- <NotebookText className="w-3.5 h-3.5" />
- ): (
- <Notebook className="w-3.5 h-3.5" />
- )}
- </motion.div>
- {folder.name}
- </motion.button>
- );
- })}
+  {/* Mobile title */}
+  <div className="relative z-10 mb-1 px-2">
+    <h2 className="text-base font-bold font-headline tracking-tight notebook-handwriting text-foreground/70">
+      Tareas de hoy
+    </h2>
+  </div>
+  {/* Mobile Folders — minimal pill tabs */}
+  <div className="relative z-10 flex items-center gap-2 overflow-x-auto no-scrollbar py-2 px-2 border-b border-outline-variant/10 pb-3 mb-3 justify-start">
+     <button
+       onClick={() => selectFolderWithSound(null)}
+       className={`flex-shrink-0 px-3 py-1.5 rounded-full text-[11px] font-black uppercase tracking-wide transition-all border ${
+         selectedFolderId === null
+           ? 'bg-foreground text-background border-foreground'
+           : 'bg-white/40 text-on-surface-variant/80 border-outline-variant/40 hover:text-foreground hover:border-outline-variant/60'
+       }`}
+     >
+       Hoy
+     </button>
+    {folders.map((folder: any) => {
+      const isSelected = selectedFolderId === folder.id;
+      return (
+        <button
+          key={folder.id}
+          onClick={() => selectFolderWithSound(isSelected ? null : folder.id)}
+          className={`flex-shrink-0 px-3 py-1.5 rounded-full text-[11px] font-black uppercase tracking-wide transition-all border notebook-handwriting ${
+            isSelected
+              ? 'bg-foreground text-background border-foreground'
+              : 'bg-white/40 text-on-surface-variant/80 border-outline-variant/40 hover:text-foreground hover:border-outline-variant/60'
+          }`}
+        >
+          {folder.name}
+        </button>
+      );
+    })}
  </div>
 
  {/* Mobile Task List */}
  <div
  className="relative z-10 pb-5 pt-[2px]"
  style={{
- backgroundImage: 'repeating-linear-gradient(180deg, rgba(120,145,190,0.16) 0 1px, transparent 1px 42px)',
+ backgroundImage: 'repeating-linear-gradient(180deg, rgba(120,145,190,0.08) 0 1px, transparent 1px 42px)',
  }}
  >
  {isLoading? (
@@ -825,33 +769,24 @@ const DailyPage = () => {
  />
  ))}
  </div>
- ): (
- notebookPage === 1? (
- <motion.div 
- initial={{ opacity: 0, scale: 0.95 }}
- animate={{ opacity: 1, scale: 1 }}
- className="flex flex-col items-center justify-center py-12 px-4 text-center bg-surface-container-highest/5 border border-dashed border-outline-variant/20 rounded-3xl"
- >
- <div className="w-14 h-14 rounded-2xl bg-primary/5 flex items-center justify-center mb-4">
- <Sparkles className="w-7 h-7 text-primary/30" />
+ ): null}
  </div>
- <h3 className="text-base font-black mb-1 text-foreground/80">Todo en orden</h3>
- <p className="text-xs text-muted-foreground max-w-[200px] leading-relaxed">
- No hay tareas para hoy. Es un buen momento para descansar.
- </p>
- </motion.div>
- ): (
- renderBlankNotebookPage(true)
- )
- )}
- </div>
- </>
- ): (
- <div className="relative z-10">
- {renderBlankNotebookPage(true)}
- </div>
- )}
- </motion.div>
+  {/* ── Quick-add row mobile ── */}
+   {!isLoading && (
+     <div className="relative z-10 mt-1">
+       <QuickNotebookTaskAdd folderId={selectedFolderId} />
+     </div>
+   )}
+   {visibleNotebookTasks.length === 0 && notebookPage !== 1 && (
+   renderBlankNotebookPage(true)
+   )}
+  </>
+  ): (
+  <div className="relative z-10">
+  {renderBlankNotebookPage(true)}
+  </div>
+  )}
+  </motion.div>
  </AnimatePresence>
  {renderPageDragHandles(true)}
  {renderNotebookControls(true)}
@@ -914,7 +849,7 @@ const DailyPage = () => {
  </button>
  <button
  onClick={() => handleMiniLeadInstall('mac')}
- className="w-full h-14 bg-surface-container-high text-foreground font-black text-base rounded-2xl flex items-center justify-center gap-3 border border-outline-variant/20 hover:bg-surface-container-highest hover:scale-[1.02] active:scale-95 transition-all"
+ className="w-full h-14 bg-foreground text-background font-black text-base rounded-2xl flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-95 transition-all shadow-lg"
  >
  <Apple className="w-5 h-5" />
  Descargar para Mac

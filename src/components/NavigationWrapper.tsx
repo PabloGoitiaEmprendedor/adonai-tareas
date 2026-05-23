@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { NotebookTabs, Users, User, Calendar, Settings, Menu, Target, Trophy, BarChart3, Sun, History, Palette, Download, Monitor, Apple, Loader2, X, Flame, ChevronDown } from 'lucide-react';
+import { NotebookTabs, Users, User, Calendar, Settings, Menu, Target, Trophy, BarChart3, Sun, History, Palette, X, Flame, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
-import { startGuidedDownload } from '@/lib/downloadGuide';
 
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -34,83 +33,36 @@ const isElectronEnv: boolean =
     navigator.userAgent.toLowerCase().includes('electron') ||
     !!(window.process && window.process.versions && window.process.versions.electron));
 
-/* ─── Persistent "Download Desktop App" banner (web-only) ─── */
-function DesktopDownloadBanner() {
-  const [winLoading, setWinLoading] = useState(false);
-  const [macLoading, setMacLoading] = useState(false);
-
-  const handleDownload = (platform: 'win' | 'mac') => {
-    const setLoading = platform === 'win' ? setWinLoading : setMacLoading;
-    setLoading(true);
-    startGuidedDownload(platform);
-    setTimeout(() => setLoading(false), 3000);
-  };
-
-  return (
-    <div className="rounded-xl bg-primary/8 border border-primary/20 p-3">
-      <div className="flex items-center gap-2 mb-2.5">
-        <Download className="w-3.5 h-3.5 text-primary flex-shrink-0" />
-        <p className="text-[11px] font-bold text-primary leading-tight">
-          App de escritorio
-        </p>
-      </div>
-      <p className="text-[10px] text-on-surface-variant leading-relaxed mb-3">
-        Descarga para tener la mini-ventana y notificaciones nativas.
-      </p>
-      <div className="flex gap-1.5">
-        <button
-          id="sidebar-download-win"
-          onClick={() => handleDownload('win')}
-          disabled={winLoading}
-          className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-primary/15 hover:bg-primary/25 text-primary text-[10px] font-bold py-2 px-2 transition-colors disabled:opacity-60"
-        >
-          {winLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Monitor className="w-3 h-3" />}
-          Windows
-        </button>
-        <button
-          id="sidebar-download-mac"
-          onClick={() => handleDownload('mac')}
-          disabled={macLoading}
-          className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-primary/15 hover:bg-primary/25 text-primary text-[10px] font-bold py-2 px-2 transition-colors disabled:opacity-60"
-        >
-          {macLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Apple className="w-3 h-3" />}
-          Mac
-        </button>
-      </div>
-    </div>
-  );
-}
-
 interface NavigationWrapperProps {
   children: React.ReactNode;
 }
 
 const ProfileProgress = ({ metrics }: { metrics: any }) => (
-  <div className="grid grid-cols-2 gap-2 pt-1">
-    <div className="relative overflow-hidden rounded-2xl border border-[#E65100]/20 bg-gradient-to-br from-[#E65100]/16 to-[#FFB300]/5 px-3 py-2.5 shadow-sm">
+  <div className="grid grid-cols-2 gap-2 pt-1 w-full">
+    <div className="relative overflow-hidden rounded-2xl border border-[#E65100]/20 bg-gradient-to-br from-[#E65100]/16 to-[#FFB300]/5 px-2 py-1.5 shadow-sm">
       <div className="absolute -right-3 -top-3 h-10 w-10 rounded-full bg-[#E65100]/25 blur-xl" />
-      <div className="relative flex items-center gap-2">
-        <div className="relative flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl bg-[#E65100]/15">
-          <span className="absolute h-5 w-5 rounded-full bg-[#E65100]/25 blur-md animate-pulse" />
-          <Flame className="relative z-10 h-4 w-4 text-[#E65100] fill-[#E65100]/35 drop-shadow-[0_0_6px_rgba(230,81,0,0.35)]" />
+      <div className="relative flex items-center gap-1.5">
+        <div className="relative flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg bg-[#E65100]/15">
+          <span className="absolute h-4 w-4 rounded-full bg-[#E65100]/25 blur-md animate-pulse" />
+          <Flame className="relative z-10 h-3.5 w-3.5 text-[#E65100] fill-[#E65100]/35 drop-shadow-[0_0_6px_rgba(230,81,0,0.35)]" />
         </div>
         <div className="min-w-0">
-          <p className="text-[8px] font-black uppercase tracking-[0.16em] text-[#E65100]/70">Racha</p>
-          <p className="text-sm font-black leading-none text-foreground">{metrics?.streak_current || 0}d</p>
+          <p className="text-[7.5px] font-black uppercase tracking-[0.16em] text-[#E65100]/70">Racha</p>
+          <p className="text-xs font-black leading-none text-foreground">{metrics?.streak_current || 0}d</p>
         </div>
       </div>
     </div>
 
-    <div className="relative overflow-hidden rounded-2xl border border-[#FFD700]/25 bg-gradient-to-br from-[#FFD700]/18 to-[#F59E0B]/5 px-3 py-2.5 shadow-sm">
+    <div className="relative overflow-hidden rounded-2xl border border-[#FFD700]/25 bg-gradient-to-br from-[#FFD700]/18 to-[#F59E0B]/5 px-2 py-1.5 shadow-sm">
       <div className="absolute -right-3 -top-3 h-10 w-10 rounded-full bg-[#FFD700]/25 blur-xl" />
-      <div className="relative flex items-center gap-2">
-        <div className="relative flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl bg-[#FFD700]/15">
-          <span className="absolute h-5 w-5 rounded-full bg-[#FFD700]/25 blur-md animate-pulse" />
-          <Trophy className="relative z-10 h-4 w-4 text-[#D9A600] fill-[#FFD700]/35 drop-shadow-[0_0_6px_rgba(255,215,0,0.35)]" />
+      <div className="relative flex items-center gap-1.5">
+        <div className="relative flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg bg-[#FFD700]/15">
+          <span className="absolute h-4 w-4 rounded-full bg-[#FFD700]/25 blur-md animate-pulse" />
+          <Trophy className="relative z-10 h-3.5 w-3.5 text-[#D9A600] fill-[#FFD700]/35 drop-shadow-[0_0_6px_rgba(255,215,0,0.35)]" />
         </div>
         <div className="min-w-0">
-          <p className="text-[8px] font-black uppercase tracking-[0.16em] text-[#B88A00]/75">Nivel</p>
-          <p className="text-sm font-black leading-none text-foreground">{metrics?.level || 1}</p>
+          <p className="text-[7.5px] font-black uppercase tracking-[0.16em] text-[#B88A00]/75">Nivel</p>
+          <p className="text-xs font-black leading-none text-foreground">{metrics?.level || 1}</p>
         </div>
       </div>
     </div>
@@ -124,37 +76,38 @@ const SidebarContent = ({ user, profile, metrics, menuItems, location, handleNav
 
   return (
   <div className="flex flex-col h-full bg-surface text-foreground">
-    <div className={`p-6 border-b border-outline-variant flex items-center justify-between gap-4 ${isSheet ? 'pr-16' : ''}`}>
-      <div 
-        onClick={() => handleNavigate('/profile')}
-        className="flex items-start gap-3 cursor-pointer hover:opacity-80 transition-opacity group flex-1 min-w-0"
-      >
-        <div className="w-12 h-12 rounded-2xl bg-surface-container flex items-center justify-center border border-outline-variant group-hover:bg-surface-container-high transition-colors flex-shrink-0">
-          <User className="w-6 h-6 text-primary" />
-        </div>
-        <div className="flex flex-col min-w-0 gap-2">
-          <span className="text-sm font-black text-foreground truncate tracking-tight">
-            {((profile?.name && profile.name.trim()) || 
-               (user?.user_metadata?.full_name && user.user_metadata.full_name.trim()) || 
-               user?.email?.split('@')[0] || 
-               'Mi Espacio')}
-            {user?.is_anonymous && <span className="text-on-surface-variant/50 font-medium ml-1">(Invitado)</span>}
-          </span>
-          <ProfileProgress metrics={metrics} />
-        </div>
-      </div>
+    <div className={`p-5 border-b border-outline-variant flex flex-col gap-3.5 ${isSheet ? 'pr-16' : ''}`}>
+      <div className="flex items-center justify-between gap-3">
+        <div 
+          onClick={() => handleNavigate('/profile')}
+          className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity group flex-1 min-w-0"
+        >
+          <div className="w-11 h-11 rounded-2xl bg-surface-container flex items-center justify-center border border-outline-variant group-hover:bg-surface-container-high transition-colors flex-shrink-0">
+            <User className="w-5 h-5 text-primary" />
+          </div>
+          <div className="flex flex-col min-w-0">
+            <span className="text-sm font-black text-foreground truncate tracking-tight">
+              {((profile?.name && profile.name.trim()) || 
+                 (user?.user_metadata?.full_name && user.user_metadata.full_name.trim()) || 
+                 user?.email?.split('@')[0] || 
+                 'Mi Espacio')}
+            </span>
 
-      {!isSheet && (
-        <div className="flex flex-col gap-2">
+          </div>
+        </div>
+
+        {!isSheet && (
           <button 
             onClick={toggleSidebar}
-            className="w-10 h-10 flex items-center justify-center text-on-surface-variant transition-colors flex-shrink-0"
+            className="w-9 h-9 rounded-xl hover:bg-surface-container flex items-center justify-center text-on-surface-variant transition-colors flex-shrink-0"
             aria-label="Cerrar menú"
           >
-            <Menu className="w-5 h-5" />
+            <Menu className="w-4 h-4" />
           </button>
-        </div>
-      )}
+        )}
+      </div>
+
+      <ProfileProgress metrics={metrics} />
     </div>
     
     <div className="flex-1 overflow-y-auto py-4">
@@ -233,13 +186,8 @@ const SidebarContent = ({ user, profile, metrics, menuItems, location, handleNav
       </div>
     </div>
 
-    <div className="p-6 border-t border-outline-variant space-y-3">
-      {/* Download desktop app — only shown in web (hidden in Electron) */}
-      {!isElectronEnv && (
-        <DesktopDownloadBanner />
-      )}
-
-      {user?.is_anonymous && (
+    {user?.is_anonymous && (
+      <div className="p-6 border-t border-outline-variant space-y-3">
         <Button 
           onClick={() => handleNavigate('/auth')} 
           variant="default" 
@@ -248,8 +196,8 @@ const SidebarContent = ({ user, profile, metrics, menuItems, location, handleNav
           <User className="w-5 h-5" />
           <span>Iniciar sesión</span>
         </Button>
-      )}
-    </div>
+      </div>
+    )}
   </div>
   );
 };
@@ -260,14 +208,16 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
   const [desktopSidebarOpen, setDesktopSidebarOpen] = useState<boolean>(() => {
     if (typeof window === 'undefined') return true;
     const saved = localStorage.getItem('adonai_sidebar_open');
-    return saved === null ? true : saved === '1';
+    return saved === null ? false : saved === '1';
   });
 
+  const location = useLocation();
   const [draftActive, setDraftActive] = useState(false);
   const [detailActive, setDetailActive] = useState(false);
   const [eventCreateOpen, setEventCreateOpen] = useState(false);
 
-  const fabHidden = draftActive || detailActive || eventCreateOpen;
+  const isPathFabHidden = ['/folders', '/goals', '/friends', '/profile', '/settings', '/priority-settings', '/trash', '/achievements'].some(path => location.pathname.startsWith(path));
+  const fabHidden = draftActive || detailActive || eventCreateOpen || isPathFabHidden;
 
   useEffect(() => {
     const handler = (e: Event) => setDraftActive((e as CustomEvent).detail.active)
@@ -320,7 +270,6 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
   const { profile } = useProfile();
   const { metrics } = useStreaks();
   const navigate = useNavigate();
-  const location = useLocation();
   const isWeeklyPage = location.pathname === '/week';
 
   // Task capture state

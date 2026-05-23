@@ -10,7 +10,6 @@ import { useRecurrenceRules } from '@/hooks/useRecurrenceRules';
 import { useGoals } from '@/hooks/useGoals';
 import { notify } from '@/components/ui/adonai-notifier';
 import FullscreenTimer from './FullscreenTimer';
-import SubtasksSection from './SubtasksSection';
 import { AutoTextarea } from '@/components/ui/auto-textarea';
 import { CalendarDatePicker } from '@/components/ui/calendar-date-picker';
 import { DurationPicker } from '@/components/ui/duration-picker';
@@ -375,7 +374,7 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
                         <div className="flex flex-wrap gap-2">
                           <button onClick={() => { setFolderId(null); markChanged(); }}
                             className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border ${!folderId ? 'bg-primary text-primary-foreground border-primary shadow-lg shadow-primary/20' : 'bg-surface-container/30 text-muted-foreground border-outline-variant/10 hover:bg-surface-container/50'}`}>
-                            General
+                            Hoy
                           </button>
                           {folders.map((folder) => (
                             <button key={folder.id} onClick={() => { setFolderId(folder.id === folderId ? null : folder.id); markChanged(); }}
@@ -453,9 +452,6 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
                         )}
                       </AnimatePresence>
                     </div>
-
-                    {/* Subtasks */}
-                    <SubtasksSection parentTaskId={task.id} />
 
                     {/* Status Selection */}
                     <div className="space-y-1">

@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 import { format, addHours, addMinutes, addDays, isSameDay, startOfDay, endOfDay, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval } from "date-fns"
 import { es } from "date-fns/locale"
 
@@ -336,17 +336,17 @@ export function EventManager({
     reminderMinutesBefore: 15,
   })
 
-  const [selectedCategory, setSelectedCategory] = useState<string | null>('General');
+  const [selectedCategory, setSelectedCategory] = useState<string>('Hoy');
 
   const uniqueCategories = useMemo(() => {
     const cats = new Set<string>();
-    cats.add('General');
     events.forEach(e => {
       if (e.isEvent || e.id.startsWith('block-')) return;
-      const catName = e.category || 'General';
+      const catName = e.category || 'Hoy';
       cats.add(catName);
     });
-    return Array.from(cats).sort();
+    const sorted = Array.from(cats).filter(c => c !== 'Hoy').sort();
+    return ['Hoy', ...sorted];
   }, [events]);
 
   const [searchQuery, setSearchQuery] = useState("")
@@ -357,8 +357,8 @@ export function EventManager({
   const [selectedDayForSheet, setSelectedDayForSheet] = useState<Date | null>(null)
   const [isSheetOpen, setIsSheetOpen] = useState(false)
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
-  const [sidebarView, setSidebarView] = useState<'list' | 'folders'>('list');
-  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set(['General']));
+  const [sidebarView, setSidebarView] = useState<'list' | 'folders'>('folders');
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set(['Hoy']));
   const [sidebarReorderId, setSidebarReorderId] = useState<string | null>(null);
   const [recurrenceEditorOpen, setRecurrenceEditorOpen] = useState(true)
   const [pendingCustomColor, setPendingCustomColor] = useState('#5B7CFA')
@@ -708,7 +708,7 @@ export function EventManager({
   }, [getSidebarTaskDateRank, getSidebarTaskRank]);
 
   const getSidebarTaskGroupKey = useCallback((event: Event) => {
-    return `${event.category || 'General'}:${getSidebarTaskRank(event)}:${getSidebarTaskDateRank(event)}`;
+    return `${event.category || 'Hoy'}:${getSidebarTaskRank(event)}:${getSidebarTaskDateRank(event)}`;
   }, [getSidebarTaskDateRank, getSidebarTaskRank]);
 
   const canReorderSidebarTask = useCallback((event: Event) => {
@@ -778,14 +778,17 @@ export function EventManager({
       if (e.isEvent || e.id.startsWith('block-')) return false;
       const inTimeRange = (isSameDay(e.startTime, currentDate)) || 
         (e.startTime < startOfDay(currentDate) && !e.completed);
-      const taskCat = e.category || 'General';
-      const matchesCategory = !selectedCategory || taskCat === selectedCategory;
+      const taskCat = e.category || 'Hoy';
+      // 'Hoy' tab shows tasks with no category or category === 'Hoy'
+      const matchesCategory = selectedCategory === 'Hoy'
+        ? (!e.category || e.category === 'Hoy')
+        : taskCat === selectedCategory;
       return inTimeRange && matchesCategory;
     });
     const grouped: Record<string, Event[]> = {};
     
     tasks.forEach(task => {
-      const folder = task.category || 'General';
+      const folder = task.category || 'Hoy';
       if (!grouped[folder]) grouped[folder] = [];
       grouped[folder].push(task);
     });
@@ -1040,7 +1043,7 @@ export function EventManager({
     [onEventUpdate, selectedEvent?.id],
   )
 
-  // ─── Shared ghost ref for both sidebar and grid drags ───
+  // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Shared ghost ref for both sidebar and grid drags Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
   const globalGhostRef = useRef<HTMLDivElement>(null)
   const [globalDragEvent, setGlobalDragEvent] = useState<Event | null>(null)
   const globalDragEventRef = useRef<Event | null>(null)
@@ -1082,7 +1085,7 @@ export function EventManager({
     onEventUpdate?.(event.id, updatedEvent)
   }, [onEventUpdate, events])
 
-  // Sidebar custom mouse drag – mirrors the calendar ghost system
+  // Sidebar custom mouse drag Ã¢â‚¬â€œ mirrors the calendar ghost system
   const handleSidebarMouseDown = useCallback((e: React.MouseEvent, event: Event) => {
     e.preventDefault()
     const startX = e.clientX
@@ -1587,241 +1590,113 @@ export function EventManager({
                       <p className="text-[11px] text-on-surface-variant font-semibold leading-snug">Mantén presionado para arrastrar al calendario</p>
                     </div>
 
-                    {/* Notebook filter bar */}
-                    {uniqueCategories.length > 0 && (
-                      <div className="flex items-center gap-2 overflow-x-auto px-4 py-3 border-b border-outline-variant/10 bg-surface-container-low/40">
-                        {uniqueCategories.map(cat => {
-                          const isSelected = selectedCategory === cat;
-                          return (
-                            <button
-                              key={cat}
-                              onClick={() => setSelectedCategory(cat)}
-                              className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wide transition-all border ${
-                                isSelected
-                                  ? 'bg-primary text-primary-foreground border-primary shadow-sm'
-                                  : 'bg-surface-container text-on-surface-variant/70 hover:text-primary border-outline-variant/20 hover:border-primary/30'
-                              }`}
+                    {/* Folder tab bar â€” always visible, Hoy is default */}
+                    <div className="flex items-center gap-2 overflow-x-auto px-4 py-3 border-b border-outline-variant/10 bg-surface-container-low/40 no-scrollbar">
+                      {uniqueCategories.map(cat => {
+                        const isSelected = selectedCategory === cat;
+                        return (
+                          <button
+                            key={cat}
+                            onClick={() => setSelectedCategory(cat)}
+                            className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wide transition-all border ${
+                              isSelected
+                                ? 'bg-primary text-primary-foreground border-primary shadow-sm'
+                                : 'bg-surface-container text-on-surface-variant/70 hover:text-primary border-outline-variant/20 hover:border-primary/30'
+                            }`}
+                          >
+                            <motion.div
+                              key={isSelected ? 'open' : 'closed'}
+                              initial={{ rotateY: isSelected ? 180 : -180, scale: 0.8 }}
+                              animate={{ rotateY: 0, scale: 1 }}
+                              transition={{ type: 'spring', stiffness: 400, damping: 15 }}
+                              style={{ display: 'flex' }}
                             >
-                              <motion.div
-                                key={isSelected ? 'open' : 'closed'}
-                                initial={{ rotateY: isSelected ? 180 : -180, scale: 0.8 }}
-                                animate={{ rotateY: 0, scale: 1 }}
-                                transition={{ type: 'spring', stiffness: 400, damping: 15 }}
-                                style={{ display: 'flex' }}
-                              >
-                                {isSelected ? (
-                                  <NotebookText className="w-3 h-3" />
-                                ) : (
-                                  <Notebook className="w-3 h-3" />
-                                )}
-                              </motion.div>
-                              {cat}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
+                              {isSelected ? (
+                                <NotebookText className="w-3 h-3" />
+                              ) : (
+                                <Notebook className="w-3 h-3" />
+                              )}
+                            </motion.div>
+                            {cat}
+                          </button>
+                        );
+                      })}
+                    </div>
 
                     <div ref={sidebarScrollRef} className="flex-1 overflow-y-auto custom-scrollbar p-3 focus:outline-none focus:ring-2 focus:ring-primary/20" data-sidebar-scroll="true" tabIndex={0}>
-                      {sidebarView === 'list' ? (
-                        <div className="space-y-2">
-                          {filteredEvents.filter(e => {
-                            if (e.isEvent || e.id.startsWith('block-')) return false;
-                            const inTimeRange = (isSameDay(e.startTime, currentDate)) || (e.startTime < startOfDay(currentDate) && !e.completed);
-                            const matchesCategory = !selectedCategory || e.category === selectedCategory;
-                            return inTimeRange && matchesCategory;
-                          }).length > 0 ? (
-                            filteredEvents
-                              .filter(e => {
-                                if (e.isEvent || e.id.startsWith('block-')) return false;
-                                const inTimeRange = (isSameDay(e.startTime, currentDate)) || (e.startTime < startOfDay(currentDate) && !e.completed);
-                                const matchesCategory = !selectedCategory || e.category === selectedCategory;
-                                return inTimeRange && matchesCategory;
-                              })
-                              .sort(compareSidebarTasks)
-                              .map((event) => {
-                                const evColor = (event.color.startsWith('#') || event.color.startsWith('var')) ? event.color : undefined;
-                                return (
-                                  <div
-                                    key={event.id}
-                                    onMouseDown={(e) => {
-                                      if ((e.target as HTMLElement).closest('[data-sidebar-reorder-handle]')) return;
-                                      handleSidebarMouseDown(e, event);
-                                    }}
-                                    onTouchStart={(e) => {
-                                      if ((e.target as HTMLElement).closest('[data-sidebar-reorder-handle]')) return;
-                                      handleSidebarTouchStart(e, event);
-                                    }}
-                                    onDragOver={(e) => handleSidebarReorderOver(e, event)}
+                      {/* Tasks for the active folder tab */}
+                      <div className="space-y-2">
+                        {Object.values(tasksByFolder).flat().length > 0 ? (
+                          Object.values(tasksByFolder).flat().map((event) => {
+                            const evColor = (event.color.startsWith('#') || event.color.startsWith('var')) ? event.color : undefined;
+                            return (
+                              <div
+                                key={event.id}
+                                onMouseDown={(e) => {
+                                  if ((e.target as HTMLElement).closest('[data-sidebar-reorder-handle]')) return;
+                                  handleSidebarMouseDown(e, event);
+                                }}
+                                onTouchStart={(e) => {
+                                  if ((e.target as HTMLElement).closest('[data-sidebar-reorder-handle]')) return;
+                                  handleSidebarTouchStart(e, event);
+                                }}
+                                onDragOver={(e) => handleSidebarReorderOver(e, event)}
+                                onDragEnd={handleSidebarReorderEnd}
+                                onClick={() => {
+                                  if (onEventClick) {
+                                    onEventClick(event)
+                                  } else {
+                                    setSelectedEvent(event)
+                                    setIsDialogOpen(true)
+                                  }
+                                }}
+                                className="group flex items-start gap-3 p-4 rounded-[20px] hover:bg-surface-container transition-all cursor-grab active:cursor-grabbing border border-transparent hover:border-primary/20 touch-none"
+                                style={{ 
+                                  backgroundColor: (() => { const pc = priorityColors[getPriorityKey(event.urgency || false, event.importance || false)]; return pc && pc !== 'transparent' ? `${pc}4D` : 'transparent'; })(),
+                                }}
+                              >
+                                {canReorderSidebarTask(event) ? (
+                                  <button
+                                    type="button"
+                                    draggable
+                                    data-sidebar-reorder-handle
+                                    title="Arrastra para ordenar"
+                                    aria-label="Arrastra para ordenar"
+                                    onDragStart={(e) => handleSidebarReorderStart(e, event)}
                                     onDragEnd={handleSidebarReorderEnd}
-                                    onClick={() => {
-                                      if (onEventClick) {
-                                        onEventClick(event)
-                                      } else {
-                                        setSelectedEvent(event)
-                                        setIsDialogOpen(true)
-                                      }
-                                    }}
-                                    className="group flex items-start gap-3 p-4 rounded-[20px] hover:bg-surface-container transition-all cursor-grab active:cursor-grabbing border border-transparent hover:border-primary/20 touch-none"
-                                    style={{ 
-                                      backgroundColor: (() => { const pc = priorityColors[getPriorityKey(event.urgency || false, event.importance || false)]; return pc && pc !== 'transparent' ? `${pc}4D` : 'transparent'; })(),
-                                    }}
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="mt-0.5 flex h-7 w-4 shrink-0 items-center justify-center rounded-md text-on-surface-variant/30 transition-all hover:bg-primary/10 hover:text-primary group-hover:text-primary/70 cursor-grab active:cursor-grabbing"
                                   >
-                                    {canReorderSidebarTask(event) ? (
-                                      <button
-                                        type="button"
-                                        draggable
-                                        data-sidebar-reorder-handle
-                                        title="Arrastra para ordenar"
-                                        aria-label="Arrastra para ordenar"
-                                        onDragStart={(e) => handleSidebarReorderStart(e, event)}
-                                        onDragEnd={handleSidebarReorderEnd}
-                                        onClick={(e) => e.stopPropagation()}
-                                        className="mt-0.5 flex h-7 w-4 shrink-0 items-center justify-center rounded-md text-on-surface-variant/30 transition-all hover:bg-primary/10 hover:text-primary group-hover:text-primary/70 cursor-grab active:cursor-grabbing"
-                                      >
-                                        <ChevronsUpDown className="h-3.5 w-3.5" strokeWidth={1.8} />
-                                      </button>
-                                    ) : (
-                                      <div className="w-4 shrink-0" />
-                                    )}
-                                    <div
-                                      className="w-2 h-2 rounded-full mt-2 shrink-0"
-                                      style={{ backgroundColor: evColor || priorityColors[getPriorityKey(event.urgency || false, event.importance || false)] }}
-                                    />
-                                    <div className={cn("flex-1 min-w-0", event.completed && "opacity-40 grayscale-[0.5]")}>
-                                      <span className={cn("block text-[13px] font-semibold leading-snug tracking-normal text-foreground transition-colors group-hover:text-primary", event.completed && "line-through")}>{event.title}</span>
-                                      <div className="mt-1">
-                                        <EventLinkClips links={event.links} color={evColor} />
-                                      </div>
-                                      {event.description && (
-                                        <div className="flex items-center gap-2 mt-1">
-                                          <span className="text-[10px] font-medium text-on-surface-variant/50 line-clamp-1 italic">{event.description}</span>
-                                        </div>
-                                      )}
-                                    </div>
+                                    <ChevronsUpDown className="h-3.5 w-3.5" strokeWidth={1.8} />
+                                  </button>
+                                ) : (
+                                  <div className="w-4 shrink-0" />
+                                )}
+                                <div
+                                  className="w-2 h-2 rounded-full mt-2 shrink-0"
+                                  style={{ backgroundColor: evColor || priorityColors[getPriorityKey(event.urgency || false, event.importance || false)] }}
+                                />
+                                <div className={cn("flex-1 min-w-0", event.completed && "opacity-40 grayscale-[0.5]")}>
+                                  <span className={cn("block text-[13px] font-semibold leading-snug tracking-normal text-foreground transition-colors group-hover:text-primary", event.completed && "line-through")}>{event.title}</span>
+                                  <div className="mt-1">
+                                    <EventLinkClips links={event.links} color={evColor} />
                                   </div>
-                                );
-                              })
-                          ) : (
-                            <div className="flex flex-col items-center justify-center py-8 opacity-40 text-center px-2">
-                              <List className="w-6 h-6 mb-2" />
-                              <p className="text-[9px] font-black uppercase tracking-widest">Sin tareas sueltas</p>
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <div className="space-y-1">
-                          {Object.keys(tasksByFolder).length > 0 ? (
-                            Object.entries(tasksByFolder).sort().map(([folder, tasks]) => (
-                              <div key={folder} className="space-y-1">
-                                <button
-                                  onClick={() => toggleFolder(folder)}
-                                  className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-surface-container transition-all group"
-                                >
-                                  <div className="flex items-center gap-3">
-                                    <motion.div 
-                                      animate={{ 
-                                        rotate: expandedFolders.has(folder) ? 0 : 0,
-                                        scale: expandedFolders.has(folder) ? 1.1 : 1
-                                      }}
-                                      className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0 transition-transform group-hover:scale-110"
-                                    >
-                                      {expandedFolders.has(folder) ? (
-                                        <NotebookText className="w-4 h-4 fill-primary/20" />
-                                      ) : (
-                                        <Notebook className="w-4 h-4 fill-primary/20" />
-                                      )}
-                                    </motion.div>
-                                    <div className="text-left">
-                                      <span className="text-[12px] font-semibold text-foreground block">{folder}</span>
+                                  {event.description && (
+                                    <div className="flex items-center gap-2 mt-1">
+                                      <span className="text-[10px] font-medium text-on-surface-variant/50 line-clamp-1 italic">{event.description}</span>
                                     </div>
-                                  </div>
-                                  <ChevronRight className={cn("w-4 h-4 text-on-surface-variant/30 transition-transform duration-300", expandedFolders.has(folder) && "rotate-90")} />
-                                </button>
-                                
-                                <AnimatePresence initial={false}>
-                                  {expandedFolders.has(folder) && (
-                                    <motion.div
-                                      initial={{ height: 0, opacity: 0 }}
-                                      animate={{ height: "auto", opacity: 1 }}
-                                      exit={{ height: 0, opacity: 0 }}
-                                      transition={{ duration: 0.3, ease: "easeInOut" }}
-                                      className="overflow-hidden"
-                                    >
-                                      <div className="space-y-1.5 pt-1 pl-4 pb-2">
-                                        {tasks.map((task) => {
-                                          const taskColor = (task.color.startsWith('#') || task.color.startsWith('var')) ? task.color : undefined;
-                                          return (
-                                            <div
-                                              key={task.id}
-                                              onMouseDown={(e) => {
-                                                if ((e.target as HTMLElement).closest('[data-sidebar-reorder-handle]')) return;
-                                                handleSidebarMouseDown(e, task);
-                                              }}
-                                              onTouchStart={(e) => {
-                                                if ((e.target as HTMLElement).closest('[data-sidebar-reorder-handle]')) return;
-                                                handleSidebarTouchStart(e, task);
-                                              }}
-                                              onDragOver={(e) => handleSidebarReorderOver(e, task)}
-                                              onDragEnd={handleSidebarReorderEnd}
-                                              onClick={() => {
-                                                if (onEventClick) {
-                                                  onEventClick(task)
-                                                } else {
-                                                  setSelectedEvent(task)
-                                                  setIsDialogOpen(true)
-                                                }
-                                              }}
-                                              className="group flex items-start gap-3 p-3 rounded-xl hover:bg-surface-container transition-all cursor-grab active:cursor-grabbing border hover:border-primary/30 touch-none"
-                                              style={{ 
-                                                backgroundColor: `color-mix(in srgb, ${priorityColors[getPriorityKey(task.urgency || false, task.importance || false)]}, transparent 85%)`,
-                                                borderColor: `color-mix(in srgb, ${priorityColors[getPriorityKey(task.urgency || false, task.importance || false)]}, transparent 80%)`
-                                              }}
-                                            >
-                                              {canReorderSidebarTask(task) ? (
-                                                <button
-                                                  type="button"
-                                                  draggable
-                                                  data-sidebar-reorder-handle
-                                                  title="Arrastra para ordenar"
-                                                  aria-label="Arrastra para ordenar"
-                                                  onDragStart={(e) => handleSidebarReorderStart(e, task)}
-                                                  onDragEnd={handleSidebarReorderEnd}
-                                                  onClick={(e) => e.stopPropagation()}
-                                                  className="mt-0 flex h-6 w-4 shrink-0 items-center justify-center rounded-md text-on-surface-variant/30 transition-all hover:bg-primary/10 hover:text-primary group-hover:text-primary/70 cursor-grab active:cursor-grabbing"
-                                                >
-                                                  <ChevronsUpDown className="h-3.5 w-3.5" strokeWidth={1.8} />
-                                                </button>
-                                              ) : (
-                                                <div className="w-4 shrink-0" />
-                                              )}
-                                              <div
-                                                className="w-1.5 h-1.5 rounded-full mt-1.5 shrink-0"
-                                                style={{ backgroundColor: taskColor || priorityColors[getPriorityKey(task.urgency || false, task.importance || false)] }}
-                                              />
-                                              <div className={cn("flex-1 min-w-0", task.completed && "opacity-40 grayscale-[0.5]")}>
-                                                <span className={cn("text-[13px] font-semibold leading-snug block group-hover:text-primary transition-colors text-foreground", task.completed && "line-through")}>{task.title}</span>
-                                                {task.description && (
-                                                  <span className="text-[9px] font-medium text-on-surface-variant/50 line-clamp-1 italic mt-0.5">{task.description}</span>
-                                                )}
-                                              </div>
-                                            </div>
-                                          );
-                                        })}
-                                      </div>
-                                    </motion.div>
                                   )}
-                                </AnimatePresence>
+                                </div>
                               </div>
-                            ))
-                          ) : (
-                            <div className="flex flex-col items-center justify-center py-8 opacity-40 text-center px-2">
-                              <Notebook className="w-6 h-6 mb-2" />
-                              <p className="text-[9px] font-black uppercase tracking-widest">Sin cuadernos</p>
-                            </div>
-                          )}
-                        </div>
-                      )}
+                            );
+                          })
+                        ) : (
+                          <div className="flex flex-col items-center justify-center py-8 opacity-40 text-center px-2">
+                            <List className="w-6 h-6 mb-2" />
+                            <p className="text-[9px] font-black uppercase tracking-widest">Sin tareas para hoy</p>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </Card>
                 )}
@@ -1891,7 +1766,7 @@ export function EventManager({
       </div>
 
 
-      {/* Event Dialog — pixel-match TaskDetailModal + time section */}
+      {/* Event Dialog Ã¢â‚¬â€ pixel-match TaskDetailModal + time section */}
       <AnimatePresence>
         {isDialogOpen && (() => {
           const hasTime = isCreating ? !newEvent.isAllDay : !selectedEvent?.isAllDay;
@@ -1920,7 +1795,7 @@ export function EventManager({
                 onClick={requestDialogClose}
               />
 
-              {/* Modal panel — identical container to TaskDetailModal */}
+              {/* Modal panel Ã¢â‚¬â€ identical container to TaskDetailModal */}
               <motion.div
                 key="event-modal"
                 initial={{ opacity: 0, scale: 0.95, y: 10 }}
@@ -1938,7 +1813,7 @@ export function EventManager({
                 )}>
                   <div className={cn("flex flex-col gap-6", containedScroll ? "p-4" : "p-6")}>
 
-                    {/* ── Header ── same as TaskDetailModal */}
+                    {/* Ã¢â€â‚¬Ã¢â€â‚¬ Header Ã¢â€â‚¬Ã¢â€â‚¬ same as TaskDetailModal */}
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <button
@@ -2122,7 +1997,7 @@ export function EventManager({
                         </div>
                       )}
 
-                      {/* DURACIÓN (Pills style) */}
+                      {/* DURACIÃƒâ€œN (Pills style) */}
                       {(creationSource === 'calendar_only' || creationSource === 'both') && isCreating && hasTime && (
                         <div className="space-y-3">
                           <div className="flex items-center justify-between px-1">
@@ -2222,7 +2097,7 @@ export function EventManager({
                         </div>
                       </div>
 
-                      {/* REPETICIÓN */}
+                      {/* REPETICIÃƒâ€œN */}
                       {(() => {
                         const priorityColorChoices = [
                           { id: 'p1', value: priorityColors.p1, label: 'P1', isCustom: false },
@@ -2643,7 +2518,7 @@ export function EventManager({
                         </div>
                       </div>
 
-                      {/* DESCRIPCIÓN */}
+                      {/* DESCRIPCIÃƒâ€œN */}
                       <div className="space-y-1">
                         <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 ml-2">Descripción</label>
                         <Textarea
@@ -3167,7 +3042,7 @@ function TimeGridView({
 
         if (!isDraggingRef.current) return;
 
-        // Ghost logic — always visible while dragging calendar events
+        // Ghost logic Ã¢â‚¬â€ always visible while dragging calendar events
         if (isMoving && ghostRef.current) {
           ghostRef.current.style.transform = `translate(${clientX - 70}px, ${clientY - 20}px)`;
           ghostRef.current.style.display = 'flex';
@@ -3717,7 +3592,7 @@ function TimeGridView({
                           className="absolute -top-7 left-1/2 -translate-x-1/2 whitespace-nowrap z-40"
                         >
                           <div className="bg-foreground text-background text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg shadow-lg">
-                            Arrastra los bordes ↕
+                            Arrastra los bordes Ã¢â€ â€¢
                           </div>
                         </motion.div>
                       )}
@@ -3822,7 +3697,7 @@ function TimeGridView({
         </div>
       </div>
 
-      {/* Ghost element for internal calendar drag — always follows mouse */}
+      {/* Ghost element for internal calendar drag Ã¢â‚¬â€ always follows mouse */}
       <div
         ref={ghostRef}
         style={{

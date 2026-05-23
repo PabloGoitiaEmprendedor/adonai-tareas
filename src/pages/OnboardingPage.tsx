@@ -201,7 +201,7 @@ const OnboardingPage = () => {
         daily_activities_count: dailyActivityRows.length,
         surface: isElectron ? 'desktop' : isMobile ? 'mobile_web' : 'web',
       });
-      navigate('/');
+      navigate('/daily');
     } catch (e) {
       console.error('[onboarding] handleFinish error:', e);
       trackAnalyticsEvent('onboarding_completion_failed', {

@@ -239,7 +239,7 @@ export const MobileDynamicIsland = ({
                   ) : (
                     <Notebook className="w-3 h-3" />
                   )}
-                  General
+                  Hoy
                 </button>
 
                 {folders.map(folder => (

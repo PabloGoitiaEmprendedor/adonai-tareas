@@ -296,7 +296,7 @@ export const MiniTaskWidget = ({ isOpen, onClose }: MiniTaskWidgetProps) => {
  className={`flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${!selectedFolderId? 'bg-foreground text-background shadow-lg shadow-foreground/10': 'bg-surface-container text-on-surface-variant/60 hover:text-foreground hover:bg-surface-container-high'
  }`}
  >
- General
+ Hoy
  </button>
  
  {folders.map((folder: any) => (
