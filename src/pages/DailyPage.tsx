@@ -524,7 +524,7 @@ const DailyPage = () => {
  {Array.from({ length: 18 }).map((_, ring) => (
  <span
  key={ring}
- className="h-3.5 w-12 rounded-full border-2 border-outline-variant/28 bg-background/20 shadow-[inset_0_1px_1px_rgba(255,255,255,0.25),0_1px_2px_rgba(0,0,0,0.12)]"
+              className="h-3.5 w-12 rounded-full border-2 border-[#A8A29E]/40 bg-[#A8A29E]/15 shadow-[inset_0_1px_1px_rgba(255,255,255,0.25),0_1px_2px_rgba(0,0,0,0.12)]"
  />
  ))}
  </div>
@@ -680,7 +680,7 @@ const DailyPage = () => {
  {Array.from({ length: 15 }).map((_, ring) => (
  <span
  key={ring}
- className="h-3 w-8 rounded-full border-2 border-outline-variant/28 bg-background/20 shadow-[inset_0_1px_1px_rgba(255,255,255,0.25),0_1px_2px_rgba(0,0,0,0.12)]"
+ className="h-3 w-8 rounded-full border-2 border-[#A8A29E]/40 bg-[#A8A29E]/15 shadow-[inset_0_1px_1px_rgba(255,255,255,0.25),0_1px_2px_rgba(0,0,0,0.12)]"
  />
  ))}
  </div>

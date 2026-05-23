@@ -90,7 +90,7 @@ export const TaskCard = memo(({
       onDragOver={(e) => handleDragOver?.(e, taskIdx)}
       style={cardStyle}
       className={`relative flex items-center gap-2 overflow-hidden border px-1.5 py-0 transition-colors group/task md:px-2 ${
-        view === 'daily' ? 'h-[42px] cursor-grab' : 'min-h-[42px] cursor-hand'
+        view === 'daily' ? 'h-[42px] cursor-grab border-b-transparent' : 'min-h-[42px] cursor-hand'
       } border-x-transparent border-t-transparent hover:border-primary/18`}
     >
       {!isDone && !hideTimer && (
