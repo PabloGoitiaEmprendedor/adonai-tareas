@@ -41,6 +41,7 @@ import ExitCodesPage from './pages/ExitCodesPage';
 import NotificationManager from './components/NotificationManager';
 import { AdonaiNotifier } from '@/components/ui/adonai-notifier';
 import DownloadGuideOverlay from '@/components/DownloadGuideOverlay';
+import DownloadGateModal from '@/components/DownloadGateModal';
 import { getAnalyticsExperience, setAnalyticsUser, trackAnalyticsEvent, trackPageView } from "@/lib/analytics";
 import CalendarCallback from "./pages/CalendarCallback";
 import SheetsCallback from "./pages/SheetsCallback";
@@ -327,6 +328,7 @@ const App = () => {
                 <AppRoutes />
               </NavigationWrapper>
               <DownloadGuideOverlay />
+              <DownloadGateModal />
             </AuthProvider>
           </HashRouter>
         </TooltipProvider>

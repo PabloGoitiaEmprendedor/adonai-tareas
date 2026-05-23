@@ -19,7 +19,16 @@ export function triggerInstallerDownload(platform: DownloadPlatform) {
   document.body.removeChild(link);
 }
 
-export function startGuidedDownload(platform: DownloadPlatform) {
+export function startGuidedDownload(platform: DownloadPlatform, skipAuthGate = false) {
+  if (!skipAuthGate) {
+    const onboardingDone = localStorage.getItem('adonai_onboarding_done') === 'true';
+    const sessionType = localStorage.getItem('adonai_session_type');
+    if (onboardingDone && sessionType === 'anonymous') {
+      window.dispatchEvent(new CustomEvent('adonai:show-download-gate', { detail: { platform } }));
+      return;
+    }
+  }
+
   trackAnalyticsEvent("download_started", {
     platform,
     installer_url: getInstallerDownloadUrl(platform),

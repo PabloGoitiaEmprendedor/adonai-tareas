@@ -1677,7 +1677,7 @@ export function EventManager({
                                     setIsDialogOpen(true)
                                   }
                                 }}
-                                className="group flex items-start gap-3 p-4 rounded-[20px] hover:bg-white/50 transition-all cursor-grab active:cursor-grabbing border border-transparent hover:border-[#A8A29E]/30 touch-none"
+                                className="group flex items-start gap-3 px-3 py-2.5 rounded-xl hover:bg-white/40 transition-all cursor-grab active:cursor-grabbing border border-transparent hover:border-[#A8A29E]/20 touch-none min-h-[42px]"
                                 style={{ 
                                   backgroundColor: (() => { const pc = priorityColors[getPriorityKey(event.urgency || false, event.importance || false)]; return pc && pc !== 'transparent' ? `${pc}4D` : 'transparent'; })(),
                                 }}
@@ -1700,11 +1700,11 @@ export function EventManager({
                                   <div className="w-4 shrink-0" />
                                 )}
                                 <div
-                                  className="w-2 h-2 rounded-full mt-2 shrink-0"
-                                  style={{ backgroundColor: evColor || priorityColors[getPriorityKey(event.urgency || false, event.importance || false)] }}
+                                  className="h-[18px] w-[18px] rounded-full border-2 shrink-0 mt-0.5"
+                                  style={{ borderColor: evColor || priorityColors[getPriorityKey(event.urgency || false, event.importance || false)] }}
                                 />
                                 <div className={cn("flex-1 min-w-0", event.completed && "opacity-40 grayscale-[0.5]")}>
-                                  <span className={cn("block text-[13px] font-semibold leading-snug tracking-normal text-[#1f2937] transition-colors group-hover:text-primary", event.completed && "line-through opacity-40")}>{event.title}</span>
+                                  <span className={cn("block text-[14px] font-semibold leading-snug tracking-normal text-[#1f2937] transition-colors group-hover:text-primary truncate", event.completed && "line-through opacity-40")}>{event.title}</span>
                                   <div className="mt-1">
                                     <EventLinkClips links={event.links} color={evColor} />
                                   </div>
