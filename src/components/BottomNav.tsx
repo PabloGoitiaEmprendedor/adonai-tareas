@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { CalendarArrowUp, FolderOpen, Sun } from 'lucide-react';
+import { Sun, CalendarArrowUp, NotebookTabs } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 const BottomNav = () => {
@@ -8,7 +8,7 @@ const BottomNav = () => {
   const navItems = [
     { icon: Sun, label: 'Hoy', path: '/daily', id: 'nav-today' },
     { icon: CalendarArrowUp, label: 'Calendario', path: '/week', id: 'nav-week' },
-    { icon: FolderOpen, label: 'Carpetas', path: '/folders', id: 'nav-folders' },
+    { icon: NotebookTabs, label: 'Cuadernos', path: '/folders', id: 'nav-folders' },
   ];
 
   return (

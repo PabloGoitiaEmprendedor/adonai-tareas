@@ -1,8 +1,6 @@
-import { useState, memo } from 'react';
+import { useState, memo, type CSSProperties } from 'react';
 import { motion } from 'framer-motion';
-import { Check, Link as LinkIcon, Paperclip, ChevronsUpDown } from 'lucide-react';
-import SubtasksSection from './SubtasksSection';
-import { useSubtasks } from '@/hooks/useSubtasks';
+import { Paperclip } from 'lucide-react';
 import { useTasks } from '@/hooks/useTasks';
 import { usePriorityColors } from '@/hooks/usePriorityColors';
 import { TaskCheckbox } from './TaskCheckbox';
@@ -13,19 +11,20 @@ interface TaskCardProps {
   taskIdx: number;
   isDone: boolean;
   completingTaskId: string | null;
-  dragIdx: number | null;
-  touchIdx: number | null;
-  handleDragStart: (idx: number) => void;
-  handleDragOver: (e: React.DragEvent, idx: number) => void;
-  handleDragEnd: () => void;
-  handleTouchStart: (idx: number, e: React.TouchEvent) => void;
-  handleTouchMove: (e: React.TouchEvent) => void;
-  handleTouchEnd: () => void;
+  dragIdx?: number | null;
+  touchIdx?: number | null;
+  handleDragStart?: (idx: number) => void;
+  handleDragOver?: (e: React.DragEvent, idx: number) => void;
+  handleDragEnd?: () => void;
+  handleTouchStart?: (idx: number, e: React.TouchEvent) => void;
+  handleTouchMove?: (e: React.TouchEvent) => void;
+  handleTouchEnd?: () => void;
   setSelectedTask: (task: any) => void;
   handleComplete: (task: any, e: React.MouseEvent) => void;
   handleUncomplete: (task: any, e: React.MouseEvent) => void;
   handleStartTimer: (task: any, e: React.MouseEvent) => void;
   view: 'daily' | 'weekly';
+  hideTimer?: boolean;
 }
 
 export const TaskCard = memo(({
@@ -34,21 +33,16 @@ export const TaskCard = memo(({
   isDone,
   completingTaskId,
   dragIdx,
-  touchIdx,
   handleDragStart,
   handleDragOver,
   handleDragEnd,
-  handleTouchStart,
-  handleTouchMove,
-  handleTouchEnd,
   setSelectedTask,
   handleComplete,
   handleUncomplete,
   handleStartTimer,
-  view
+  view,
+  hideTimer = true
 }: TaskCardProps) => {
-  const [subtasksOpen, setSubtasksOpen] = useState(false);
-  const { subtasks } = useSubtasks(task.id, { enabled: subtasksOpen });
   const { updateTask } = useTasks();
   const [isEditing, setIsEditing] = useState(false);
   const [editedTitle, setEditedTitle] = useState(task.title);
@@ -61,10 +55,6 @@ export const TaskCard = memo(({
       setEditedTitle(task.title);
     }
   };
-
-  const completedSubtasks = subtasks.filter(s => s.status === 'done').length;
-  const hasSubtasks = subtasks.length > 0;
-
   const { colors } = usePriorityColors();
 
   const getTaskPriorityColor = () => {
@@ -75,97 +65,92 @@ export const TaskCard = memo(({
   };
 
   const priorityColor = getTaskPriorityColor();
-  // If transparent, use transparent, otherwise append 4D for ~30% opacity
-  const backgroundColor = priorityColor === 'transparent' ? 'transparent' : `${priorityColor}4D`;
+  const cardStyle = {
+    background: 'transparent',
+    borderRadius: '18px 15px 20px 16px',
+  } as CSSProperties;
 
   return (
     <motion.div
       layoutId={view === 'weekly' ? task.id : undefined}
-      layout={view === 'daily' ? true : undefined}
+      layout={false}
       draggable={!isDone}
-      onDragStart={() => handleDragStart(taskIdx)}
-      onDragOver={(e) => handleDragOver(e, taskIdx)}
-      onDragEnd={handleDragEnd}
-      onTouchStart={(e) => handleTouchStart(taskIdx, e)}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
-      initial={view === 'daily' ? { opacity: 0, x: -20 } : { opacity: 0, scale: 0.95 }}
-      animate={
-        view === 'daily' 
-        ? { 
-            opacity: completingTaskId === task.id ? 0.3 : 1, 
-            x: 0,
-            scale: completingTaskId === task.id ? 0.98 : 1
-          } 
-        : { opacity: 1, scale: 1 }
-      }
-      exit={view === 'daily' ? { opacity: 0, scale: 0.8, transition: { duration: 0.2 } } : undefined}
+      onDragStart={(event) => {
+        if ((event.target as HTMLElement).closest('[data-no-drag="true"]')) {
+          event.preventDefault();
+          return;
+        }
+        handleDragStart?.(taskIdx);
+      }}
+      onDragEnd={() => handleDragEnd?.()}
+      initial={view === 'daily' ? { opacity: 0 } : { opacity: 0, scale: 0.98 }}
+      animate={{ opacity: 1 }}
+      exit={view === 'daily' ? { opacity: 0, transition: { duration: 0.08 } } : undefined}
       onClick={() => setSelectedTask(task)}
-      style={{ backgroundColor }}
-      className={`p-5 rounded-[28px] flex items-start gap-4 cursor-pointer transition-all border group/task shadow-sm hover:shadow-xl hover:shadow-black/20 ${
-        isDone || completingTaskId === task.id
-          ? 'bg-transparent border-transparent opacity-40' 
-          : dragIdx === taskIdx || touchIdx === taskIdx 
-            ? `scale-[1.02] shadow-2xl border-primary z-30` 
-            : `hover:border-primary/20 border-white/5 bg-white/[0.01]`
-      }`}
+      onDragOver={(e) => handleDragOver?.(e, taskIdx)}
+      style={cardStyle}
+      className={`relative flex items-center gap-2 overflow-hidden border px-1.5 py-0 transition-colors group/task md:px-2 ${
+        view === 'daily' ? 'h-[42px] cursor-grab' : 'min-h-[42px] cursor-hand'
+      } border-x-transparent border-t-transparent hover:border-primary/18`}
     >
-      {!isDone ? (
-        <div
-          className="mt-1 flex h-8 w-5 flex-shrink-0 items-center justify-center rounded-lg text-on-surface-variant/30 opacity-70 transition-all group-hover/task:text-primary group-hover/task:opacity-100 cursor-grab active:cursor-grabbing"
-          title="Arrastra para ordenar"
-          aria-label="Arrastra para ordenar"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <ChevronsUpDown className="h-4 w-4" strokeWidth={1.8} />
+      {!isDone && !hideTimer && (
+        <div className="relative z-20 flex-shrink-0" data-no-drag="true">
+          <TaskTimerButton
+            size="sm"
+            onClick={(e) => handleStartTimer(task, e)}
+          />
         </div>
-      ) : (
-        <div className="w-5 flex-shrink-0" />
+      )}
+
+      {!isDone && task.link && (
+        <div className="relative z-20 flex flex-shrink-0 items-center gap-1" data-no-drag="true">
+          {task.link.split(/\s+/).filter(Boolean).map((url: string, i: number) => {
+            const href = url.startsWith('http') ? url : `https://${url}`;
+            return (
+              <a
+                key={i}
+                href={href}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                draggable={false}
+                className="flex h-7 w-7 items-center justify-center rounded-[9px] border border-outline/35 bg-surface/35 shadow-sm transition-all hover:bg-surface/70 active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45"
+                aria-label="Abrir link"
+              >
+                <Paperclip
+                  className="h-3.5 w-3.5 transition-colors"
+                  style={{ color: priorityColor === 'transparent' ? 'var(--primary)' : priorityColor }}
+                />
+              </a>
+            );
+          })}
+        </div>
       )}
 
       {/* Checkbox */}
-      <div className="relative flex-shrink-0 pt-1">
-        <motion.div
-          initial={isDone || completingTaskId === task.id ? { scale: 0, rotate: -45 } : false}
-          animate={{ scale: 1, rotate: 0 }}
-          transition={{ type: "spring", stiffness: 500, damping: 30 }}
-        >
-          <TaskCheckbox
-            checked={isDone || completingTaskId === task.id}
-            priorityColor={priorityColor}
-            size="md"
-            onClick={(e) => {
-              e.stopPropagation();
-              if (isDone || completingTaskId === task.id) handleUncomplete(task, e);
-              else handleComplete(task, e);
-            }}
-          />
-        </motion.div>
+      <div className="cursor-pencil relative z-20 flex-shrink-0" data-no-drag="true">
+        <TaskCheckbox
+          checked={isDone || completingTaskId === task.id}
+          priorityColor={priorityColor}
+          size="sm"
+          onClick={(e) => {
+            e.stopPropagation();
+            if (isDone || completingTaskId === task.id) handleUncomplete(task, e);
+            else handleComplete(task, e);
+          }}
+        />
       </div>
 
-      <div className="flex-1 min-w-0 relative flex flex-col justify-center min-h-[44px] pr-2">
-        <div className="flex items-center gap-2 mb-1">
-          {/* Subtasks Toggle directly to the left of the title */}
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setSubtasksOpen(!subtasksOpen);
-            }}
-            className="flex-shrink-0 text-white/30 hover:text-primary transition-all flex items-center justify-center w-8 h-8 hover:bg-white/5 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
-            aria-label={subtasksOpen ? 'Ocultar subtareas' : 'Mostrar subtareas'}
-          >
-            <span className={`text-[16px] font-black inline-block transition-transform duration-300 ${subtasksOpen ? 'rotate-45 text-primary scale-110' : 'group-hover/task:scale-110'}`}>
-              {"+"}
-            </span>
-          </button>
-
-          <div className={`text-[14px] font-semibold tracking-normal transition-all flex flex-1 items-center gap-2 font-headline break-words ${
+      <div className="relative z-10 flex h-[42px] flex-1 flex-col justify-center min-w-0 pr-2">
+        <div className="flex min-w-0 items-center gap-2">
+          <div className={`min-w-0 text-[14px] font-semibold tracking-normal transition-all flex flex-1 items-center gap-2 font-headline ${
             isDone || completingTaskId === task.id ? 'text-on-surface-variant/30 line-through' : 'text-foreground'
           }`}>
             {isEditing ? (
               <input
                 autoFocus
                 value={editedTitle}
+                size={Math.max(editedTitle.length, 4)}
                 onChange={e => setEditedTitle(e.target.value)}
                 onBlur={submitEdit}
                 onKeyDown={e => {
@@ -176,13 +161,16 @@ export const TaskCard = memo(({
                   }
                 }}
                 onClick={e => e.stopPropagation()}
-                className="bg-transparent border-b border-primary focus:outline-none relative z-10 w-full"
+                draggable={false}
+                data-no-drag="true"
+                className="cursor-eraser relative z-10 max-w-full bg-transparent px-1 focus:outline-none"
               />
             ) : (
               <span 
-                className="relative z-10 cursor-text hover:bg-on-surface-variant/5 rounded px-1 -ml-1 transition-colors flex-1 min-w-0 break-words"
+                className="cursor-eraser relative z-10 inline-block max-w-full truncate rounded px-1 -ml-1 transition-colors hover:bg-on-surface-variant/5 hover:text-primary"
                 onClick={(e) => { e.stopPropagation(); setIsEditing(true); setEditedTitle(task.title); }}
-                title="Haz clic para editar"
+                draggable={false}
+                data-no-drag="true"
               >
                 {task.title}
               </span>
@@ -198,62 +186,9 @@ export const TaskCard = memo(({
             )}
           </div>
         </div>
-
-        {!isDone && (
-          <div className="mt-1">
-            <SubtasksSection 
-              parentTaskId={task.id} 
-              compact 
-              isOpen={subtasksOpen} 
-              hideToggle={true} 
-            />
-          </div>
-        )}
       </div>
       
-      <div className="flex items-center gap-1.5 flex-shrink-0 flex-wrap justify-end max-w-[45%]">
-
-        {/* Green link clips — visible when task has a link(s) */}
-        {!isDone && task.link && (
-          <div className="flex items-center gap-1">
-            {task.link.split(/\s+/).filter(Boolean).map((url: string, i: number) => {
-              const href = url.startsWith('http') ? url : `https://${url}`;
-              return (
-              <a
-                key={i}
-                href={href}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={(e) => e.stopPropagation()}
-                className="w-9 h-9 md:w-8 md:h-8 rounded-[10px] flex items-center justify-center transition-all active:scale-90 bg-surface/50 dark:bg-black/20 border border-outline/50 hover:bg-surface dark:hover:bg-black/40 group/link shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
-                aria-label="Abrir link"
-              >
-                <Paperclip 
-                  className="w-3.5 h-3.5 transition-colors" 
-                  style={{ color: priorityColor === 'transparent' ? 'var(--primary)' : priorityColor }} 
-                />
-              </a>
-              );
-            })}
-          </div>
-        )}
-
-        {!isDone && (
-          isEditing ? (
-            <button
-              onClick={(e) => { e.stopPropagation(); submitEdit(); }}
-              className="w-9 h-9 md:w-8 md:h-8 rounded-[10px] flex items-center justify-center transition-all active:scale-90 bg-primary shadow-lg shadow-primary/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
-              aria-label="Guardar cambios"
-            >
-              <Check className="w-4 h-4 text-primary-foreground stroke-[3]" />
-            </button>
-          ) : (
-            <TaskTimerButton
-              priorityColor={priorityColor}
-              onClick={(e) => handleStartTimer(task, e)}
-            />
-          )
-        )}
+      <div className="relative z-10 flex items-center gap-1.5 flex-shrink-0 flex-wrap justify-end max-w-[45%]">
       </div>
     </motion.div>
   );

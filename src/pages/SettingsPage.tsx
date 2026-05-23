@@ -16,7 +16,7 @@ import {
     ChevronLeft,
     RefreshCw,
     Link as LinkIcon,
-    FolderOpen,
+    Notebook,
     Check,
     ArrowLeft,
     ArrowRight,
@@ -42,6 +42,7 @@ const SettingsPage = () => {
   const calendar = useCalendarIntegration();
   const sheets = useSheetsIntegration();
   const { colors: priorityColors } = usePriorityColors();
+  const isAdmin = currentUser?.email === 'pablogoitiaemprendedor@gmail.com';
   
   const [sheetUrl, setSheetUrl] = useState('');
 
@@ -313,7 +314,7 @@ const SettingsPage = () => {
   };
 
   const handleNotionDisconnect = async () => {
-    const confirmed = window.confirm('Esto desconectará Notion y borrará las tareas y carpetas importadas desde Notion. ¿Continuar?');
+    const confirmed = window.confirm('Esto desconectará Notion y borrará las tareas y cuadernos importados desde Notion. ¿Continuar?');
     if (!confirmed) return;
 
     try {
@@ -482,49 +483,53 @@ const SettingsPage = () => {
                         <div className="space-y-1">
                             <span className="block font-bold text-foreground">Notion</span>
                             <span className="block text-[11px] text-on-surface-variant/60 font-medium max-w-[420px]">
-                                Convierte tus bases de datos de Notion en carpetas de Adonai e importa sus páginas como tareas.
+                                Convierte tus bases de datos de Notion en cuadernos de Adonai e importa sus páginas como tareas.
                             </span>
-                            {notion.connection && (
-                              <span className="block text-[10px] text-primary font-black uppercase tracking-widest pt-1">
-                                Conectado: {notion.connection.workspace_name || 'Workspace de Notion'}
-                              </span>
-                            )}
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:flex gap-2 self-stretch md:self-auto md:shrink-0">
-                        {!notion.connection ? (
+                    <div className="self-stretch md:self-auto md:shrink-0">
+                      {isAdmin ? (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:flex gap-2">
+                          {!notion.connection ? (
                             <button
-                                onClick={() => notion.connect.mutate()}
-                                disabled={notion.connect.isPending}
-                                className="w-full md:w-auto min-h-12 px-4 py-3 rounded-2xl bg-primary text-primary-foreground text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 disabled:opacity-60"
+                              onClick={() => notion.connect.mutate()}
+                              disabled={notion.connect.isPending}
+                              className="w-full md:w-auto min-h-12 px-4 py-3 rounded-2xl bg-primary text-primary-foreground text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 disabled:opacity-60"
                             >
-                                <LinkIcon className="w-4 h-4" />
-                                Conectar
+                              <LinkIcon className="w-4 h-4" />
+                              Conectar
                             </button>
-                        ) : (
-                          <>
-                            <button
+                          ) : (
+                            <>
+                              <button
                                 onClick={handleNotionSync}
                                 disabled={notion.previewImport.isPending || notion.importReviewed.isPending}
                                 className="w-full md:w-auto min-h-12 px-4 py-3 rounded-2xl bg-primary text-primary-foreground text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 disabled:opacity-60 whitespace-normal text-center leading-tight"
-                            >
+                              >
                                 <RefreshCw className={`w-4 h-4 ${notion.previewImport.isPending || notion.importReviewed.isPending ? 'animate-spin' : ''}`} />
                                 {notionLoadLabel}
-                            </button>
-                            <button
+                              </button>
+                              <button
                                 onClick={handleNotionDisconnect}
                                 disabled={notion.disconnect.isPending}
                                 className="w-full md:w-auto min-h-12 px-4 py-3 rounded-2xl bg-red-500/10 text-red-500 border border-red-500/30 text-xs font-black uppercase tracking-widest disabled:opacity-60 hover:bg-red-500/15 transition-colors"
-                            >
+                              >
                                 Desactivar
-                            </button>
-                          </>
-                        )}
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 text-on-surface-variant/50">
+                          <Clock className="w-4 h-4" />
+                          <span className="text-xs font-black uppercase tracking-widest">Pronto</span>
+                        </div>
+                      )}
                     </div>
                 </div>
 
-                {notion.mappings.length > 0 && (
+                {isAdmin && notion.connection && notion.mappings.length > 0 && (
                   <div className="border-t border-outline-variant/10 px-6 py-4 space-y-3">
                     {notion.mappings.map((mapping) => (
                       <div key={mapping.id} className="flex items-center justify-between gap-4">
@@ -537,7 +542,7 @@ const SettingsPage = () => {
                   </div>
                 )}
 
-                {notion.connection && notion.databases.length > 0 && (
+                {isAdmin && notion.connection && notion.databases.length > 0 && (
                   <div className="border-t border-outline-variant/10 px-6 py-4 space-y-3">
                     <div className="flex items-center justify-between gap-4">
                       <span className="text-[10px] font-black text-on-surface-variant/50 uppercase tracking-widest">Bases disponibles</span>
@@ -570,7 +575,7 @@ const SettingsPage = () => {
                   </div>
                 )}
 
-                {notion.connection && !notion.isLoading && notion.databases.length === 0 && (
+                {isAdmin && notion.connection && !notion.isLoading && notion.databases.length === 0 && (
                   <div className="border-t border-outline-variant/10 px-6 py-5 space-y-3">
                     <div className="rounded-2xl bg-surface-container-high/60 border border-outline-variant/10 p-4">
                       <span className="block text-sm font-black text-foreground">
@@ -625,7 +630,7 @@ const SettingsPage = () => {
                                 {activeReviewTask.title || 'Tarea sin titulo'}
                               </h4>
                               <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-on-surface-variant/50">
-                                <FolderOpen className="w-4 h-4" />
+                                <Notebook className="w-4 h-4" />
                                 {activeReviewGroup?.title || activeReviewTask.database_title || 'Base de Notion'}
                               </div>
                             </div>
@@ -781,58 +786,62 @@ const SettingsPage = () => {
                             <span className="block text-[11px] text-on-surface-variant/60 font-medium max-w-[420px]">
                                 Sincroniza tus eventos de Google Calendar con tus tareas y administra todo en un solo lugar.
                             </span>
-                            {calendar.connected && (
-                              <span className="block text-[10px] text-primary font-black uppercase tracking-widest pt-1">
-                                Conectado: {calendar.email || 'Cuenta de Google'}
-                              </span>
-                            )}
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:flex gap-2 self-stretch md:self-auto md:shrink-0">
-                        {!calendar.connected ? (
+                    <div className="self-stretch md:self-auto md:shrink-0">
+                      {isAdmin ? (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:flex gap-2">
+                          {!calendar.connected ? (
                             <button
-                                onClick={() => {
-                                    toast.loading('Iniciando conexión...');
-                                    calendar.connect.mutate();
-                                }}
-                                disabled={calendar.connect.isPending}
-                                className="w-full md:w-auto min-h-12 px-4 py-3 rounded-2xl bg-primary text-primary-foreground text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 disabled:opacity-60"
+                              onClick={() => {
+                                toast.loading('Iniciando conexión...');
+                                calendar.connect.mutate();
+                              }}
+                              disabled={calendar.connect.isPending}
+                              className="w-full md:w-auto min-h-12 px-4 py-3 rounded-2xl bg-primary text-primary-foreground text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 disabled:opacity-60"
                             >
-                                <LinkIcon className="w-4 h-4" />
-                                Conectar
+                              <LinkIcon className="w-4 h-4" />
+                              Conectar
                             </button>
-                        ) : (
-                          <>
-                            <button
+                          ) : (
+                            <>
+                              <button
                                 onClick={() => {
-                                    toast.promise(calendar.sync.mutateAsync(), {
-                                        loading: 'Sincronizando eventos...',
-                                        success: 'Calendario sincronizado correctamente',
-                                        error: 'Error al sincronizar calendario',
-                                    });
+                                  toast.promise(calendar.sync.mutateAsync(), {
+                                    loading: 'Sincronizando eventos...',
+                                    success: 'Calendario sincronizado correctamente',
+                                    error: 'Error al sincronizar calendario',
+                                  });
                                 }}
                                 disabled={calendar.sync.isPending}
                                 className="w-full md:w-auto min-h-12 px-4 py-3 rounded-2xl bg-primary text-primary-foreground text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 disabled:opacity-60 whitespace-normal text-center leading-tight"
-                            >
+                              >
                                 <RefreshCw className={`w-4 h-4 ${calendar.sync.isPending ? 'animate-spin' : ''}`} />
                                 {calendar.sync.isPending ? 'Sincronizando' : 'Sincronizar ahora'}
-                            </button>
-                            <button
+                              </button>
+                              <button
                                 onClick={() => {
-                                    toast.promise(calendar.disconnect.mutateAsync(), {
-                                        loading: 'Desconectando...',
-                                        success: 'Google Calendar desconectado',
-                                        error: 'Error al desconectar',
-                                    });
+                                  toast.promise(calendar.disconnect.mutateAsync(), {
+                                    loading: 'Desconectando...',
+                                    success: 'Google Calendar desconectado',
+                                    error: 'Error al desconectar',
+                                  });
                                 }}
                                 disabled={calendar.disconnect.isPending}
                                 className="w-full md:w-auto min-h-12 px-4 py-3 rounded-2xl bg-red-500/10 text-red-500 border border-red-500/30 text-xs font-black uppercase tracking-widest disabled:opacity-60 hover:bg-red-500/15 transition-colors"
-                            >
+                              >
                                 Desactivar
-                            </button>
-                          </>
-                        )}
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 text-on-surface-variant/50">
+                          <Clock className="w-4 h-4" />
+                          <span className="text-xs font-black uppercase tracking-widest">Pronto</span>
+                        </div>
+                      )}
                     </div>
                 </div>
             </div>
@@ -849,32 +858,36 @@ const SettingsPage = () => {
                             <span className="block text-[11px] text-on-surface-variant/60 font-medium max-w-[420px]">
                                 Vincula tus hojas de cálculo para importar todas tus tareas improvisadas y administrarlas definitivamente en Adonai.
                             </span>
-                            {sheets.connected && (
-                              <span className="block text-[10px] text-emerald-600 font-black uppercase tracking-widest pt-1">
-                                Conectado: {sheets.email || 'Cuenta de Google'}
-                              </span>
-                            )}
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:flex gap-2 self-stretch md:self-auto md:shrink-0">
-                        {!sheets.connected && (
+                    <div className="self-stretch md:self-auto md:shrink-0">
+                      {isAdmin ? (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:flex gap-2">
+                          {!sheets.connected && (
                             <button
-                                onClick={() => {
-                                    toast.loading('Iniciando conexión...');
-                                    sheets.connect.mutate();
-                                }}
-                                disabled={sheets.connect.isPending}
-                                className="w-full md:w-auto min-h-12 px-4 py-3 rounded-2xl bg-primary text-primary-foreground text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 disabled:opacity-60"
+                              onClick={() => {
+                                toast.loading('Iniciando conexión...');
+                                sheets.connect.mutate();
+                              }}
+                              disabled={sheets.connect.isPending}
+                              className="w-full md:w-auto min-h-12 px-4 py-3 rounded-2xl bg-primary text-primary-foreground text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 disabled:opacity-60"
                             >
-                                <LinkIcon className="w-4 h-4" />
-                                Conectar
+                              <LinkIcon className="w-4 h-4" />
+                              Conectar
                             </button>
-                        )}
+                          )}
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 text-on-surface-variant/50">
+                          <Clock className="w-4 h-4" />
+                          <span className="text-xs font-black uppercase tracking-widest">Pronto</span>
+                        </div>
+                      )}
                     </div>
                 </div>
 
-                {sheets.connected && (
+                {isAdmin && sheets.connected && (
                   <div className="mt-4 px-6 pb-6 space-y-4 border-t border-outline-variant/10 pt-6">
                     <div className="space-y-2">
                       <span className="block text-[10px] font-black text-on-surface-variant/50 uppercase tracking-widest">Enlace de tu Google Sheet</span>

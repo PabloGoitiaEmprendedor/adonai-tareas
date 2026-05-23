@@ -113,7 +113,7 @@ const ExitIntentModal = () => {
                     </button>
                     <button
                       onClick={() => handleInstall('mac')}
-                      className="w-full h-14 bg-surface-container-high text-foreground font-black text-base rounded-2xl flex items-center justify-center gap-3 border border-outline-variant/20 hover:bg-surface-container-highest hover:scale-[1.02] active:scale-95 transition-all"
+                      className="w-full h-14 bg-foreground text-background font-black text-base rounded-2xl flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-95 transition-all shadow-lg mt-2"
                     >
                       <Apple className="w-5 h-5" />
                       Descargar para Mac

@@ -4,7 +4,7 @@ import { useTasks } from '@/hooks/useTasks';
 import { useFolders } from '@/hooks/useFolders';
 import { format, parseISO, addMinutes } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Flame, X, Folder, Link as LinkIcon, Paperclip, GripHorizontal, ChevronsUpDown } from 'lucide-react';
+import { Flame, X, Notebook, Link as LinkIcon, Paperclip, GripHorizontal, ChevronsUpDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { usePriorityColors } from '@/hooks/usePriorityColors';
 import AdonaiCalendarView from '@/components/calendar/AdonaiCalendarView';
@@ -267,7 +267,7 @@ export const MiniTaskWidget = ({ isOpen, onClose }: MiniTaskWidgetProps) => {
  onClick={() => setShowFolderBar(!showFolderBar)}
  className={`p-2.5 rounded-2xl transition-colors ${showFolderBar? 'bg-primary/10 text-primary': 'text-on-surface-variant/40 hover:text-foreground hover:bg-surface-container'}`}
  >
- <Folder className="w-5 h-5" />
+ <Notebook className="w-5 h-5" />
  </button>
  <button 
  onClick={onClose}
@@ -278,7 +278,7 @@ export const MiniTaskWidget = ({ isOpen, onClose }: MiniTaskWidgetProps) => {
  </div>
  </div>
 
- {/* Folder Pills - Horizontal Scroll */}
+ {/* Notebook Pills - Horizontal Scroll */}
  <AnimatePresence>
  {showFolderBar && (
  <motion.div 
@@ -296,7 +296,7 @@ export const MiniTaskWidget = ({ isOpen, onClose }: MiniTaskWidgetProps) => {
  className={`flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${!selectedFolderId? 'bg-foreground text-background shadow-lg shadow-foreground/10': 'bg-surface-container text-on-surface-variant/60 hover:text-foreground hover:bg-surface-container-high'
  }`}
  >
- General
+ Hoy
  </button>
  
  {folders.map((folder: any) => (
@@ -307,7 +307,7 @@ export const MiniTaskWidget = ({ isOpen, onClose }: MiniTaskWidgetProps) => {
  selectedFolderId === folder.id? 'bg-foreground text-background shadow-lg shadow-foreground/10': 'bg-surface-container text-on-surface-variant/60 hover:text-foreground hover:bg-surface-container-high'
  }`}
  >
- <Folder className={`w-3.5 h-3.5 ${selectedFolderId === folder.id? 'text-background': ''}`} style={{ color: selectedFolderId === folder.id? undefined: folder.color }} />
+ <Notebook className={`w-3.5 h-3.5 ${selectedFolderId === folder.id? 'text-background': ''}`} style={{ color: selectedFolderId === folder.id? undefined: folder.color }} />
  {folder.name}
  </button>
  ))}
@@ -338,7 +338,7 @@ export const MiniTaskWidget = ({ isOpen, onClose }: MiniTaskWidgetProps) => {
  </div>
  <p className="text-sm font-black text-foreground">¡Todo en orden!</p>
  <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/40 mt-1">
- {selectedFolderId? 'No hay tareas en esta carpeta': 'No hay tareas para hoy'}
+ {selectedFolderId? 'No hay tareas en este cuaderno': 'No hay tareas para hoy'}
  </p>
  </div>
  ): (
@@ -413,9 +413,9 @@ export const MiniTaskWidget = ({ isOpen, onClose }: MiniTaskWidgetProps) => {
  </span>
  {!isDone &&!isCompleting && folder && (
  <div className="flex items-center gap-1.5 mt-1">
- <Folder 
- className="w-3 h-3" 
- style={{ color: folder.color }} 
+ <Notebook
+ className="w-3 h-3"
+ style={{ color: folder.color }}
  />
  <span className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant/40">
  {folder.name}

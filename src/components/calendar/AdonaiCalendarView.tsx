@@ -311,7 +311,7 @@ tasks?.forEach((task) => {
            : addMinutes(start, 30);
 
          const folder = folders.find((f: any) => f.id === task.folder_id);
-         const folderName = folder ? folder.name : 'General';
+         const folderName = folder ? folder.name : 'Hoy';
 
          // Use parsed color from description if available, otherwise fall back to priority-based color
          let color = parsedColor ? parsedColor : priorityColors.p4; // Default to P4

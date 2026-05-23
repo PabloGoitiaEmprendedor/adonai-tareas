@@ -41,7 +41,7 @@ export const ChaosBuddiesTrigger = () => {
 
   const handleGift = async () => {
     toast.success('¡Increíble! Ahora puedes elegir a un amigo para regalarle una semana de Zero Distracción.', {
-        description: 'Se habilitará vuestra Carpeta Compartida de Enfoque.'
+        description: 'Se habilitará vuestro Cuaderno Compartido de Enfoque.'
     });
     setShowModal(false);
     // In a real app, we'd open a friend selector. 
@@ -99,7 +99,7 @@ export const ChaosBuddiesTrigger = () => {
                         <Gift className="w-5 h-5 text-secondary" />
                     </div>
                     <div>
-                        <p className="text-sm font-bold">Carpeta Compartida</p>
+                        <p className="text-sm font-bold">Cuaderno Compartido</p>
                         <p className="text-xs text-on-surface-variant/60">Podréis asignaros tareas mutuamente para salir juntos del caos.</p>
                     </div>
                 </div>

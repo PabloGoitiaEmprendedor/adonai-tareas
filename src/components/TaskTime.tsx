@@ -19,9 +19,6 @@ interface TaskDurationBadgeProps {
   className?: string;
 }
 
-const cleanColor = (priorityColor?: string | null) =>
-  !priorityColor || priorityColor === 'transparent' ? 'hsl(var(--primary))' : priorityColor;
-
 export const formatTaskDuration = (seconds: number) => {
   const safeSeconds = Math.max(0, Math.floor(seconds || 0));
   const minutes = Math.floor(safeSeconds / 60);
@@ -37,7 +34,6 @@ export const TaskTimerButton = memo(({
   title = 'Iniciar temporizador',
   className,
 }: TaskTimerButtonProps) => {
-  const color = cleanColor(priorityColor);
   const Icon = active ? Pause : Clock;
 
   return (
@@ -50,11 +46,10 @@ export const TaskTimerButton = memo(({
         'inline-flex shrink-0 items-center justify-center border transition-all active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30',
         size === 'sm' ? 'h-7 w-7 rounded-lg' : 'h-8 w-8 rounded-[10px]',
         active
-          ? 'border-transparent bg-primary text-primary-foreground shadow-sm shadow-primary/15'
-          : 'border-outline-variant/30 bg-surface-container/45 text-on-surface-variant/75 hover:border-primary/25 hover:bg-surface-container-high/70 hover:text-foreground',
+          ? 'border-outline-variant/20 bg-surface-container-high text-foreground shadow-sm'
+          : 'border-outline-variant/24 bg-background/45 text-on-surface-variant/55 hover:border-outline-variant/40 hover:bg-surface-container/55 hover:text-foreground/75',
         className,
       )}
-      style={active ? undefined : { color }}
     >
       <Icon className={size === 'sm' ? 'h-3.5 w-3.5' : 'h-4 w-4'} strokeWidth={2.25} />
     </button>

@@ -21,7 +21,7 @@ import {
   Plus, Zap, Target, TrendingUp, Flame, Clock, UserCheck,
   ChevronDown, ChevronUp, ExternalLink, Search, RefreshCw, Trash2,
   Trophy, CalendarRange, Users2, Image as ImageIcon, Monitor,
-  FolderOpen, Bell, Activity, Pin, AlertTriangle
+  NotebookTabs, Bell, Activity, Pin, AlertTriangle
 } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
@@ -471,7 +471,7 @@ const AdminPanelPage = () => {
               >
                 <div className="mb-3 flex items-center justify-between">
                   <div className={`flex h-9 w-9 items-center justify-center rounded-xl ${active ? 'bg-primary text-primary-foreground' : 'bg-surface-container-high text-on-surface-variant'}`}>
-                    <FolderOpen className="h-4 w-4" />
+                    <NotebookTabs className="h-4 w-4" />
                   </div>
                   <Icon className={`h-4 w-4 ${active ? 'text-primary' : 'text-on-surface-variant/40 group-hover:text-primary'}`} />
                 </div>

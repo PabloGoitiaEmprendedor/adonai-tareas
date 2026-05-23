@@ -6,7 +6,7 @@ import { useFolderShares } from '@/hooks/useFolderShares';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProfile } from '@/hooks/useProfile';
 import { supabase } from '@/integrations/supabase/client';
-import { Folder, Plus, ChevronRight, Users, Trash2, Check, Clock, Edit2, ArrowLeft, Share2, Settings, Sparkles, X } from 'lucide-react';
+import { Notebook, Plus, ChevronRight, ChevronLeft, Users, Trash2, Check, Clock, Edit2, ArrowLeft, Share2, Settings, Sparkles, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import TaskDetailModal from '@/components/TaskDetailModal';
 import FullscreenTimer from '@/components/FullscreenTimer';
@@ -16,6 +16,8 @@ import { triggerTaskCelebration } from '@/lib/celebrations';
 import { dispatchTutorialFolderCreated } from '@/lib/tutorialEvents';
 import { usePriorityColors, getPriorityKey } from '@/hooks/usePriorityColors';
 import { compareTasksWithinQuadrants } from '@/lib/taskOrdering';
+import { playPageTurnSound } from '@/lib/soundEffects';
+import { QuickNotebookTaskAdd } from '@/components/QuickNotebookTaskAdd';
 
 const FOLDER_COLORS = ['#5B7CFA', '#4F6EE8', '#6FCF97', '#F4B860', '#EB5757', '#7C97FF', '#9CA3AF', '#E5E7EB'];
 
@@ -37,7 +39,14 @@ const FoldersPage = () => {
   const [timerTask, setTimerTask] = useState<any>(null);
   const [sharingFolder, setSharingFolder] = useState<string | null>(null);
   const [completingTaskId, setCompletingTaskId] = useState<string | null>(null);
+  const [isCreatingInline, setIsCreatingInline] = useState(false);
+  const [inlineName, setInlineName] = useState('');
   const timerDurationRef = useRef(0);
+
+  const handleSelectFolder = (id: string | null) => {
+    playPageTurnSound();
+    setSelectedFolder(id);
+  };
 
   const { shares, shareWithFriend, removeShare } = useFolderShares(sharingFolder || selectedFolder || undefined);
 
@@ -51,11 +60,41 @@ const FoldersPage = () => {
           setNewColor(FOLDER_COLORS[0]);
           setShowCreate(false);
           dispatchTutorialFolderCreated();
-          toast.success('Proyecto creado con éxito');
+          toast.success('Cuaderno creado con éxito');
         },
-        onError: () => toast.error('Error al crear proyecto'),
+        onError: () => toast.error('Error al crear cuaderno'),
       }
     );
+  };
+
+  const handleSaveInline = () => {
+    const trimmed = inlineName.trim();
+    if (!trimmed) {
+      setIsCreatingInline(false);
+      setInlineName('');
+      return;
+    }
+    createFolder.mutate(
+      { name: trimmed, color: '#A8A29E' },
+      {
+        onSuccess: () => {
+          setInlineName('');
+          setIsCreatingInline(false);
+          dispatchTutorialFolderCreated();
+          toast.success('Cuaderno creado con éxito');
+        },
+        onError: () => {
+          toast.error('Error al crear cuaderno');
+          setInlineName('');
+          setIsCreatingInline(false);
+        },
+      }
+    );
+  };
+
+  const handleCancelInline = () => {
+    setInlineName('');
+    setIsCreatingInline(false);
   };
 
   const handleUpdate = (id: string) => {
@@ -63,14 +102,14 @@ const FoldersPage = () => {
     updateFolder.mutate({ id, name: newName.trim(), color: newColor });
     setEditingFolder(null);
     setNewName('');
-    toast.success('Proyecto actualizado');
+    toast.success('Cuaderno actualizado');
   };
 
   const handleDelete = (id: string) => {
-    if (window.confirm('¿Estás seguro de que quieres eliminar este proyecto y todas sus tareas?')) {
+    if (window.confirm('¿Estás seguro de que quieres eliminar este cuaderno y todas sus tareas?')) {
       deleteFolder.mutate(id);
-      if (selectedFolder === id) setSelectedFolder(null);
-      toast.success('Proyecto eliminado');
+      if (selectedFolder === id) handleSelectFolder(null);
+      toast.success('Cuaderno eliminado');
     }
   };
 
@@ -88,7 +127,7 @@ const FoldersPage = () => {
   const sharedWithIds = shares.map((s: any) => s.shared_with_id);
   const isUncategorized = selectedFolder === '__uncategorized__';
   const currentFolder = isUncategorized
-    ? { id: '__uncategorized__', name: 'General', color: '#6B7280' }
+    ? { id: '__uncategorized__', name: 'Hoy', color: '#A8A29E' }
     : folders.find((f) => f.id === selectedFolder);
   const folderTasks = useMemo(() => {
     const raw = isUncategorized
@@ -98,6 +137,55 @@ const FoldersPage = () => {
   }, [tasks, selectedFolder, isUncategorized]);
   const completedCount = folderTasks.filter(t => t.status === 'done').length;
 
+  const [folderPage, setFolderPage] = useState(1);
+  const [folderPageDir, setFolderPageDir] = useState(1);
+  const [folderPagePeel, setFolderPagePeel] = useState<'next' | 'prev' | null>(null);
+
+  useEffect(() => {
+    setFolderPage(1);
+  }, [selectedFolder]);
+
+  const FOLDER_TASKS_PER_PAGE = 10;
+  const folderTotalPages = Math.max(1, Math.ceil(folderTasks.length / FOLDER_TASKS_PER_PAGE));
+
+  useEffect(() => {
+    if (folderPage > folderTotalPages) {
+      setFolderPage(Math.max(1, folderTotalPages));
+    }
+  }, [folderTotalPages, folderPage]);
+
+  const visibleFolderTasks = useMemo(() => {
+    const start = (folderPage - 1) * FOLDER_TASKS_PER_PAGE;
+    return folderTasks.slice(start, start + FOLDER_TASKS_PER_PAGE);
+  }, [folderPage, folderTasks]);
+
+  const turnFolderPage = (dir: 1 | -1) => {
+    setFolderPageDir(dir);
+    setFolderPage(p => {
+      const next = Math.min(folderTotalPages, Math.max(1, p + dir));
+      if (next !== p) playPageTurnSound();
+      return next;
+    });
+  };
+
+  const pageTurnVariants = {
+    enter: (direction: number) => ({
+      opacity: 0,
+      rotateY: direction > 0 ? -8 : 8,
+      x: direction > 0 ? 10 : -10,
+    }),
+    center: {
+      opacity: 1,
+      rotateY: 0,
+      x: 0,
+    },
+    exit: (direction: number) => ({
+      opacity: 0,
+      rotateY: direction > 0 ? 10 : -10,
+      x: direction > 0 ? -12 : 12,
+    }),
+  };
+
   const handleComplete = async (task: any, e: React.MouseEvent) => {
     e.stopPropagation();
     setCompletingTaskId(task.id);
@@ -106,20 +194,18 @@ const FoldersPage = () => {
 
     if (isCurrentlyTiming) setTimerTask(null);
 
-    setTimeout(() => {
-      updateTask.mutate({ 
-        id: task.id, 
-        status: 'done', 
-        completed_at: new Date().toISOString(),
-        actual_duration_seconds: Number(finalDuration) || 0
-      }, {
-        onSuccess: () => {
-          setCompletingTaskId(null);
-          triggerTaskCelebration(task.title, profile?.name);
-        },
-        onError: () => setCompletingTaskId(null)
-      });
-    }, 500);
+    updateTask.mutate({ 
+      id: task.id, 
+      status: 'done', 
+      completed_at: new Date().toISOString(),
+      actual_duration_seconds: Number(finalDuration) || 0
+    }, {
+      onSuccess: () => {
+        setCompletingTaskId(null);
+        triggerTaskCelebration(task.title, profile?.name);
+      },
+      onError: () => setCompletingTaskId(null)
+    });
   };
 
   const handleUncomplete = (task: any, e: React.MouseEvent) => {
@@ -152,7 +238,7 @@ const FoldersPage = () => {
             >
               <div className="space-y-2 text-center">
                 <h2 className="text-2xl font-black font-headline tracking-tight">
-                  {editingFolder ? 'Editar Proyecto' : 'Nuevo Proyecto'}
+                  {editingFolder ? 'Editar Cuaderno' : 'Nuevo Cuaderno'}
                 </h2>
                 <p className="text-sm text-on-surface-variant/60">
                   {editingFolder ? 'Ajusta los detalles de tu espacio.' : 'Crea un espacio dedicado para tus metas.'}
@@ -199,7 +285,7 @@ const FoldersPage = () => {
                     onClick={() => editingFolder ? handleUpdate(editingFolder) : handleCreate()} 
                     className="flex-[1.5] py-4 rounded-[20px] bg-primary text-primary-foreground font-black text-sm shadow-lg shadow-primary/20"
                   >
-                    {editingFolder ? 'Guardar' : 'Crear Proyecto'}
+                    {editingFolder ? 'Guardar' : 'Crear Cuaderno'}
                   </button>
                 </div>
               </div>
@@ -233,7 +319,7 @@ const FoldersPage = () => {
           <div className="flex justify-between items-center">
             <div className="space-y-1">
               <h2 className="text-2xl font-black font-headline tracking-tight">Compartir</h2>
-              <p className="text-xs text-on-surface-variant/60">Gestiona accesos al proyecto.</p>
+              <p className="text-xs text-on-surface-variant/60">Gestiona accesos al cuaderno.</p>
             </div>
             <button onClick={() => setSharingFolder(null)} className="p-2 rounded-full hover:bg-surface-container transition-colors">
               <X className="w-5 h-5 opacity-40" />
@@ -311,125 +397,125 @@ const FoldersPage = () => {
             className="max-w-[430px] lg:max-w-6xl mx-auto px-6 pt-12 space-y-12"
           >
             {/* Header Section */}
-            <div id="folders-header" className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-              <div className="space-y-2">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-1 bg-primary rounded-full" />
-                  <span className="text-[11px] font-black uppercase tracking-[0.2em] text-primary/60">
-                    Organización
-                  </span>
-                </div>
-                <h1 className="page-title">
-                  Proyectos
-                </h1>
-              </div>
-
-              <motion.button
-                id="btn-new-folder"
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={() => { setNewName(''); setNewColor(FOLDER_COLORS[0]); setShowCreate(true); }}
-                className="flex items-center gap-3 px-6 py-4 rounded-[24px] bg-foreground text-background font-black text-sm hover:opacity-90 transition-all shadow-xl shadow-foreground/10 group self-start md:self-end"
-              >
-                <Plus className="w-5 h-5 group-hover:rotate-90 transition-transform duration-300" />
-                Nuevo Proyecto
-              </motion.button>
+            <div id="folders-header" className="flex flex-col items-center justify-center pt-8 pb-4">
+              <h1 className="page-title text-center text-4xl md:text-5xl font-black font-headline">
+                Cuadernos
+              </h1>
             </div>
 
             {/* Folders Grid */}
             {isLoading ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-10">
                 {[1, 2, 3].map(i => (
                   <div key={i} className="h-48 rounded-[32px] bg-surface-container/50 animate-pulse" />
                 ))}
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {/* Virtual: General (tareas sin carpeta) */}
+                {/* Virtual: Hoy (tareas sin cuaderno) */}
                 {tasks.filter(t => !t.folder_id).length > 0 && (
                   <motion.div
-                    onClick={() => setSelectedFolder('__uncategorized__')}
-                    whileHover={{ y: -8 }}
-                    className="group cursor-pointer relative"
+                    onClick={() => handleSelectFolder('__uncategorized__')}
+                    whileHover={{ y: -6, rotate: 0, scale: 1.02 }}
+                    initial={{ rotate: -1.2 }}
+                    className="group cursor-pointer relative min-h-[220px]"
                   >
-                    <div className="absolute inset-0 rounded-[32px] opacity-0 group-hover:opacity-100 transition-opacity blur-2xl -z-10"
-                      style={{ backgroundColor: '#6B728020' }}
-                    />
-                    <div className="bg-surface border border-dashed border-outline-variant/50 rounded-[32px] p-6 h-full flex flex-col justify-between hover:border-primary/30 transition-colors shadow-sm group-hover:shadow-xl group-hover:shadow-primary/5">
-                      <div className="space-y-4">
-                        <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-2"
-                          style={{ backgroundColor: '#6B728015' }}
-                        >
-                          <Folder className="w-6 h-6" style={{ color: '#6B7280' }} />
-                        </div>
-                        <div>
-                          <h3 className="text-xl font-black tracking-tight font-headline group-hover:text-primary transition-colors">
-                            General
-                          </h3>
-                        </div>
+                    <div className="absolute inset-x-5 -bottom-3 h-8 rounded-[50%] opacity-30 blur-xl -z-10 bg-[#A8A29E]/20" />
+                    <div className="relative overflow-hidden bg-white dark:bg-white border border-zinc-200/80 rounded-[24px] p-6 pl-12 min-h-[220px] h-full flex flex-col justify-between transition-all shadow-[0_12px_28px_rgba(0,0,0,0.08)] group-hover:shadow-[0_16px_36px_rgba(0,0,0,0.12)] text-zinc-950">
+                      {/* Spine */}
+                      <div className="absolute inset-y-0 left-0 w-6 rounded-l-[23px] z-20 shadow-[inset_-3px_0_6px_rgba(0,0,0,0.1)] bg-[#A8A29E]" />
+                      {/* Rings */}
+                      <div className="absolute left-[18px] inset-y-4 w-2 flex flex-col justify-between items-center z-30 pointer-events-none opacity-40">
+                        {[1, 2, 3, 4, 5].map((key) => (
+                          <div key={key} className="w-1.5 h-1.5 rounded-full bg-zinc-400 border border-zinc-300 shadow-inner" />
+                        ))}
                       </div>
-                      <div className="flex items-center justify-between mt-8 pt-4 border-t border-outline-variant/30">
-                        <div className="flex items-center gap-2">
-                          <div className="w-6 h-6 rounded-full bg-surface-container border-2 border-surface flex items-center justify-center">
-                            <span className="text-[10px] font-black">
-                              {tasks.filter(t => !t.folder_id).length}
-                            </span>
-                          </div>
-                          <span className="text-[10px] font-black uppercase tracking-wider text-on-surface-variant/40">
-                            Tareas
-                          </span>
-                        </div>
-                        <ChevronRight className="w-5 h-5 text-on-surface-variant/30 group-hover:translate-x-1 transition-transform" />
+                      <div className="relative z-10 my-auto">
+                        <h3 className="text-2xl font-bold tracking-tight text-zinc-800 notebook-handwriting leading-tight group-hover:text-primary transition-colors">
+                          Hoy
+                        </h3>
+                      </div>
+                      <div className="relative z-10 flex items-center justify-end pt-4 border-t border-zinc-100/60">
+                        <ChevronRight className="w-5 h-5 text-zinc-400 group-hover:text-primary transition-colors group-hover:translate-x-1 transition-transform" />
                       </div>
                     </div>
                   </motion.div>
                 )}
-                {folders.map((folder) => (
-                  <motion.div
-                    key={folder.id}
-                    layoutId={folder.id}
-                    onClick={() => setSelectedFolder(folder.id)}
-                    whileHover={{ y: -8 }}
-                    className="group cursor-pointer relative"
-                  >
-                    <div 
-                      className="absolute inset-0 rounded-[32px] opacity-0 group-hover:opacity-100 transition-opacity blur-2xl -z-10"
-                      style={{ backgroundColor: `${folder.color}20` }}
-                    />
-                    <div className="bg-surface border border-outline-variant/50 rounded-[32px] p-6 h-full flex flex-col justify-between hover:border-primary/30 transition-colors shadow-sm group-hover:shadow-xl group-hover:shadow-primary/5">
-                      <div className="space-y-4">
-                        <div 
-                          className="w-12 h-12 rounded-2xl flex items-center justify-center mb-2"
-                          style={{ backgroundColor: `${folder.color}15` }}
-                        >
-                          <Folder className="w-6 h-6" style={{ color: folder.color }} />
+                {folders.map((folder, index) => {
+                  const angle = index % 3 === 0 ? 1.5 : index % 3 === 1 ? -1.2 : 0.8;
+                  return (
+                    <motion.div
+                      key={folder.id}
+                      layoutId={folder.id}
+                      onClick={() => handleSelectFolder(folder.id)}
+                      whileHover={{ y: -6, rotate: 0, scale: 1.02 }}
+                      initial={{ rotate: angle }}
+                      className="group cursor-pointer relative min-h-[220px]"
+                    >
+                      <div 
+                        className="absolute inset-x-5 -bottom-3 h-8 rounded-[50%] opacity-30 blur-xl -z-10"
+                        style={{ backgroundColor: '#A8A29E20' }}
+                      />
+                      <div className="relative overflow-hidden bg-white dark:bg-white border border-zinc-200/80 rounded-[24px] p-6 pl-12 min-h-[220px] h-full flex flex-col justify-between transition-all shadow-[0_12px_28px_rgba(0,0,0,0.08)] group-hover:shadow-[0_16px_36px_rgba(0,0,0,0.12)] text-zinc-950">
+                        {/* Spine */}
+                        <div className="absolute inset-y-0 left-0 w-6 rounded-l-[23px] z-20 shadow-[inset_-3px_0_6px_rgba(0,0,0,0.1)] bg-[#A8A29E]" />
+                        {/* Rings */}
+                        <div className="absolute left-[18px] inset-y-4 w-2 flex flex-col justify-between items-center z-30 pointer-events-none opacity-40">
+                          {[1, 2, 3, 4, 5].map((key) => (
+                            <div key={key} className="w-1.5 h-1.5 rounded-full bg-zinc-400 border border-zinc-300 shadow-inner" />
+                          ))}
                         </div>
-                        <div>
-                          <h3 className="text-xl font-black tracking-tight font-headline group-hover:text-primary transition-colors">
+                        <div className="relative z-10 my-auto">
+                          <h3 className="text-2xl font-bold tracking-tight text-zinc-800 notebook-handwriting leading-tight group-hover:text-primary transition-colors">
                             {folder.name}
                           </h3>
                         </div>
-                      </div>
-
-                      <div className="flex items-center justify-between mt-8 pt-4 border-t border-outline-variant/30">
-                        <div className="flex items-center gap-2">
-                          <div className="w-6 h-6 rounded-full bg-surface-container border-2 border-surface flex items-center justify-center">
-                            <span className="text-[10px] font-black">
-                              {tasks.filter(t => t.folder_id === folder.id).length}
-                            </span>
-                          </div>
-                          <span className="text-[10px] font-black uppercase tracking-wider text-on-surface-variant/40">
-                            Tareas
-                          </span>
+                        <div className="relative z-10 flex items-center justify-end pt-4 border-t border-zinc-100/60">
+                          <ChevronRight className="w-5 h-5 text-zinc-400 group-hover:text-primary transition-colors group-hover:translate-x-1 transition-transform" />
                         </div>
-                        <ChevronRight className="w-5 h-5 text-on-surface-variant/30 group-hover:translate-x-1 transition-transform" />
                       </div>
+                    </motion.div>
+                  );
+                })}
+                
+                {/* Subtle Add Folder Slot — inline creator */}
+                {isCreatingInline ? (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.97 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="relative min-h-[140px] flex rounded-[24px] overflow-hidden border border-outline-variant/20 shadow-sm bg-surface/80"
+                  >
+                    {/* Spine */}
+                    <div className="w-8 shrink-0 rounded-l-[24px] flex items-center justify-center" style={{ backgroundColor: '#A8A29E' }} />
+                    {/* Body */}
+                    <div className="flex-1 flex flex-col items-start justify-center px-5 py-4 gap-2">
+                      <input
+                        autoFocus
+                        value={inlineName}
+                        onChange={(e) => setInlineName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') { e.preventDefault(); handleSaveInline(); }
+                          if (e.key === 'Escape') handleCancelInline();
+                        }}
+                        onBlur={handleSaveInline}
+                        placeholder="Nombre del cuaderno…"
+                        className="w-full bg-transparent border-none outline-none text-sm font-black text-foreground placeholder:text-on-surface-variant/30 notebook-handwriting"
+                      />
+                      <span className="text-[10px] text-on-surface-variant/30 uppercase tracking-widest font-bold">Enter para guardar · Esc para cancelar</span>
                     </div>
                   </motion.div>
-                ))}
-                {folders.length === 0 && (
+                ) : (
+                  <motion.div
+                    onClick={() => setIsCreatingInline(true)}
+                    whileHover={{ y: -3 }}
+                    className="group cursor-pointer relative min-h-[140px] flex items-center justify-center border border-dashed border-outline-variant/25 hover:border-outline-variant/50 rounded-[24px] hover:bg-surface-container/10 transition-all duration-200"
+                  >
+                    <Plus className="w-5 h-5 text-on-surface-variant/30 group-hover:text-on-surface-variant/60 transition-colors" />
+                  </motion.div>
+                )}
+                {folders.length === 0 && !isCreatingInline && (
                   <div className="col-span-full py-20 bg-surface/30 border border-dashed border-outline-variant rounded-[40px] text-center">
-                    <p className="text-on-surface-variant/40 font-black uppercase tracking-[0.2em] text-xs">Sin proyectos activos</p>
+                    <p className="text-on-surface-variant/40 font-black uppercase tracking-[0.2em] text-xs">Sin cuadernos activos</p>
                   </div>
                 )}
               </div>
@@ -445,17 +531,17 @@ const FoldersPage = () => {
           >
             {/* Project Header Area */}
             <div 
-              className="w-full h-48 md:h-64 relative overflow-hidden flex items-end p-8 md:p-12"
-              style={{ backgroundColor: `${currentFolder?.color}05` }}
+              className="w-full h-56 md:h-72 relative overflow-hidden flex items-end p-8 md:p-12"
+              style={{ background: `linear-gradient(135deg, ${currentFolder?.color}34, transparent 58%), var(--background)` }}
             >
               <div className="absolute top-8 left-8 z-20">
                 <motion.button
                   whileHover={{ x: -4 }}
-                  onClick={() => setSelectedFolder(null)}
+                  onClick={() => handleSelectFolder(null)}
                   className="p-3 rounded-2xl bg-surface/80 backdrop-blur-md border border-outline-variant/30 shadow-sm flex items-center gap-2 group"
                 >
                   <ArrowLeft className="w-5 h-5" />
-                  <span className="text-xs font-black uppercase tracking-widest hidden md:inline">Proyectos</span>
+                  <span className="text-xs font-black uppercase tracking-widest hidden md:inline">Cuadernos</span>
                 </motion.button>
               </div>
 
@@ -481,34 +567,10 @@ const FoldersPage = () => {
               </div>
 
               <div className="max-w-[430px] lg:max-w-4xl mx-auto w-full relative z-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
-                <div className="space-y-2">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ backgroundColor: `${currentFolder?.color}20` }}>
-                      <Folder className="w-4 h-4" style={{ color: currentFolder?.color }} />
-                    </div>
-                    <span className="text-[11px] font-black uppercase tracking-[0.2em] opacity-40">
-                      Arquitectura
-                    </span>
-                  </div>
-                  <h1 className="page-title">
+                <div className="space-y-1">
+                  <h1 className="page-title leading-none">
                     {currentFolder?.name}
                   </h1>
-                </div>
-
-                <div className="flex flex-col items-end gap-2">
-                  <div className="text-[10px] font-black uppercase tracking-widest opacity-40">Progreso</div>
-                  <div className="flex items-center gap-4">
-                    <div className="w-32 h-2 bg-surface-container rounded-full overflow-hidden">
-                      <motion.div 
-                        initial={{ width: 0 }}
-                        animate={{ width: `${(completedCount / (folderTasks.length || 1)) * 100}%` }}
-                        className="h-full bg-primary"
-                      />
-                    </div>
-                    <span className="text-sm font-black font-headline">
-                      {Math.round((completedCount / (folderTasks.length || 1)) * 100)}%
-                    </span>
-                  </div>
                 </div>
               </div>
 
@@ -519,15 +581,46 @@ const FoldersPage = () => {
               />
             </div>
 
-            {/* Project Tasks Area */}
-            <div className="max-w-[430px] lg:max-w-4xl mx-auto px-6 py-12">
-              <div className="space-y-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-xl font-black font-headline tracking-tight flex items-center gap-3">
-                    Tareas del Proyecto
-                    <span className="text-xs px-2 py-0.5 bg-surface-container border border-outline-variant/30 rounded-full opacity-60">
-                      {folderTasks.length}
-                    </span>
+            {/* Project Tasks Area — Lined paper notebook style */}
+            <div className="max-w-[430px] lg:max-w-4xl mx-auto px-6 py-6 hidden md:block">
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="relative min-h-[540px] w-full flex flex-col overflow-hidden rounded-[36px] notebook-cream-bg border border-outline-variant/12 py-6 pl-24 pr-10 shadow-[0_18px_45px_rgba(0,0,0,0.10)] backdrop-blur-xl"
+                style={{
+                  backgroundImage: 'radial-gradient(circle at 18% 22%, rgba(255,255,255,0.09) 0 1px, transparent 1.6px), radial-gradient(circle at 73% 58%, rgba(0,0,0,0.05) 0 1px, transparent 1.7px), radial-gradient(circle at 42% 76%, rgba(255,255,255,0.045) 0 1px, transparent 1.8px), linear-gradient(90deg, transparent 0 70px, rgba(235,120,120,0.26) 70px 71px, transparent 71px calc(100% - 46px), rgba(235,120,120,0.18) calc(100% - 46px) calc(100% - 45px), transparent calc(100% - 45px))',
+                  backgroundPosition: '0 18px',
+                  borderRadius: '36px 34px 38px 35px',
+                }}
+              >
+                <div className="absolute inset-x-0 top-0 h-12 bg-gradient-to-b from-white/[0.035] to-transparent pointer-events-none" />
+                <div className="pointer-events-none absolute bottom-5 right-0 top-5 w-10">
+                  {[0, 1, 2, 3].map((page) => (
+                    <span
+                      key={page}
+                      className="absolute right-0 block h-[calc(100%-8px)] rounded-r-[22px] border-r border-y border-outline-variant/10 bg-background/20"
+                      style={{
+                        top: `${page * 4}px`,
+                        width: `${12 + page * 4}px`,
+                        opacity: 0.18 - page * 0.018,
+                      }}
+                    />
+                  ))}
+                </div>
+                <div className="absolute bottom-8 left-16 top-8 w-px bg-rose-300/18" />
+                <div className="absolute bottom-8 right-14 top-8 w-px bg-rose-300/12" />
+                <div className="absolute inset-y-3 left-5 flex flex-col justify-between py-2">
+                  {Array.from({ length: 14 }).map((_, ring) => (
+                    <span
+                      key={ring}
+                      className="h-3 w-10 rounded-full border-2 border-outline-variant/28 bg-background/20 shadow-[inset_0_1px_1px_rgba(255,255,255,0.25),0_1px_2px_rgba(0,0,0,0.12)]"
+                    />
+                  ))}
+                </div>
+
+                <div className="relative z-10 mb-2 flex items-center justify-between">
+                  <h2 className="text-lg font-bold font-headline tracking-tight notebook-handwriting text-foreground/80 flex items-center gap-2">
+                    Tareas del cuaderno
                   </h2>
                   <button 
                     onClick={() => window.dispatchEvent(new CustomEvent('adonai:open-capture', { detail: { folderId: isUncategorized ? undefined : (selectedFolder || undefined) } }))}
@@ -537,45 +630,289 @@ const FoldersPage = () => {
                   </button>
                 </div>
 
-                {folderTasks.length > 0 ? (
-                  <div className="space-y-4">
-                    <AnimatePresence mode="popLayout">
-                      {folderTasks.map((task, idx) => (
-                        <TaskCard
-                          key={task.id}
-                          task={task}
-                          taskIdx={idx}
-                          isDone={task.status === 'done'}
-                          completingTaskId={completingTaskId}
-                          dragIdx={null}
-                          touchIdx={null}
-                          handleDragStart={() => {}}
-                          handleDragOver={() => {}}
-                          handleDragEnd={() => {}}
-                          handleTouchStart={() => {}}
-                          handleTouchMove={() => {}}
-                          handleTouchEnd={() => {}}
-                          setSelectedTask={setSelectedTask}
-                          handleComplete={handleComplete}
-                          handleUncomplete={handleUncomplete}
-                          handleStartTimer={handleStartTimer}
-                          view="daily"
-                        />
-                      ))}
-                    </AnimatePresence>
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center justify-center py-20 bg-surface/30 border border-dashed border-outline-variant/50 rounded-[40px] text-center px-8">
-                    <div className="w-16 h-16 rounded-3xl bg-surface-container flex items-center justify-center mb-6">
-                      <Sparkles className="w-8 h-8 opacity-20" />
+                <AnimatePresence mode="wait" custom={folderPageDir}>
+                  <motion.div
+                    key={`folder-desktop-page-${folderPage}`}
+                    custom={folderPageDir}
+                    variants={pageTurnVariants}
+                    initial="enter"
+                    animate="center"
+                    exit="exit"
+                    transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                    className="relative z-10 flex flex-1 flex-col justify-between"
+                    style={{ transformOrigin: folderPageDir > 0 ? 'right center' : 'left center', transformStyle: 'preserve-3d' }}
+                  >
+                    <div
+                      className="relative z-10 mt-2 pb-4 pt-[2px] flex-1"
+                      style={{
+                        backgroundImage: 'repeating-linear-gradient(180deg, rgba(120,145,190,0.07) 0 1px, transparent 1px 38px)',
+                      }}
+                    >
+                      {visibleFolderTasks.length > 0 ? (
+                        <div className="space-y-0">
+                          {visibleFolderTasks.map((task, idx) => (
+                            <TaskCard
+                              key={task.id}
+                              task={task}
+                              taskIdx={(folderPage - 1) * FOLDER_TASKS_PER_PAGE + idx}
+                              isDone={task.status === 'done'}
+                              completingTaskId={completingTaskId}
+                              dragIdx={null}
+                              handleDragStart={() => {}}
+                              handleDragOver={() => {}}
+                              handleDragEnd={() => {}}
+                              handleTouchStart={() => {}}
+                              handleTouchMove={() => {}}
+                              handleTouchEnd={() => {}}
+                              setSelectedTask={setSelectedTask}
+                              handleComplete={handleComplete}
+                              handleUncomplete={handleUncomplete}
+                              handleStartTimer={handleStartTimer}
+                              view="daily"
+                            />
+                          ))}
+                        </div>
+                      ) : null}
+                      <QuickNotebookTaskAdd folderId={isUncategorized ? null : selectedFolder} />
                     </div>
-                    <h3 className="text-lg font-black font-headline mb-2">Proyecto Limpio</h3>
-                    <p className="text-sm text-on-surface-variant/60 max-w-[280px]">
-                      Aún no hay tareas asociadas a este proyecto.
-                    </p>
+                  </motion.div>
+                </AnimatePresence>
+
+                {/* Drag handles for page turn */}
+                <motion.div
+                  role="button"
+                  aria-label="Arrastrar para volver la pagina"
+                  drag="x"
+                  dragConstraints={{ left: 0, right: 0 }}
+                  dragElastic={0.28}
+                  onDragStart={() => setFolderPagePeel('prev')}
+                  onDragEnd={(_, info) => {
+                    setFolderPagePeel(null);
+                    if (info.offset.x > 34 || info.velocity.x > 260) turnFolderPage(-1);
+                  }}
+                  className="cursor-hand group absolute left-0 z-40 top-20 bottom-12 w-14"
+                >
+                  <div className={`absolute left-0 top-1/2 flex -translate-y-1/2 items-center justify-center rounded-r-2xl border border-l-0 border-outline-variant/18 bg-background/45 shadow-sm backdrop-blur-sm transition-opacity h-20 w-5 ${folderPage === 1 ? 'opacity-25' : 'opacity-70 group-hover:opacity-100'}`}>
+                    <div className="space-y-1">
+                      <span className="block h-4 w-px rounded-full bg-on-surface-variant/30" />
+                      <span className="block h-4 w-px rounded-full bg-on-surface-variant/20" />
+                      <span className="block h-4 w-px rounded-full bg-on-surface-variant/30" />
+                    </div>
                   </div>
-                )}
-              </div>
+                </motion.div>
+                <motion.div
+                  role="button"
+                  aria-label="Arrastrar para pasar la pagina"
+                  drag="x"
+                  dragConstraints={{ left: 0, right: 0 }}
+                  dragElastic={0.28}
+                  onDragStart={() => setFolderPagePeel('next')}
+                  onDragEnd={(_, info) => {
+                    setFolderPagePeel(null);
+                    if (info.offset.x < -34 || info.velocity.x < -260) turnFolderPage(1);
+                  }}
+                  className="cursor-hand group absolute right-0 z-40 top-20 bottom-12 w-14"
+                >
+                  <div className={`absolute right-0 top-1/2 flex -translate-y-1/2 items-center justify-center rounded-l-2xl border border-r-0 border-outline-variant/18 bg-background/45 shadow-sm backdrop-blur-sm transition-opacity h-20 w-5 ${folderPage === folderTotalPages ? 'opacity-25' : 'opacity-70 group-hover:opacity-100'}`}>
+                    <div className="space-y-1">
+                      <span className="block h-4 w-px rounded-full bg-on-surface-variant/30" />
+                      <span className="block h-4 w-px rounded-full bg-on-surface-variant/20" />
+                      <span className="block h-4 w-px rounded-full bg-on-surface-variant/30" />
+                    </div>
+                  </div>
+                </motion.div>
+
+                <AnimatePresence>
+                  {folderPagePeel && (
+                    <motion.div
+                      key={folderPagePeel}
+                      initial={{ opacity: 0, scaleX: 0.12, skewY: folderPagePeel === 'next' ? -4 : 4 }}
+                      animate={{ opacity: 0.78, scaleX: 1, skewY: folderPagePeel === 'next' ? -1 : 1 }}
+                      exit={{ opacity: 0, scaleX: 0.1 }}
+                      transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+                      className={`pointer-events-none absolute top-6 bottom-6 z-30 w-[42%] bg-background/65 shadow-2xl ${
+                        folderPagePeel === 'next' ? 'right-0 origin-right rounded-l-[32px]' : 'left-0 origin-left rounded-r-[32px]'
+                      }`}
+                      style={{
+                        backgroundImage: 'linear-gradient(90deg, rgba(255,255,255,0.18), transparent 42%, rgba(0,0,0,0.045))',
+                      }}
+                    />
+                  )}
+                </AnimatePresence>
+
+                <div className="relative z-20 flex items-center justify-start mt-auto pt-2">
+                  <div className="rounded-full bg-transparent px-1.5 py-1 text-[10px] font-black tabular-nums tracking-[0.16em] text-[#6f7a8d]/35">
+                    {folderPage}/{folderTotalPages}
+                  </div>
+                </div>
+              </motion.div>
+            </div>
+
+            {/* Mobile Task Notebook */}
+            <div className="max-w-[430px] mx-auto px-4 py-4 md:hidden block">
+              <motion.div 
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="relative min-h-[480px] w-full flex flex-col overflow-hidden rounded-[30px] notebook-cream-bg border border-outline-variant/12 py-4 pl-12 pr-4 shadow-xl shadow-black/10 backdrop-blur-xl"
+                style={{
+                  backgroundImage: 'radial-gradient(circle at 20% 22%, rgba(255,255,255,0.09) 0 1px, transparent 1.6px), radial-gradient(circle at 78% 62%, rgba(0,0,0,0.05) 0 1px, transparent 1.7px), radial-gradient(circle at 44% 76%, rgba(255,255,255,0.045) 0 1px, transparent 1.8px), linear-gradient(90deg, transparent 0 38px, rgba(235,120,120,0.24) 38px 39px, transparent 39px calc(100% - 28px), rgba(235,120,120,0.16) calc(100% - 28px) calc(100% - 27px), transparent calc(100% - 27px))',
+                  backgroundPosition: '0 17px',
+                  borderRadius: '30px 28px 32px 29px',
+                }}
+              >
+                <div className="absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-white/[0.035] to-transparent pointer-events-none" />
+                <div className="pointer-events-none absolute bottom-4 right-0 top-4 w-7">
+                  {[0, 1, 2, 3].map((page) => (
+                    <span
+                      key={page}
+                      className="absolute right-0 block h-[calc(100%-6px)] rounded-r-[18px] border-r border-y border-outline-variant/10 bg-background/20"
+                      style={{
+                        top: `${page * 3}px`,
+                        width: `${8 + page * 3}px`,
+                        opacity: 0.16 - page * 0.018,
+                      }}
+                    />
+                  ))}
+                </div>
+                <div className="absolute bottom-7 left-8 top-7 w-px bg-rose-300/18" />
+                <div className="absolute bottom-7 right-7 top-7 w-px bg-rose-300/12" />
+                <div className="absolute inset-y-3 left-3 flex flex-col justify-between py-1">
+                  {Array.from({ length: 12 }).map((_, ring) => (
+                    <span
+                      key={ring}
+                      className="h-2.5 w-8 rounded-full border border-outline-variant/28 bg-background/20 shadow-[inset_0_1px_1px_rgba(255,255,255,0.25),0_1px_2px_rgba(0,0,0,0.12)]"
+                    />
+                  ))}
+                </div>
+
+                <div className="relative z-10 mb-2 flex items-center justify-between">
+                  <h2 className="text-base font-bold font-headline tracking-tight notebook-handwriting text-foreground/80">
+                    Tareas del cuaderno
+                  </h2>
+                  <button 
+                    onClick={() => window.dispatchEvent(new CustomEvent('adonai:open-capture', { detail: { folderId: isUncategorized ? undefined : (selectedFolder || undefined) } }))}
+                    className="p-2 bg-primary/10 text-primary rounded-xl hover:bg-primary/20 transition-colors"
+                  >
+                    <Plus className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <AnimatePresence mode="wait" custom={folderPageDir}>
+                  <motion.div
+                    key={`folder-mobile-page-${folderPage}`}
+                    custom={folderPageDir}
+                    variants={pageTurnVariants}
+                    initial="enter"
+                    animate="center"
+                    exit="exit"
+                    transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                    className="relative z-10 flex flex-1 flex-col justify-between"
+                    style={{ transformOrigin: folderPageDir > 0 ? 'right center' : 'left center', transformStyle: 'preserve-3d' }}
+                  >
+                    <div
+                      className="relative z-10 pb-4 pt-[2px] flex-1"
+                      style={{
+                        backgroundImage: 'repeating-linear-gradient(180deg, rgba(120,145,190,0.07) 0 1px, transparent 1px 38px)',
+                      }}
+                    >
+                      {visibleFolderTasks.length > 0 ? (
+                        <div className="space-y-0">
+                          {visibleFolderTasks.map((task, idx) => (
+                            <TaskCard
+                              key={task.id}
+                              task={task}
+                              taskIdx={(folderPage - 1) * FOLDER_TASKS_PER_PAGE + idx}
+                              isDone={task.status === 'done'}
+                              completingTaskId={completingTaskId}
+                              dragIdx={null}
+                              handleDragStart={() => {}}
+                              handleDragOver={() => {}}
+                              handleDragEnd={() => {}}
+                              handleTouchStart={() => {}}
+                              handleTouchMove={() => {}}
+                              handleTouchEnd={() => {}}
+                              setSelectedTask={setSelectedTask}
+                              handleComplete={handleComplete}
+                              handleUncomplete={handleUncomplete}
+                              handleStartTimer={handleStartTimer}
+                              view="daily"
+                            />
+                          ))}
+                        </div>
+                      ) : null}
+                      <QuickNotebookTaskAdd folderId={isUncategorized ? null : selectedFolder} />
+                    </div>
+                  </motion.div>
+                </AnimatePresence>
+
+                {/* Drag handles for page turn */}
+                <motion.div
+                  role="button"
+                  aria-label="Arrastrar para volver la pagina"
+                  drag="x"
+                  dragConstraints={{ left: 0, right: 0 }}
+                  dragElastic={0.28}
+                  onDragStart={() => setFolderPagePeel('prev')}
+                  onDragEnd={(_, info) => {
+                    setFolderPagePeel(null);
+                    if (info.offset.x > 34 || info.velocity.x > 260) turnFolderPage(-1);
+                  }}
+                  className="cursor-hand group absolute left-0 z-40 top-20 bottom-12 w-10"
+                >
+                  <div className={`absolute left-0 top-1/2 flex -translate-y-1/2 items-center justify-center rounded-r-2xl border border-l-0 border-outline-variant/18 bg-background/45 shadow-sm backdrop-blur-sm transition-opacity h-16 w-4 ${folderPage === 1 ? 'opacity-25' : 'opacity-70 group-hover:opacity-100'}`}>
+                    <div className="space-y-1">
+                      <span className="block h-3.5 w-px rounded-full bg-on-surface-variant/30" />
+                      <span className="block h-3.5 w-px rounded-full bg-on-surface-variant/20" />
+                      <span className="block h-3.5 w-px rounded-full bg-on-surface-variant/30" />
+                    </div>
+                  </div>
+                </motion.div>
+                <motion.div
+                  role="button"
+                  aria-label="Arrastrar para pasar la pagina"
+                  drag="x"
+                  dragConstraints={{ left: 0, right: 0 }}
+                  dragElastic={0.28}
+                  onDragStart={() => setFolderPagePeel('next')}
+                  onDragEnd={(_, info) => {
+                    setFolderPagePeel(null);
+                    if (info.offset.x < -34 || info.velocity.x < -260) turnFolderPage(1);
+                  }}
+                  className="cursor-hand group absolute right-0 z-40 top-20 bottom-12 w-10"
+                >
+                  <div className={`absolute right-0 top-1/2 flex -translate-y-1/2 items-center justify-center rounded-l-2xl border border-r-0 border-outline-variant/18 bg-background/45 shadow-sm backdrop-blur-sm transition-opacity h-16 w-4 ${folderPage === folderTotalPages ? 'opacity-25' : 'opacity-70 group-hover:opacity-100'}`}>
+                    <div className="space-y-1">
+                      <span className="block h-3.5 w-px rounded-full bg-on-surface-variant/30" />
+                      <span className="block h-3.5 w-px rounded-full bg-on-surface-variant/20" />
+                      <span className="block h-3.5 w-px rounded-full bg-on-surface-variant/30" />
+                    </div>
+                  </div>
+                </motion.div>
+
+                <AnimatePresence>
+                  {folderPagePeel && (
+                    <motion.div
+                      key={folderPagePeel}
+                      initial={{ opacity: 0, scaleX: 0.12, skewY: folderPagePeel === 'next' ? -4 : 4 }}
+                      animate={{ opacity: 0.78, scaleX: 1, skewY: folderPagePeel === 'next' ? -1 : 1 }}
+                      exit={{ opacity: 0, scaleX: 0.1 }}
+                      transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+                      className={`pointer-events-none absolute top-5 bottom-5 z-30 w-[42%] bg-background/65 shadow-2xl ${
+                        folderPagePeel === 'next' ? 'right-0 origin-right rounded-l-[24px]' : 'left-0 origin-left rounded-r-[24px]'
+                      }`}
+                      style={{
+                        backgroundImage: 'linear-gradient(90deg, rgba(255,255,255,0.18), transparent 42%, rgba(0,0,0,0.045))',
+                      }}
+                    />
+                  )}
+                </AnimatePresence>
+
+                <div className="relative z-20 flex items-center justify-start mt-auto pt-1">
+                  <div className="rounded-full bg-transparent px-1.5 py-1 text-[10px] font-black tabular-nums tracking-[0.16em] text-[#6f7a8d]/35">
+                    {folderPage}/{folderTotalPages}
+                  </div>
+                </div>
+              </motion.div>
             </div>
           </motion.div>
         )}

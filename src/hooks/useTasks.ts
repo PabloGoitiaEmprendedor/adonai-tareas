@@ -90,7 +90,7 @@ export const useTasks = (filters?: { date?: string; startDate?: string; endDate?
           // Rolling tasks for Today view:
           // We already filtered 'done' tasks above (only today's completions allowed).
           // Now we just need to handle which tasks to fetch by due_date.
-          query = query.or(`due_date.eq.${filters.date},and(due_date.lt.${filters.date},status.neq.done)`);
+          query = query.or(`due_date.eq.${filters.date},and(due_date.lt.${filters.date},status.neq.done),and(status.eq.done,completed_at.gte.${todayStart})`);
         } else {
           query = query.eq('due_date', filters.date);
         }

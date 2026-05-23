@@ -10,10 +10,9 @@ import type { CSSProperties } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTasks } from '@/hooks/useTasks';
 import { useFolders } from '@/hooks/useFolders';
-import { useSubtasks } from '@/hooks/useSubtasks';
 import { format, parseISO, addMinutes } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Check, ChevronRight, CalendarDays, Plus, Mic, Repeat, Paperclip, Folder, FolderOpen, X, Users as UsersIcon, GripHorizontal, ChevronsUpDown } from 'lucide-react';
+import { Check, ChevronRight, CalendarDays, Plus, Mic, Repeat, Paperclip, Notebook, NotebookText, X, Users as UsersIcon, GripHorizontal, ChevronsUpDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import TaskCaptureModal, { type TaskCaptureModalHandle } from '@/components/TaskCaptureModal';
 import TaskDetailModal from '@/components/TaskDetailModal';
@@ -119,67 +118,6 @@ function formatTimer(seconds: number): string {
  return `${isNegative? '-': ''}${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
 }
 
-// ─── Subtask Row ─────────────────────────────────────────────────────────────
-const SubtaskRowRaw = ({ sub, onToggle, onUpdate }: { sub: any; onToggle: (sub: any) => void; onUpdate: (title: string) => void }) => {
- const isDone = sub.status === 'done';
- const [isEditing, setIsEditing] = useState(false);
- const [draftTitle, setDraftTitle] = useState(sub.title);
-
- const submitEdit = () => {
- setIsEditing(false);
- if (draftTitle.trim() && draftTitle.trim()!== sub.title) {
- onUpdate(draftTitle.trim());
- } else {
- setDraftTitle(sub.title);
- }
- };
-
- return (
- <div onClick={() => onToggle(sub)} style={{
- display: 'flex', alignItems: 'center', gap: 8,
- padding: '6px 8px 6px 28px', borderRadius: 8, cursor: isEditing? 'default': 'pointer',
- background: C.subBg, marginBottom: 2, opacity: isDone? 0.45: 1,
- }}>
- <div onClick={(e) => { e.stopPropagation(); onToggle(sub); }} style={{ flexShrink: 0, cursor: 'pointer' }}>
- <TaskCheckbox checked={isDone} size="sm" />
- </div>
- {isEditing? (
- <input
- autoFocus
- value={draftTitle}
- onChange={e => setDraftTitle(e.target.value)}
- onBlur={submitEdit}
- onKeyDown={e => {
- if (e.key === 'Enter') submitEdit();
- if (e.key === 'Escape') {
- setDraftTitle(sub.title);
- setIsEditing(false);
- }
- }}
- onClick={e => e.stopPropagation()}
- style={{
- flex: 1, fontSize: 12, fontWeight: 500, lineHeight: 1.3,
- color: C.text, background: 'transparent', border: 'none',
- borderBottom: `1px solid ${C.accent}`, outline: 'none', padding: 0
- }}
- />
- ): (
- <span 
- onClick={(e) => { e.stopPropagation(); setIsEditing(true); setDraftTitle(sub.title); }}
- title="Haz clic para editar"
- style={{
- flex: 1, fontSize: 12, color: isDone? C.muted: C.text,
- textDecoration: isDone? 'line-through': 'none',
- fontWeight: 500, lineHeight: 1.3, cursor: 'text'
- }}
- >
- {sub.title}
- </span>
- )}
- </div>
- );
-};
-const SubtaskRow = memo(SubtaskRowRaw);
 
 // ─── Task Row ────────────────────────────────────────────────────────────────
 const TaskRowRaw = ({ task, onToggle, onDetail, activeTimerId, onTimerToggle, updateTask, folders, currentDate, ensureCalendarOpen }: {
@@ -189,9 +127,6 @@ const TaskRowRaw = ({ task, onToggle, onDetail, activeTimerId, onTimerToggle, up
 }) => {
  const isDone = task.status === 'done';
  const [open, setOpen] = useState(false);
- const { subtasks, toggleSubtask, updateSubtask } = useSubtasks(task.id, { enabled: open });
- const hasSubtasks = subtasks.length > 0;
- const doneSubCount = subtasks.filter((s: any) => s.status === 'done').length;
  const isTimerActive = activeTimerId === task.id;
  const [isEditing, setIsEditing] = useState(false);
  const [draftTitle, setDraftTitle] = useState(task.title);
@@ -374,28 +309,6 @@ const TaskRowRaw = ({ task, onToggle, onDetail, activeTimerId, onTimerToggle, up
  <TaskCheckbox checked={isDone} priorityColor={priorityColor} size="sm" />
  </div>
  
- {hasSubtasks && (
- <button
- onClick={(e) => {
- e.stopPropagation();
- setOpen(!open);
- }}
- style={{
- flexShrink: 0, color: C.muted, cursor: 'pointer', background: 'transparent', border: 'none', padding: 0,
- display: 'flex', alignItems: 'center', justifyContent: 'center'
- }}
- >
- <span style={{
- fontSize: '18px', fontWeight: 900, display: 'inline-block',
- transition: 'transform 0.2s, color 0.2s',
- transform: open? 'rotate(45deg)': 'none',
- color: open? C.accent: C.muted
- }}>
- +
- </span>
- </button>
- )}
-
  <div style={{ flex: 1, minWidth: 0 }}>
  {isEditing? (
  <input
@@ -515,18 +428,6 @@ const TaskRowRaw = ({ task, onToggle, onDetail, activeTimerId, onTimerToggle, up
  )}
  </div>
  </div>
- <AnimatePresence>
- {open && hasSubtasks && (
- <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
- exit={{ opacity: 0, height: 0 }} style={{ overflow: 'hidden', paddingTop: 2 }}>
- {subtasks.map((sub: any) => (
- <SubtaskRow key={sub.id} sub={sub}
- onToggle={(s) => toggleSubtask.mutate({ id: s.id, done: s.status!== 'done' })}
- onUpdate={(title) => updateSubtask.mutate({ id: sub.id, title })} />
- ))}
- </motion.div>
- )}
- </AnimatePresence>
  </motion.div>
  );
 };
@@ -911,11 +812,11 @@ const MiniTaskList = () => {
  }, [tasks, activeTimerId, updateTask]);
 
  const filteredTasks = useMemo(() => {
- // La pestaña "General" (null) solo muestra las tareas que NO tienen carpeta asignada
+ // La pestaña "General" (null) solo muestra las tareas que NO tienen cuaderno asignado
  if (!selectedFolderId) {
  return tasks.filter((t: any) =>!t.folder_id);
  }
- // Si hay una carpeta seleccionada, muestra solo las tareas de esa carpeta
+ // Si hay un cuaderno seleccionado, muestra solo las tareas de ese cuaderno
  return tasks.filter((t: any) => t.folder_id === selectedFolderId);
  }, [tasks, selectedFolderId]);
 
@@ -1243,9 +1144,9 @@ const MiniTaskList = () => {
  cursor: 'pointer', flexShrink: 0,
  transition: 'all 0.2s ease',
  }}
- title="Ver carpetas"
+ title="Ver cuadernos"
  >
- <Folder style={{ width: 14, height: 14, color: showFolderBar? C.accent: C.text }} />
+ <Notebook style={{ width: 14, height: 14, color: showFolderBar? C.accent: C.text }} />
  </div>
 
  {/* 4. RECURRENCE button — Repeat icon */}
@@ -1288,7 +1189,7 @@ const MiniTaskList = () => {
  </div>
  )}
 
- {/* Folder bar — Toggleable */}
+ {/* Notebook bar — Toggleable */}
  <AnimatePresence>
  {showFolderBar && (
  <motion.div 
@@ -1315,7 +1216,7 @@ const MiniTaskList = () => {
  transition: 'all 0.2s ease'
  }}
  >
- General
+ Hoy
  </button>
  {folders.map(folder => (
  <div key={folder.id} style={{
@@ -1346,9 +1247,9 @@ const MiniTaskList = () => {
  style={{ display: 'flex' }}
  >
  {selectedFolderId === folder.id? (
- <FolderOpen style={{ width: 10, height: 10, color: C.accent }} />
+ <NotebookText style={{ width: 10, height: 10, color: C.accent }} />
  ): (
- <Folder style={{ width: 10, height: 10, color: folder.color }} />
+ <Notebook style={{ width: 10, height: 10, color: folder.color }} />
  )}
  </motion.div>
  )}
@@ -1426,7 +1327,7 @@ const MiniTaskList = () => {
  background: 'transparent', color: C.muted, border: `1px dashed ${C.border}`,
  display: 'flex', alignItems: 'center', gap: 4, transition: 'all 0.2s ease', cursor: 'pointer'
  }}
- title="Crear nueva carpeta"
+ title="Crear nuevo cuaderno"
  >
  <Plus style={{ width: 10, height: 10 }} />
  </button>
@@ -1476,7 +1377,7 @@ const MiniTaskList = () => {
  <div style={{ textAlign: 'center', padding: 24 }}>
  <span style={{ fontSize: 28 }}></span>
  <p style={{ fontSize: 11, fontWeight: 800, marginTop: 8, color: C.text, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
- {selectedFolderId? 'Sin tareas en esta carpeta': '¡Día despejado!'}
+ {selectedFolderId? 'Sin tareas en este cuaderno': '¡Día despejado!'}
  </p>
  </div>
  ): (

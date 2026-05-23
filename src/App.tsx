@@ -307,7 +307,6 @@ const App = () => {
       window.electronAPI.onInvalidateQueries(() => {
         console.log("Global sync: Invalidate queries");
         queryClient.invalidateQueries({ queryKey: ['tasks'] });
-        queryClient.invalidateQueries({ queryKey: ['subtasks'] });
         queryClient.invalidateQueries({ queryKey: ['profile'] });
       });
     }

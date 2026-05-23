@@ -5,6 +5,7 @@ import {
   START_DOWNLOAD_GUIDE_EVENT,
   type DownloadPlatform,
 } from "@/lib/downloadGuide";
+import { supabase } from "@/integrations/supabase/client";
 
 type DownloadGuideEvent = CustomEvent<{ platform: DownloadPlatform }>;
 
@@ -144,6 +145,26 @@ export default function DownloadGuideOverlay() {
                 <Check className="mt-0.5 h-4 w-4 shrink-0 text-[hsl(var(--success))]" />
                 <span>Cuando el instalador abra, sigue los pasos del video.</span>
               </div>
+            </div>
+
+            <div className="space-y-4 pt-2 border-t border-outline-variant/30">
+              <p className="text-[11px] font-bold text-on-surface-variant/80">
+                ¿Ya instalaste la app? Haz clic aquí para sincronizar tu cuenta actual en la app de escritorio:
+              </p>
+              <button
+                onClick={async () => {
+                  const { data } = await supabase.auth.getSession();
+                  if (data.session) {
+                    window.location.assign(`adonai-tasks://#access_token=${data.session.access_token}&refresh_token=${data.session.refresh_token}`);
+                  } else {
+                    alert("No se encontró una sesión activa.");
+                  }
+                }}
+                className="w-full h-11 bg-primary text-primary-foreground font-black text-sm rounded-xl flex items-center justify-center gap-2 hover:bg-primary/90 transition-colors shadow-lg"
+              >
+                <Monitor className="w-4 h-4" />
+                Sincronizar mi cuenta en la app
+              </button>
             </div>
           </aside>
         </div>
