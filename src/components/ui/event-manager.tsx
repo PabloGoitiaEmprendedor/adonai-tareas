@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
 import { motion, AnimatePresence } from "framer-motion"
-import { Calendar, Clock, LayoutGrid, List, Plus, Search, Filter, X, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Check, MoreHorizontal, Link as LinkIcon, Trash2, Repeat, Zap, Menu, GripHorizontal, GripVertical, Bell, BellOff, Palette, Paperclip, ChevronsUpDown } from "lucide-react"
+import { Calendar, Clock, LayoutGrid, List, Plus, Search, Filter, X, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Check, MoreHorizontal, Link as LinkIcon, Trash2, Repeat, Zap, Menu, GripHorizontal, GripVertical, Bell, BellOff, Palette, Paperclip } from "lucide-react"
 import ScrollableTimePicker from "./scrollable-time-picker"
 import { usePriorityColors, getPriorityKey } from "@/hooks/usePriorityColors"
 import { cn } from "@/lib/utils"
@@ -1555,14 +1555,14 @@ export function EventManager({
               />
             )}
             {(view === "week" || view === "day" || view === "3day") && (
-              <div className={cn("flex min-h-0 gap-0 lg:gap-4 relative items-stretch", containedScroll ? "h-full" : "items-start")}>
+              <div className={cn("flex flex-col lg:flex-row min-h-0 gap-0 lg:gap-4 relative items-stretch", containedScroll ? "h-full" : "items-start")}>
                 {!hideSidebar && (view === "day" || view === "week") && (
                   <Card 
                     data-sidebar-droptarget="true"
 
                     className={cn(
-                      "hidden lg:flex w-72 flex-shrink-0 flex-col border-outline-variant/12 notebook-cream-bg shadow-sm overflow-hidden z-10 relative",
-                      containedScroll ? "h-full min-h-0" : "sticky top-[76px] h-[calc(100vh-92px)]"
+                      "flex w-full lg:w-72 flex-shrink-0 flex-col border-outline-variant/12 notebook-cream-bg shadow-sm overflow-hidden z-10 relative",
+                      "max-lg:max-h-[50vh] lg:sticky lg:top-[76px]"
                     )}
                     onDragOver={(e) => {
                       e.preventDefault();
@@ -1638,7 +1638,7 @@ export function EventManager({
                       }}
                     >
                       {/* Tasks for the active folder tab */}
-                      <div className="space-y-2">
+                      <div className="space-y-0">
                         {Object.values(tasksByFolder).flat().length > 0 ? (
                           Object.values(tasksByFolder).flat().map((event) => {
                             const evColor = (event.color.startsWith('#') || event.color.startsWith('var')) ? event.color : undefined;
@@ -1646,15 +1646,11 @@ export function EventManager({
                               <div
                                 key={event.id}
                                 onMouseDown={(e) => {
-                                  if ((e.target as HTMLElement).closest('[data-sidebar-reorder-handle]')) return;
                                   handleSidebarMouseDown(e, event);
                                 }}
                                 onTouchStart={(e) => {
-                                  if ((e.target as HTMLElement).closest('[data-sidebar-reorder-handle]')) return;
                                   handleSidebarTouchStart(e, event);
                                 }}
-                                onDragOver={(e) => handleSidebarReorderOver(e, event)}
-                                onDragEnd={handleSidebarReorderEnd}
                                 onClick={() => {
                                   if (onEventClick) {
                                     onEventClick(event)
@@ -1663,40 +1659,14 @@ export function EventManager({
                                     setIsDialogOpen(true)
                                   }
                                 }}
-                                className="group flex items-start gap-3 px-3 py-2.5 rounded-xl transition-colors cursor-grab active:cursor-grabbing border border-transparent hover:border-primary/18 touch-none min-h-[42px]"
-                                style={{ backgroundColor: 'transparent' }}
+                                className="group flex items-center gap-3 px-2 py-0 transition-colors cursor-grab active:cursor-grabbing border border-transparent hover:border-primary/18 touch-none"
                               >
-                                {canReorderSidebarTask(event) ? (
-                                  <button
-                                    type="button"
-                                    draggable
-                                    data-sidebar-reorder-handle
-                                    title="Arrastra para ordenar"
-                                    aria-label="Arrastra para ordenar"
-                                    onDragStart={(e) => handleSidebarReorderStart(e, event)}
-                                    onDragEnd={handleSidebarReorderEnd}
-                                    onClick={(e) => e.stopPropagation()}
-                                    className="mt-0.5 flex h-7 w-4 shrink-0 items-center justify-center rounded-md text-on-surface-variant/30 transition-all hover:bg-on-surface-variant/5 hover:text-foreground/70 cursor-grab active:cursor-grabbing"
-                                  >
-                                    <ChevronsUpDown className="h-3.5 w-3.5" strokeWidth={1.8} />
-                                  </button>
-                                ) : (
-                                  <div className="w-4 shrink-0" />
-                                )}
                                 <div
-                                  className="h-[18px] w-[18px] rounded-full border-2 shrink-0 mt-0.5"
+                                  className="h-[18px] w-[18px] rounded-full border-2 shrink-0"
                                   style={{ borderColor: evColor || priorityColors[getPriorityKey(event.urgency || false, event.importance || false)] || 'var(--outline)' }}
                                 />
-                                <div className={cn("flex-1 min-w-0", event.completed && "opacity-40 grayscale-[0.5]")}>
-                                  <span className={cn("block text-[14px] font-semibold leading-snug tracking-normal text-foreground transition-colors group-hover:text-primary truncate", event.completed && "line-through opacity-40")}>{event.title}</span>
-                                  <div className="mt-1">
-                                    <EventLinkClips links={event.links} color={evColor} />
-                                  </div>
-                                  {event.description && (
-                                    <div className="flex items-center gap-2 mt-1">
-                                      <span className="text-[10px] font-medium text-on-surface-variant/50 line-clamp-1 italic">{event.description}</span>
-                                    </div>
-                                  )}
+                                <div className="flex-1 min-w-0">
+                                  <span className="block text-[14px] font-semibold leading-snug tracking-normal text-foreground transition-colors group-hover:text-primary break-words whitespace-normal">{event.title}</span>
                                 </div>
                               </div>
                             );
