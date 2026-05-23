@@ -141,9 +141,9 @@ export const TaskCard = memo(({
         />
       </div>
 
-      <div className="relative z-10 flex h-[42px] flex-1 flex-col justify-center min-w-0 pr-2">
-        <div className="flex min-w-0 items-center gap-2">
-          <div className={`min-w-0 text-[14px] font-semibold tracking-normal transition-all flex flex-1 items-center gap-2 font-headline ${
+      <div className="relative z-10 flex h-[42px] flex-1 flex-col justify-center min-w-0 overflow-hidden pr-2">
+        <div className="flex min-w-0 items-center gap-2 overflow-hidden">
+          <div className={`min-w-0 text-[14px] font-semibold tracking-normal transition-all flex flex-1 items-center gap-2 font-headline overflow-hidden ${
             isDone || completingTaskId === task.id ? 'text-on-surface-variant/30 line-through' : 'text-foreground'
           }`}>
             {isEditing ? (
@@ -163,11 +163,11 @@ export const TaskCard = memo(({
                 onClick={e => e.stopPropagation()}
                 draggable={false}
                 data-no-drag="true"
-                className="cursor-eraser relative z-10 max-w-full bg-transparent px-1 focus:outline-none"
+                className="cursor-eraser relative z-10 min-w-0 flex-1 bg-transparent px-1 focus:outline-none"
               />
             ) : (
               <span 
-                className="cursor-eraser relative z-10 inline-block max-w-full truncate rounded px-1 -ml-1 transition-colors hover:bg-on-surface-variant/5 hover:text-primary"
+                className="cursor-eraser relative z-10 block min-w-0 flex-1 truncate rounded px-1 -ml-1 transition-colors hover:bg-on-surface-variant/5 hover:text-primary"
                 onClick={(e) => { e.stopPropagation(); setIsEditing(true); setEditedTitle(task.title); }}
                 draggable={false}
                 data-no-drag="true"

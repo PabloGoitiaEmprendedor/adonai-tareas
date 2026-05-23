@@ -292,8 +292,8 @@
       linear-gradient(90deg, transparent 0 38px, rgba(235,120,120,0.18) 38px 39px, transparent 39px calc(100% - 28px), rgba(235,120,120,0.11) calc(100% - 28px) calc(100% - 27px), transparent calc(100% - 27px));
   }
   .notebook-handwriting {
-    font-family: "Caveat", "Segoe Print", "Bradley Hand ITC", "Comic Sans MS", cursive;
-    font-weight: 600;
+    font-family: "Patrick Hand", "Segoe Print", "Bradley Hand ITC", "Comic Sans MS", cursive;
+    font-weight: 400;
     letter-spacing: 0;
   }
   .notebook-cover {

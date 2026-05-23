@@ -1561,7 +1561,7 @@ export function EventManager({
                     data-sidebar-droptarget="true"
 
                     className={cn(
-                      "hidden lg:flex w-72 flex-shrink-0 flex-col border-outline-variant/15 bg-card shadow-sm overflow-hidden z-10",
+                      "hidden lg:flex w-72 flex-shrink-0 flex-col border-outline-variant/12 notebook-cream-bg shadow-sm overflow-hidden z-10 relative",
                       containedScroll ? "h-full min-h-0" : "sticky top-[76px] h-[calc(100vh-92px)]"
                     )}
                     onDragOver={(e) => {
@@ -1583,15 +1583,37 @@ export function EventManager({
                       }
                     }}
                   >
-                    <div className="border-b border-outline-variant/10 bg-card px-4 py-4">
+                    {/* Notebook spiral rings */}
+                    <div className="absolute inset-y-4 left-2 flex flex-col justify-between pointer-events-none z-20">
+                      {Array.from({ length: 10 }).map((_, ring) => (
+                        <span
+                          key={ring}
+                          className="h-2.5 w-6 rounded-full border-2 border-[#A8A29E]/40 bg-[#A8A29E]/15 shadow-[inset_0_1px_1px_rgba(255,255,255,0.25),0_1px_2px_rgba(0,0,0,0.12)]"
+                        />
+                      ))}
+                    </div>
+
+                    {/* Ruled lines background */}
+                    <div 
+                      className="absolute inset-0 pointer-events-none z-0"
+                      style={{
+                        backgroundImage: 'repeating-linear-gradient(180deg, rgba(120,145,190,0.08) 0 1px, transparent 1px 42px)',
+                        backgroundPosition: '0 0',
+                      }}
+                    />
+
+                    {/* Vertical margin line */}
+                    <div className="absolute top-8 bottom-8 left-9 w-px bg-rose-300/20 pointer-events-none z-20" />
+
+                    <div className="relative z-10 border-b border-outline-variant/8 bg-transparent px-5 py-4 pl-11">
                       <div className="flex items-center justify-between mb-1.5">
-                        <h3 className="text-[14px] font-black tracking-tight text-foreground">Tareas de hoy</h3>
+                        <h3 className="text-[14px] font-black tracking-tight text-[#1f2937]">Tareas de hoy</h3>
                       </div>
-                      <p className="text-[11px] text-on-surface-variant font-semibold leading-snug">Mantén presionado para arrastrar al calendario</p>
+                      <p className="text-[11px] text-[#1f2937]/50 font-semibold leading-snug">Mantén presionado para arrastrar al calendario</p>
                     </div>
 
                     {/* Folder tab bar â€” always visible, Hoy is default */}
-                    <div className="flex items-center gap-2 overflow-x-auto px-4 py-3 border-b border-outline-variant/10 bg-surface-container-low/40 no-scrollbar">
+                    <div className="relative z-10 flex items-center gap-2 overflow-x-auto px-5 py-3 border-b border-outline-variant/8 bg-white/30 no-scrollbar pl-11">
                       {uniqueCategories.map(cat => {
                         const isSelected = selectedCategory === cat;
                         return (
@@ -1601,7 +1623,7 @@ export function EventManager({
                             className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wide transition-all border ${
                               isSelected
                                 ? 'bg-primary text-primary-foreground border-primary shadow-sm'
-                                : 'bg-surface-container text-on-surface-variant/70 hover:text-primary border-outline-variant/20 hover:border-primary/30'
+                                : 'bg-white/60 text-[#1f2937]/60 hover:text-[#1f2937] border-[#1f2937]/15 hover:border-[#1f2937]/30'
                             }`}
                           >
                             <motion.div
@@ -1623,7 +1645,12 @@ export function EventManager({
                       })}
                     </div>
 
-                    <div ref={sidebarScrollRef} className="flex-1 overflow-y-auto custom-scrollbar p-3 focus:outline-none focus:ring-2 focus:ring-primary/20" data-sidebar-scroll="true" tabIndex={0}>
+                    <div ref={sidebarScrollRef} className="relative z-10 flex-1 overflow-y-auto custom-scrollbar px-5 py-3 pl-11 focus:outline-none focus:ring-2 focus:ring-primary/20" data-sidebar-scroll="true" tabIndex={0}
+                      style={{
+                        backgroundImage: 'repeating-linear-gradient(180deg, rgba(120,145,190,0.08) 0 1px, transparent 1px 42px)',
+                        backgroundPosition: '0 5px',
+                      }}
+                    >
                       {/* Tasks for the active folder tab */}
                       <div className="space-y-2">
                         {Object.values(tasksByFolder).flat().length > 0 ? (
@@ -1650,7 +1677,7 @@ export function EventManager({
                                     setIsDialogOpen(true)
                                   }
                                 }}
-                                className="group flex items-start gap-3 p-4 rounded-[20px] hover:bg-surface-container transition-all cursor-grab active:cursor-grabbing border border-transparent hover:border-primary/20 touch-none"
+                                className="group flex items-start gap-3 p-4 rounded-[20px] hover:bg-white/50 transition-all cursor-grab active:cursor-grabbing border border-transparent hover:border-[#A8A29E]/30 touch-none"
                                 style={{ 
                                   backgroundColor: (() => { const pc = priorityColors[getPriorityKey(event.urgency || false, event.importance || false)]; return pc && pc !== 'transparent' ? `${pc}4D` : 'transparent'; })(),
                                 }}
@@ -1665,7 +1692,7 @@ export function EventManager({
                                     onDragStart={(e) => handleSidebarReorderStart(e, event)}
                                     onDragEnd={handleSidebarReorderEnd}
                                     onClick={(e) => e.stopPropagation()}
-                                    className="mt-0.5 flex h-7 w-4 shrink-0 items-center justify-center rounded-md text-on-surface-variant/30 transition-all hover:bg-primary/10 hover:text-primary group-hover:text-primary/70 cursor-grab active:cursor-grabbing"
+                                    className="mt-0.5 flex h-7 w-4 shrink-0 items-center justify-center rounded-md text-[#1f2937]/30 transition-all hover:bg-white/50 hover:text-[#1f2937]/70 cursor-grab active:cursor-grabbing"
                                   >
                                     <ChevronsUpDown className="h-3.5 w-3.5" strokeWidth={1.8} />
                                   </button>
@@ -1677,13 +1704,13 @@ export function EventManager({
                                   style={{ backgroundColor: evColor || priorityColors[getPriorityKey(event.urgency || false, event.importance || false)] }}
                                 />
                                 <div className={cn("flex-1 min-w-0", event.completed && "opacity-40 grayscale-[0.5]")}>
-                                  <span className={cn("block text-[13px] font-semibold leading-snug tracking-normal text-foreground transition-colors group-hover:text-primary", event.completed && "line-through")}>{event.title}</span>
+                                  <span className={cn("block text-[13px] font-semibold leading-snug tracking-normal text-[#1f2937] transition-colors group-hover:text-primary", event.completed && "line-through opacity-40")}>{event.title}</span>
                                   <div className="mt-1">
                                     <EventLinkClips links={event.links} color={evColor} />
                                   </div>
                                   {event.description && (
                                     <div className="flex items-center gap-2 mt-1">
-                                      <span className="text-[10px] font-medium text-on-surface-variant/50 line-clamp-1 italic">{event.description}</span>
+                                      <span className="text-[10px] font-medium text-[#1f2937]/50 line-clamp-1 italic">{event.description}</span>
                                     </div>
                                   )}
                                 </div>
@@ -1691,9 +1718,9 @@ export function EventManager({
                             );
                           })
                         ) : (
-                          <div className="flex flex-col items-center justify-center py-8 opacity-40 text-center px-2">
-                            <List className="w-6 h-6 mb-2" />
-                            <p className="text-[9px] font-black uppercase tracking-widest">Sin tareas para hoy</p>
+                          <div className="flex flex-col items-center justify-center py-8 opacity-50 text-center px-2">
+                            <List className="w-6 h-6 mb-2 text-[#1f2937]/40" />
+                            <p className="text-[9px] font-black uppercase tracking-widest text-[#1f2937]/50">Sin tareas para hoy</p>
                           </div>
                         )}
                       </div>

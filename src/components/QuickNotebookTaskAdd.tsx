@@ -159,7 +159,7 @@ export const QuickNotebookTaskAdd = ({ folderId, disabled, onDisabledClick }: Qu
             exit={{ opacity: 0 }}
             className="flex min-h-[42px] items-center gap-2 px-2 py-1.5"
           >
-            <span className="notebook-handwriting shrink-0 text-sm text-on-surface-variant/55">Prioridad</span>
+            <span className="notebook-handwriting shrink-0 text-sm text-[#1f2937]/70">Prioridad</span>
             <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto no-scrollbar">
               {PRIORITY_OPTIONS.map((option) => {
                 const color = colors[option.key] === 'transparent' ? 'hsl(var(--outline))' : colors[option.key];
@@ -168,7 +168,7 @@ export const QuickNotebookTaskAdd = ({ folderId, disabled, onDisabledClick }: Qu
                     key={option.key}
                     onMouseDown={(event) => event.preventDefault()}
                     onClick={() => handlePriority(option)}
-                    className="shrink-0 rounded-full border border-outline-variant/20 bg-background/35 px-2.5 py-1 text-[10px] font-black text-on-surface-variant/70 transition-colors hover:text-foreground"
+                    className="shrink-0 rounded-full border border-[#1f2937]/20 bg-white/60 px-2.5 py-1 text-[10px] font-black text-[#1f2937]/80 transition-colors hover:bg-white/90 hover:text-[#1f2937]"
                   >
                     <span className="mr-1.5 inline-block h-2 w-2 rounded-full" style={{ backgroundColor: color }} />
                     {option.label}
