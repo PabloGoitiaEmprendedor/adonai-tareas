@@ -11,17 +11,17 @@ interface FABProps {
 const FAB = ({ onTextClick, onVoiceClick, onRecurrenceClick, onEventClick }: FABProps) => {
   const allOptions = [
     {
-      label: "Texto",
+      label: "Tarea por texto",
       icon: <Plus />,
       onClick: onTextClick,
     },
     {
-      label: "Voz",
+      label: "Tarea por voz",
       icon: <Mic />,
       onClick: onVoiceClick,
     },
     {
-      label: "Recurrencia",
+      label: "Tarea recurrente",
       icon: <Repeat />,
       onClick: onRecurrenceClick,
     },

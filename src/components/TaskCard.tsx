@@ -86,11 +86,10 @@ export const TaskCard = memo(({
       initial={view === 'daily' ? { opacity: 0 } : { opacity: 0, scale: 0.98 }}
       animate={{ opacity: 1 }}
       exit={view === 'daily' ? { opacity: 0, transition: { duration: 0.08 } } : undefined}
-      onClick={() => setSelectedTask(task)}
       onDragOver={(e) => handleDragOver?.(e, taskIdx)}
       style={cardStyle}
-      className={`relative flex items-center gap-2 overflow-hidden border px-1.5 py-0 transition-colors group/task md:px-2 ${
-        view === 'daily' ? 'h-[42px] cursor-grab border-b-transparent' : 'min-h-[42px] cursor-hand'
+      className={`relative flex items-center gap-2 overflow-hidden border px-1.5 py-2 transition-colors group/task md:px-2 ${
+        view === 'daily' ? 'h-[42px] cursor-grab active:cursor-grabbing border-b-transparent' : 'min-h-[42px] cursor-hand'
       } border-x-transparent border-t-transparent hover:border-primary/18`}
     >
       {!isDone && !hideTimer && (
@@ -128,7 +127,7 @@ export const TaskCard = memo(({
       )}
 
       {/* Checkbox */}
-      <div className="cursor-pencil relative z-20 flex-shrink-0" data-no-drag="true">
+      <div className="relative z-20 flex-shrink-0 cursor-pointer" data-no-drag="true">
         <TaskCheckbox
           checked={isDone || completingTaskId === task.id}
           priorityColor={priorityColor}
@@ -167,7 +166,7 @@ export const TaskCard = memo(({
               />
             ) : (
               <span 
-                className="cursor-eraser relative z-10 block min-w-0 flex-1 truncate rounded px-1 -ml-1 transition-colors hover:bg-on-surface-variant/5 hover:text-primary"
+                className="cursor-eraser relative z-10 block min-w-0 flex-1 whitespace-normal break-words rounded px-1 -ml-1 transition-colors hover:bg-on-surface-variant/5 hover:text-primary"
                 onClick={(e) => { e.stopPropagation(); setIsEditing(true); setEditedTitle(task.title); }}
                 draggable={false}
                 data-no-drag="true"

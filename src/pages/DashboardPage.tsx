@@ -139,9 +139,9 @@ const DashboardPage = () => {
       <div className="max-w-[430px] lg:max-w-4xl mx-auto px-6 pt-4 pb-24 space-y-6">
 
         {/* Content starts below the global header */}
-        <div className="space-y-1 py-2">
+        <div className="space-y-1 py-2 text-center md:text-left">
           <p className="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest">{getGreeting()}</p>
-          <h1 className="page-title text-foreground">
+          <h1 className="page-title text-foreground text-center md:text-left">
             {profile?.name || 'Emprendedor'}
           </h1>
         </div>

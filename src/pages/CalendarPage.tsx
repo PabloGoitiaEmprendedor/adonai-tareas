@@ -19,7 +19,7 @@ const CalendarPage = () => {
   );
 
   return (
-    <div className="themed-cursor min-h-screen bg-background pb-20 lg:pl-20 lg:pb-6">
+    <div className="themed-cursor min-h-screen bg-background pb-20 lg:pb-6">
       <div className="mx-auto w-full max-w-none px-0 pt-0 lg:max-w-[1400px] lg:px-5 lg:pt-2">
         
       <AdonaiCalendarView 
@@ -27,6 +27,7 @@ const CalendarPage = () => {
           onSelectDate={setSelectedDate}
           viewMode={viewMode}
           dragDisabled={false}
+          className="overflow-x-auto lg:overflow-visible"
         />
 
       </div>

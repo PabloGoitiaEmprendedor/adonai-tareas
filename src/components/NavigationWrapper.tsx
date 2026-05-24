@@ -25,6 +25,7 @@ import { useFolders } from '@/hooks/useFolders';
 import { useNotionIntegration } from '@/hooks/useNotionIntegration';
 import { useRef, useCallback } from 'react';
 import { useStreaks } from '@/hooks/useStreaks';
+import { NavigationPilot } from './NavigationPilot';
 
 // Detect if running inside Electron (desktop app)
 const isElectronEnv: boolean =
@@ -205,11 +206,6 @@ const SidebarContent = ({ user, profile, metrics, menuItems, location, handleNav
 const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
   const [open, setOpen] = useState(false);
   const [tutorialRun, setTutorialRun] = useState(false);
-  const [desktopSidebarOpen, setDesktopSidebarOpen] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return true;
-    const saved = localStorage.getItem('adonai_sidebar_open');
-    return saved === null ? false : saved === '1';
-  });
 
   const location = useLocation();
   const [draftActive, setDraftActive] = useState(false);
@@ -253,17 +249,18 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
   }, [])
 
   useEffect(() => {
-    localStorage.setItem('adonai_sidebar_open', desktopSidebarOpen ? '1' : '0');
-  }, [desktopSidebarOpen]);
-
-  useEffect(() => {
     const handleRestart = () => {
       setTutorialRun(true);
-      setOpen(false); // Close mobile sidebar if open
+      setOpen(false);
     };
     window.addEventListener('restart-adonai-tour', handleRestart);
     return () => window.removeEventListener('restart-adonai-tour', handleRestart);
   }, []);
+
+  // Scroll to top on route change
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [location.pathname]);
 
 
   const { user, loading } = useAuth();
@@ -425,22 +422,13 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
         </SheetContent>
       </Sheet>
 
-      {/* Floating Header Actions
-          - Mobile: ALWAYS visible (top-left) when the mobile Sheet is closed
-          - Desktop: only when the desktop sidebar is collapsed */}
+      {/* Floating Header Trigger - mobile only (pilot handles desktop) */}
       {!open && (
-        <div className={`fixed left-3 z-[70] flex items-center gap-2 sm:left-4 ${
-            desktopSidebarOpen ? 'lg:hidden' : ''
-          } ${window.electronAPI ? 'top-10' : 'top-3 sm:top-4'}`}>
+        <div className={`fixed left-3 z-[70] flex items-center gap-2 sm:left-4 lg:hidden ${
+            window.electronAPI ? 'top-10' : 'top-3 sm:top-4'}`}>
           <button
             id="global-menu-trigger"
-            onClick={() => {
-              if (window.innerWidth < 1024) {
-                setOpen(true);
-              } else {
-                setDesktopSidebarOpen(true);
-              }
-            }}
+            onClick={() => setOpen(true)}
             aria-label="Mostrar menú"
             className="w-10 h-10 rounded-xl bg-background/80 text-on-surface-variant/70 shadow-lg shadow-black/5 backdrop-blur-xl border border-outline-variant/10 hover:text-foreground transition-all active:scale-90 flex items-center justify-center"
           >
@@ -457,30 +445,26 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
         </div>
       )}
 
-      <aside
-        className={`hidden lg:flex fixed left-0 ${window.electronAPI ? 'top-8' : 'top-0'} bottom-0 w-72 bg-surface border-r border-outline-variant z-40 flex-col shadow-xl transition-transform duration-300 ${
-          desktopSidebarOpen ? 'translate-x-0' : '-translate-x-full'
-        }`}
-      >
-        <SidebarContent 
-          user={user} 
-          profile={profile} 
-          metrics={metrics}
-          menuItems={menuItems} 
-          location={location} 
-          handleNavigate={handleNavigate} 
-          startTutorial={() => setTutorialRun(true)}
-          toggleSidebar={() => setDesktopSidebarOpen(false)}
-        />
-      </aside>
+      {/* Navigation Pilot — floating hover menu (desktop only) */}
+      <NavigationPilot
+        menuItems={menuItems}
+        settingsItems={[
+          { label: 'Perfil', icon: User, path: '/profile' },
+          { label: 'Logros', icon: Trophy, path: '/achievements' },
+          { label: 'Ajustes', icon: Settings, path: '/settings' },
+          { label: 'Personalizar', icon: Palette, path: '/priority-settings' },
+          { label: 'Historial', icon: History, path: '/trash' },
+        ]}
+        showAdmin={user?.email === 'pablogoitiaemprendedor@gmail.com'}
+        electronOffset={isElectronEnv}
+        user={user}
+      />
 
       <main
         id="main-content"
-        className={`flex-1 pb-24 lg:pb-12 min-h-screen bg-background transition-[padding] duration-300 ${
-          desktopSidebarOpen ? 'lg:pl-72' : 'lg:pl-0'
-        }`}
+        className="flex-1 pb-24 lg:pb-12 min-h-screen bg-background"
       >
-        <div className={`mx-auto w-full max-w-7xl px-0 lg:px-4 ${window.electronAPI ? 'pt-16' : 'pt-[4.5rem]'}`}>
+        <div className={`w-full ${window.electronAPI ? 'pt-16' : 'pt-[4.5rem]'}`}>
           {children}
         </div>
       </main>

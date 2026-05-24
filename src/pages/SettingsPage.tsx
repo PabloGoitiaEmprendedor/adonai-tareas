@@ -354,7 +354,7 @@ const SettingsPage = () => {
     <div className="min-h-screen bg-background">
       <div className="max-w-[430px] lg:max-w-[800px] mx-auto px-5 pt-6 pb-24 space-y-8">
         
-        <div className="flex items-center gap-4 mb-4">
+        <div className="flex items-center gap-4 mb-4 justify-center md:justify-start">
           <button onClick={() => navigate(-1)} className="w-10 h-10 rounded-xl bg-surface-container flex items-center justify-center hover:bg-surface-container-high transition-colors">
             <ChevronLeft className="w-5 h-5 text-foreground" />
           </button>

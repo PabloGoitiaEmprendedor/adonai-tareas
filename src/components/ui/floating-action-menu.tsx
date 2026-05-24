@@ -56,7 +56,7 @@ const FloatingActionMenu = ({ options, className }: FloatingActionMenuProps) => 
         )}
       </AnimatePresence>
 
-      <div className={cn("fixed bottom-8 right-8 z-[9999] flex flex-col items-end gap-3", className)}>
+      <div className={cn("fixed bottom-6 right-5 sm:bottom-8 sm:right-8 z-[9999] flex flex-col items-end gap-3", className)}>
         <AnimatePresence>
           {isOpen && (
             <motion.div
@@ -91,16 +91,16 @@ const FloatingActionMenu = ({ options, className }: FloatingActionMenuProps) => 
                       setIsOpen(false);
                     }}
                     className={cn(
-                      "group relative flex items-center gap-3 bg-card/80 hover:bg-primary backdrop-blur-xl shadow-[0_8px_30px_rgba(0,0,0,0.3)] border border-white/10 rounded-2xl px-6 py-6 h-14 transition-all duration-300 overflow-hidden",
+                      "group relative flex items-center gap-3 bg-card/80 hover:bg-primary backdrop-blur-xl shadow-[0_8px_30px_rgba(0,0,0,0.3)] border border-white/10 rounded-xl sm:rounded-2xl px-4 sm:px-6 py-4 sm:py-6 h-12 sm:h-14 transition-all duration-300 overflow-hidden",
                       index === 1 && document.body.classList.contains('tutorial-active') && "opacity-30 cursor-not-allowed grayscale"
                     )}
                   >
-                    <span className="text-foreground group-hover:text-primary-foreground font-bold text-sm">
+                    <span className="text-foreground group-hover:text-primary-foreground font-bold text-xs sm:text-sm">
                       {option.label}
                     </span>
-                    <div className="w-8 h-8 rounded-xl bg-primary/10 group-hover:bg-white/20 flex items-center justify-center transition-colors">
+                    <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-primary/10 group-hover:bg-white/20 flex items-center justify-center transition-colors">
                       {React.cloneElement(option.icon as React.ReactElement, { 
-                        className: "w-4 h-4 text-primary group-hover:text-primary-foreground" 
+                        className: "w-3.5 h-3.5 sm:w-4 sm:h-4 text-primary group-hover:text-primary-foreground" 
                       })}
                     </div>
                   </Button>
@@ -118,14 +118,14 @@ const FloatingActionMenu = ({ options, className }: FloatingActionMenuProps) => 
           animate={wakePulse ? { scale: [1, 1.15, 1] } : undefined}
           transition={wakePulse ? { duration: 0.45 } : { duration: 0.5 }}
           className={cn(
-            "w-16 h-16 rounded-[22px] flex items-center justify-center shadow-[0_12px_40px_rgba(0,0,0,0.3)] transition-all duration-500 border border-white/10",
+            "w-14 h-14 sm:w-16 sm:h-16 rounded-[18px] sm:rounded-[22px] flex items-center justify-center shadow-[0_12px_40px_rgba(0,0,0,0.3)] transition-all duration-500 border border-white/10",
             isOpen ? "bg-foreground text-background rotate-90" : "bg-brand text-brand-foreground"
           )}
         >
           {isOpen ? (
-            <X className="w-8 h-8" strokeWidth={2.5} />
+            <X className="w-6 h-6 sm:w-8 sm:h-8" strokeWidth={2.5} />
           ) : (
-            <Plus className="w-9 h-9" strokeWidth={2.5} />
+            <Plus className="w-7 h-7 sm:w-9 sm:h-9" strokeWidth={2.5} />
           )}
         </motion.button>
       </div>

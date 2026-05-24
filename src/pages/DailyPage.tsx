@@ -5,7 +5,7 @@ import { useFolders } from '@/hooks/useFolders';
 import { useProfile } from '@/hooks/useProfile';
 import { useStreaks } from '@/hooks/useStreaks';
 import { format, differenceInDays, parseISO } from 'date-fns';
-import { Flame, Monitor, Apple, Sparkles, Notebook, NotebookText, Trophy, Snowflake, X } from 'lucide-react';
+import { Flame, Monitor, Apple, Sparkles, Notebook, NotebookText, Trophy, Snowflake, Menu, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { triggerTaskCelebration, triggerDailyCelebration, triggerOnTimeCelebration } from '@/lib/celebrations';
 import TaskDetailModal from '@/components/TaskDetailModal';
@@ -15,7 +15,6 @@ import { TaskCard } from '@/components/TaskCard';
 import { startGuidedDownload } from '@/lib/downloadGuide';
 import MiniTaskWidget from '@/components/MiniTaskWidget';
 import { ChaosBuddiesTrigger } from '@/components/ChaosBuddiesTrigger';
-import { WeeklySummaryModal } from '@/components/WeeklySummaryModal';
 import { compareTasksWithinQuadrants, getTaskManualOrderGroupKey } from '@/lib/taskOrdering';
 import { playPageTurnSound } from '@/lib/soundEffects';
 import { QuickNotebookTaskAdd } from '@/components/QuickNotebookTaskAdd';
@@ -165,7 +164,13 @@ const DailyPage = () => {
  return orderedTasks.slice(start, start + TASKS_PER_NOTEBOOK_PAGE);
  }, [notebookPage, orderedTasks]);
 
- const shouldShowTaskPage = notebookPage <= NOTEBOOK_PAGE_COUNT;
+  const shouldShowTaskPage = notebookPage <= NOTEBOOK_PAGE_COUNT;
+
+  const currentFolderName = useMemo(() => {
+    if (selectedFolderId === null) return 'Hoy';
+    const folder = folders.find((f: any) => f.id === selectedFolderId);
+    return folder?.name || 'Hoy';
+  }, [selectedFolderId, folders]);
 
  const handleComplete = useCallback(async (task: any, e: React.MouseEvent) => {
  e.stopPropagation();
@@ -345,8 +350,8 @@ const DailyPage = () => {
  );
 
  return (
- <div className="min-h-screen bg-background text-foreground selection:bg-primary/20">
- <div className="mx-auto w-full max-w-[440px] px-3 pt-4 pb-24 md:max-w-[980px] md:px-6 md:pt-6 md:pb-8 relative">
+  <div className="min-h-screen text-foreground selection:bg-primary/20 md:bg-background">
+   <div className="mx-auto w-full max-w-full px-0 pt-0 pb-0 md:max-w-[980px] md:px-6 md:pt-6 md:pb-8 relative">
 
  {false && (
  <motion.div 
@@ -618,7 +623,7 @@ const DailyPage = () => {
    {/* ── Quick-add row desktop ── */}
    {!isLoading && (
      <div className="relative z-10 mt-1">
-       <QuickNotebookTaskAdd folderId={selectedFolderId} />
+        <QuickNotebookTaskAdd folderId={selectedFolderId} folderName={currentFolderName} />
      </div>
    )}
    {visibleNotebookTasks.length === 0 && notebookPage !== 1 && (
@@ -649,64 +654,76 @@ const DailyPage = () => {
     </button>
   </div>
 
-  {/* Mobile Task Island */}
+  {/* Mobile Task Island — fixed full-screen notebook */}
   <motion.div 
   initial={{ opacity: 0, y: 15 }}
   animate={{ opacity: 1, y: 0 }}
-  className="relative md:hidden flex min-h-[min(680px,calc(100vh-8rem))] w-full flex-col overflow-hidden rounded-[30px] notebook-cream-bg border border-outline-variant/12 py-4 pl-12 pr-4 shadow-xl shadow-black/10 backdrop-blur-xl"
- style={{
- backgroundImage: 'radial-gradient(circle at 20% 22%, rgba(255,255,255,0.09) 0 1px, transparent 1.6px), radial-gradient(circle at 78% 62%, rgba(0,0,0,0.05) 0 1px, transparent 1.7px), radial-gradient(circle at 44% 76%, rgba(255,255,255,0.045) 0 1px, transparent 1.8px), linear-gradient(90deg, transparent 0 38px, rgba(235,120,120,0.24) 38px 39px, transparent 39px calc(100% - 28px), rgba(235,120,120,0.16) calc(100% - 28px) calc(100% - 27px), transparent calc(100% - 27px))',
- backgroundPosition: '0 17px',
- borderRadius: '30px 28px 32px 29px',
- }}
- >
- <div className="absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-white/[0.035] to-transparent pointer-events-none" />
- <div className="pointer-events-none absolute bottom-4 right-0 top-4 w-7">
- {[0, 1, 2, 3, 4].map((page) => (
- <span
- key={page}
- className="absolute right-0 block h-[calc(100%-6px)] rounded-r-[18px] border-r border-y border-outline-variant/10 bg-background/20"
- style={{
- top: `${page * 3}px`,
- width: `${8 + page * 3}px`,
- opacity: 0.16 - page * 0.018,
- }}
- />
- ))}
- </div>
- <div className="absolute bottom-7 left-8 top-7 w-px bg-rose-300/18" />
- <div className="absolute bottom-7 right-7 top-7 w-px bg-rose-300/12" />
- <div className="absolute inset-y-3 left-3 flex flex-col justify-between">
- {Array.from({ length: 15 }).map((_, ring) => (
- <span
- key={ring}
- className="h-3 w-8 rounded-full border-2 border-[#A8A29E]/40 bg-[#A8A29E]/15 shadow-[inset_0_1px_1px_rgba(255,255,255,0.25),0_1px_2px_rgba(0,0,0,0.12)]"
- />
- ))}
- </div>
-
- <AnimatePresence mode="wait" custom={pageTurnDirection}>
- <motion.div
- key={`mobile-page-${notebookPage}`}
- custom={pageTurnDirection}
- variants={pageTurnVariants}
- initial="enter"
- animate="center"
- exit="exit"
- transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
- className="relative z-10 flex flex-1 flex-col"
- style={{ transformOrigin: pageTurnDirection > 0? 'right center': 'left center', transformStyle: 'preserve-3d' }}
- >
- {shouldShowTaskPage? (
- <>
-  {/* Mobile title */}
-  <div className="relative z-10 mb-1 px-2">
-    <h2 className="text-base font-bold font-headline tracking-tight notebook-handwriting text-foreground/70">
+   className="fixed inset-0 z-30 md:hidden flex flex-col overflow-hidden notebook-cream-bg"
+  style={{
+  backgroundImage: 'radial-gradient(circle at 20% 22%, rgba(255,255,255,0.09) 0 1px, transparent 1.6px), radial-gradient(circle at 78% 62%, rgba(0,0,0,0.05) 0 1px, transparent 1.7px), radial-gradient(circle at 44% 76%, rgba(255,255,255,0.045) 0 1px, transparent 1.8px), linear-gradient(90deg, transparent 0 38px, rgba(235,120,120,0.24) 38px 39px, transparent 39px calc(100% - 28px), rgba(235,120,120,0.16) calc(100% - 28px) calc(100% - 27px), transparent calc(100% - 27px))',
+  backgroundPosition: '0 17px',
+  }}>
+  {/* Top gradient */}
+  <div className="absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-white/[0.035] to-transparent pointer-events-none" />
+  
+  {/* Page stack effect (right side) */}
+  <div className="pointer-events-none absolute bottom-4 right-0 top-4 w-7">
+  {[0, 1, 2, 3, 4].map((page) => (
+  <span
+  key={page}
+  className="absolute right-0 block h-[calc(100%-6px)] rounded-r-[18px] border-r border-y border-outline-variant/10 bg-background/20"
+  style={{
+  top: `${page * 3}px`,
+  width: `${8 + page * 3}px`,
+  opacity: 0.16 - page * 0.018,
+  }}
+  />
+  ))}
+  </div>
+  
+  {/* Vertical margin lines */}
+  <div className="absolute bottom-7 left-8 top-7 w-px bg-rose-300/18" />
+  <div className="absolute bottom-7 right-7 top-7 w-px bg-rose-300/12" />
+  
+  {/* Header: hamburger + title + page arrows */}
+  <div className="relative z-20 flex items-center pt-3 pb-1" style={{ paddingLeft: '44px', paddingRight: '8px' }}>
+    <button
+      onClick={() => {
+        const trigger = document.getElementById('global-menu-trigger');
+        if (trigger) trigger.click();
+      }}
+      className="w-5 h-5 flex items-center justify-center text-zinc-400/40 hover:text-zinc-400/70 transition-colors shrink-0"
+      aria-label="Abrir menú"
+      style={{ marginRight: '12px', marginLeft: '-18px', background: 'transparent' }}
+    >
+      <Menu className="w-3 h-3" strokeWidth={2} />
+    </button>
+    <h2 className="flex-1 text-lg font-bold font-headline tracking-tight notebook-handwriting text-foreground/80">
       Tareas de hoy
     </h2>
+    <button
+      onClick={goToPrevPage}
+      disabled={notebookPage === 1}
+      className="w-8 h-8 flex items-center justify-center rounded-xl text-on-surface-variant/30 hover:text-foreground hover:bg-black/5 transition-all disabled:opacity-20 disabled:pointer-events-none"
+      aria-label="Página anterior"
+    >
+      <ChevronLeft className="w-4 h-4" strokeWidth={2.5} />
+    </button>
+    <span className="text-[10px] font-black tabular-nums text-on-surface-variant/30 mx-0.5 min-w-[28px] text-center">
+      {notebookPage}/{NOTEBOOK_PAGE_COUNT}
+    </span>
+    <button
+      onClick={goToNextPage}
+      disabled={notebookPage >= NOTEBOOK_PAGE_COUNT}
+      className="w-8 h-8 flex items-center justify-center rounded-xl text-on-surface-variant/30 hover:text-foreground hover:bg-black/5 transition-all disabled:opacity-20 disabled:pointer-events-none"
+      aria-label="Página siguiente"
+    >
+      <ChevronRight className="w-4 h-4" strokeWidth={2.5} />
+    </button>
   </div>
-  {/* Mobile Folders — minimal pill tabs */}
-  <div className="relative z-10 flex items-center gap-2 overflow-x-auto no-scrollbar py-2 px-2 border-b border-outline-variant/10 pb-3 mb-3 justify-start">
+
+  {/* Folder pills — scrollable row */}
+  <div className="relative z-20 flex items-center gap-2 overflow-x-auto no-scrollbar py-1 px-2 border-b border-outline-variant/10">
      <button
        onClick={() => selectFolderWithSound(null)}
        className={`flex-shrink-0 px-3 py-1.5 rounded-full text-[11px] font-black uppercase tracking-wide transition-all border ${
@@ -733,64 +750,89 @@ const DailyPage = () => {
         </button>
       );
     })}
- </div>
+  </div>
 
- {/* Mobile Task List */}
- <div
- className="relative z-10 pb-5 pt-[2px]"
- style={{
- backgroundImage: 'repeating-linear-gradient(180deg, rgba(120,145,190,0.08) 0 1px, transparent 1px 42px)',
- }}
- >
- {isLoading? (
- <div className="space-y-4">
- {[1, 2, 3].map((i) => (
- <div key={i} className="h-20 bg-surface-container-highest/10 border border-outline-variant/10 rounded-2xl animate-pulse" />
- ))}
- </div>
- ): visibleNotebookTasks.length > 0? (
- <div className="space-y-0">
- {visibleNotebookTasks.map((task, idx) => (
- <TaskCard
- key={task.id}
- task={task}
- taskIdx={(notebookPage - 1) * TASKS_PER_NOTEBOOK_PAGE + idx}
- isDone={task.status === 'done'}
- completingTaskId={completingTaskId}
- dragIdx={dragIdx}
- handleDragStart={handleDragStart}
- handleDragOver={handleDragOver}
- handleDragEnd={handleDragEnd}
- setSelectedTask={setSelectedTask}
- handleComplete={handleComplete}
- handleUncomplete={handleUncomplete}
- handleStartTimer={handleStartTimer}
- view="daily"
- />
- ))}
- </div>
- ): null}
- </div>
-  {/* ── Quick-add row mobile ── */}
-   {!isLoading && (
-     <div className="relative z-10 mt-1">
-       <QuickNotebookTaskAdd folderId={selectedFolderId} />
-     </div>
-   )}
-   {visibleNotebookTasks.length === 0 && notebookPage !== 1 && (
-   renderBlankNotebookPage(true)
-   )}
+  {/* Task content with swipe */}
+  <div className="relative z-10 flex-1 overflow-y-auto">
+  <AnimatePresence mode="wait" custom={pageTurnDirection}>
+  <motion.div
+  key={`mobile-page-${notebookPage}`}
+  custom={pageTurnDirection}
+  variants={pageTurnVariants}
+  initial="enter"
+  animate="center"
+  exit="exit"
+  transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+  className="flex flex-col min-h-full"
+  style={{ transformOrigin: pageTurnDirection > 0? 'right center': 'left center', transformStyle: 'preserve-3d' }}
+  >
+  {shouldShowTaskPage? (
+  <>
+  {/* Mobile Task List */}
+  <div
+  className="flex flex-col flex-1"
+  style={{
+  backgroundImage: 'repeating-linear-gradient(180deg, rgba(120,145,190,0.08) 0 1px, transparent 1px 42px)',
+  }}
+  >
+  {isLoading? (
+  <div className="space-y-4 px-[44px] pr-4 py-2">
+  {[1, 2, 3].map((i) => (
+  <div key={i} className="h-20 bg-surface-container-highest/10 border border-outline-variant/10 rounded-2xl animate-pulse" />
+  ))}
+  </div>
+  ): visibleNotebookTasks.length > 0? (
+  <>
+  <div className="space-y-0 pl-[44px] pr-4 py-2">
+  {visibleNotebookTasks.map((task, idx) => (
+  <TaskCard
+  key={task.id}
+  task={task}
+  taskIdx={(notebookPage - 1) * TASKS_PER_NOTEBOOK_PAGE + idx}
+  isDone={task.status === 'done'}
+  completingTaskId={completingTaskId}
+  dragIdx={dragIdx}
+  handleDragStart={handleDragStart}
+  handleDragOver={handleDragOver}
+  handleDragEnd={handleDragEnd}
+  setSelectedTask={setSelectedTask}
+  handleComplete={handleComplete}
+  handleUncomplete={handleUncomplete}
+  handleStartTimer={handleStartTimer}
+  view="daily"
+  />
+  ))}
+  </div>
+  {!isLoading && (
+    <div className="pl-[44px] pr-4 pb-3 shrink-0">
+      <QuickNotebookTaskAdd folderId={selectedFolderId} folderName={currentFolderName} />
+    </div>
+  )}
   </>
   ): (
-  <div className="relative z-10">
+  <>
+  <div className="flex-1" />
+  {!isLoading && (
+    <div className="pl-[44px] pr-4 pb-3 shrink-0">
+      <QuickNotebookTaskAdd folderId={selectedFolderId} folderName={currentFolderName} />
+    </div>
+  )}
+  </>
+  )}
+  </div>
+    {visibleNotebookTasks.length === 0 && notebookPage !== 1 && (
+    renderBlankNotebookPage(true)
+    )}
+  </>
+  ): (
+  <div>
   {renderBlankNotebookPage(true)}
   </div>
   )}
   </motion.div>
- </AnimatePresence>
- {renderPageDragHandles(true)}
- {renderNotebookControls(true)}
- </motion.div>
+  </AnimatePresence>
+  </div>
+  </motion.div>
 
  </div>
 
@@ -804,8 +846,8 @@ const DailyPage = () => {
  {!window.electronAPI && (
  <MiniTaskWidget isOpen={miniWidgetOpen} onClose={() => setMiniWidgetOpen(false)} />
  )}
- <ChaosBuddiesTrigger />
- <WeeklySummaryModal />
+  <ChaosBuddiesTrigger />
+
 
  <AnimatePresence>
  {showMiniLeadModal && (

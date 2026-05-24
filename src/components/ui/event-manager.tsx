@@ -1561,8 +1561,8 @@ export function EventManager({
                     data-sidebar-droptarget="true"
 
                     className={cn(
-                      "flex w-full lg:w-72 flex-shrink-0 flex-col border-outline-variant/12 notebook-cream-bg shadow-sm overflow-hidden z-10 relative",
-                      "max-lg:max-h-[50vh] lg:sticky lg:top-[76px]"
+                      "hidden lg:flex w-72 flex-shrink-0 flex-col border-outline-variant/12 notebook-cream-bg shadow-sm overflow-hidden z-10 relative",
+                      "sticky top-[76px]"
                     )}
                     onDragOver={(e) => {
                       e.preventDefault();
@@ -1609,6 +1609,9 @@ export function EventManager({
                       <h2 className="text-lg font-bold font-headline tracking-tight notebook-handwriting text-foreground/70">
                         Tareas de hoy
                       </h2>
+                      <p className="text-[10px] text-foreground/40 font-medium mt-0.5 notebook-handwriting">
+                        Mantén presionado para arrastrar al calendario
+                      </p>
                     </div>
 
                     {/* Folder tab bar — matching DailyPage notebook style */}

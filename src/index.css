@@ -172,11 +172,28 @@
   cursor: var(--cursor-hand-point), pointer !important;
 }
 
-/* 3. Grab hand: draggable task cards */
-.cursor-grab {
+/* 3. Explicit cursor utilities (override neutral hand) */
+.cursor-click {
+  cursor: var(--cursor-hand-point), pointer !important;
+}
+.cursor-click * {
+  cursor: var(--cursor-hand-point), pointer !important;
+}
+
+.cursor-drag {
   cursor: grab !important;
 }
-.cursor-grab * {
+.cursor-drag:active,
+.cursor-drag:active * {
+  cursor: grabbing !important;
+}
+
+.cursor-edit {
+  cursor: var(--cursor-pencil), text !important;
+}
+
+/* 4. Grab hand: draggable elements */
+.cursor-grab {
   cursor: grab !important;
 }
 .cursor-grab:active,
@@ -184,14 +201,14 @@
   cursor: grabbing !important;
 }
 
-/* 4. Buttons inside grab areas still show pointing hand */
+/* 5. Buttons inside grab areas still show pointing hand */
 .cursor-grab a,
 .cursor-grab button:not([disabled]),
 .cursor-grab [role="button"] {
   cursor: var(--cursor-hand-point), pointer !important;
 }
 
-/* 5. Pencil: editable text elements (highest priority) */
+/* 6. Pencil: editable text elements (highest priority) */
 .cursor-pencil,
 .cursor-pencil *,
 .cursor-eraser,
@@ -203,7 +220,7 @@
   cursor: var(--cursor-pencil), text !important;
 }
 
-/* 6. Buttons/links inside pencil zones → pointing (overrides pencil) */
+/* 7. Buttons/links inside pencil zones → pointing (overrides pencil) */
 .cursor-pencil button,
 .cursor-eraser button,
 .cursor-pencil a,

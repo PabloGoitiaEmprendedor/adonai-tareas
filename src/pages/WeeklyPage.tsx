@@ -78,6 +78,7 @@ const WeeklyPage = () => {
             selectedDate={selectedDay}
             onSelectDate={setSelectedDay}
             dragDisabled={false}
+            className="overflow-x-auto lg:overflow-visible"
           />
         </section>
 

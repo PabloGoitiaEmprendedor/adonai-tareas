@@ -1,8 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useRef, useCallback } from 'react';
 import { useGoals } from '@/hooks/useGoals';
 import { useProfile } from '@/hooks/useProfile';
 import { useTasks } from '@/hooks/useTasks';
-import { Plus, Check, Trophy, Target, Edit3, Trash2, X, Sparkles, Star, Zap, Heart, Flame, CalendarDays, ShieldAlert, ListChecks } from 'lucide-react';
+import { Plus, Check, Trophy, Target, Edit3, Trash2, X, Sparkles, Star, Zap, Heart, Flame, CalendarDays, ShieldAlert, ListChecks, Palette } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { dispatchTutorialGoalCreated } from '@/lib/tutorialEvents';
@@ -154,6 +154,15 @@ function fireConfetti() {
   setTimeout(() => confetti({ ...defaults, particleCount: 60, origin: { x: 0.5, y: 0.3 }, colors: ['#F4B860', '#EB5757', '#6FCF97', '#5B7CFA'] }), 300);
 }
 
+const POSTIT_COLORS = [
+  { bg: '#FEF3C7', border: '#FCD34D', name: 'yellow' },
+  { bg: '#FCE4EC', border: '#F48FB1', name: 'pink' },
+  { bg: '#D4EDDA', border: '#6FCF97', name: 'green' },
+  { bg: '#D6E8FF', border: '#7CB8FF', name: 'blue' },
+  { bg: '#FEE2D5', border: '#F9A67A', name: 'orange' },
+  { bg: '#E8D5F5', border: '#CE93D8', name: 'purple' },
+];
+
 const GoalsPage = () => {
   const { goals, createGoal, updateGoal, deleteGoal } = useGoals();
   const { tasks, createTask, updateTask } = useTasks();
@@ -174,6 +183,10 @@ const GoalsPage = () => {
 
   const [completedGoal, setCompletedGoal] = useState<any>(null);
   const [celebration, setCelebration] = useState<{ message: string; subtitle: string; extras: string[] } | null>(null);
+  const [draggingGoalId, setDraggingGoalId] = useState<string | null>(null);
+  const [customDaysInput, setCustomDaysInput] = useState<Record<string, string>>({});
+  const posRef = useRef<Record<string, { x: number; y: number; w: number }>>({});
+  const dragClickGuard = useRef(false);
 
   const parseDesc = (g: any): any => {
     if (!g?.description) return {};
@@ -313,168 +326,321 @@ const GoalsPage = () => {
     }
   };
 
+  const extendDeadline = (goal: any, extraDays: number) => {
+    const d = parseDesc(goal);
+    if (!d.deadline) return;
+    const current = new Date(d.deadline);
+    current.setDate(current.getDate() + extraDays);
+    d.deadline = current.toISOString().split('T')[0];
+    updateGoal.mutate({ id: goal.id, description: JSON.stringify(d) });
+  };
+
+  const dismissUrgency = (goal: any) => {
+    const d = parseDesc(goal);
+    d._urgencyDismissed = true;
+    updateGoal.mutate({ id: goal.id, description: JSON.stringify(d) });
+  };
+
   return (
     <div className="min-h-screen bg-background pb-32">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-8 sm:pt-12">
 
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="page-title">Metas</h1>
-            <p className="text-sm text-on-surface-variant/50 mt-1">
-              {activeGoals.length} activa{activeGoals.length !== 1 && 's'} · {completedGoals.length} completa{completedGoals.length !== 1 && 's'}
-            </p>
+        <div className="text-center mb-12">
+          <div className="inline-flex items-center gap-3">
+            <h1 className="text-[28px] sm:text-[32px] font-black tracking-tight" style={{ color: '#1f2937' }}>Metas</h1>
+            <button
+              onClick={() => { setWizardData({ title: '', deadline: '', meaningful: '', obstacle: '', taskTitle: '' }); setWizardStep(0); setWizardOpen(true); }}
+              className="w-9 h-9 rounded-lg flex items-center justify-center transition-all hover:scale-110 active:scale-95"
+              style={{ backgroundColor: '#FEF3C7', border: '2px solid #FCD34D', color: '#92400E', boxShadow: '0 2px 6px rgba(252,211,77,0.3)' }}
+            >
+              <Plus className="w-5 h-5" strokeWidth={3} />
+            </button>
           </div>
-          <motion.button
-            whileTap={{ scale: 0.9 }}
-            onClick={() => { setWizardData({ title: '', deadline: '', meaningful: '', obstacle: '', taskTitle: '' }); setWizardStep(0); setWizardOpen(true); }}
-            className="w-11 h-11 rounded-xl bg-primary text-primary-foreground flex items-center justify-center shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 transition-shadow"
-          >
-            <Plus className="w-5 h-5" strokeWidth={3} />
-          </motion.button>
         </div>
 
-        {/* Active Goals */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {activeGoals.map((goal, idx) => {
-            const stats = getGoalStats(goal);
-            const isBlindada = stats.desc.status === 'blindada';
-            const hasDeadline = stats.daysLeft !== null;
-            const chipTone =
-              stats.urgencyTone === 'critical'
-                ? 'bg-destructive/15 text-destructive border-destructive/20'
-                : stats.urgencyTone === 'hot'
-                  ? 'bg-orange-500/15 text-orange-500 border-orange-500/20'
-                  : stats.urgencyTone === 'warm'
-                    ? 'bg-amber-500/15 text-amber-500 border-amber-500/20'
-                    : 'bg-primary/10 text-primary border-primary/20';
-
-            return (
-              <motion.div
-                key={goal.id}
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: idx * 0.04, type: 'spring', stiffness: 300, damping: 25 }}
-                className="group"
+        {/* Active Goals — Post-it notes */}
+        <div
+          className="relative min-h-[60vh] overflow-x-auto overflow-y-auto overscroll-contain"
+          style={{
+            WebkitOverflowScrolling: 'touch',
+            minWidth: activeGoals.length > 0 ? `${20 + (Math.min(activeGoals.length, 3)) * 280 + 60}px` : undefined,
+            minHeight: activeGoals.length > 0 ? `${20 + Math.ceil(activeGoals.length / 3) * 240 + 60}px` : undefined,
+          }}
+        >
+          {activeGoals.length === 0 ? (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div
+                className="relative rounded-lg border-2 p-6 w-[280px] cursor-click select-none group"
+                onClick={() => { setWizardData({ title: '', deadline: '', meaningful: '', obstacle: '', taskTitle: '' }); setWizardStep(0); setWizardOpen(true); }}
+                style={{ backgroundColor: '#FEF3C7', borderColor: '#FCD34D', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}
               >
-                <div
-                  onClick={() => openDetail(goal)}
-                  className={`relative overflow-hidden rounded-2xl p-5 cursor-pointer border-2 select-none transition-all duration-200 ${
-                    isBlindada
-                      ? 'bg-gradient-to-br from-primary/12 via-primary/6 to-primary/14 border-primary/25 shadow-md shadow-primary/15 hover:border-primary/45 hover:shadow-xl hover:shadow-primary/20 hover:-translate-y-0.5 active:translate-y-0'
-                      : 'bg-surface-container/30 border-outline-variant/10 shadow-none hover:border-outline-variant/25 hover:shadow-sm hover:shadow-black/5 hover:-translate-y-0.5 active:translate-y-0 active:shadow-none'
-                  }`}
+                {/* Pin dot */}
+                <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 rounded-full bg-zinc-400 border-2 border-zinc-300 shadow-sm" />
+                {/* Ruled lines */}
+                <div className="absolute inset-x-4 top-12 bottom-4 pointer-events-none opacity-20" style={{
+                  backgroundImage: 'repeating-linear-gradient(180deg, #1f2937 0 1px, transparent 1px 28px)',
+                }} />
+                {/* Content */}
+                <div className="relative z-10 pt-4">
+                  <div className="w-12 h-12 rounded-lg flex items-center justify-center mx-auto mb-3" style={{ backgroundColor: '#FDE68A' }}>
+                    <Target className="w-6 h-6" style={{ color: '#92400E' }} strokeWidth={2} />
+                  </div>
+                  <p className="text-center font-bold" style={{ color: '#92400E', fontSize: '13px' }}>Crea tu primera meta</p>
+                  <p className="text-center text-xs mt-1" style={{ color: '#A16207', opacity: 0.6 }}>Escribe aquí tu objetivo...</p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            activeGoals.map((goal) => {
+              const stats = getGoalStats(goal);
+              const hasDeadline = stats.daysLeft !== null;
+              const desc = parseDesc(goal);
+              const pin = desc._pin || {};
+              const colorIdx = pin.colorIdx ?? 0;
+              const postitColor = POSTIT_COLORS[colorIdx % POSTIT_COLORS.length];
+              const defaultX = 20 + (activeGoals.indexOf(goal) % 3) * 280;
+              const defaultY = 20 + Math.floor(activeGoals.indexOf(goal) / 3) * 240;
+              const defaultW = 260;
+              const saved = posRef.current[goal.id] || { x: pin.x ?? defaultX, y: pin.y ?? defaultY, w: pin.w ?? defaultW };
+              if (!posRef.current[goal.id]) posRef.current[goal.id] = saved;
+              const isDragging = draggingGoalId === goal.id;
+
+              return (
+                <motion.div
+                  key={goal.id}
+                  initial={{ opacity: 0, scale: 0.8, rotate: -2 }}
+                  animate={{ opacity: 1, scale: 1, rotate: (pin.rotate ?? (activeGoals.indexOf(goal) % 5 - 2)) }}
+                  transition={{ type: 'spring', stiffness: 200, damping: 20 }}
+                  style={{
+                    position: 'absolute',
+                    left: saved.x,
+                    top: saved.y,
+                    width: saved.w,
+                    zIndex: isDragging ? 50 : 10,
+                    backgroundColor: postitColor.bg,
+                    borderColor: postitColor.border,
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04)',
+                  }}
+                  className="rounded-lg border-2 p-4 cursor-click select-none group"
+                  data-postit={goal.id}
+                  onClick={() => { const guard = dragClickGuard.current; dragClickGuard.current = false; if (!guard) openDetail(goal); }}
                 >
-                  {isBlindada && (
-                    <>
-                      <div className="absolute -top-px -right-px w-24 h-24 overflow-hidden pointer-events-none">
-                        <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-bl from-primary/20 to-transparent rounded-bl-[100%]" />
-                      </div>
-                      <div className="absolute -inset-[1px] rounded-2xl bg-gradient-to-br from-primary/10 via-transparent to-primary/5 pointer-events-none" />
-                    </>
-                  )}
+                  {/* Pin dot — drag only from here */}
+                  <div
+                    className="absolute -top-3 left-1/2 -translate-x-1/2 z-30 cursor-drag"
+                    style={{ touchAction: 'none' }}
+                    onPointerDown={(e) => {
+                      e.stopPropagation();
+                      e.preventDefault();
+                      dragClickGuard.current = true;
+                      setDraggingGoalId(goal.id);
+                      const startX = e.clientX;
+                      const startY = e.clientY;
+                      const startLeft = saved.x;
+                      const startTop = saved.y;
+                      const el = document.querySelector(`[data-postit="${goal.id}"]`) as HTMLElement;
+                      const handleMove = (ev: PointerEvent) => {
+                        const dx = ev.clientX - startX;
+                        const dy = ev.clientY - startY;
+                        posRef.current[goal.id].x = startLeft + dx;
+                        posRef.current[goal.id].y = startTop + dy;
+                        if (el) { el.style.left = (startLeft + dx) + 'px'; el.style.top = (startTop + dy) + 'px'; }
+                      };
+                      const handleUp = () => {
+                        setDraggingGoalId(null);
+                        window.removeEventListener('pointermove', handleMove);
+                        window.removeEventListener('pointerup', handleUp);
+                        const pos = posRef.current[goal.id];
+                        const newDesc = { ...desc, _pin: { ...pin, x: pos.x, y: pos.y, w: pos.w, colorIdx } };
+                        updateGoal.mutate({ id: goal.id, description: JSON.stringify(newDesc) });
+                      };
+                      window.addEventListener('pointermove', handleMove);
+                      window.addEventListener('pointerup', handleUp);
+                    }}
+                  >
+                    {/* Visible pin dot */}
+                    <div className="w-5 h-5 rounded-full bg-zinc-400 border-[3px] border-zinc-300 shadow-sm" />
+                    {/* Invisible larger touch target */}
+                    <div className="absolute -inset-2 rounded-full" />
+                  </div>
 
-                  <div className="relative z-[1] space-y-4">
-                    <div className="flex items-start gap-4">
-                      {/* Checkbox */}
+                  {/* Color picker */}
+                  <div className="absolute -top-1 right-2 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                    {POSTIT_COLORS.map((c, i) => (
                       <button
-                        onClick={(e) => { e.stopPropagation(); handleCompleteGoal(goal); }}
-                        className={`relative w-7 h-7 shrink-0 rounded-lg border-2 flex items-center justify-center active:scale-90 transition-all duration-200 group/check ${
-                          isBlindada
-                            ? 'border-primary/40 bg-primary/10 hover:border-primary hover:bg-primary/20'
-                            : 'border-outline-variant/20 bg-surface-container/40 hover:border-outline-variant/40'
-                        }`}
-                      >
-                        <Check className="w-3.5 h-3.5 text-transparent group-hover/check:text-current transition-colors" strokeWidth={3} />
-                        <div className={`absolute inset-0 rounded-lg transition-colors ${isBlindada ? 'bg-primary/0 group-hover/check:bg-primary/10' : 'bg-transparent'}`} />
-                      </button>
+                        key={c.name}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const pos = posRef.current[goal.id];
+                          const newDesc = { ...desc, _pin: { ...pin, x: pos.x, y: pos.y, w: pos.w, colorIdx: i } };
+                          updateGoal.mutate({ id: goal.id, description: JSON.stringify(newDesc) });
+                        }}
+                        className="w-3 h-3 rounded-full border border-white/60 shadow-sm hover:scale-125 transition-transform"
+                        style={{ backgroundColor: c.bg }}
+                      />
+                    ))}
+                  </div>
 
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-3">
-                          <h3 className="text-base font-bold tracking-tight leading-snug break-words pr-1">{goal.title}</h3>
-                          <div className={`w-6 h-6 shrink-0 rounded-lg flex items-center justify-center transition-all duration-200 ${
-                            isBlindada
-                              ? 'bg-primary/15 text-primary/60 group-hover:bg-primary/25 group-hover:text-primary'
-                              : 'bg-surface-container/40 text-on-surface-variant/30 group-hover:text-on-surface-variant/50'
-                          }`}>
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="w-3.5 h-3.5" strokeWidth={2.5}>
-                              <path d="M9 18l6-6-6-6" />
-                            </svg>
-                          </div>
-                        </div>
+                  {/* Checkbox + Title */}
+                  <div className="flex items-start gap-2.5 cursor-click">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleCompleteGoal(goal); }}
+                      className="w-5 h-5 shrink-0 mt-0.5 rounded border-2 flex items-center justify-center hover:bg-black/5 transition-colors"
+                      style={{ borderColor: postitColor.border }}
+                    >
+                      <Check className="w-3 h-3 text-transparent hover:text-current transition-colors" strokeWidth={3} />
+                    </button>
+                    <h3 className="text-[15px] font-bold leading-snug break-words cursor-click" style={{ color: '#1f2937' }}>
+                      {goal.title}
+                    </h3>
+                  </div>
 
-                        <div className="mt-2 flex items-center gap-2 flex-wrap">
-                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-[0.14em] border ${chipTone}`}>
-                            {hasDeadline ? stats.focusState : 'SIN FECHA'}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <div className="h-2.5 rounded-full bg-surface-container/60 overflow-hidden border border-outline-variant/10">
+                  {/* Pencil progress bar */}
+                  {hasDeadline && (
+                    <div className="mt-3 space-y-1">
+                      <div className="relative h-2" style={{ color: '#1f2937' }}>
+                        <div className="absolute inset-0 border-b border-dashed opacity-30" style={{ borderColor: '#1f2937', borderBottomWidth: '1.5px' }} />
                         <motion.div
-                          className={`h-full rounded-full ${
-                            stats.urgencyTone === 'critical'
-                              ? 'bg-gradient-to-r from-destructive to-orange-500'
-                              : stats.urgencyTone === 'hot'
-                                ? 'bg-gradient-to-r from-orange-500 to-amber-500'
-                                : stats.urgencyTone === 'warm'
-                                  ? 'bg-gradient-to-r from-amber-400 to-primary'
-                                  : 'bg-gradient-to-r from-primary/70 to-primary'
-                          }`}
                           initial={false}
-                          animate={{ width:`${hasDeadline ? Math.max(8, stats.progress) : 12}%` }}
+                          animate={{ width: `${Math.max(4, stats.progress)}%` }}
+                          className="absolute bottom-0 left-0 h-full"
+                          style={{
+                            background: `repeating-linear-gradient(90deg, ${postitColor.border} 0 2px, transparent 2px 4px)`,
+                            borderBottom: '2px solid ' + postitColor.border,
+                          }}
                           transition={{ type: 'spring', stiffness: 120, damping: 20 }}
                         />
                       </div>
-                      <div className="flex items-center justify-between text-[11px] font-bold text-on-surface-variant/45">
-                        <span>{hasDeadline ?`${stats.progress}%` : 'Sin fecha'}</span>
-                        {hasDeadline && (
-                          <span>{stats.daysLeft === 0 ? 'Hoy' :`${Math.max(0, stats.daysLeft ?? 0)} días`}</span>
-                        )}
+                      <div className="flex items-center justify-between text-[11px] font-bold" style={{ color: '#4b5563' }}>
+                        <span>{stats.progress}%</span>
+                        <span>{stats.daysLeft === 0 ? 'Hoy' : `${Math.max(0, stats.daysLeft)} días`}</span>
                       </div>
                     </div>
-                  </div>
-                </div>
-              </motion.div>
-            );
-          })}
+                    )}
+                    {stats.daysLeft !== null && stats.daysLeft >= 0 && stats.daysLeft <= 3 && stats.progress < 100 && !desc._urgencyDismissed && (
+                      <div className="mt-2 p-2 rounded-lg text-[10px] font-bold text-center leading-tight" style={{ backgroundColor: '#FDE68A', color: '#92400E' }}>
+                        {stats.daysLeft === 0 ? (
+                          <>
+                            <p>El día ha llegado. ¿Pides más tiempo o lo intentas hoy?</p>
+                            <div className="flex gap-2 mt-1.5 justify-center items-center flex-wrap">
+                              <button
+                                onClick={(e) => { e.stopPropagation(); extendDeadline(goal, 3); }}
+                                className="px-2 py-1 rounded text-[9px] font-black uppercase tracking-wide"
+                                style={{ backgroundColor: '#92400E', color: '#FEF3C7' }}
+                              >
+                                +3 días
+                              </button>
+                              <div className="flex items-center gap-1">
+                                <input
+                                  type="number"
+                                  min={1}
+                                  max={365}
+                                  placeholder="días"
+                                  value={customDaysInput[goal.id] || ''}
+                                  onChange={(e) => setCustomDaysInput({ ...customDaysInput, [goal.id]: e.target.value })}
+                                  className="w-14 h-6 rounded text-[9px] font-bold text-center outline-none"
+                                  style={{ backgroundColor: '#92400E', color: '#FEF3C7' }}
+                                  onClick={(e) => e.stopPropagation()}
+                                />
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); const n = parseInt(customDaysInput[goal.id]); if (n > 0) extendDeadline(goal, n); }}
+                                  className="px-2 py-1 rounded text-[9px] font-black uppercase tracking-wide"
+                                  style={{ backgroundColor: '#92400E', color: '#FEF3C7' }}
+                                >
+                                  +
+                                </button>
+                              </div>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); dismissUrgency(goal); }}
+                                className="px-2 py-1 rounded text-[9px] font-black uppercase tracking-wide"
+                                style={{ backgroundColor: '#92400E', color: '#FEF3C7' }}
+                              >
+                                Intentarlo hoy
+                              </button>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <p>¿El día está por llegar... Asumes el reto o pides 3 días más?</p>
+                            <div className="flex gap-2 mt-1.5 justify-center">
+                              <button
+                                onClick={(e) => { e.stopPropagation(); extendDeadline(goal, 3); }}
+                                className="px-2 py-1 rounded text-[9px] font-black uppercase tracking-wide"
+                                style={{ backgroundColor: '#92400E', color: '#FEF3C7' }}
+                              >
+                                +3 días
+                              </button>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); dismissUrgency(goal); }}
+                                className="px-2 py-1 rounded text-[9px] font-black uppercase tracking-wide"
+                                style={{ backgroundColor: '#92400E', color: '#FEF3C7' }}
+                              >
+                                Aceptar reto
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    )}
 
-          {activeGoals.length === 0 && (
-            <div className="col-span-full py-20 bg-surface/30 border border-dashed border-outline-variant/20 rounded-2xl text-center px-8 flex flex-col items-center">
-              <div className="w-16 h-16 rounded-2xl bg-surface-container flex items-center justify-center mb-5">
-                <Target className="w-8 h-8 text-on-surface-variant/30" />
-              </div>
-              <h3 className="text-xl font-black mb-2">Crea tu primera meta</h3>
-              <p className="text-sm text-on-surface-variant/50 max-w-[300px] leading-relaxed mb-6">
-                Define un objetivo con horizonte de tiempo y empieza a vincular tareas.
-              </p>
-              <button
-            onClick={() => { setWizardData({ title: '', deadline: '', meaningful: '', obstacle: '', taskTitle: '' }); setWizardStep(0); setWizardOpen(true); }}
-                className="px-6 py-3 bg-primary text-primary-foreground rounded-xl font-black text-sm shadow-lg shadow-primary/20 hover:opacity-90 transition-all flex items-center gap-2"
-              >
-                <Plus className="w-4 h-4" />
-                Nueva Meta
-              </button>
-            </div>
+                  {/* Resize handle */}
+                  <div
+                    className="absolute bottom-1 right-1 w-4 h-4 cursor-se-resize opacity-30 hover:opacity-60 transition-opacity"
+                    onMouseDown={(e) => {
+                      e.stopPropagation();
+                      e.preventDefault();
+                      const startX = e.clientX;
+                      const startW = saved.w;
+                      const handleMouseMove = (ev: MouseEvent) => {
+                        const newW = Math.max(180, startW + ev.clientX - startX);
+                        posRef.current[goal.id].w = newW;
+                        const newDesc = { ...desc, _pin: { ...pin, x: saved.x, y: saved.y, w: newW, colorIdx } };
+                        updateGoal.mutate({ id: goal.id, description: JSON.stringify(newDesc) });
+                      };
+                      const handleMouseUp = () => {
+                        window.removeEventListener('mousemove', handleMouseMove);
+                        window.removeEventListener('mouseup', handleMouseUp);
+                      };
+                      window.addEventListener('mousemove', handleMouseMove);
+                      window.addEventListener('mouseup', handleMouseUp);
+                    }}
+                  >
+                    <svg viewBox="0 0 10 10" fill="none" stroke="#1f2937" strokeWidth="1.5" strokeLinecap="round">
+                      <path d="M2 8l6-6M5 8l3-3M8 8l2-2" />
+                    </svg>
+                  </div>
+                </motion.div>
+              );
+            })
           )}
         </div>
 
         {/* Completed Goals */}
         {completedGoals.length > 0 && (
-          <div className="mt-12 space-y-4">
-            <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant/30">
-              Completadas · {completedGoals.length}
-            </h2>
-            <div className="flex flex-wrap gap-2">
-              {completedGoals.map((goal) => (
+          <div className="mt-16 space-y-4">
+            <p className="text-center text-xs font-bold" style={{ color: '#6b7280' }}>
+              {profileName} ha logrado:
+            </p>
+            <div className="flex flex-wrap justify-center gap-3">
+              {completedGoals.map((goal, idx) => (
                 <div
                   key={goal.id}
                   onClick={() => openDetail(goal)}
-                  className="px-4 py-2.5 bg-surface-container/20 rounded-xl border border-outline-variant/10 text-sm font-medium text-on-surface-variant/60 cursor-pointer hover:bg-surface-container/40 hover:text-on-surface-variant/80 transition-all break-words"
+                  className="relative rounded-lg border-2 p-3 cursor-click select-none group transition-all hover:opacity-70"
+                  style={{
+                    backgroundColor: POSTIT_COLORS[idx % POSTIT_COLORS.length].bg,
+                    borderColor: POSTIT_COLORS[idx % POSTIT_COLORS.length].border,
+                    opacity: 0.55,
+                    width: 180,
+                    boxShadow: '0 2px 6px rgba(0,0,0,0.04)',
+                  }}
                 >
-                  <span className="line-through decoration-1 decoration-on-surface-variant/30">{goal.title}</span>
+                  {/* Mini pin dot */}
+                  <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-zinc-400 border-2 border-zinc-300 shadow-sm" />
+                  <p className="text-xs font-bold line-through text-center leading-snug pt-1" style={{ color: '#4b5563' }}>
+                    {goal.title}
+                  </p>
                 </div>
               ))}
             </div>
@@ -482,7 +648,7 @@ const GoalsPage = () => {
         )}
       </div>
 
-      {/* New Goal Wizard */}
+      {/* New Goal Wizard — post-it style, zero distractions */}
       <AnimatePresence>
         {wizardOpen && (
           <>
@@ -490,46 +656,69 @@ const GoalsPage = () => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[9998]"
+              className="fixed inset-0 bg-black z-[9998]"
               onClick={() => setWizardOpen(false)}
             />
             <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="fixed inset-x-4 top-[10%] lg:inset-x-0 lg:w-[480px] lg:mx-auto z-[9999] max-h-[80vh] flex flex-col"
+              initial={{ opacity: 0, scale: 0.9, rotate: -2 }}
+              animate={{ opacity: 1, scale: 1, rotate: 0 }}
+              exit={{ opacity: 0, scale: 0.9, rotate: 2 }}
+              transition={{ type: 'spring', stiffness: 200, damping: 20 }}
+              className="fixed inset-x-4 top-[8%] lg:inset-x-0 lg:w-[440px] lg:mx-auto z-[9999] max-h-[84vh] flex flex-col"
             >
-              <div className="bg-surface p-5 rounded-2xl border border-outline-variant/20 shadow-2xl flex flex-col max-h-full gap-3">
+              <div
+                className="flex flex-col max-h-full gap-3 rounded-lg border-2 p-5 shadow-2xl"
+                style={{
+                  backgroundColor: '#FEF3C7',
+                  borderColor: '#FCD34D',
+                  color: '#1f2937',
+                  boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+                }}
+              >
+                {/* Pin dot */}
+                <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 w-5 h-5 rounded-full bg-zinc-400 border-[3px] border-zinc-300 shadow-sm z-10" />
+
                 {/* Close button */}
-                <div className="shrink-0 flex justify-end">
+                <div className="shrink-0 flex justify-end relative z-20">
                   <button
                     onClick={() => setWizardOpen(false)}
-                    className="w-7 h-7 rounded-lg bg-surface-container flex items-center justify-center hover:bg-surface-container-high transition-colors"
+                    className="w-7 h-7 rounded-lg flex items-center justify-center hover:opacity-70 transition-opacity"
+                    style={{ backgroundColor: '#FDE68A', color: '#92400E' }}
                   >
-                    <X className="w-3.5 h-3.5" />
+                    <X className="w-3.5 h-3.5" strokeWidth={3} />
                   </button>
                 </div>
 
-                {/* Progress bar */}
-                <div className="shrink-0 w-full h-1 bg-surface-container rounded-full overflow-hidden">
-                  <motion.div
-                    className="h-full bg-primary rounded-full"
-                    initial={{ width:`${(wizardStep / wizardQuestions.length) * 100}%` }}
-                    animate={{ width:`${((wizardStep + 1) / wizardQuestions.length) * 100}%` }}
-                    transition={{ type: 'spring', stiffness: 200, damping: 20 }}
-                  />
+                {/* Ruled lines */}
+                <div className="absolute inset-x-4 top-16 bottom-16 pointer-events-none opacity-10" style={{
+                  backgroundImage: 'repeating-linear-gradient(180deg, #1f2937 0 1px, transparent 1px 32px)',
+                }} />
+
+                {/* Progress dots */}
+                <div className="shrink-0 flex items-center gap-1.5 px-1 relative z-10">
+                  {wizardQuestions.map((_, i) => (
+                    <div
+                      key={i}
+                      className="h-2 rounded-full transition-all duration-300"
+                      style={{
+                        flex: i === wizardStep ? 2 : 1,
+                        backgroundColor: i <= wizardStep ? '#FCD34D' : '#FDE68A',
+                        border: '1px solid #FCD34D',
+                      }}
+                    />
+                  ))}
                 </div>
 
                 {/* Step content — scrollable */}
-                <div className="flex-1 overflow-y-auto min-h-0 space-y-3">
-                  <h2 className="text-lg font-black leading-tight">
+                <div className="flex-1 overflow-y-auto min-h-0 space-y-3 relative z-10 py-2">
+                  <h2 className="text-lg font-black leading-tight" style={{ color: '#92400E' }}>
                     {wizardQuestions[wizardStep].label}
                   </h2>
-                  <p className="text-xs text-on-surface-variant/50 leading-relaxed">
+                  <p className="text-xs leading-relaxed" style={{ color: '#A16207' }}>
                     {wizardQuestions[wizardStep].description}
                   </p>
                   {wizardQuestions[wizardStep].example && (
-                    <p className="text-xs font-bold text-on-surface-variant/30">
+                    <p className="text-xs font-bold" style={{ color: '#B45309' }}>
                       Ej: {wizardQuestions[wizardStep].example}
                     </p>
                   )}
@@ -541,13 +730,15 @@ const GoalsPage = () => {
                         value={wizardData[wizardQuestions[wizardStep].key as keyof typeof wizardData] as string}
                         onChange={(e) => setWizardData({ ...wizardData, [wizardQuestions[wizardStep].key]: e.target.value })}
                         placeholder="Escribe aquí..."
-                        className="w-full bg-surface-container rounded-xl px-4 py-3 text-foreground font-bold outline-none focus:ring-2 focus:ring-primary/20 transition-shadow"
+                        className="w-full rounded-lg px-4 py-3 font-bold outline-none focus:ring-2 transition-shadow placeholder:opacity-40"
+                        style={{ backgroundColor: '#FDE68A', color: '#1f2937' }}
                         onKeyDown={(e) => e.key === 'Enter' && wizardStep < wizardQuestions.length - 1 && setWizardStep(wizardStep + 1)}
                       />
                       {!wizardQuestions[wizardStep].required && wizardData[wizardQuestions[wizardStep].key as keyof typeof wizardData] === '' && (
                         <button
                           onClick={() => setWizardStep(wizardStep + 1)}
-                          className="text-[11px] font-bold text-on-surface-variant/40 hover:text-on-surface-variant/70 transition-colors"
+                          className="text-[11px] font-bold transition-colors"
+                          style={{ color: '#B45309' }}
                         >
                           Saltar esta pregunta
                         </button>
@@ -568,7 +759,8 @@ const GoalsPage = () => {
                         <div className="flex justify-center pt-1">
                           <button
                             onClick={() => setWizardStep(wizardStep + 1)}
-                            className="text-[11px] font-bold text-on-surface-variant/40 hover:text-on-surface-variant/70 transition-colors"
+                            className="text-[11px] font-bold transition-colors"
+                            style={{ color: '#B45309' }}
                           >
                             Saltar esta pregunta
                           </button>
@@ -585,12 +777,14 @@ const GoalsPage = () => {
                         onChange={(e) => setWizardData({ ...wizardData, [wizardQuestions[wizardStep].key]: e.target.value })}
                         placeholder="Escribe aquí..."
                         rows={2}
-                        className="w-full bg-surface-container rounded-xl px-4 py-3 text-foreground font-bold outline-none focus:ring-2 focus:ring-primary/20 transition-shadow resize-none"
+                        className="w-full rounded-lg px-4 py-3 font-bold outline-none focus:ring-2 transition-shadow resize-none placeholder:opacity-40"
+                        style={{ backgroundColor: '#FDE68A', color: '#1f2937' }}
                       />
                       {wizardData[wizardQuestions[wizardStep].key as keyof typeof wizardData] === '' && (
                         <button
                           onClick={() => setWizardStep(wizardStep + 1)}
-                          className="text-[11px] font-bold text-on-surface-variant/40 hover:text-on-surface-variant/70 transition-colors"
+                          className="text-[11px] font-bold transition-colors"
+                          style={{ color: '#B45309' }}
                         >
                           Saltar esta pregunta
                         </button>
@@ -599,19 +793,21 @@ const GoalsPage = () => {
                   )}
                 </div>
 
-                {/* Navigation — always at bottom */}
-                <div className="shrink-0 flex gap-2 pt-3 border-t border-outline-variant/10">
+                {/* Navigation buttons */}
+                <div className="shrink-0 flex gap-2 pt-2 relative z-10" style={{ borderTop: '1px solid #FDE68A' }}>
                   {wizardStep > 0 ? (
                     <button
                       onClick={() => setWizardStep(wizardStep - 1)}
-                      className="flex-1 py-3 rounded-xl bg-surface-container text-on-surface-variant font-bold text-sm"
+                      className="flex-1 py-3 rounded-lg font-bold text-sm transition-all hover:opacity-80"
+                      style={{ backgroundColor: '#FDE68A', color: '#92400E' }}
                     >
                       Atrás
                     </button>
                   ) : (
                     <button
                       onClick={() => setWizardOpen(false)}
-                      className="flex-1 py-3 rounded-xl bg-surface-container text-on-surface-variant font-bold text-sm"
+                      className="flex-1 py-3 rounded-lg font-bold text-sm transition-all hover:opacity-80"
+                      style={{ backgroundColor: '#FDE68A', color: '#92400E' }}
                     >
                       Cancelar
                     </button>
@@ -619,14 +815,16 @@ const GoalsPage = () => {
                   {wizardStep < wizardQuestions.length - 1 ? (
                     <button
                       onClick={() => setWizardStep(wizardStep + 1)}
-                      className="flex-[1.5] py-3 rounded-xl bg-primary text-primary-foreground font-bold text-sm shadow-lg shadow-primary/20"
+                      className="flex-[1.5] py-3 rounded-lg font-bold text-sm transition-all hover:opacity-80"
+                      style={{ backgroundColor: '#FCD34D', color: '#92400E', boxShadow: '0 2px 8px rgba(252,211,77,0.4)' }}
                     >
                       Siguiente
                     </button>
                   ) : (
                     <button
                       onClick={handleCreateGoal}
-                      className="flex-[1.5] py-3 rounded-xl bg-primary text-primary-foreground font-bold text-sm shadow-lg shadow-primary/20"
+                      className="flex-[1.5] py-3 rounded-lg font-bold text-sm transition-all hover:opacity-80"
+                      style={{ backgroundColor: '#FCD34D', color: '#92400E', boxShadow: '0 2px 8px rgba(252,211,77,0.4)' }}
                     >
                       Crear Meta
                     </button>

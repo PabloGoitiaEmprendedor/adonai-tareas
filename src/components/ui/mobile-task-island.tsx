@@ -7,13 +7,10 @@ import {
   X,
   Notebook,
   NotebookText,
-  Users,
-  GripHorizontal
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { isSameDay, startOfDay } from 'date-fns';
-import { TaskCheckbox } from '@/components/TaskCheckbox';
 
 interface MobileDynamicIslandProps {
   tasks: any[];
@@ -193,51 +190,59 @@ export const MobileDynamicIsland = ({
             animate={isDraggingTask ? { opacity: 0, y: 28, scale: 0.96 } : { opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className="w-full bg-surface-container/95 backdrop-blur-2xl border border-outline-variant/10 rounded-[28px] shadow-2xl overflow-hidden flex flex-col mb-3 pointer-events-auto max-h-[45vh]"
+            className="w-full notebook-cream-bg border border-outline-variant/12 rounded-[28px] shadow-2xl overflow-hidden flex flex-col mb-3 pointer-events-auto max-h-[55vh]"
             style={{ pointerEvents: isDraggingTask ? 'none' : 'auto' }}
           >
-            <div className="p-5 flex flex-col gap-4 overflow-hidden h-full">
+            {/* Notebook spiral rings */}
+
+            {/* Ruled lines background */}
+
+            {/* Vertical margin line */}
+
+            <div className="relative z-10 p-4 flex flex-col gap-3 overflow-hidden h-full">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-[14px] font-black text-primary leading-tight">Tareas de hoy</h3>
-                  <p className="text-[11px] text-muted-foreground/80 font-medium mt-0.5">Mantén presionado para arrastrar al calendario</p>
+                  <h3 className="text-[14px] font-black" style={{ color: '#1f2937' }}>Tareas de hoy</h3>
+                  <p className="text-[10px] font-medium mt-0.5 notebook-handwriting" style={{ color: '#6b7280' }}>Mantén presionado para arrastrar al calendario</p>
                 </div>
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => setIsOpen(false)}
-                    className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center text-primary active:scale-90"
+                    className="w-8 h-8 rounded-lg flex items-center justify-center active:scale-90 transition-all"
+                    style={{ backgroundColor: 'rgba(30,41,59,0.05)', color: '#4b5563' }}
                   >
-                    <X className="w-4 h-4" />
+                    <X className="w-3.5 h-3.5" strokeWidth={3} />
                   </button>
                 </div>
               </div>
 
               {/* Search */}
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground/40" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5" style={{ color: '#6b7280', opacity: 0.5 }} />
                 <Input 
                   placeholder="Buscar tarea..." 
-                  className="pl-9 h-10 text-[12px] bg-surface-container-high border-none rounded-2xl"
+                  className="pl-9 h-9 text-[12px] font-bold rounded-lg placeholder:opacity-40 border-0"
+                  style={{ backgroundColor: 'rgba(30,41,59,0.05)', color: '#1f2937' }}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
               </div>
 
-              {/* Notebooks Navigation (Matching MiniTasksPage aesthetic) */}
-              <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-2 border-b border-outline-variant/10">
+              {/* Notebooks Navigation */}
+              <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1 border-b" style={{ borderColor: 'rgba(30,41,59,0.08)' }}>
                 <button
                   onClick={() => setSelectedFolderId('all')}
                   className={cn(
-                    "flex-shrink-0 px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all flex items-center gap-2",
+                    "flex-shrink-0 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wide transition-all border notebook-handwriting",
                     selectedFolderId === 'all' 
-                      ? "bg-primary text-primary-foreground shadow-lg" 
-                      : "bg-surface-container-high/50 text-muted-foreground border border-outline-variant/10"
+                      ? 'bg-foreground text-background border-foreground'
+                      : 'bg-white/40 text-[#4b5563] border-[rgba(30,41,59,0.18)]'
                   )}
                 >
                   {selectedFolderId === 'all' ? (
-                    <NotebookText className="w-3 h-3" />
+                    <NotebookText className="w-3 h-3 inline mr-1" />
                   ) : (
-                    <Notebook className="w-3 h-3" />
+                    <Notebook className="w-3 h-3 inline mr-1" />
                   )}
                   Hoy
                 </button>
@@ -247,50 +252,30 @@ export const MobileDynamicIsland = ({
                     key={folder.id}
                     onClick={() => setSelectedFolderId(selectedFolderId === folder.id ? 'all' : folder.id)}
                     className={cn(
-                      "flex-shrink-0 px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all flex items-center gap-2",
+                      "flex-shrink-0 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wide transition-all border notebook-handwriting",
                       selectedFolderId === folder.id 
-                        ? "bg-primary text-primary-foreground shadow-lg" 
-                        : "bg-surface-container-high/50 text-muted-foreground border border-outline-variant/10"
+                        ? 'bg-foreground text-background border-foreground'
+                        : 'bg-white/40 text-[#4b5563] border-[rgba(30,41,59,0.18)]'
                     )}
                   >
-                    <AnimatePresence mode="wait">
-                      {folder.isShared ? (
-                        <motion.div
-                          key="shared"
-                          initial={{ opacity: 0, scale: 0.8 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          exit={{ opacity: 0, scale: 0.8 }}
-                        >
-                          <Users className="w-3 h-3" style={{ color: selectedFolderId === folder.id ? 'inherit' : (folder.color || 'inherit') }} />
-                        </motion.div>
-                      ) : (
-                        <motion.div
-                          key={selectedFolderId === folder.id ? 'open' : 'closed'}
-                          initial={{ rotateY: selectedFolderId === folder.id ? 180 : -180, scale: 0.8 }}
-                          animate={{ rotateY: 0, scale: 1 }}
-                          exit={{ rotateY: selectedFolderId === folder.id ? -180 : 180, scale: 0.8 }}
-                          transition={{ type: 'spring', stiffness: 400, damping: 15 }}
-                        >
-                          {selectedFolderId === folder.id ? (
-                            <NotebookText className="w-3 h-3" />
-                          ) : (
-                            <Notebook className="w-3 h-3" style={{ color: folder.color || 'inherit' }} />
-                          )}
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
                     {folder.name}
                   </button>
                 ))}
               </div>
 
               {/* Task List */}
-              <div className="flex-1 overflow-y-auto no-scrollbar space-y-3 pb-2">
-                <div className="space-y-2">
+              <div className="flex-1 overflow-y-auto no-scrollbar space-y-0 pb-2">
+                <div className="space-y-0"
+                  style={{
+                    backgroundImage: 'repeating-linear-gradient(180deg, rgba(120,145,190,0.08) 0 1px, transparent 1px 42px)',
+                    backgroundPosition: '0 5px',
+                  }}
+                >
                     {sortedTasks.length > 0 ? (
                       sortedTasks
                         .map((task) => {
                           const priorityKey = getPriorityKey(task.urgency || false, task.importance || false);
+                          const evColor = (task.color?.startsWith('#') || task.color?.startsWith('var')) ? task.color : undefined;
                           return (
                             <motion.div
                               key={task.id}
@@ -300,35 +285,26 @@ export const MobileDynamicIsland = ({
                               onTouchEnd={handleTouchEnd}
                               onTouchCancel={handleTouchEnd}
                               onClick={() => !dragStarted.current && onTaskClick(task)}
-                              className="group flex items-start gap-4 p-4 rounded-[24px] bg-surface-container-high/50 border border-transparent hover:border-primary/20 transition-all active:scale-[0.98] cursor-grab active:cursor-grabbing touch-pan-y"
-                              style={{ 
-                                backgroundColor: priorityColors?.[priorityKey] 
-                                  ? `color-mix(in srgb, ${priorityColors[priorityKey]}, transparent 92%)`
-                                  : 'transparent',
-                              }}
+                              className="group flex items-center gap-3 px-2 py-1.5 transition-colors cursor-grab active:cursor-grabbing touch-none"
                             >
-                              <div onClick={(e) => e.stopPropagation()} className="shrink-0">
-                                <TaskCheckbox
-                                  checked={task.status === 'done' || task.completed}
-                                  size="sm"
-                                  priorityColor={priorityColors?.[priorityKey]}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    onTaskClick(task);
-                                  }}
-                                />
+                              <div
+                                className="h-[18px] w-[18px] rounded-full border-2 shrink-0"
+                                style={{ borderColor: evColor || priorityColors?.[priorityKey] || 'rgba(30,41,59,0.2)' }}
+                              />
+                              <div className="flex-1 min-w-0">
+                                <span className="block text-[14px] font-semibold leading-snug tracking-normal break-words whitespace-normal" style={{ color: task.status === 'done' ? '#6b7280' : '#1f2937' }}>
+                                  {task.title}
+                                </span>
                               </div>
-                              <div className={cn("flex-1 min-w-0", task.status === 'done' && "opacity-40")}>
-                                <span className={cn("block text-[13px] font-semibold leading-snug tracking-normal text-foreground", task.status === 'done' && "line-through")}>{task.title}</span>
-                              </div>
-                              <GripHorizontal className="w-4 h-4 text-muted-foreground/30 self-center" />
                             </motion.div>
                           );
                         })
                     ) : (
-                      <div className="flex flex-col items-center justify-center py-12 opacity-30 text-center">
-                        <Search className="w-8 h-8 mb-3" />
-                        <p className="text-[13px] font-bold text-muted-foreground/50 mt-1">No hay tareas</p>
+                      <div className="flex flex-col items-center justify-center py-12 text-center px-4">
+                        <div className="w-8 h-8 rounded-full flex items-center justify-center mb-2" style={{ backgroundColor: 'rgba(30,41,59,0.05)' }}>
+                          <Search className="w-4 h-4" style={{ color: '#6b7280' }} />
+                        </div>
+                        <p className="text-[11px] font-black uppercase tracking-widest" style={{ color: '#6b7280' }}>Sin tareas para hoy</p>
                       </div>
                     )}
                   </div>

@@ -398,7 +398,7 @@ const FoldersPage = () => {
           >
             {/* Header Section */}
             <div id="folders-header" className="flex flex-col items-center justify-center pt-8 pb-4">
-              <h1 className="page-title text-center text-4xl md:text-5xl font-black font-headline">
+              <h1 className="page-title text-center text-4xl md:text-5xl font-black font-headline !pl-0">
                 Cuadernos
               </h1>
             </div>
