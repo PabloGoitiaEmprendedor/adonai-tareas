@@ -160,7 +160,7 @@
 /* ─── Cursor system ──────────────────────────────────────────── */
 /* 1. Neutral hand: default for all elements */
 #root * {
-  cursor: var(--cursor-hand), auto !important;
+  cursor: auto !important;
 }
 
 /* 2. Pointing hand: buttons, links, and clickable UI */
@@ -169,14 +169,40 @@
 #root [role="button"],
 #root label,
 #root select {
-  cursor: var(--cursor-hand-point), pointer !important;
+  cursor: pointer !important;
 }
 
-/* 3. Grab hand: draggable task cards */
-.cursor-grab {
+/* 3. Explicit cursor utilities (override neutral hand) */
+.cursor-click {
+  cursor: pointer !important;
+}
+.cursor-click * {
+  cursor: pointer !important;
+}
+
+.cursor-drag {
   cursor: grab !important;
 }
-.cursor-grab * {
+.cursor-drag:active,
+.cursor-drag:active * {
+  cursor: grabbing !important;
+}
+
+.cursor-edit {
+  cursor: var(--cursor-pencil), text !important;
+}
+
+/* Legacy utility used across pages for drag handles */
+.cursor-hand {
+  cursor: grab !important;
+}
+.cursor-hand:active,
+.cursor-hand:active * {
+  cursor: grabbing !important;
+}
+
+/* 4. Grab hand: draggable elements */
+.cursor-grab {
   cursor: grab !important;
 }
 .cursor-grab:active,
@@ -184,14 +210,14 @@
   cursor: grabbing !important;
 }
 
-/* 4. Buttons inside grab areas still show pointing hand */
+/* 5. Buttons inside grab areas still show pointing hand */
 .cursor-grab a,
 .cursor-grab button:not([disabled]),
 .cursor-grab [role="button"] {
-  cursor: var(--cursor-hand-point), pointer !important;
+  cursor: pointer !important;
 }
 
-/* 5. Pencil: editable text elements (highest priority) */
+/* 6. Pencil: editable text elements (highest priority) */
 .cursor-pencil,
 .cursor-pencil *,
 .cursor-eraser,
@@ -203,12 +229,12 @@
   cursor: var(--cursor-pencil), text !important;
 }
 
-/* 6. Buttons/links inside pencil zones → pointing (overrides pencil) */
+/* 7. Buttons/links inside pencil zones → pointing (overrides pencil) */
 .cursor-pencil button,
 .cursor-eraser button,
 .cursor-pencil a,
 .cursor-eraser a {
-  cursor: var(--cursor-hand-point), pointer !important;
+  cursor: pointer !important;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
@@ -292,8 +318,8 @@
       linear-gradient(90deg, transparent 0 38px, rgba(235,120,120,0.18) 38px 39px, transparent 39px calc(100% - 28px), rgba(235,120,120,0.11) calc(100% - 28px) calc(100% - 27px), transparent calc(100% - 27px));
   }
   .notebook-handwriting {
-    font-family: "Segoe Print", "Bradley Hand ITC", "Comic Sans MS", cursive;
-    font-weight: 700;
+    font-family: "Patrick Hand", "Segoe Print", "Bradley Hand ITC", "Comic Sans MS", cursive;
+    font-weight: 400;
     letter-spacing: 0;
   }
   .notebook-cover {

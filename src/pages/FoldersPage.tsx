@@ -6,7 +6,7 @@ import { useFolderShares } from '@/hooks/useFolderShares';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProfile } from '@/hooks/useProfile';
 import { supabase } from '@/integrations/supabase/client';
-import { Notebook, Plus, ChevronRight, ChevronLeft, Users, Trash2, Check, Clock, Edit2, ArrowLeft, Share2, Settings, Sparkles, X } from 'lucide-react';
+import { Notebook, Plus, ChevronRight, ChevronLeft, Users, Trash2, Check, Clock, Edit2, ArrowLeft, Share2, Settings, Sparkles, X, Search } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import TaskDetailModal from '@/components/TaskDetailModal';
 import FullscreenTimer from '@/components/FullscreenTimer';
@@ -15,7 +15,7 @@ import { toast } from 'sonner';
 import { triggerTaskCelebration } from '@/lib/celebrations';
 import { dispatchTutorialFolderCreated } from '@/lib/tutorialEvents';
 import { usePriorityColors, getPriorityKey } from '@/hooks/usePriorityColors';
-import { compareTasksWithinQuadrants } from '@/lib/taskOrdering';
+import { compareTasksWithinQuadrants, getTaskManualOrderGroupKey } from '@/lib/taskOrdering';
 import { playPageTurnSound } from '@/lib/soundEffects';
 import { QuickNotebookTaskAdd } from '@/components/QuickNotebookTaskAdd';
 
@@ -41,6 +41,7 @@ const FoldersPage = () => {
   const [completingTaskId, setCompletingTaskId] = useState<string | null>(null);
   const [isCreatingInline, setIsCreatingInline] = useState(false);
   const [inlineName, setInlineName] = useState('');
+  const [taskSearchQuery, setTaskSearchQuery] = useState('');
   const timerDurationRef = useRef(0);
 
   const handleSelectFolder = (id: string | null) => {
@@ -135,7 +136,110 @@ const FoldersPage = () => {
       : selectedFolder ? tasks.filter((t) => t.folder_id === selectedFolder) : [];
     return [...raw].sort(compareTasksWithinQuadrants);
   }, [tasks, selectedFolder, isUncategorized]);
-  const completedCount = folderTasks.filter(t => t.status === 'done').length;
+
+  const taskSearchResults = useMemo(() => {
+    const query = taskSearchQuery.trim().toLowerCase();
+    if (query.length < 2) return [];
+    return tasks
+      .filter((task: any) => (task.title || '').toLowerCase().includes(query))
+      .sort(compareTasksWithinQuadrants)
+      .slice(0, 8);
+  }, [tasks, taskSearchQuery]);
+
+  const jumpToFolderTask = useCallback((task: any) => {
+    const folderId = task.folder_id || null;
+    setSelectedFolder(folderId);
+    setTaskSearchQuery('');
+    window.setTimeout(() => {
+      const el = document.querySelector(`[data-task-id="${task.id}"]`);
+      el?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }, 200);
+  }, []);
+
+  const [orderedFolderTasks, setOrderedFolderTasks] = useState<any[]>([]);
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const dragIdxRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    setOrderedFolderTasks(folderTasks);
+    dragIdxRef.current = null;
+    setDragIdx(null);
+  }, [folderTasks]);
+
+  const persistVisibleOrder = useCallback((nextOrder: any[]) => {
+    nextOrder.forEach((task, idx) => {
+      if ((task.sort_order ?? 0) !== idx) {
+        updateTask.mutate({ id: task.id, sort_order: idx });
+      }
+    });
+  }, [updateTask]);
+
+  const handleDragStart = useCallback((idx: number) => {
+    dragIdxRef.current = idx;
+    setDragIdx(idx);
+  }, [orderedFolderTasks]);
+
+  const handleDragOver = useCallback((e: React.DragEvent, idx: number) => {
+    e.preventDefault();
+    const currentDragIdx = dragIdxRef.current ?? dragIdx;
+    if (currentDragIdx === null || currentDragIdx === idx) return;
+    const dragged = orderedFolderTasks[currentDragIdx];
+    const target = orderedFolderTasks[idx];
+    if (!dragged || !target) return;
+    if (getTaskManualOrderGroupKey(dragged) !== getTaskManualOrderGroupKey(target)) return;
+
+    const next = [...orderedFolderTasks];
+    const [moved] = next.splice(currentDragIdx, 1);
+    next.splice(idx, 0, moved);
+    dragIdxRef.current = idx;
+    setOrderedFolderTasks(next);
+    setDragIdx(idx);
+  }, [dragIdx, orderedFolderTasks]);
+
+  const handleDragEnd = useCallback(() => {
+    if ((dragIdxRef.current ?? dragIdx) !== null) persistVisibleOrder(orderedFolderTasks);
+    dragIdxRef.current = null;
+    setDragIdx(null);
+  }, [dragIdx, orderedFolderTasks, persistVisibleOrder]);
+
+  const handleTouchStart = useCallback((idx: number, e: React.TouchEvent) => {
+    e.stopPropagation();
+    dragIdxRef.current = idx;
+    setDragIdx(idx);
+  }, [orderedFolderTasks]);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    const currentDragIdx = dragIdxRef.current ?? dragIdx;
+    if (currentDragIdx === null) return;
+    const touch = e.touches[0];
+    if (!touch) return;
+    const el = document.elementFromPoint(touch.clientX, touch.clientY) as HTMLElement | null;
+    const card = el?.closest('[data-task-idx]') as HTMLElement | null;
+    const idxStr = card?.getAttribute('data-task-idx');
+    if (!idxStr) return;
+    const idx = Number(idxStr);
+    if (Number.isNaN(idx) || currentDragIdx === idx) return;
+
+    const dragged = orderedFolderTasks[currentDragIdx];
+    const target = orderedFolderTasks[idx];
+    if (!dragged || !target) return;
+    if (getTaskManualOrderGroupKey(dragged) !== getTaskManualOrderGroupKey(target)) return;
+
+    const next = [...orderedFolderTasks];
+    const [moved] = next.splice(currentDragIdx, 1);
+    next.splice(idx, 0, moved);
+    dragIdxRef.current = idx;
+    setOrderedFolderTasks(next);
+    setDragIdx(idx);
+  }, [dragIdx, orderedFolderTasks]);
+
+  const handleTouchEnd = useCallback(() => {
+    if ((dragIdxRef.current ?? dragIdx) !== null) persistVisibleOrder(orderedFolderTasks);
+    dragIdxRef.current = null;
+    setDragIdx(null);
+  }, [dragIdx, orderedFolderTasks, persistVisibleOrder]);
+
+  const completedCount = orderedFolderTasks.filter(t => t.status === 'done').length;
 
   const [folderPage, setFolderPage] = useState(1);
   const [folderPageDir, setFolderPageDir] = useState(1);
@@ -146,7 +250,7 @@ const FoldersPage = () => {
   }, [selectedFolder]);
 
   const FOLDER_TASKS_PER_PAGE = 10;
-  const folderTotalPages = Math.max(1, Math.ceil(folderTasks.length / FOLDER_TASKS_PER_PAGE));
+  const folderTotalPages = Math.max(1, Math.ceil(orderedFolderTasks.length / FOLDER_TASKS_PER_PAGE));
 
   useEffect(() => {
     if (folderPage > folderTotalPages) {
@@ -156,8 +260,8 @@ const FoldersPage = () => {
 
   const visibleFolderTasks = useMemo(() => {
     const start = (folderPage - 1) * FOLDER_TASKS_PER_PAGE;
-    return folderTasks.slice(start, start + FOLDER_TASKS_PER_PAGE);
-  }, [folderPage, folderTasks]);
+    return orderedFolderTasks.slice(start, start + FOLDER_TASKS_PER_PAGE);
+  }, [folderPage, orderedFolderTasks]);
 
   const turnFolderPage = (dir: 1 | -1) => {
     setFolderPageDir(dir);
@@ -398,9 +502,48 @@ const FoldersPage = () => {
           >
             {/* Header Section */}
             <div id="folders-header" className="flex flex-col items-center justify-center pt-8 pb-4">
-              <h1 className="page-title text-center text-4xl md:text-5xl font-black font-headline">
+              <h1 className="page-title text-center text-4xl md:text-5xl font-black font-headline !pl-0">
                 Cuadernos
               </h1>
+            </div>
+
+            {/* Search Bar */}
+            <div className="relative max-w-md mx-auto w-full -mt-4 mb-4">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-on-surface-variant/45" />
+              <input
+                value={taskSearchQuery}
+                onChange={(event) => setTaskSearchQuery(event.target.value)}
+                placeholder="Buscar tareas en todos los cuadernos..."
+                className="h-9 w-full rounded-full border border-outline-variant/20 bg-surface-container-low pl-9 pr-9 text-[12px] font-semibold text-foreground outline-none transition focus:border-primary/35 focus:bg-surface-container"
+              />
+              {taskSearchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setTaskSearchQuery('')}
+                  className="absolute right-2 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-on-surface-variant/45 hover:bg-black/5 hover:text-foreground"
+                  aria-label="Limpiar busqueda"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+              {taskSearchResults.length > 0 && (
+                <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-50 overflow-hidden rounded-2xl border border-outline-variant/16 bg-background/95 shadow-xl backdrop-blur-xl">
+                  {taskSearchResults.map((task: any) => {
+                    const folder = folders.find((item: any) => item.id === task.folder_id);
+                    return (
+                      <button
+                        key={task.id}
+                        type="button"
+                        onClick={() => jumpToFolderTask(task)}
+                        className="block w-full border-b border-outline-variant/8 px-4 py-2.5 text-left last:border-b-0 hover:bg-primary/8"
+                      >
+                        <span className="block truncate text-[12px] font-bold text-foreground">{task.title}</span>
+                        <span className="mt-0.5 block text-[9px] font-black uppercase tracking-[0.12em] text-primary/70">{folder?.name || 'Hoy'}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             {/* Folders Grid */}
@@ -613,7 +756,7 @@ const FoldersPage = () => {
                   {Array.from({ length: 14 }).map((_, ring) => (
                     <span
                       key={ring}
-                      className="h-3 w-10 rounded-full border-2 border-outline-variant/28 bg-background/20 shadow-[inset_0_1px_1px_rgba(255,255,255,0.25),0_1px_2px_rgba(0,0,0,0.12)]"
+                      className="h-3 w-10 rounded-full border-2 border-[#A8A29E]/40 bg-[#A8A29E]/15 shadow-[inset_0_1px_1px_rgba(255,255,255,0.25),0_1px_2px_rgba(0,0,0,0.12)]"
                     />
                   ))}
                 </div>
@@ -657,13 +800,13 @@ const FoldersPage = () => {
                               taskIdx={(folderPage - 1) * FOLDER_TASKS_PER_PAGE + idx}
                               isDone={task.status === 'done'}
                               completingTaskId={completingTaskId}
-                              dragIdx={null}
-                              handleDragStart={() => {}}
-                              handleDragOver={() => {}}
-                              handleDragEnd={() => {}}
-                              handleTouchStart={() => {}}
-                              handleTouchMove={() => {}}
-                              handleTouchEnd={() => {}}
+                              dragIdx={dragIdx}
+                              handleDragStart={handleDragStart}
+                              handleDragOver={handleDragOver}
+                              handleDragEnd={handleDragEnd}
+                              handleTouchStart={handleTouchStart}
+                              handleTouchMove={handleTouchMove}
+                              handleTouchEnd={handleTouchEnd}
                               setSelectedTask={setSelectedTask}
                               handleComplete={handleComplete}
                               handleUncomplete={handleUncomplete}
@@ -673,7 +816,12 @@ const FoldersPage = () => {
                           ))}
                         </div>
                       ) : null}
-                      <QuickNotebookTaskAdd folderId={isUncategorized ? null : selectedFolder} />
+                      {folderPage === folderTotalPages && (
+                        <QuickNotebookTaskAdd
+                          folderId={isUncategorized ? null : selectedFolder}
+                          folderName={currentFolder?.name || 'Hoy'}
+                        />
+                      )}
                     </div>
                   </motion.div>
                 </AnimatePresence>
@@ -780,7 +928,7 @@ const FoldersPage = () => {
                   {Array.from({ length: 12 }).map((_, ring) => (
                     <span
                       key={ring}
-                      className="h-2.5 w-8 rounded-full border border-outline-variant/28 bg-background/20 shadow-[inset_0_1px_1px_rgba(255,255,255,0.25),0_1px_2px_rgba(0,0,0,0.12)]"
+                      className="h-2.5 w-8 rounded-full border border-[#A8A29E]/40 bg-[#A8A29E]/15 shadow-[inset_0_1px_1px_rgba(255,255,255,0.25),0_1px_2px_rgba(0,0,0,0.12)]"
                     />
                   ))}
                 </div>
@@ -824,13 +972,13 @@ const FoldersPage = () => {
                               taskIdx={(folderPage - 1) * FOLDER_TASKS_PER_PAGE + idx}
                               isDone={task.status === 'done'}
                               completingTaskId={completingTaskId}
-                              dragIdx={null}
-                              handleDragStart={() => {}}
-                              handleDragOver={() => {}}
-                              handleDragEnd={() => {}}
-                              handleTouchStart={() => {}}
-                              handleTouchMove={() => {}}
-                              handleTouchEnd={() => {}}
+                              dragIdx={dragIdx}
+                              handleDragStart={handleDragStart}
+                              handleDragOver={handleDragOver}
+                              handleDragEnd={handleDragEnd}
+                              handleTouchStart={handleTouchStart}
+                              handleTouchMove={handleTouchMove}
+                              handleTouchEnd={handleTouchEnd}
                               setSelectedTask={setSelectedTask}
                               handleComplete={handleComplete}
                               handleUncomplete={handleUncomplete}
@@ -840,7 +988,12 @@ const FoldersPage = () => {
                           ))}
                         </div>
                       ) : null}
-                      <QuickNotebookTaskAdd folderId={isUncategorized ? null : selectedFolder} />
+                      {folderPage === folderTotalPages && (
+                        <QuickNotebookTaskAdd
+                          folderId={isUncategorized ? null : selectedFolder}
+                          folderName={currentFolder?.name || 'Hoy'}
+                        />
+                      )}
                     </div>
                   </motion.div>
                 </AnimatePresence>

@@ -69,7 +69,7 @@ export const useTasks = (filters?: { date?: string; startDate?: string; endDate?
       
       // Exclude calendar-only events from task queries
       if (filters?.excludeEvents) {
-        // query = query.or(`creation_source.neq.event,creation_source.is.null`);
+        query = query.or('metadata->>creation_source.neq.event,metadata->>creation_source.is.null');
       }
 
       const todayStr = format(new Date(), 'yyyy-MM-dd');
@@ -249,6 +249,10 @@ export const useTasks = (filters?: { date?: string; startDate?: string; endDate?
       if (!user) throw new Error('No user');
       const { creation_source, metadata, ...rest } = task;
       const creationSource = creation_source || 'fab';
+      const taskMetadata = {
+        ...(metadata || {}),
+        creation_source: creationSource,
+      };
       
       // Strip null/undefined values to avoid sending columns that don't exist in the table
       const cleanData = Object.fromEntries(
@@ -258,7 +262,7 @@ export const useTasks = (filters?: { date?: string; startDate?: string; endDate?
         .from('tasks')
         .insert({
           ...cleanData,
-          ...(metadata ? { metadata } : {}),
+          metadata: taskMetadata,
           user_id: user.id,
           due_date: cleanData.due_date || format(new Date(), 'yyyy-MM-dd'),
         } as any)

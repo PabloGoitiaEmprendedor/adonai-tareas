@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
-import { Plus, Link } from 'lucide-react';
+import { Plus, Link, Check, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { useTasks } from '@/hooks/useTasks';
@@ -23,16 +23,19 @@ const PRIORITY_OPTIONS: PriorityOption[] = [
 
 interface QuickNotebookTaskAddProps {
   folderId?: string | null;
+  folderName?: string;
   disabled?: boolean;
   onDisabledClick?: () => void;
 }
 
-export const QuickNotebookTaskAdd = ({ folderId, disabled, onDisabledClick }: QuickNotebookTaskAddProps) => {
+export const QuickNotebookTaskAdd = ({ folderId, folderName, disabled, onDisabledClick }: QuickNotebookTaskAddProps) => {
   const { createTask } = useTasks();
   const { colors } = usePriorityColors();
   const [phase, setPhase] = useState<'idle' | 'title' | 'link' | 'priority'>('idle');
   const [title, setTitle] = useState('');
   const [link, setLink] = useState('');
+
+  const normalizeTitle = (value: string) => value.replace(/\s+$/g, '');
 
   const reset = () => {
     setTitle('');
@@ -49,7 +52,7 @@ export const QuickNotebookTaskAdd = ({ folderId, disabled, onDisabledClick }: Qu
   };
 
   const handleTitleSubmit = () => {
-    if (!title.trim()) {
+    if (!normalizeTitle(title).trim()) {
       reset();
       return;
     }
@@ -61,9 +64,10 @@ export const QuickNotebookTaskAdd = ({ folderId, disabled, onDisabledClick }: Qu
   };
 
   const handlePriority = (option: PriorityOption) => {
-    if (!title.trim()) return;
+    const normalizedTitle = normalizeTitle(title);
+    if (!normalizedTitle.trim()) return;
     createTask.mutate({
-      title: title.trim(),
+      title: normalizedTitle,
       due_date: format(new Date(), 'yyyy-MM-dd'),
       folder_id: folderId || null,
       priority: option.priority,
@@ -79,7 +83,7 @@ export const QuickNotebookTaskAdd = ({ folderId, disabled, onDisabledClick }: Qu
   };
 
   return (
-    <div className="relative z-10 border-b border-[#7891be]/16">
+    <div className="relative z-10">
       <AnimatePresence mode="wait">
         {phase === 'idle' && (
           <motion.button
@@ -93,7 +97,7 @@ export const QuickNotebookTaskAdd = ({ folderId, disabled, onDisabledClick }: Qu
             <span className="flex h-5 w-5 items-center justify-center rounded-full border border-outline-variant/20 bg-background/20">
               <Plus className="h-3 w-3" />
             </span>
-            <span className="text-[12px] font-medium tracking-normal text-on-surface-variant/35">Vaciar una tarea</span>
+            <span className="text-[12px] font-medium tracking-normal text-on-surface-variant/35">Vaciar tarea en {folderName || 'Hoy'}</span>
           </motion.button>
         )}
 
@@ -103,21 +107,53 @@ export const QuickNotebookTaskAdd = ({ folderId, disabled, onDisabledClick }: Qu
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="flex h-[42px] items-center gap-3 px-2"
+            className="flex items-start gap-3 px-2 py-2"
           >
-            <Plus className="h-4 w-4 text-primary/60" />
-            <input
+            <Plus className="h-4 w-4 text-primary/60 mt-1" />
+            <div className="flex-1 min-w-0">
+            <textarea
               autoFocus
               value={title}
               onChange={(event) => setTitle(event.target.value)}
-              onBlur={handleTitleSubmit}
+              onInput={(e) => {
+                const target = e.target as HTMLTextAreaElement;
+                target.style.height = 'auto';
+                target.style.height = Math.min(target.scrollHeight, 160) + 'px';
+              }}
               onKeyDown={(event) => {
-                if (event.key === 'Enter') handleTitleSubmit();
-                if (event.key === 'Escape') reset();
+                if (event.key === 'Enter' && (event.ctrlKey || event.shiftKey)) {
+                  event.preventDefault();
+                  if (title.trim()) handleTitleSubmit();
+                } else if (event.key === 'Escape') {
+                  reset();
+                }
               }}
               placeholder="Nombre de la tarea"
-              className="min-w-0 flex-1 bg-transparent text-sm font-semibold outline-none placeholder:text-on-surface-variant/30"
+              className="w-full bg-transparent text-sm font-semibold outline-none placeholder:text-on-surface-variant/30 resize-none overflow-hidden"
+              rows={1}
             />
+            <p className="text-[9px] font-medium text-on-surface-variant/20 mt-0.5">Enter = salto de línea · Ctrl+Enter = listo · Esc = cerrar</p>
+            </div>
+            <div className="flex items-center gap-1.5 pt-0.5">
+              <button
+                type="button"
+                onClick={() => title.trim() && handleTitleSubmit()}
+                className="h-8 w-8 rounded-xl bg-primary/10 text-primary/80 border border-primary/15 hover:bg-primary/15 transition-all active:scale-95 flex items-center justify-center cursor-click"
+                aria-label="Listo"
+                title="Listo"
+              >
+                <Check className="h-4 w-4" strokeWidth={3} />
+              </button>
+              <button
+                type="button"
+                onClick={reset}
+                className="h-8 w-8 rounded-xl bg-surface-container/40 text-muted-foreground border border-outline-variant/15 hover:bg-surface-container/60 transition-all active:scale-95 flex items-center justify-center cursor-click"
+                aria-label="Cancelar"
+                title="Cancelar"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
           </motion.div>
         )}
 
@@ -159,7 +195,7 @@ export const QuickNotebookTaskAdd = ({ folderId, disabled, onDisabledClick }: Qu
             exit={{ opacity: 0 }}
             className="flex min-h-[42px] items-center gap-2 px-2 py-1.5"
           >
-            <span className="notebook-handwriting shrink-0 text-sm text-on-surface-variant/55">Prioridad</span>
+            <span className="notebook-handwriting shrink-0 text-sm text-[#1f2937]/70">Prioridad</span>
             <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto no-scrollbar">
               {PRIORITY_OPTIONS.map((option) => {
                 const color = colors[option.key] === 'transparent' ? 'hsl(var(--outline))' : colors[option.key];
@@ -168,7 +204,7 @@ export const QuickNotebookTaskAdd = ({ folderId, disabled, onDisabledClick }: Qu
                     key={option.key}
                     onMouseDown={(event) => event.preventDefault()}
                     onClick={() => handlePriority(option)}
-                    className="shrink-0 rounded-full border border-outline-variant/20 bg-background/35 px-2.5 py-1 text-[10px] font-black text-on-surface-variant/70 transition-colors hover:text-foreground"
+                    className="shrink-0 rounded-full border border-[#1f2937]/20 bg-white/60 px-2.5 py-1 text-[10px] font-black text-[#1f2937]/80 transition-colors hover:bg-white/90 hover:text-[#1f2937]"
                   >
                     <span className="mr-1.5 inline-block h-2 w-2 rounded-full" style={{ backgroundColor: color }} />
                     {option.label}

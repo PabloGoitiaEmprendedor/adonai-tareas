@@ -41,9 +41,11 @@ import ExitCodesPage from './pages/ExitCodesPage';
 import NotificationManager from './components/NotificationManager';
 import { AdonaiNotifier } from '@/components/ui/adonai-notifier';
 import DownloadGuideOverlay from '@/components/DownloadGuideOverlay';
+import DownloadGateModal from '@/components/DownloadGateModal';
 import { getAnalyticsExperience, setAnalyticsUser, trackAnalyticsEvent, trackPageView } from "@/lib/analytics";
 import CalendarCallback from "./pages/CalendarCallback";
 import SheetsCallback from "./pages/SheetsCallback";
+import { WeeklySummaryCollector } from "@/components/WeeklySummaryCollector";
 
 
 const queryClient = new QueryClient({
@@ -189,9 +191,9 @@ const AppRoutes = () => {
       return <LoadingScreen message="Sincronizando Adonai" />;
     }
 
-    // La web publica siempre es landing, aunque exista una sesion guardada.
-    // La app web queda separada en /app y la app de escritorio conserva su flujo.
+    // Web publica: si ya hay sesión, ir directo a la app
     if (!isElectron && !isLocalHost) {
+      if (user) return <Navigate to="/daily" replace />;
       return <LandingPage />;
     }
 
@@ -260,6 +262,17 @@ const AppRoutes = () => {
 
 const App = () => {
   useEffect(() => {
+    const isMiniRoute =
+      window.location.hash.startsWith('#/mini') ||
+      window.location.pathname.replace(/\/$/, '') === '/mini';
+
+    if (!window.electronAPI && window.location.hostname === '127.0.0.1' && isMiniRoute) {
+      const canonicalUrl = new URL(window.location.href);
+      canonicalUrl.hostname = 'localhost';
+      window.location.replace(canonicalUrl.toString());
+      return;
+    }
+
     const hash = window.location.hash;
     if (hash && hash.includes('access_token=') && !window.electronAPI) {
       // Don't bridge if we are developing locally
@@ -323,10 +336,12 @@ const App = () => {
               <AnalyticsRouteTracking />
               <AnalyticsIdentity />
               <NotificationManager />
+              <WeeklySummaryCollector />
               <NavigationWrapper>
                 <AppRoutes />
               </NavigationWrapper>
               <DownloadGuideOverlay />
+              <DownloadGateModal />
             </AuthProvider>
           </HashRouter>
         </TooltipProvider>

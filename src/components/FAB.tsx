@@ -1,9 +1,9 @@
 import FloatingActionMenu from './ui/floating-action-menu';
-import { Plus, Mic, Repeat, Calendar } from 'lucide-react';
+import { Plus, Repeat, Calendar } from 'lucide-react';
 
 interface FABProps {
   onTextClick: () => void;
-  onVoiceClick: () => void;
+  onVoiceClick?: () => void;
   onRecurrenceClick: () => void;
   onEventClick?: () => void;
 }
@@ -11,17 +11,12 @@ interface FABProps {
 const FAB = ({ onTextClick, onVoiceClick, onRecurrenceClick, onEventClick }: FABProps) => {
   const allOptions = [
     {
-      label: "Texto",
+      label: "Tarea por texto",
       icon: <Plus />,
       onClick: onTextClick,
     },
     {
-      label: "Voz",
-      icon: <Mic />,
-      onClick: onVoiceClick,
-    },
-    {
-      label: "Recurrencia",
+      label: "Tarea recurrente",
       icon: <Repeat />,
       onClick: onRecurrenceClick,
     },

@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
 import { motion, AnimatePresence } from "framer-motion"
-import { Calendar, Clock, LayoutGrid, List, Notebook, NotebookText, Plus, Search, Filter, X, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Check, MoreHorizontal, Link as LinkIcon, Trash2, Repeat, Zap, Menu, GripHorizontal, GripVertical, Bell, BellOff, Palette, Paperclip, ChevronsUpDown } from "lucide-react"
+import { Calendar, Clock, LayoutGrid, List, Plus, Search, Filter, X, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Check, MoreHorizontal, Link as LinkIcon, Trash2, Repeat, Zap, Menu, GripHorizontal, GripVertical, Bell, BellOff, Palette, Paperclip } from "lucide-react"
 import ScrollableTimePicker from "./scrollable-time-picker"
 import { usePriorityColors, getPriorityKey } from "@/hooks/usePriorityColors"
 import { cn } from "@/lib/utils"
@@ -460,6 +460,7 @@ export function EventManager({
       const resolved = typeof nextDate === 'function' ? nextDate(previous) : nextDate
       const normalized = new Date(resolved)
       onDateChange?.(normalized)
+      window.dispatchEvent(new CustomEvent('adonai:calendar-selected-date-change', { detail: { date: normalized } }))
       return normalized
     })
   }, [onDateChange])
@@ -690,7 +691,9 @@ export function EventManager({
   }, []);
 
   const getSidebarTaskDateRank = useCallback((event: Event) => {
-    return event.startTime < startOfDay(currentDate) && !event.completed ? 1 : 0;
+    const currentDateStr = format(currentDate, 'yyyy-MM-dd');
+    const todayStr = format(new Date(), 'yyyy-MM-dd');
+    return currentDateStr === todayStr && event.startTime < startOfDay(currentDate) && !event.completed ? 1 : 0;
   }, [currentDate]);
 
   const compareSidebarTasks = useCallback((a: Event, b: Event) => {
@@ -774,10 +777,12 @@ export function EventManager({
   }, [canReorderSidebarTask, compareSidebarTasks, events, getSidebarTaskGroupKey, onEventUpdate, sidebarReorderId]);
 
   const tasksByFolder = useMemo(() => {
+    const currentDateStr = format(currentDate, 'yyyy-MM-dd');
+    const todayStr = format(new Date(), 'yyyy-MM-dd');
     const tasks = filteredEvents.filter(e => {
       if (e.isEvent || e.id.startsWith('block-')) return false;
-      const inTimeRange = (isSameDay(e.startTime, currentDate)) || 
-        (e.startTime < startOfDay(currentDate) && !e.completed);
+      const inTimeRange = (isSameDay(e.startTime, currentDate)) ||
+        (currentDateStr === todayStr && e.startTime < startOfDay(currentDate) && !e.completed);
       const taskCat = e.category || 'Hoy';
       // 'Hoy' tab shows tasks with no category or category === 'Hoy'
       const matchesCategory = selectedCategory === 'Hoy'
@@ -801,6 +806,10 @@ export function EventManager({
   }, [compareSidebarTasks, filteredEvents, currentDate, selectedCategory]);
 
   const hasActiveFilters = selectedColors.length > 0 || selectedTags.length > 0 || selectedCategories.length > 0
+
+  const calendarVisibleEvents = useMemo(() => (
+    filteredEvents.filter((event) => !event.isAllDay || event.isEvent || event.id.startsWith('block-'))
+  ), [filteredEvents])
 
   const clearFilters = () => {
     setSelectedColors([])
@@ -1408,13 +1417,17 @@ export function EventManager({
   }, [searchOpen])
 
   const compactDayLabel = format(currentDate, "EEE d", { locale: es }).replace('.', '')
+  const hasNotebookSidebar = !hideSidebar && (view === "day" || view === "week")
 
   return (
-    <div data-calendar-grid className={cn("relative flex flex-col gap-0", className)}>
+    <div data-calendar-grid className={cn("relative flex w-full max-w-full flex-col gap-0", className)}>
       {/* Sticky Header - Google-like */}
-      <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-xl border-b border-outline-variant/10 px-3 pb-3 pt-4 lg:px-2 lg:pt-3 -mx-0 mb-0 shadow-sm">
+      <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-xl border-b border-outline-variant/10 px-2 sm:px-3 pb-3 pt-4 lg:px-2 lg:pt-3 -mx-0 mb-0 shadow-sm">
         {/* Single-line header: Month + Day + Nav + View tabs */}
-        <div className="flex items-center gap-1.5 pl-10 lg:pl-0 lg:gap-2">
+        <div className={cn(
+          "flex items-center gap-1.5 pl-12 lg:gap-2",
+          hasNotebookSidebar ? "lg:pl-[352px]" : "lg:pl-0"
+        )}>
           {/* Month name (opens date picker) */}
           <Popover>
             <PopoverTrigger asChild>
@@ -1521,7 +1534,7 @@ export function EventManager({
             {view === "month" && (
               <MonthView
                 currentDate={currentDate}
-                events={filteredEvents}
+                events={calendarVisibleEvents}
                 onEventClick={(event) => {
                   if (onEventClick) {
                     onEventClick(event)
@@ -1547,7 +1560,7 @@ export function EventManager({
             {view === "year" && (
               <YearView
                 currentDate={currentDate}
-                events={filteredEvents}
+                events={calendarVisibleEvents}
                 onSelectMonth={(monthDate) => {
                   commitCurrentDate(monthDate)
                   setView("month")
@@ -1555,14 +1568,14 @@ export function EventManager({
               />
             )}
             {(view === "week" || view === "day" || view === "3day") && (
-              <div className={cn("flex min-h-0 gap-0 lg:gap-4 relative items-stretch", containedScroll ? "h-full" : "items-start")}>
+              <div className={cn("flex flex-col lg:flex-row min-h-0 gap-0 lg:gap-4 relative items-stretch", containedScroll ? "h-full" : "w-full", hasNotebookSidebar && "lg:pl-6 lg:pr-2")}>
                 {!hideSidebar && (view === "day" || view === "week") && (
                   <Card 
                     data-sidebar-droptarget="true"
 
                     className={cn(
-                      "hidden lg:flex w-72 flex-shrink-0 flex-col border-outline-variant/15 bg-card shadow-sm overflow-hidden z-10",
-                      containedScroll ? "h-full min-h-0" : "sticky top-[76px] h-[calc(100vh-92px)]"
+                      "hidden lg:flex w-72 flex-shrink-0 flex-col border-outline-variant/12 notebook-cream-bg shadow-sm overflow-hidden z-10 relative",
+                      "sticky top-[76px] max-h-[calc(100vh-120px)]"
                     )}
                     onDragOver={(e) => {
                       e.preventDefault();
@@ -1583,49 +1596,65 @@ export function EventManager({
                       }
                     }}
                   >
-                    <div className="border-b border-outline-variant/10 bg-card px-4 py-4">
-                      <div className="flex items-center justify-between mb-1.5">
-                        <h3 className="text-[14px] font-black tracking-tight text-foreground">Tareas de hoy</h3>
-                      </div>
-                      <p className="text-[11px] text-on-surface-variant font-semibold leading-snug">Mantén presionado para arrastrar al calendario</p>
+                    {/* Notebook spiral rings */}
+                    <div className="absolute inset-y-4 left-2 flex flex-col justify-between pointer-events-none z-20">
+                      {Array.from({ length: 10 }).map((_, ring) => (
+                        <span
+                          key={ring}
+                          className="h-2.5 w-6 rounded-full border-2 border-[#A8A29E]/40 bg-[#A8A29E]/15 shadow-[inset_0_1px_1px_rgba(255,255,255,0.25),0_1px_2px_rgba(0,0,0,0.12)]"
+                        />
+                      ))}
                     </div>
 
-                    {/* Folder tab bar â€” always visible, Hoy is default */}
-                    <div className="flex items-center gap-2 overflow-x-auto px-4 py-3 border-b border-outline-variant/10 bg-surface-container-low/40 no-scrollbar">
+                    {/* Ruled lines background */}
+                    <div 
+                      className="absolute inset-0 pointer-events-none z-0"
+                      style={{
+                        backgroundImage: 'repeating-linear-gradient(180deg, rgba(120,145,190,0.08) 0 1px, transparent 1px 42px)',
+                        backgroundPosition: '0 0',
+                      }}
+                    />
+
+                    {/* Vertical margin line */}
+                    <div className="absolute top-[122px] bottom-8 left-9 w-px bg-rose-300/20 pointer-events-none z-20" />
+
+                    <div className="relative z-10 px-5 py-3 pl-11">
+                      <h2 className="text-lg font-bold font-headline tracking-tight notebook-handwriting text-foreground/70">
+                        Tareas de hoy
+                      </h2>
+                      <p className="text-[12px] leading-snug text-foreground/50 font-semibold mt-1 notebook-handwriting">
+                        Mantén presionado para arrastrar al calendario
+                      </p>
+                    </div>
+
+                    {/* Folder tab bar — matching DailyPage notebook style */}
+                    <div className="relative z-10 flex items-center gap-2 overflow-x-auto no-scrollbar px-5 py-1 pb-1 mb-1 border-b border-outline-variant/10 justify-start pl-11">
                       {uniqueCategories.map(cat => {
                         const isSelected = selectedCategory === cat;
                         return (
                           <button
                             key={cat}
                             onClick={() => setSelectedCategory(cat)}
-                            className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wide transition-all border ${
+                            className={`flex-shrink-0 px-4 py-1.5 rounded-full text-[11px] font-black uppercase tracking-wide transition-all border notebook-handwriting ${
                               isSelected
-                                ? 'bg-primary text-primary-foreground border-primary shadow-sm'
-                                : 'bg-surface-container text-on-surface-variant/70 hover:text-primary border-outline-variant/20 hover:border-primary/30'
+                                ? 'bg-primary/15 text-primary border-primary/35 shadow-sm'
+                                : 'bg-white/40 text-on-surface-variant/80 border-outline-variant/40 hover:text-foreground hover:border-outline-variant/60'
                             }`}
                           >
-                            <motion.div
-                              key={isSelected ? 'open' : 'closed'}
-                              initial={{ rotateY: isSelected ? 180 : -180, scale: 0.8 }}
-                              animate={{ rotateY: 0, scale: 1 }}
-                              transition={{ type: 'spring', stiffness: 400, damping: 15 }}
-                              style={{ display: 'flex' }}
-                            >
-                              {isSelected ? (
-                                <NotebookText className="w-3 h-3" />
-                              ) : (
-                                <Notebook className="w-3 h-3" />
-                              )}
-                            </motion.div>
                             {cat}
                           </button>
                         );
                       })}
                     </div>
 
-                    <div ref={sidebarScrollRef} className="flex-1 overflow-y-auto custom-scrollbar p-3 focus:outline-none focus:ring-2 focus:ring-primary/20" data-sidebar-scroll="true" tabIndex={0}>
+                    <div ref={sidebarScrollRef} className="relative z-10 flex-1 overflow-y-auto custom-scrollbar px-5 py-3 pl-11 focus:outline-none focus:ring-2 focus:ring-primary/20" data-sidebar-scroll="true" tabIndex={0}
+                      style={{
+                        backgroundImage: 'repeating-linear-gradient(180deg, rgba(120,145,190,0.08) 0 1px, transparent 1px 42px)',
+                        backgroundPosition: '0 5px',
+                      }}
+                    >
                       {/* Tasks for the active folder tab */}
-                      <div className="space-y-2">
+                      <div className="space-y-1">
                         {Object.values(tasksByFolder).flat().length > 0 ? (
                           Object.values(tasksByFolder).flat().map((event) => {
                             const evColor = (event.color.startsWith('#') || event.color.startsWith('var')) ? event.color : undefined;
@@ -1633,15 +1662,11 @@ export function EventManager({
                               <div
                                 key={event.id}
                                 onMouseDown={(e) => {
-                                  if ((e.target as HTMLElement).closest('[data-sidebar-reorder-handle]')) return;
                                   handleSidebarMouseDown(e, event);
                                 }}
                                 onTouchStart={(e) => {
-                                  if ((e.target as HTMLElement).closest('[data-sidebar-reorder-handle]')) return;
                                   handleSidebarTouchStart(e, event);
                                 }}
-                                onDragOver={(e) => handleSidebarReorderOver(e, event)}
-                                onDragEnd={handleSidebarReorderEnd}
                                 onClick={() => {
                                   if (onEventClick) {
                                     onEventClick(event)
@@ -1650,50 +1675,22 @@ export function EventManager({
                                     setIsDialogOpen(true)
                                   }
                                 }}
-                                className="group flex items-start gap-3 p-4 rounded-[20px] hover:bg-surface-container transition-all cursor-grab active:cursor-grabbing border border-transparent hover:border-primary/20 touch-none"
-                                style={{ 
-                                  backgroundColor: (() => { const pc = priorityColors[getPriorityKey(event.urgency || false, event.importance || false)]; return pc && pc !== 'transparent' ? `${pc}4D` : 'transparent'; })(),
-                                }}
+                                className="group flex items-start gap-3 px-2 py-2 transition-colors cursor-grab active:cursor-grabbing border-b border-outline-variant/10 hover:border-primary/18 touch-none"
                               >
-                                {canReorderSidebarTask(event) ? (
-                                  <button
-                                    type="button"
-                                    draggable
-                                    data-sidebar-reorder-handle
-                                    title="Arrastra para ordenar"
-                                    aria-label="Arrastra para ordenar"
-                                    onDragStart={(e) => handleSidebarReorderStart(e, event)}
-                                    onDragEnd={handleSidebarReorderEnd}
-                                    onClick={(e) => e.stopPropagation()}
-                                    className="mt-0.5 flex h-7 w-4 shrink-0 items-center justify-center rounded-md text-on-surface-variant/30 transition-all hover:bg-primary/10 hover:text-primary group-hover:text-primary/70 cursor-grab active:cursor-grabbing"
-                                  >
-                                    <ChevronsUpDown className="h-3.5 w-3.5" strokeWidth={1.8} />
-                                  </button>
-                                ) : (
-                                  <div className="w-4 shrink-0" />
-                                )}
                                 <div
-                                  className="w-2 h-2 rounded-full mt-2 shrink-0"
-                                  style={{ backgroundColor: evColor || priorityColors[getPriorityKey(event.urgency || false, event.importance || false)] }}
+                                  className="mt-0.5 h-[18px] w-[18px] rounded-full border-2 shrink-0"
+                                  style={{ borderColor: evColor || priorityColors[getPriorityKey(event.urgency || false, event.importance || false)] || 'var(--outline)' }}
                                 />
-                                <div className={cn("flex-1 min-w-0", event.completed && "opacity-40 grayscale-[0.5]")}>
-                                  <span className={cn("block text-[13px] font-semibold leading-snug tracking-normal text-foreground transition-colors group-hover:text-primary", event.completed && "line-through")}>{event.title}</span>
-                                  <div className="mt-1">
-                                    <EventLinkClips links={event.links} color={evColor} />
-                                  </div>
-                                  {event.description && (
-                                    <div className="flex items-center gap-2 mt-1">
-                                      <span className="text-[10px] font-medium text-on-surface-variant/50 line-clamp-1 italic">{event.description}</span>
-                                    </div>
-                                  )}
+                                <div className="flex-1 min-w-0">
+                                  <span className="block text-[14px] font-semibold leading-snug tracking-normal text-foreground transition-colors group-hover:text-primary break-words whitespace-pre-wrap">{event.title}</span>
                                 </div>
                               </div>
                             );
                           })
                         ) : (
-                          <div className="flex flex-col items-center justify-center py-8 opacity-40 text-center px-2">
-                            <List className="w-6 h-6 mb-2" />
-                            <p className="text-[9px] font-black uppercase tracking-widest">Sin tareas para hoy</p>
+                          <div className="flex flex-col items-center justify-center py-8 text-center px-2">
+                            <List className="w-6 h-6 mb-2 text-on-surface-variant/40" />
+                            <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant/50">Sin tareas para hoy</p>
                           </div>
                         )}
                       </div>
@@ -1747,7 +1744,7 @@ export function EventManager({
 
             {view === "schedule" && (
               <ScheduleView
-                events={filteredEvents}
+                events={calendarVisibleEvents}
                 currentDate={currentDate}
                 onEventClick={(event) => {
                   if (onEventClick) {
@@ -3263,7 +3260,7 @@ function TimeGridView({
   return (
     <Card
       className={cn(
-        "flex flex-col rounded-none border-x-0 border-outline-variant/20 bg-card shadow-sm lg:rounded-xl lg:border-x",
+        "flex w-full flex-col rounded-none border-x-0 border-outline-variant/20 bg-card shadow-sm lg:rounded-xl lg:border-x",
         containedScroll ? "h-full" : "h-auto overflow-visible",
         className
       )}
@@ -3279,7 +3276,16 @@ function TimeGridView({
           )}
         >
           <div className="w-12 lg:w-16 flex-shrink-0 border-r border-outline-variant/25 bg-surface-container sticky left-0 z-30" />
-          <div className={cn("flex-1 grid bg-surface-container", view === "week" ? "grid-cols-7 min-w-[620px] lg:min-w-0" : view === "3day" ? "grid-cols-3 min-w-[360px] lg:min-w-0" : "grid-cols-1 min-w-0")}>
+          <div
+            className={cn(
+              "flex-1 grid bg-surface-container min-w-0",
+              view === "week"
+                ? "grid-cols-7 md:min-w-[620px] lg:min-w-0"
+                : view === "3day"
+                  ? "grid-cols-3 md:min-w-[360px] lg:min-w-0"
+                  : "grid-cols-1"
+            )}
+          >
             {days.map((day, idx) => (
               <div key={idx} className="min-h-[58px] p-2.5 lg:p-3 text-center border-r border-outline-variant/25 last:border-r-0 bg-surface-container">
                 <span className="text-[11px] font-black uppercase tracking-wide text-muted-foreground block mb-1">
@@ -3307,7 +3313,7 @@ function TimeGridView({
         style={{ touchAction: 'pan-y' }}
         data-calendar-scroll="true"
       >
-        <div className="relative flex" style={{ height: `${24 * HOUR_HEIGHT}px` }}>
+        <div className="relative flex w-full" style={{ height: `${24 * HOUR_HEIGHT}px` }}>
           {/* Time Labels - Sticky Left */}
           <div className="w-12 lg:w-16 flex-shrink-0 border-r border-outline-variant/20 bg-card sticky left-0 z-20 shadow-[6px_0_18px_hsl(var(--background)/0.55)]">
             {hours.map((hour) => (
@@ -3320,7 +3326,16 @@ function TimeGridView({
           </div>
 
           {/* Grid Columns */}
-          <div className={cn("flex-1 grid relative", view === "week" ? "grid-cols-7 min-w-[620px] lg:min-w-0" : view === "3day" ? "grid-cols-3 min-w-[360px] lg:min-w-0" : "grid-cols-1 min-w-0")}>
+          <div
+            className={cn(
+              "flex-1 grid relative min-w-0",
+              view === "week"
+                ? "grid-cols-7 md:min-w-[620px] lg:min-w-0"
+                : view === "3day"
+                  ? "grid-cols-3 md:min-w-[360px] lg:min-w-0"
+                  : "grid-cols-1"
+            )}
+          >
              {/* Horizontal Grid Lines */}
              {hours.map((hour) => (
                <div key={hour} className="absolute w-full" style={{ top: `${hour * HOUR_HEIGHT}px`, height: `${HOUR_HEIGHT}px` }}>
@@ -3440,7 +3455,7 @@ function TimeGridView({
                           onEventClick(event);
                         }}
                         className={cn(
-                          "absolute rounded-xl p-2 text-[10px] font-semibold text-white cursor-grab active:cursor-grabbing hover:brightness-110 z-10 overflow-hidden group select-none touch-pan-y",
+                          "absolute rounded-xl px-2.5 py-2 sm:p-2 text-[12px] sm:text-[10px] font-semibold text-white cursor-grab active:cursor-grabbing hover:brightness-110 z-10 overflow-hidden group select-none touch-pan-y",
                           "transition-[opacity,transform] duration-200 ease-out", // No shadow transition - prevents shadow accumulation
                           event.color && !event.color.startsWith('#') && !event.color.startsWith('var') && getColorClasses(event.color).bg,
                           isResizing === event.id && "z-50 shadow-xl brightness-125 ring-2 ring-white/50 transition-none", // Disable transitions while resizing
@@ -3506,8 +3521,8 @@ function TimeGridView({
                           {/* Top Resize Handle */}
                           <div 
                             className={cn(
-                              "absolute top-0 inset-x-0 cursor-ns-resize z-30 flex items-start pt-0.5 justify-center opacity-0 group-hover:opacity-100 transition-opacity",
-                              duration <= 0.25 ? "h-1" : "h-2"
+                              "absolute top-0 inset-x-0 cursor-ns-resize z-30 flex items-start justify-center opacity-80 md:opacity-0 md:group-hover:opacity-100 transition-opacity",
+                              "h-5"
                             )}
                             onMouseDown={(e) => {
                               e.stopPropagation();
@@ -3529,15 +3544,15 @@ function TimeGridView({
                               setInitialEndTime(new Date(event.endTime));
                             }}
                           >
-                            <div className="w-8 h-1 rounded-full bg-white/80 shadow-md" />
+                            <div className="mt-1 w-10 h-1.5 rounded-full bg-white/85 shadow-md" />
                           </div>
 
                           <div className="flex flex-col h-full py-1 px-1">
-                            <p className={cn("truncate font-semibold select-none leading-tight", event.completed && "line-through")}>{event.title}</p>
-                            <EventLinkClips links={event.links} color={event.color} />
-                            {duration > 0.4 && (
-                              <p className="opacity-70 text-[8px] font-medium mt-0.5 select-none">
-                                {format(event.startTime, "h:mm a", { locale: es })} - {format(event.endTime, "h:mm a", { locale: es })}
+                            <p className={cn("truncate font-black text-[12px] sm:text-[10px] select-none leading-tight", event.completed && "line-through")}>{event.title}</p>
+                            {duration > 0.35 && <EventLinkClips links={event.links} color={event.color} />}
+                            {duration > 0.25 && (
+                              <p className="opacity-80 text-[10px] sm:text-[8px] font-bold mt-0.5 select-none leading-none">
+                                {format(event.startTime, "h:mm a", { locale: es })}{duration > 0.4 ? ` - ${format(event.endTime, "h:mm a", { locale: es })}` : ''}
                               </p>
                             )}
                           </div>
@@ -3545,8 +3560,8 @@ function TimeGridView({
                           {/* Bottom Resize Handle */}
                           <div 
                             className={cn(
-                              "absolute bottom-0 inset-x-0 cursor-ns-resize z-30 flex items-end pb-0.5 justify-center opacity-0 group-hover:opacity-100 transition-opacity",
-                              duration <= 0.25 ? "h-1" : "h-2"
+                              "absolute bottom-0 inset-x-0 cursor-ns-resize z-30 flex items-end justify-center opacity-80 md:opacity-0 md:group-hover:opacity-100 transition-opacity",
+                              "h-5"
                             )}
                             onMouseDown={(e) => {
                               e.stopPropagation();
@@ -3568,7 +3583,7 @@ function TimeGridView({
                               setInitialEndTime(new Date(event.endTime));
                             }}
                           >
-                            <div className="w-8 h-1 rounded-full bg-white/80 shadow-md" />
+                            <div className="mb-1 w-10 h-1.5 rounded-full bg-white/85 shadow-md" />
                           </div>
                       </div>
                     )
