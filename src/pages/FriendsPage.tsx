@@ -172,11 +172,12 @@ const FriendsPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-32 overflow-x-hidden">
-      <div className="mx-auto w-full max-w-[460px] px-4 pt-8 space-y-7 sm:px-6 sm:pt-12 sm:space-y-10 lg:max-w-6xl">
+    <div className="min-h-screen overflow-x-hidden bg-background pb-32">
+      <div className="pointer-events-none fixed inset-0 opacity-70 [background:radial-gradient(circle_at_18%_12%,rgba(91,124,250,0.12),transparent_30%),radial-gradient(circle_at_82%_22%,rgba(111,207,151,0.09),transparent_28%)]" />
+      <div className="relative mx-auto w-full max-w-[460px] px-4 pt-8 space-y-5 sm:px-6 sm:pt-10 lg:max-w-6xl">
 
         {/* Header */}
-        <header className="space-y-5">
+        <header className="overflow-hidden rounded-[32px] border border-outline-variant/18 bg-surface-container/55 p-5 shadow-2xl shadow-black/10 backdrop-blur-xl sm:p-6">
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-5 md:gap-6">
             <div className="space-y-2.5">
               <div className="flex items-center gap-3">
@@ -185,11 +186,11 @@ const FriendsPage = () => {
                   Tu Comunidad
                 </span>
               </div>
-              <h1 className="text-[42px] font-black leading-[0.95] tracking-tight text-foreground sm:text-6xl sm:leading-tight lg:text-7xl">
-                Amigos de <span className="text-primary">Enfoque</span>
+              <h1 className="text-[32px] font-black leading-tight tracking-tight text-foreground sm:text-5xl">
+                Amigos
               </h1>
               <p className="max-w-sm text-[13px] font-medium leading-relaxed text-on-surface-variant/65 sm:text-sm">
-                Comparte tu progreso, mira el de tus amigos y crezcan juntos.
+                Conecta, revisa solicitudes y comparte progreso sin salir del sistema.
               </p>
             </div>
 
@@ -200,7 +201,7 @@ const FriendsPage = () => {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Buscar por nombre o email..."
-                className="w-full rounded-2xl border border-outline-variant/20 bg-surface-container px-4 py-3.5 pl-12 text-sm font-semibold text-foreground outline-none transition-all focus:ring-2 focus:ring-primary/20"
+                className="w-full rounded-2xl border border-outline-variant/20 bg-background/70 px-4 py-3.5 pl-12 text-sm font-semibold text-foreground outline-none transition-all focus:border-primary/35 focus:ring-2 focus:ring-primary/20"
                 onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
               />
               {searching && (
@@ -219,7 +220,7 @@ const FriendsPage = () => {
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              className="overflow-hidden rounded-[24px] border border-outline-variant/20 bg-surface-container/85 p-2 shadow-2xl backdrop-blur-xl sm:rounded-2xl"
+              className="overflow-hidden rounded-2xl border border-outline-variant/20 bg-surface-container/80 p-2 shadow-xl shadow-black/10 backdrop-blur-xl"
             >
               {searchResults.length > 0 && (
                 <div className="p-4 border-b border-outline-variant/10 flex items-center justify-between">

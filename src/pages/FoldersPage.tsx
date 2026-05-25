@@ -15,7 +15,7 @@ import { toast } from 'sonner';
 import { triggerTaskCelebration } from '@/lib/celebrations';
 import { dispatchTutorialFolderCreated } from '@/lib/tutorialEvents';
 import { usePriorityColors, getPriorityKey } from '@/hooks/usePriorityColors';
-import { compareTasksWithinQuadrants } from '@/lib/taskOrdering';
+import { compareTasksWithinQuadrants, getTaskManualOrderGroupKey } from '@/lib/taskOrdering';
 import { playPageTurnSound } from '@/lib/soundEffects';
 import { QuickNotebookTaskAdd } from '@/components/QuickNotebookTaskAdd';
 
@@ -135,7 +135,91 @@ const FoldersPage = () => {
       : selectedFolder ? tasks.filter((t) => t.folder_id === selectedFolder) : [];
     return [...raw].sort(compareTasksWithinQuadrants);
   }, [tasks, selectedFolder, isUncategorized]);
-  const completedCount = folderTasks.filter(t => t.status === 'done').length;
+
+  const [orderedFolderTasks, setOrderedFolderTasks] = useState<any[]>([]);
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const dragIdxRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    setOrderedFolderTasks(folderTasks);
+    dragIdxRef.current = null;
+    setDragIdx(null);
+  }, [folderTasks]);
+
+  const persistVisibleOrder = useCallback((nextOrder: any[]) => {
+    nextOrder.forEach((task, idx) => {
+      if ((task.sort_order ?? 0) !== idx) {
+        updateTask.mutate({ id: task.id, sort_order: idx });
+      }
+    });
+  }, [updateTask]);
+
+  const handleDragStart = useCallback((idx: number) => {
+    dragIdxRef.current = idx;
+    setDragIdx(idx);
+  }, [orderedFolderTasks]);
+
+  const handleDragOver = useCallback((e: React.DragEvent, idx: number) => {
+    e.preventDefault();
+    const currentDragIdx = dragIdxRef.current ?? dragIdx;
+    if (currentDragIdx === null || currentDragIdx === idx) return;
+    const dragged = orderedFolderTasks[currentDragIdx];
+    const target = orderedFolderTasks[idx];
+    if (!dragged || !target) return;
+    if (getTaskManualOrderGroupKey(dragged) !== getTaskManualOrderGroupKey(target)) return;
+
+    const next = [...orderedFolderTasks];
+    const [moved] = next.splice(currentDragIdx, 1);
+    next.splice(idx, 0, moved);
+    dragIdxRef.current = idx;
+    setOrderedFolderTasks(next);
+    setDragIdx(idx);
+  }, [dragIdx, orderedFolderTasks]);
+
+  const handleDragEnd = useCallback(() => {
+    if ((dragIdxRef.current ?? dragIdx) !== null) persistVisibleOrder(orderedFolderTasks);
+    dragIdxRef.current = null;
+    setDragIdx(null);
+  }, [dragIdx, orderedFolderTasks, persistVisibleOrder]);
+
+  const handleTouchStart = useCallback((idx: number, e: React.TouchEvent) => {
+    e.stopPropagation();
+    dragIdxRef.current = idx;
+    setDragIdx(idx);
+  }, [orderedFolderTasks]);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    const currentDragIdx = dragIdxRef.current ?? dragIdx;
+    if (currentDragIdx === null) return;
+    const touch = e.touches[0];
+    if (!touch) return;
+    const el = document.elementFromPoint(touch.clientX, touch.clientY) as HTMLElement | null;
+    const card = el?.closest('[data-task-idx]') as HTMLElement | null;
+    const idxStr = card?.getAttribute('data-task-idx');
+    if (!idxStr) return;
+    const idx = Number(idxStr);
+    if (Number.isNaN(idx) || currentDragIdx === idx) return;
+
+    const dragged = orderedFolderTasks[currentDragIdx];
+    const target = orderedFolderTasks[idx];
+    if (!dragged || !target) return;
+    if (getTaskManualOrderGroupKey(dragged) !== getTaskManualOrderGroupKey(target)) return;
+
+    const next = [...orderedFolderTasks];
+    const [moved] = next.splice(currentDragIdx, 1);
+    next.splice(idx, 0, moved);
+    dragIdxRef.current = idx;
+    setOrderedFolderTasks(next);
+    setDragIdx(idx);
+  }, [dragIdx, orderedFolderTasks]);
+
+  const handleTouchEnd = useCallback(() => {
+    if ((dragIdxRef.current ?? dragIdx) !== null) persistVisibleOrder(orderedFolderTasks);
+    dragIdxRef.current = null;
+    setDragIdx(null);
+  }, [dragIdx, orderedFolderTasks, persistVisibleOrder]);
+
+  const completedCount = orderedFolderTasks.filter(t => t.status === 'done').length;
 
   const [folderPage, setFolderPage] = useState(1);
   const [folderPageDir, setFolderPageDir] = useState(1);
@@ -146,7 +230,7 @@ const FoldersPage = () => {
   }, [selectedFolder]);
 
   const FOLDER_TASKS_PER_PAGE = 10;
-  const folderTotalPages = Math.max(1, Math.ceil(folderTasks.length / FOLDER_TASKS_PER_PAGE));
+  const folderTotalPages = Math.max(1, Math.ceil(orderedFolderTasks.length / FOLDER_TASKS_PER_PAGE));
 
   useEffect(() => {
     if (folderPage > folderTotalPages) {
@@ -156,8 +240,8 @@ const FoldersPage = () => {
 
   const visibleFolderTasks = useMemo(() => {
     const start = (folderPage - 1) * FOLDER_TASKS_PER_PAGE;
-    return folderTasks.slice(start, start + FOLDER_TASKS_PER_PAGE);
-  }, [folderPage, folderTasks]);
+    return orderedFolderTasks.slice(start, start + FOLDER_TASKS_PER_PAGE);
+  }, [folderPage, orderedFolderTasks]);
 
   const turnFolderPage = (dir: 1 | -1) => {
     setFolderPageDir(dir);
@@ -657,13 +741,13 @@ const FoldersPage = () => {
                               taskIdx={(folderPage - 1) * FOLDER_TASKS_PER_PAGE + idx}
                               isDone={task.status === 'done'}
                               completingTaskId={completingTaskId}
-                              dragIdx={null}
-                              handleDragStart={() => {}}
-                              handleDragOver={() => {}}
-                              handleDragEnd={() => {}}
-                              handleTouchStart={() => {}}
-                              handleTouchMove={() => {}}
-                              handleTouchEnd={() => {}}
+                              dragIdx={dragIdx}
+                              handleDragStart={handleDragStart}
+                              handleDragOver={handleDragOver}
+                              handleDragEnd={handleDragEnd}
+                              handleTouchStart={handleTouchStart}
+                              handleTouchMove={handleTouchMove}
+                              handleTouchEnd={handleTouchEnd}
                               setSelectedTask={setSelectedTask}
                               handleComplete={handleComplete}
                               handleUncomplete={handleUncomplete}
@@ -673,7 +757,12 @@ const FoldersPage = () => {
                           ))}
                         </div>
                       ) : null}
-                      <QuickNotebookTaskAdd folderId={isUncategorized ? null : selectedFolder} />
+                      {folderPage === folderTotalPages && (
+                        <QuickNotebookTaskAdd
+                          folderId={isUncategorized ? null : selectedFolder}
+                          folderName={currentFolder?.name || 'Hoy'}
+                        />
+                      )}
                     </div>
                   </motion.div>
                 </AnimatePresence>
@@ -824,13 +913,13 @@ const FoldersPage = () => {
                               taskIdx={(folderPage - 1) * FOLDER_TASKS_PER_PAGE + idx}
                               isDone={task.status === 'done'}
                               completingTaskId={completingTaskId}
-                              dragIdx={null}
-                              handleDragStart={() => {}}
-                              handleDragOver={() => {}}
-                              handleDragEnd={() => {}}
-                              handleTouchStart={() => {}}
-                              handleTouchMove={() => {}}
-                              handleTouchEnd={() => {}}
+                              dragIdx={dragIdx}
+                              handleDragStart={handleDragStart}
+                              handleDragOver={handleDragOver}
+                              handleDragEnd={handleDragEnd}
+                              handleTouchStart={handleTouchStart}
+                              handleTouchMove={handleTouchMove}
+                              handleTouchEnd={handleTouchEnd}
                               setSelectedTask={setSelectedTask}
                               handleComplete={handleComplete}
                               handleUncomplete={handleUncomplete}
@@ -840,7 +929,12 @@ const FoldersPage = () => {
                           ))}
                         </div>
                       ) : null}
-                      <QuickNotebookTaskAdd folderId={isUncategorized ? null : selectedFolder} />
+                      {folderPage === folderTotalPages && (
+                        <QuickNotebookTaskAdd
+                          folderId={isUncategorized ? null : selectedFolder}
+                          folderName={currentFolder?.name || 'Hoy'}
+                        />
+                      )}
                     </div>
                   </motion.div>
                 </AnimatePresence>

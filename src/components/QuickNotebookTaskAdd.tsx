@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
-import { Plus, Link } from 'lucide-react';
+import { Plus, Link, Check, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { useTasks } from '@/hooks/useTasks';
@@ -35,6 +35,8 @@ export const QuickNotebookTaskAdd = ({ folderId, folderName, disabled, onDisable
   const [title, setTitle] = useState('');
   const [link, setLink] = useState('');
 
+  const normalizeTitle = (value: string) => value.replace(/\s+$/g, '');
+
   const reset = () => {
     setTitle('');
     setLink('');
@@ -50,7 +52,7 @@ export const QuickNotebookTaskAdd = ({ folderId, folderName, disabled, onDisable
   };
 
   const handleTitleSubmit = () => {
-    if (!title.trim()) {
+    if (!normalizeTitle(title).trim()) {
       reset();
       return;
     }
@@ -62,9 +64,10 @@ export const QuickNotebookTaskAdd = ({ folderId, folderName, disabled, onDisable
   };
 
   const handlePriority = (option: PriorityOption) => {
-    if (!title.trim()) return;
+    const normalizedTitle = normalizeTitle(title);
+    if (!normalizedTitle.trim()) return;
     createTask.mutate({
-      title: title.trim(),
+      title: normalizedTitle,
       due_date: format(new Date(), 'yyyy-MM-dd'),
       folder_id: folderId || null,
       priority: option.priority,
@@ -118,9 +121,7 @@ export const QuickNotebookTaskAdd = ({ folderId, folderName, disabled, onDisable
                 target.style.height = Math.min(target.scrollHeight, 160) + 'px';
               }}
               onKeyDown={(event) => {
-                if (event.key === 'Enter' && !event.ctrlKey && !event.shiftKey) {
-                  event.preventDefault();
-                } else if (event.key === 'Enter' && (event.ctrlKey || event.shiftKey)) {
+                if (event.key === 'Enter' && (event.ctrlKey || event.shiftKey)) {
                   event.preventDefault();
                   if (title.trim()) handleTitleSubmit();
                 } else if (event.key === 'Escape') {
@@ -131,7 +132,27 @@ export const QuickNotebookTaskAdd = ({ folderId, folderName, disabled, onDisable
               className="w-full bg-transparent text-sm font-semibold outline-none placeholder:text-on-surface-variant/30 resize-none overflow-hidden"
               rows={1}
             />
-            <p className="text-[9px] font-medium text-on-surface-variant/20 mt-0.5">Ctrl+Enter para continuar · Esc para cerrar</p>
+            <p className="text-[9px] font-medium text-on-surface-variant/20 mt-0.5">Enter = salto de línea · Ctrl+Enter = listo · Esc = cerrar</p>
+            </div>
+            <div className="flex items-center gap-1.5 pt-0.5">
+              <button
+                type="button"
+                onClick={() => title.trim() && handleTitleSubmit()}
+                className="h-8 w-8 rounded-xl bg-primary/10 text-primary/80 border border-primary/15 hover:bg-primary/15 transition-all active:scale-95 flex items-center justify-center cursor-click"
+                aria-label="Listo"
+                title="Listo"
+              >
+                <Check className="h-4 w-4" strokeWidth={3} />
+              </button>
+              <button
+                type="button"
+                onClick={reset}
+                className="h-8 w-8 rounded-xl bg-surface-container/40 text-muted-foreground border border-outline-variant/15 hover:bg-surface-container/60 transition-all active:scale-95 flex items-center justify-center cursor-click"
+                aria-label="Cancelar"
+                title="Cancelar"
+              >
+                <X className="h-4 w-4" />
+              </button>
             </div>
           </motion.div>
         )}

@@ -1,6 +1,6 @@
 import { useState, useEffect, forwardRef, useImperativeHandle, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mic, X, Square, Check } from 'lucide-react';
+import { X, Square, Check, Paperclip, Plus, Folder } from 'lucide-react';
 import { AutoTextarea } from '@/components/ui/auto-textarea';
 import { useVoiceCapture } from '@/hooks/useVoiceCapture';
 import { parseVoiceTranscript } from '@/hooks/useVoiceParser';
@@ -14,6 +14,7 @@ import { AISphere } from './AISphere';
 import { CalendarDatePicker } from './ui/calendar-date-picker';
 import { cn } from '@/lib/utils';
 import { buildReminderMetadata } from '@/lib/reminders';
+import { useFolders } from '@/hooks/useFolders';
 
 interface TaskCaptureModalProps {
  open: boolean;
@@ -34,12 +35,15 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
  const { user, isAnonymous } = useAuth();
  const { isRecording, isProcessing, transcript, confidence, startRecording, stopRecording, resetTranscript } = useVoiceCapture();
  const { createTask } = useTasks();
+ const { folders } = useFolders();
 
  const [phase, setPhase] = useState<'input' | 'saving'>('input');
  const [reviewImportance, setReviewImportance] = useState(false);
  const [reviewUrgency, setReviewUrgency] = useState(false);
  const [title, setTitle] = useState('');
  const [description, setDescription] = useState('');
+ const [links, setLinks] = useState<string[]>(['']);
+ const [selectedFolderId, setSelectedFolderId] = useState<string | null>(folderId || null);
  const [dueDate, setDueDate] = useState('');
  const [sourceType, setSourceType] = useState<'voice' | 'text'>('text');
  const [fallbackEstimatedMinutes, setFallbackEstimatedMinutes] = useState<number | null>(null);
@@ -74,13 +78,11 @@ const TaskCaptureModal = forwardRef<TaskCaptureModalHandle, TaskCaptureModalProp
       setReviewUrgency(false);
       setTitle('');
       setDescription('');
+      setLinks(['']);
+      setSelectedFolderId(folderId || null);
       setPhase('input');
-      if (initialMode === 'voice') {
-        setSourceType('voice');
-      } else {
-        requestedVoiceOpenRef.current = false;
-        setSourceType('text');
-      }
+      requestedVoiceOpenRef.current = false;
+      setSourceType('text');
     }
   }
 
@@ -102,7 +104,8 @@ setPhase('input');
 setTitle('');
 setDueDate(format(new Date(), 'yyyy-MM-dd'));
 setFallbackEstimatedMinutes(null);
-return beginVoiceCapture();
+setSourceType('text');
+return false;
 },
  openInTextMode: (date?: string, initialTitle?: string, initialDescription?: string, timePrefixArg?: string) => {
  requestedVoiceOpenRef.current = false;
@@ -135,10 +138,7 @@ setSourceType('text');
  return;
  }
  resetTranscript();
- if (initialMode === 'voice') {
- beginVoiceCapture();
- }
- }, [open, initialMode, beginVoiceCapture, resetTranscript]);
+ }, [open, resetTranscript]);
 
  const handleClose = () => {
  requestedVoiceOpenRef.current = false;
@@ -151,12 +151,13 @@ setSourceType('text');
  const saveTaskQuick = async (opts: {
  title: string;
  description?: string;
+ link?: string | null;
  dueDate: string;
  goalId: string | null;
  importance: boolean;
  urgency: boolean;
  }) => {
- const { title: taskTitle, description: taskDesc, dueDate: date, goalId: chosenGoalId, importance, urgency } = opts;
+ const { title: taskTitle, description: taskDesc, link: taskLink, dueDate: date, goalId: chosenGoalId, importance, urgency } = opts;
 
  if (isCurrentlySavingRef.current) return;
  isCurrentlySavingRef.current = true;
@@ -174,9 +175,10 @@ setSourceType('text');
  importance,
  source_type: sourceType,
  description: timePrefix? `${timePrefix} ${taskDesc || ''}`.trim(): (taskDesc || null),
+ link: taskLink || null,
  context_id: null,
  goal_id: chosenGoalId || goalId || null,
- folder_id: folderId || null,
+ folder_id: selectedFolderId || null,
  recurrence_id: null,
  estimated_minutes: fallbackEstimatedMinutes || 30,
  due_date: finalDate,
@@ -240,9 +242,13 @@ setSourceType('text');
   }, [transcript, isRecording, sourceType, handleVoiceDone]);
 
   const handleSave = async () => {
+    const normalizedTitle = title.replace(/\s+$/g, '');
+    const normalizedDescription = description.replace(/\s+$/g, '');
+    const normalizedLink = links.map((item) => item.trim()).filter(Boolean).join(' ');
     await saveTaskQuick({
-      title: title.trim(),
-      description: description.trim() || undefined,
+      title: normalizedTitle,
+      description: normalizedDescription.trim() ? normalizedDescription : undefined,
+      link: normalizedLink.trim() ? normalizedLink : null,
       dueDate,
       goalId: goalId || null,
       importance: reviewImportance,
@@ -262,7 +268,7 @@ setSourceType('text');
  initial={{ opacity: 0 }} 
  animate={{ opacity: 1 }} 
  exit={{ opacity: 0 }} 
- className={`fixed inset-0 z-[40] ${document.body.classList.contains('tutorial-active')? 'bg-[#01260E]/30': 'bg-[#01260E]/40 backdrop-blur-xl'}`} 
+ className={`fixed inset-0 z-[40] ${document.body.classList.contains('tutorial-active')? 'bg-[#061827]/55': 'bg-[#061827]/92 backdrop-blur-md'}`} 
  onClick={() => { if (!document.body.classList.contains('tutorial-active')) handleClose(); }} 
  />
  <motion.div
@@ -273,7 +279,7 @@ setSourceType('text');
  className="fixed inset-0 z-[50] flex items-center justify-center p-4 pointer-events-none"
  >
  <div className={cn(
- "relative mx-auto w-full max-h-[90vh] overflow-y-auto pointer-events-auto shadow-[0_20px_60px_-10px_hsla(140,95%,8%,0.15)] bg-background border border-border",
+ "relative mx-auto w-full max-h-[90vh] overflow-y-auto pointer-events-auto shadow-[0_20px_70px_-18px_rgba(0,0,0,0.7)] bg-[#10141d] border border-white/10 text-white",
  isMini? "max-w-[340px] rounded-[24px]": "max-w-[400px] rounded-[32px]"
  )}>
  <div className={cn("flex flex-col", isMini? "p-4 gap-4": "p-6 gap-6")}>
@@ -346,10 +352,59 @@ setSourceType('text');
  onChange={(e) => setTitle(e.target.value)}
  placeholder="¿Qué tienes que hacer?"
  className={cn(
- "w-full font-semibold bg-surface border border-outline-variant rounded-[20px] focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-muted-foreground/30 resize-none",
+ "w-full font-semibold bg-white/[0.04] border border-white/12 rounded-[20px] focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-white/25 resize-none text-white",
  isMini ? "text-base px-4 py-3 min-h-[56px]" : "text-lg px-5 py-4 min-h-[72px]"
  )}
  />
+ <div className="space-y-2" data-no-swipe>
+ {links.map((linkValue, index) => (
+ <div key={index} className="relative flex items-center gap-2">
+ <Paperclip className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/35 pointer-events-none" />
+ <input
+ value={linkValue}
+ onChange={(e) => {
+ const next = [...links];
+ next[index] = e.target.value;
+ setLinks(next);
+ }}
+ placeholder={index === 0 ? "Link opcional" : "Otro link"}
+ className="w-full h-11 bg-white/[0.04] border border-white/12 rounded-[18px] pl-11 pr-12 text-sm font-semibold text-white placeholder:text-white/25 focus:outline-none focus:ring-2 focus:ring-primary/45"
+ />
+ {index === links.length - 1 ? (
+ <button
+ type="button"
+ onClick={() => setLinks([...links, ''])}
+ className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-xl bg-white/[0.06] text-white/60 hover:bg-white/[0.1] hover:text-white flex items-center justify-center transition-colors"
+ aria-label="Agregar link"
+ >
+ <Plus className="h-4 w-4" />
+ </button>
+ ) : (
+ <button
+ type="button"
+ onClick={() => setLinks(links.filter((_, linkIndex) => linkIndex !== index))}
+ className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-xl bg-white/[0.06] text-white/50 hover:bg-white/[0.1] hover:text-white flex items-center justify-center transition-colors"
+ aria-label="Quitar link"
+ >
+ <X className="h-4 w-4" />
+ </button>
+ )}
+ </div>
+ ))}
+ </div>
+ <div className="relative" data-no-swipe>
+ <Folder className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/35 pointer-events-none" />
+ <select
+ value={selectedFolderId || ''}
+ onChange={(event) => setSelectedFolderId(event.target.value || null)}
+ className="w-full h-11 appearance-none bg-white/[0.04] border border-white/12 rounded-[18px] pl-11 pr-4 text-sm font-semibold text-white focus:outline-none focus:ring-2 focus:ring-primary/45"
+ >
+ <option className="bg-[#10141d]" value="">Hoy / Sin cuaderno</option>
+ {folders.map((folder: any) => (
+ <option className="bg-[#10141d]" key={folder.id} value={folder.id}>{folder.name}</option>
+ ))}
+ </select>
+ </div>
  <div id="task-date-selector">
  <CalendarDatePicker
  date={dueDate}
@@ -395,7 +450,7 @@ setSourceType('text');
  document.dispatchEvent(new CustomEvent('force-tutorial-next', { detail: 5 }));
  }
  }}
- disabled={!title.trim() || (document.body.classList.contains('tutorial-active') && !document.body.classList.contains('tutorial-can-continue'))}
+ disabled={!title.replace(/\s+$/g, '').trim() || (document.body.classList.contains('tutorial-active') && !document.body.classList.contains('tutorial-can-continue'))}
  className={cn(
  "w-full bg-primary text-primary-foreground rounded-[24px] font-black text-sm shadow-2xl shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-50 relative z-[100000] pointer-events-auto",
  isMini ? "h-14" : "h-16"

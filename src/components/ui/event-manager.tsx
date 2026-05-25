@@ -1408,13 +1408,17 @@ export function EventManager({
   }, [searchOpen])
 
   const compactDayLabel = format(currentDate, "EEE d", { locale: es }).replace('.', '')
+  const hasNotebookSidebar = !hideSidebar && (view === "day" || view === "week")
 
   return (
-    <div data-calendar-grid className={cn("relative flex flex-col gap-0", className)}>
+    <div data-calendar-grid className={cn("relative flex w-full max-w-full flex-col gap-0", className)}>
       {/* Sticky Header - Google-like */}
-      <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-xl border-b border-outline-variant/10 px-3 pb-3 pt-4 lg:px-2 lg:pt-3 -mx-0 mb-0 shadow-sm">
+      <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-xl border-b border-outline-variant/10 px-2 sm:px-3 pb-3 pt-4 lg:px-2 lg:pt-3 -mx-0 mb-0 shadow-sm">
         {/* Single-line header: Month + Day + Nav + View tabs */}
-        <div className="flex items-center gap-1.5 pl-10 lg:pl-0 lg:gap-2">
+        <div className={cn(
+          "flex items-center gap-1.5 pl-12 lg:gap-2",
+          hasNotebookSidebar ? "lg:pl-[352px]" : "lg:pl-0"
+        )}>
           {/* Month name (opens date picker) */}
           <Popover>
             <PopoverTrigger asChild>
@@ -1555,14 +1559,14 @@ export function EventManager({
               />
             )}
             {(view === "week" || view === "day" || view === "3day") && (
-              <div className={cn("flex flex-col lg:flex-row min-h-0 gap-0 lg:gap-4 relative items-stretch", containedScroll ? "h-full" : "items-start")}>
+              <div className={cn("flex flex-col lg:flex-row min-h-0 gap-0 lg:gap-4 relative items-stretch", containedScroll ? "h-full" : "w-full", hasNotebookSidebar && "lg:pl-6 lg:pr-2")}>
                 {!hideSidebar && (view === "day" || view === "week") && (
                   <Card 
                     data-sidebar-droptarget="true"
 
                     className={cn(
                       "hidden lg:flex w-72 flex-shrink-0 flex-col border-outline-variant/12 notebook-cream-bg shadow-sm overflow-hidden z-10 relative",
-                      "sticky top-[76px]"
+                      "sticky top-[76px] max-h-[calc(100vh-120px)]"
                     )}
                     onDragOver={(e) => {
                       e.preventDefault();
@@ -3247,7 +3251,7 @@ function TimeGridView({
   return (
     <Card
       className={cn(
-        "flex flex-col rounded-none border-x-0 border-outline-variant/20 bg-card shadow-sm lg:rounded-xl lg:border-x",
+        "flex w-full flex-col rounded-none border-x-0 border-outline-variant/20 bg-card shadow-sm lg:rounded-xl lg:border-x",
         containedScroll ? "h-full" : "h-auto overflow-visible",
         className
       )}
@@ -3263,7 +3267,16 @@ function TimeGridView({
           )}
         >
           <div className="w-12 lg:w-16 flex-shrink-0 border-r border-outline-variant/25 bg-surface-container sticky left-0 z-30" />
-          <div className={cn("flex-1 grid bg-surface-container", view === "week" ? "grid-cols-7 min-w-[620px] lg:min-w-0" : view === "3day" ? "grid-cols-3 min-w-[360px] lg:min-w-0" : "grid-cols-1 min-w-0")}>
+          <div
+            className={cn(
+              "flex-1 grid bg-surface-container min-w-0",
+              view === "week"
+                ? "grid-cols-7 md:min-w-[620px] lg:min-w-0"
+                : view === "3day"
+                  ? "grid-cols-3 md:min-w-[360px] lg:min-w-0"
+                  : "grid-cols-1"
+            )}
+          >
             {days.map((day, idx) => (
               <div key={idx} className="min-h-[58px] p-2.5 lg:p-3 text-center border-r border-outline-variant/25 last:border-r-0 bg-surface-container">
                 <span className="text-[11px] font-black uppercase tracking-wide text-muted-foreground block mb-1">
@@ -3291,7 +3304,7 @@ function TimeGridView({
         style={{ touchAction: 'pan-y' }}
         data-calendar-scroll="true"
       >
-        <div className="relative flex" style={{ height: `${24 * HOUR_HEIGHT}px` }}>
+        <div className="relative flex w-full" style={{ height: `${24 * HOUR_HEIGHT}px` }}>
           {/* Time Labels - Sticky Left */}
           <div className="w-12 lg:w-16 flex-shrink-0 border-r border-outline-variant/20 bg-card sticky left-0 z-20 shadow-[6px_0_18px_hsl(var(--background)/0.55)]">
             {hours.map((hour) => (
@@ -3304,7 +3317,16 @@ function TimeGridView({
           </div>
 
           {/* Grid Columns */}
-          <div className={cn("flex-1 grid relative", view === "week" ? "grid-cols-7 min-w-[620px] lg:min-w-0" : view === "3day" ? "grid-cols-3 min-w-[360px] lg:min-w-0" : "grid-cols-1 min-w-0")}>
+          <div
+            className={cn(
+              "flex-1 grid relative min-w-0",
+              view === "week"
+                ? "grid-cols-7 md:min-w-[620px] lg:min-w-0"
+                : view === "3day"
+                  ? "grid-cols-3 md:min-w-[360px] lg:min-w-0"
+                  : "grid-cols-1"
+            )}
+          >
              {/* Horizontal Grid Lines */}
              {hours.map((hour) => (
                <div key={hour} className="absolute w-full" style={{ top: `${hour * HOUR_HEIGHT}px`, height: `${HOUR_HEIGHT}px` }}>
@@ -3424,7 +3446,7 @@ function TimeGridView({
                           onEventClick(event);
                         }}
                         className={cn(
-                          "absolute rounded-xl p-2 text-[10px] font-semibold text-white cursor-grab active:cursor-grabbing hover:brightness-110 z-10 overflow-hidden group select-none touch-pan-y",
+                          "absolute rounded-xl px-2.5 py-2 sm:p-2 text-[12px] sm:text-[10px] font-semibold text-white cursor-grab active:cursor-grabbing hover:brightness-110 z-10 overflow-hidden group select-none touch-pan-y",
                           "transition-[opacity,transform] duration-200 ease-out", // No shadow transition - prevents shadow accumulation
                           event.color && !event.color.startsWith('#') && !event.color.startsWith('var') && getColorClasses(event.color).bg,
                           isResizing === event.id && "z-50 shadow-xl brightness-125 ring-2 ring-white/50 transition-none", // Disable transitions while resizing
@@ -3490,8 +3512,8 @@ function TimeGridView({
                           {/* Top Resize Handle */}
                           <div 
                             className={cn(
-                              "absolute top-0 inset-x-0 cursor-ns-resize z-30 flex items-start pt-0.5 justify-center opacity-0 group-hover:opacity-100 transition-opacity",
-                              duration <= 0.25 ? "h-1" : "h-2"
+                              "absolute top-0 inset-x-0 cursor-ns-resize z-30 flex items-start justify-center opacity-80 md:opacity-0 md:group-hover:opacity-100 transition-opacity",
+                              "h-5"
                             )}
                             onMouseDown={(e) => {
                               e.stopPropagation();
@@ -3513,15 +3535,15 @@ function TimeGridView({
                               setInitialEndTime(new Date(event.endTime));
                             }}
                           >
-                            <div className="w-8 h-1 rounded-full bg-white/80 shadow-md" />
+                            <div className="mt-1 w-10 h-1.5 rounded-full bg-white/85 shadow-md" />
                           </div>
 
                           <div className="flex flex-col h-full py-1 px-1">
-                            <p className={cn("truncate font-semibold select-none leading-tight", event.completed && "line-through")}>{event.title}</p>
-                            <EventLinkClips links={event.links} color={event.color} />
-                            {duration > 0.4 && (
-                              <p className="opacity-70 text-[8px] font-medium mt-0.5 select-none">
-                                {format(event.startTime, "h:mm a", { locale: es })} - {format(event.endTime, "h:mm a", { locale: es })}
+                            <p className={cn("truncate font-black text-[12px] sm:text-[10px] select-none leading-tight", event.completed && "line-through")}>{event.title}</p>
+                            {duration > 0.35 && <EventLinkClips links={event.links} color={event.color} />}
+                            {duration > 0.25 && (
+                              <p className="opacity-80 text-[10px] sm:text-[8px] font-bold mt-0.5 select-none leading-none">
+                                {format(event.startTime, "h:mm a", { locale: es })}{duration > 0.4 ? ` - ${format(event.endTime, "h:mm a", { locale: es })}` : ''}
                               </p>
                             )}
                           </div>
@@ -3529,8 +3551,8 @@ function TimeGridView({
                           {/* Bottom Resize Handle */}
                           <div 
                             className={cn(
-                              "absolute bottom-0 inset-x-0 cursor-ns-resize z-30 flex items-end pb-0.5 justify-center opacity-0 group-hover:opacity-100 transition-opacity",
-                              duration <= 0.25 ? "h-1" : "h-2"
+                              "absolute bottom-0 inset-x-0 cursor-ns-resize z-30 flex items-end justify-center opacity-80 md:opacity-0 md:group-hover:opacity-100 transition-opacity",
+                              "h-5"
                             )}
                             onMouseDown={(e) => {
                               e.stopPropagation();
@@ -3552,7 +3574,7 @@ function TimeGridView({
                               setInitialEndTime(new Date(event.endTime));
                             }}
                           >
-                            <div className="w-8 h-1 rounded-full bg-white/80 shadow-md" />
+                            <div className="mb-1 w-10 h-1.5 rounded-full bg-white/85 shadow-md" />
                           </div>
                       </div>
                     )

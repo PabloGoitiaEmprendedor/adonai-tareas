@@ -1,4 +1,4 @@
-// DailyPage — Dark mode, no time blocks, no calendar view
+// DailyPage ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â Dark mode, no time blocks, no calendar view
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useTasks } from '@/hooks/useTasks';
 import { useFolders } from '@/hooks/useFolders';
@@ -59,6 +59,7 @@ const DailyPage = () => {
  const [selectedTask, setSelectedTask] = useState<any>(null);
  const [timerTask, setTimerTask] = useState<any>(null);
  const [dragIdx, setDragIdx] = useState<number | null>(null);
+ const dragIdxRef = useRef<number | null>(null);
  const [orderedTasks, setOrderedTasks] = useState<any[]>([]);
  const [notebookPage, setNotebookPage] = useState(getInitialNotebookPage);
  const [pageTurnDirection, setPageTurnDirection] = useState(1);
@@ -118,6 +119,8 @@ const DailyPage = () => {
 
  useEffect(() => {
  setOrderedTasks(sortedTasks);
+ dragIdxRef.current = null;
+ setDragIdx(null);
  }, [sortedTasks]);
 
  useEffect(() => {
@@ -126,35 +129,75 @@ const DailyPage = () => {
 
  const persistVisibleOrder = useCallback((nextOrder: any[]) => {
  nextOrder.forEach((task, idx) => {
- if (task.status!== 'done' && (task.sort_order?? 0)!== idx) {
+ if ((task.sort_order?? 0)!== idx) {
  updateTask.mutate({ id: task.id, sort_order: idx });
  }
  });
  }, [updateTask]);
 
  const handleDragStart = useCallback((idx: number) => {
- if (orderedTasks[idx]?.status === 'done') return;
+ dragIdxRef.current = idx;
  setDragIdx(idx);
  }, [orderedTasks]);
 
  const handleDragOver = useCallback((e: React.DragEvent, idx: number) => {
  e.preventDefault();
- if (dragIdx === null || dragIdx === idx) return;
- const dragged = orderedTasks[dragIdx];
+ const currentDragIdx = dragIdxRef.current ?? dragIdx;
+ if (currentDragIdx === null || currentDragIdx === idx) return;
+ const dragged = orderedTasks[currentDragIdx];
  const target = orderedTasks[idx];
- if (!dragged ||!target || dragged.status === 'done' || target.status === 'done') return;
+ if (!dragged ||!target) return;
  if (getTaskManualOrderGroupKey(dragged)!== getTaskManualOrderGroupKey(target)) return;
 
  const next = [...orderedTasks];
- const [moved] = next.splice(dragIdx, 1);
+ const [moved] = next.splice(currentDragIdx, 1);
  next.splice(idx, 0, moved);
+ dragIdxRef.current = idx;
  setOrderedTasks(next);
  setDragIdx(idx);
  }, [dragIdx, orderedTasks]);
 
  const handleDragEnd = useCallback(() => {
- if (dragIdx!== null) persistVisibleOrder(orderedTasks);
+ if ((dragIdxRef.current ?? dragIdx)!== null) persistVisibleOrder(orderedTasks);
+ dragIdxRef.current = null;
  setDragIdx(null);
+ }, [dragIdx, orderedTasks, persistVisibleOrder]);
+
+ const handleTouchStart = useCallback((idx: number, e: React.TouchEvent) => {
+   e.stopPropagation();
+   dragIdxRef.current = idx;
+   setDragIdx(idx);
+ }, [orderedTasks]);
+
+ const handleTouchMove = useCallback((e: React.TouchEvent) => {
+   const currentDragIdx = dragIdxRef.current ?? dragIdx;
+   if (currentDragIdx === null) return;
+   const touch = e.touches[0];
+   if (!touch) return;
+   const el = document.elementFromPoint(touch.clientX, touch.clientY) as HTMLElement | null;
+   const card = el?.closest('[data-task-idx]') as HTMLElement | null;
+   const idxStr = card?.getAttribute('data-task-idx');
+   if (!idxStr) return;
+   const idx = Number(idxStr);
+   if (Number.isNaN(idx) || currentDragIdx === idx) return;
+
+   const dragged = orderedTasks[currentDragIdx];
+   const target = orderedTasks[idx];
+   if (!dragged || !target) return;
+   if (getTaskManualOrderGroupKey(dragged) !== getTaskManualOrderGroupKey(target)) return;
+
+   const next = [...orderedTasks];
+   const [moved] = next.splice(currentDragIdx, 1);
+   next.splice(idx, 0, moved);
+   dragIdxRef.current = idx;
+   setOrderedTasks(next);
+   setDragIdx(idx);
+ }, [dragIdx, orderedTasks]);
+
+ const handleTouchEnd = useCallback(() => {
+   if ((dragIdxRef.current ?? dragIdx) !== null) persistVisibleOrder(orderedTasks);
+   dragIdxRef.current = null;
+   setDragIdx(null);
  }, [dragIdx, orderedTasks, persistVisibleOrder]);
 
  const profileName = useMemo(() => profile?.name, [profile?.name]);
@@ -163,6 +206,13 @@ const DailyPage = () => {
  const start = (notebookPage - 1) * TASKS_PER_NOTEBOOK_PAGE;
  return orderedTasks.slice(start, start + TASKS_PER_NOTEBOOK_PAGE);
  }, [notebookPage, orderedTasks]);
+
+ const notebookTaskTotalPages = useMemo(() => {
+ return Math.max(1, Math.ceil(orderedTasks.length / TASKS_PER_NOTEBOOK_PAGE));
+ }, [orderedTasks.length]);
+
+ const showNotebookQuickAdd = notebookPage === notebookTaskTotalPages;
+ const isMainNotebookComplete = selectedFolderId === null && orderedTasks.length > 0 && orderedTasks.every((task) => task.status === 'done');
 
   const shouldShowTaskPage = notebookPage <= NOTEBOOK_PAGE_COUNT;
 
@@ -201,8 +251,8 @@ const DailyPage = () => {
  triggerDailyCelebration(profileName);
  if (window.electronAPI) {
  window.electronAPI.showNotification(
- "¡Misión Cumplida! ",
- `Has terminado todas tus tareas de hoy, ${profileName || 'Emprendedor'}. ¡Disfruta tu descanso!`,
+ "ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡MisiÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n Cumplida! ",
+ `Has terminado todas tus tareas de hoy, ${profileName || 'Emprendedor'}. ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡Disfruta tu descanso!`,
  'success'
  );
  }
@@ -212,8 +262,8 @@ const DailyPage = () => {
  triggerTaskCelebration(task.title, profileName);
  if (completedCountRef.current + 1 === 5 && window.electronAPI) {
  window.electronAPI.showNotification(
- "¡Estás en racha! ",
- "Llevas 5 tareas completadas hoy. Sigue así.",
+ "ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡EstÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡s en racha! ",
+ "Llevas 5 tareas completadas hoy. Sigue asÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­.",
  'info'
  );
  }
@@ -372,7 +422,7 @@ const DailyPage = () => {
  </div>
  <div className="flex flex-col">
  <span className="text-[9px] font-black uppercase tracking-widest text-cyan-400/70">Racha Congelada</span>
- <span className="text-base font-black text-cyan-400 leading-tight">{metrics?.streak_current || 0} días </span>
+ <span className="text-base font-black text-cyan-400 leading-tight">{metrics?.streak_current || 0} dÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­as </span>
  </div>
  </motion.div>
  ): (
@@ -443,7 +493,7 @@ const DailyPage = () => {
  
  <div className="flex flex-col">
  <span className="text-[10px] font-black uppercase tracking-[0.15em] text-[#E65100]/80">Racha</span>
- <span className="text-base font-black text-foreground tracking-tight leading-tight">{metrics?.streak_current || 0} días</span>
+ <span className="text-base font-black text-foreground tracking-tight leading-tight">{metrics?.streak_current || 0} dÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­as</span>
  </div>
  </div>
  )}
@@ -550,7 +600,7 @@ const DailyPage = () => {
  >
  {shouldShowTaskPage? (
  <>
- {/* Cuadernos Bar — minimal pill tabs */}
+ {/* Cuadernos Bar ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â minimal pill tabs */}
   <div className="relative z-10 mb-1">
     <h2 className="text-lg font-bold font-headline tracking-tight notebook-handwriting text-foreground/70">
       Tareas de hoy
@@ -598,7 +648,9 @@ const DailyPage = () => {
  <div key={i} className="h-24 bg-surface-container-highest/20 border border-outline-variant/10 rounded-[32px] animate-pulse" />
  ))}
  </div>
- ): visibleNotebookTasks.length > 0? (
+   ): isMainNotebookComplete ? (
+   renderBlankNotebookPage(false)
+  ): visibleNotebookTasks.length > 0? (
  <div className="space-y-0">
  {visibleNotebookTasks.map((task, idx) => (
  <TaskCard
@@ -611,6 +663,9 @@ const DailyPage = () => {
  handleDragStart={handleDragStart}
  handleDragOver={handleDragOver}
  handleDragEnd={handleDragEnd}
+ handleTouchStart={handleTouchStart}
+ handleTouchMove={handleTouchMove}
+ handleTouchEnd={handleTouchEnd}
  setSelectedTask={setSelectedTask}
  handleComplete={handleComplete}
  handleUncomplete={handleUncomplete}
@@ -620,13 +675,13 @@ const DailyPage = () => {
  ))}
  </div>
  ) : null}
-   {/* ── Quick-add row desktop ── */}
-   {!isLoading && (
+   {/* ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ Quick-add row desktop ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ */}
+   {!isLoading && showNotebookQuickAdd && !isMainNotebookComplete && (
      <div className="relative z-10 mt-1">
         <QuickNotebookTaskAdd folderId={selectedFolderId} folderName={currentFolderName} />
      </div>
    )}
-   {visibleNotebookTasks.length === 0 && notebookPage !== 1 && (
+   {!isMainNotebookComplete && visibleNotebookTasks.length === 0 && notebookPage !== 1 && (
    renderBlankNotebookPage(false)
    )}
  </div>
@@ -654,7 +709,7 @@ const DailyPage = () => {
     </button>
   </div>
 
-  {/* Mobile Task Island — fixed full-screen notebook */}
+  {/* Mobile Task Island ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â fixed full-screen notebook */}
   <motion.div 
   initial={{ opacity: 0, y: 15 }}
   animate={{ opacity: 1, y: 0 }}
@@ -693,7 +748,7 @@ const DailyPage = () => {
         if (trigger) trigger.click();
       }}
       className="w-5 h-5 flex items-center justify-center text-zinc-400/40 hover:text-zinc-400/70 transition-colors shrink-0"
-      aria-label="Abrir menú"
+      aria-label="Abrir menÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Âº"
       style={{ marginRight: '12px', marginLeft: '-18px', background: 'transparent' }}
     >
       <Menu className="w-3 h-3" strokeWidth={2} />
@@ -705,7 +760,7 @@ const DailyPage = () => {
       onClick={goToPrevPage}
       disabled={notebookPage === 1}
       className="w-8 h-8 flex items-center justify-center rounded-xl text-on-surface-variant/30 hover:text-foreground hover:bg-black/5 transition-all disabled:opacity-20 disabled:pointer-events-none"
-      aria-label="Página anterior"
+      aria-label="PÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡gina anterior"
     >
       <ChevronLeft className="w-4 h-4" strokeWidth={2.5} />
     </button>
@@ -716,13 +771,13 @@ const DailyPage = () => {
       onClick={goToNextPage}
       disabled={notebookPage >= NOTEBOOK_PAGE_COUNT}
       className="w-8 h-8 flex items-center justify-center rounded-xl text-on-surface-variant/30 hover:text-foreground hover:bg-black/5 transition-all disabled:opacity-20 disabled:pointer-events-none"
-      aria-label="Página siguiente"
+      aria-label="PÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡gina siguiente"
     >
       <ChevronRight className="w-4 h-4" strokeWidth={2.5} />
     </button>
   </div>
 
-  {/* Folder pills — scrollable row */}
+  {/* Folder pills ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â scrollable row */}
   <div className="relative z-20 flex items-center gap-2 overflow-x-auto no-scrollbar py-1 px-2 border-b border-outline-variant/10">
      <button
        onClick={() => selectFolderWithSound(null)}
@@ -781,6 +836,8 @@ const DailyPage = () => {
   <div key={i} className="h-20 bg-surface-container-highest/10 border border-outline-variant/10 rounded-2xl animate-pulse" />
   ))}
   </div>
+    ): isMainNotebookComplete ? (
+  renderBlankNotebookPage(true)
   ): visibleNotebookTasks.length > 0? (
   <>
   <div className="space-y-0 pl-[44px] pr-4 py-2">
@@ -802,17 +859,17 @@ const DailyPage = () => {
   view="daily"
   />
   ))}
-  </div>
-  {!isLoading && (
-    <div className="pl-[44px] pr-4 pb-3 shrink-0">
+  {!isLoading && showNotebookQuickAdd && !isMainNotebookComplete && (
+    <div className="pt-1">
       <QuickNotebookTaskAdd folderId={selectedFolderId} folderName={currentFolderName} />
     </div>
   )}
+  </div>
   </>
   ): (
   <>
   <div className="flex-1" />
-  {!isLoading && (
+  {!isLoading && showNotebookQuickAdd && !isMainNotebookComplete && (
     <div className="pl-[44px] pr-4 pb-3 shrink-0">
       <QuickNotebookTaskAdd folderId={selectedFolderId} folderName={currentFolderName} />
     </div>
@@ -820,7 +877,7 @@ const DailyPage = () => {
   </>
   )}
   </div>
-    {visibleNotebookTasks.length === 0 && notebookPage !== 1 && (
+    {!isMainNotebookComplete && visibleNotebookTasks.length === 0 && notebookPage !== 1 && (
     renderBlankNotebookPage(true)
     )}
   </>
@@ -877,7 +934,7 @@ const DailyPage = () => {
  Mini cuaderno exclusivo de escritorio
  </h2>
  <p className="text-on-surface-variant text-sm font-medium leading-relaxed">
- El mini cuaderno solo está disponible en la app de escritorio. Descárgala y ten Adonai siempre visible mientras trabajas.
+ El mini cuaderno solo estÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡ disponible en la app de escritorio. DescÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡rgala y ten Adonai siempre visible mientras trabajas.
  </p>
  </div>
 

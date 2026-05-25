@@ -18,13 +18,14 @@ import {
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
-export const WeeklySummaryModal = () => {
+export const WeeklySummaryModal = ({ enabled = false }: { enabled?: boolean }) => {
     const { user } = useAuth();
     const { data: metrics, isLoading } = useWeeklySummary();
     const saveSummary = useSaveWeeklySummary();
     const [isOpen, setIsOpen] = useState(false);
 
     useEffect(() => {
+        if (!enabled) return;
         // Trigger on Sunday
         const today = new Date();
         const isSunday = today.getDay() === 0;
@@ -54,9 +55,9 @@ export const WeeklySummaryModal = () => {
         };
 
         checkShown();
-    }, [user, metrics]);
+    }, [enabled, user, metrics]);
 
-    if (!metrics) return null;
+    if (!enabled || !metrics) return null;
 
     return (
         <AnimatePresence>

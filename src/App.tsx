@@ -45,6 +45,7 @@ import DownloadGateModal from '@/components/DownloadGateModal';
 import { getAnalyticsExperience, setAnalyticsUser, trackAnalyticsEvent, trackPageView } from "@/lib/analytics";
 import CalendarCallback from "./pages/CalendarCallback";
 import SheetsCallback from "./pages/SheetsCallback";
+import { WeeklySummaryCollector } from "@/components/WeeklySummaryCollector";
 
 
 const queryClient = new QueryClient({
@@ -324,6 +325,7 @@ const App = () => {
               <AnalyticsRouteTracking />
               <AnalyticsIdentity />
               <NotificationManager />
+              <WeeklySummaryCollector />
               <NavigationWrapper>
                 <AppRoutes />
               </NavigationWrapper>

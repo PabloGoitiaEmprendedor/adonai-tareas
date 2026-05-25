@@ -1,11 +1,10 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { Plus, Type, Mic, X } from "lucide-react";
+import { Plus, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { WAKE_WORD_TRIGGERED_EVENT } from '@/lib/voiceEvents';
 
 type FloatingActionMenuProps = {
   options: {
@@ -18,17 +17,6 @@ type FloatingActionMenuProps = {
 
 const FloatingActionMenu = ({ options, className }: FloatingActionMenuProps) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [wakePulse, setWakePulse] = useState(false);
-
-  useEffect(() => {
-    const handleWake = () => {
-      setWakePulse(true);
-      window.setTimeout(() => setWakePulse(false), 700);
-    };
-
-    window.addEventListener(WAKE_WORD_TRIGGERED_EVENT, handleWake);
-    return () => window.removeEventListener(WAKE_WORD_TRIGGERED_EVENT, handleWake);
-  }, []);
 
   const toggleMenu = () => setIsOpen(!isOpen);
   const handleClose = () => setIsOpen(false);
@@ -115,8 +103,7 @@ const FloatingActionMenu = ({ options, className }: FloatingActionMenuProps) => 
           onClick={toggleMenu}
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
-          animate={wakePulse ? { scale: [1, 1.15, 1] } : undefined}
-          transition={wakePulse ? { duration: 0.45 } : { duration: 0.5 }}
+          transition={{ duration: 0.5 }}
           className={cn(
             "w-14 h-14 sm:w-16 sm:h-16 rounded-[18px] sm:rounded-[22px] flex items-center justify-center shadow-[0_12px_40px_rgba(0,0,0,0.3)] transition-all duration-500 border border-white/10",
             isOpen ? "bg-foreground text-background rotate-90" : "bg-brand text-brand-foreground"

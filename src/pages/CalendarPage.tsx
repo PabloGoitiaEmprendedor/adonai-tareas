@@ -27,7 +27,7 @@ const CalendarPage = () => {
           onSelectDate={setSelectedDate}
           viewMode={viewMode}
           dragDisabled={false}
-          className="overflow-x-auto lg:overflow-visible"
+          className="overflow-visible"
         />
 
       </div>

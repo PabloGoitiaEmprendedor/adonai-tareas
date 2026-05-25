@@ -160,7 +160,7 @@
 /* ─── Cursor system ──────────────────────────────────────────── */
 /* 1. Neutral hand: default for all elements */
 #root * {
-  cursor: var(--cursor-hand), auto !important;
+  cursor: auto !important;
 }
 
 /* 2. Pointing hand: buttons, links, and clickable UI */
@@ -169,15 +169,15 @@
 #root [role="button"],
 #root label,
 #root select {
-  cursor: var(--cursor-hand-point), pointer !important;
+  cursor: pointer !important;
 }
 
 /* 3. Explicit cursor utilities (override neutral hand) */
 .cursor-click {
-  cursor: var(--cursor-hand-point), pointer !important;
+  cursor: pointer !important;
 }
 .cursor-click * {
-  cursor: var(--cursor-hand-point), pointer !important;
+  cursor: pointer !important;
 }
 
 .cursor-drag {
@@ -190,6 +190,15 @@
 
 .cursor-edit {
   cursor: var(--cursor-pencil), text !important;
+}
+
+/* Legacy utility used across pages for drag handles */
+.cursor-hand {
+  cursor: grab !important;
+}
+.cursor-hand:active,
+.cursor-hand:active * {
+  cursor: grabbing !important;
 }
 
 /* 4. Grab hand: draggable elements */
@@ -205,7 +214,7 @@
 .cursor-grab a,
 .cursor-grab button:not([disabled]),
 .cursor-grab [role="button"] {
-  cursor: var(--cursor-hand-point), pointer !important;
+  cursor: pointer !important;
 }
 
 /* 6. Pencil: editable text elements (highest priority) */
@@ -225,7 +234,7 @@
 .cursor-eraser button,
 .cursor-pencil a,
 .cursor-eraser a {
-  cursor: var(--cursor-hand-point), pointer !important;
+  cursor: pointer !important;
 }
 ::-webkit-scrollbar-track {
   background: transparent;

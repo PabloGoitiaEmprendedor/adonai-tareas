@@ -1,6 +1,6 @@
-import { useState, memo, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, memo, type CSSProperties } from 'react';
 import { motion } from 'framer-motion';
-import { Paperclip } from 'lucide-react';
+import { Check, Paperclip, X } from 'lucide-react';
 import { useTasks } from '@/hooks/useTasks';
 import { usePriorityColors } from '@/hooks/usePriorityColors';
 import { TaskCheckbox } from './TaskCheckbox';
@@ -36,6 +36,9 @@ export const TaskCard = memo(({
   handleDragStart,
   handleDragOver,
   handleDragEnd,
+  handleTouchStart,
+  handleTouchMove,
+  handleTouchEnd,
   setSelectedTask,
   handleComplete,
   handleUncomplete,
@@ -46,14 +49,31 @@ export const TaskCard = memo(({
   const { updateTask } = useTasks();
   const [isEditing, setIsEditing] = useState(false);
   const [editedTitle, setEditedTitle] = useState(task.title);
+  const titleTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  const resizeTitleEditor = () => {
+    const editor = titleTextareaRef.current;
+    if (!editor) return;
+    editor.style.height = 'auto';
+    editor.style.height = `${Math.min(editor.scrollHeight, 260)}px`;
+  };
+
+  useEffect(() => {
+    if (!isEditing) return;
+    resizeTitleEditor();
+  }, [isEditing, editedTitle]);
+
+  const cancelEdit = () => {
+    setEditedTitle(task.title);
+    setIsEditing(false);
+  };
 
   const submitEdit = () => {
-    setIsEditing(false);
-    if (editedTitle.trim() && editedTitle.trim() !== task.title) {
-      updateTask.mutate({ id: task.id, title: editedTitle.trim() });
-    } else {
-      setEditedTitle(task.title);
+    const normalizedTitle = editedTitle.replace(/\r\n/g, '\n');
+    if (normalizedTitle.trim() && normalizedTitle !== task.title) {
+      updateTask.mutate({ id: task.id, title: normalizedTitle });
     }
+    setIsEditing(false);
   };
   const { colors } = usePriorityColors();
 
@@ -74,24 +94,50 @@ export const TaskCard = memo(({
     <motion.div
       layoutId={view === 'weekly' ? task.id : undefined}
       layout={false}
-      draggable={!isDone}
-      onDragStart={(event) => {
-        if ((event.target as HTMLElement).closest('[data-no-drag="true"]')) {
-          event.preventDefault();
-          return;
-        }
-        handleDragStart?.(taskIdx);
-      }}
+      data-task-idx={taskIdx}
       onDragEnd={() => handleDragEnd?.()}
       initial={view === 'daily' ? { opacity: 0 } : { opacity: 0, scale: 0.98 }}
       animate={{ opacity: 1 }}
       exit={view === 'daily' ? { opacity: 0, transition: { duration: 0.08 } } : undefined}
       onDragOver={(e) => handleDragOver?.(e, taskIdx)}
       style={cardStyle}
-      className={`relative flex items-center gap-2 overflow-hidden border px-1.5 py-2 transition-colors group/task md:px-2 ${
-        view === 'daily' ? 'h-[42px] cursor-grab active:cursor-grabbing border-b-transparent' : 'min-h-[42px] cursor-hand'
-      } border-x-transparent border-t-transparent hover:border-primary/18`}
+      onClick={() => setSelectedTask(task)}
+      className={`relative flex items-start gap-2 overflow-hidden border px-1.5 py-2 transition-colors group/task md:px-2 ${
+        view === 'daily' ? 'min-h-[42px] border-b-transparent' : 'min-h-[42px]'
+      } border-x-transparent border-t-transparent hover:border-primary/18 cursor-pointer`}
     >
+      {/* Drag handle (desktop + mobile): the only area that starts drag */}
+      {(
+        <div
+          data-drag-handle="true"
+          draggable
+          className="relative z-20 flex h-8 w-5 flex-shrink-0 items-center justify-center rounded-lg text-on-surface-variant/35 hover:bg-on-surface-variant/5 hover:text-on-surface-variant/60 cursor-grab active:cursor-grabbing"
+          title="Arrastra para reordenar"
+          aria-label="Arrastrar tarea"
+          onClick={(e) => e.stopPropagation()}
+          onDragStart={(event) => {
+            event.stopPropagation();
+            try {
+              event.dataTransfer?.setData('text/plain', String(task.id ?? taskIdx));
+              event.dataTransfer!.effectAllowed = 'move';
+            } catch {
+              // Ignore.
+            }
+            handleDragStart?.(taskIdx);
+          }}
+          onDragEnd={() => handleDragEnd?.()}
+          onTouchStart={(e) => handleTouchStart?.(taskIdx, e)}
+          onTouchMove={(e) => handleTouchMove?.(e)}
+          onTouchEnd={() => handleTouchEnd?.()}
+          style={{ touchAction: 'none' }}
+        >
+          <span className="flex flex-col gap-0.5">
+            <span className="block h-1 w-1 rounded-full bg-current opacity-70" />
+            <span className="block h-1 w-1 rounded-full bg-current opacity-40" />
+            <span className="block h-1 w-1 rounded-full bg-current opacity-70" />
+          </span>
+        </div>
+      )}
       {!isDone && !hideTimer && (
         <div className="relative z-20 flex-shrink-0" data-no-drag="true">
           <TaskTimerButton
@@ -101,7 +147,7 @@ export const TaskCard = memo(({
         </div>
       )}
 
-      {!isDone && task.link && (
+      {task.link && (
         <div className="relative z-20 flex flex-shrink-0 items-center gap-1" data-no-drag="true">
           {task.link.split(/\s+/).filter(Boolean).map((url: string, i: number) => {
             const href = url.startsWith('http') ? url : `https://${url}`;
@@ -140,33 +186,57 @@ export const TaskCard = memo(({
         />
       </div>
 
-      <div className="relative z-10 flex h-[42px] flex-1 flex-col justify-center min-w-0 overflow-hidden pr-2">
-        <div className="flex min-w-0 items-center gap-2 overflow-hidden">
-          <div className={`min-w-0 text-[14px] font-semibold tracking-normal transition-all flex flex-1 items-center gap-2 font-headline overflow-hidden ${
+      <div className="relative z-10 flex flex-1 min-w-0 flex-col justify-center pr-2">
+        <div className="flex min-w-0 items-start gap-2">
+          <div className={`min-w-0 text-[14px] font-semibold tracking-normal transition-all flex flex-1 items-start gap-2 font-headline ${
             isDone || completingTaskId === task.id ? 'text-on-surface-variant/30 line-through' : 'text-foreground'
           }`}>
             {isEditing ? (
-              <input
-                autoFocus
-                value={editedTitle}
-                size={Math.max(editedTitle.length, 4)}
-                onChange={e => setEditedTitle(e.target.value)}
-                onBlur={submitEdit}
-                onKeyDown={e => {
-                  if (e.key === 'Enter') submitEdit();
-                  if (e.key === 'Escape') {
-                    setEditedTitle(task.title);
-                    setIsEditing(false);
-                  }
-                }}
-                onClick={e => e.stopPropagation()}
-                draggable={false}
-                data-no-drag="true"
-                className="cursor-eraser relative z-10 min-w-0 flex-1 bg-transparent px-1 focus:outline-none"
-              />
+              <>
+                <textarea
+                  ref={titleTextareaRef}
+                  autoFocus
+                  value={editedTitle}
+                  onChange={e => setEditedTitle(e.target.value)}
+                  onInput={(e) => {
+                    const target = e.target as HTMLTextAreaElement;
+                    target.style.height = 'auto';
+                    target.style.height = Math.min(target.scrollHeight, 220) + 'px';
+                  }}
+                  onKeyDown={e => {
+                    if (e.key === 'Escape') cancelEdit();
+                  }}
+                  onClick={e => e.stopPropagation()}
+                  draggable={false}
+                  data-no-drag="true"
+                  className="cursor-edit relative z-10 min-h-[28px] min-w-0 flex-1 whitespace-pre-wrap break-words bg-transparent px-1 focus:outline-none resize-none overflow-hidden leading-snug"
+                  rows={Math.max(1, editedTitle.split('\n').length)}
+                  spellCheck={false}
+                />
+                <div className="flex items-start gap-1.5 pt-0.5" data-no-drag="true" onClick={(e) => e.stopPropagation()}>
+                  <button
+                    type="button"
+                    className="h-8 w-8 rounded-xl border border-outline-variant/20 bg-surface/40 text-primary hover:bg-surface/70 active:scale-95 transition-all flex items-center justify-center cursor-click"
+                    onClick={submitEdit}
+                    aria-label="Guardar"
+                    title="Guardar"
+                  >
+                    <Check className="h-4 w-4" strokeWidth={3} />
+                  </button>
+                  <button
+                    type="button"
+                    className="h-8 w-8 rounded-xl border border-outline-variant/20 bg-surface/40 text-muted-foreground hover:bg-surface/70 active:scale-95 transition-all flex items-center justify-center cursor-click"
+                    onClick={cancelEdit}
+                    aria-label="Cancelar"
+                    title="Cancelar"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              </>
             ) : (
               <span 
-                className="cursor-eraser relative z-10 block min-w-0 flex-1 whitespace-normal break-words rounded px-1 -ml-1 transition-colors hover:bg-on-surface-variant/5 hover:text-primary"
+                className="cursor-edit relative z-10 block min-w-0 flex-1 whitespace-pre-wrap break-words rounded px-1 -ml-1 transition-colors hover:bg-on-surface-variant/5 hover:text-primary leading-snug"
                 onClick={(e) => { e.stopPropagation(); setIsEditing(true); setEditedTitle(task.title); }}
                 draggable={false}
                 data-no-drag="true"

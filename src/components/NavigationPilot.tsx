@@ -7,6 +7,7 @@ interface NavItem {
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   path: string;
+  activePaths?: string[];
 }
 
 interface NavigationPilotProps {
@@ -15,9 +16,10 @@ interface NavigationPilotProps {
   showAdmin?: boolean;
   electronOffset?: boolean;
   user?: any;
+  onNavigate?: (path: string) => void;
 }
 
-export function NavigationPilot({ menuItems, settingsItems, showAdmin, electronOffset, user }: NavigationPilotProps) {
+export function NavigationPilot({ menuItems, settingsItems, showAdmin, electronOffset, user, onNavigate }: NavigationPilotProps) {
   const [open, setOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
@@ -35,24 +37,27 @@ export function NavigationPilot({ menuItems, settingsItems, showAdmin, electronO
   return (
     <div
       className={cn(
-        "fixed left-0 z-[80] hidden lg:block",
-        electronOffset ? 'top-8' : 'top-0',
-        'bottom-0'
+        "pointer-events-none fixed left-0 top-1/2 z-[80] hidden -translate-y-1/2 lg:block",
+        electronOffset && "mt-4"
       )}
-      onMouseEnter={show}
-      onMouseLeave={hide}
     >
       {/* Thin invisible trigger strip on the very left edge */}
-      <div className="absolute inset-y-0 left-0 w-1.5 z-20" />
+      <div
+        className="pointer-events-auto absolute left-0 top-1/2 z-20 h-28 w-2 -translate-y-1/2"
+        onMouseEnter={show}
+        onMouseLeave={hide}
+      />
 
       {/* Nub — always slightly visible on the left edge */}
       <div
+        onMouseEnter={show}
+        onMouseLeave={hide}
         className={cn(
-          "absolute left-0 top-1/2 -translate-y-1/2 w-[16px] h-20 rounded-r-xl transition-all duration-200 flex items-center justify-center",
+          "pointer-events-auto absolute left-0 top-1/2 -translate-y-1/2 w-[18px] h-24 rounded-r-2xl transition-all duration-200 flex items-center justify-center",
           open
-            ? "bg-surface shadow-2xl border border-outline-variant/20 opacity-100"
-            : "bg-surface/50 backdrop-blur-sm border border-outline-variant/5 opacity-40 hover:opacity-80",
-          "shadow-[0_0_10px_rgba(91,124,250,0.25)]"
+            ? "bg-surface shadow-2xl border border-primary/25 opacity-100"
+            : "bg-primary/25 backdrop-blur-sm border border-primary/20 opacity-70 hover:opacity-100",
+          "shadow-[0_0_18px_rgba(91,124,250,0.35)]"
         )}
       >
         <div className="flex flex-col items-center gap-1">
@@ -64,9 +69,12 @@ export function NavigationPilot({ menuItems, settingsItems, showAdmin, electronO
 
       {/* Expanded panel — appears on hover */}
       <div
+        onMouseEnter={show}
+        onMouseLeave={hide}
         className={cn(
-          "relative z-10 transition-all duration-200 ease-out h-full flex items-center pointer-events-none",
-          open ? "opacity-100" : "opacity-0"
+          "relative z-10 transition-all duration-200 ease-out h-full flex items-center",
+          "min-h-[360px]",
+          open ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
         )}
       >
         <div
@@ -78,11 +86,15 @@ export function NavigationPilot({ menuItems, settingsItems, showAdmin, electronO
           <div className="space-y-0.5">
             {menuItems.map((item) => {
               const Icon = item.icon;
-              const isActive = location.pathname === item.path;
+              const isActive = location.pathname === item.path || item.activePaths?.includes(location.pathname);
               return (
                 <button
                   key={item.path}
-                  onClick={() => { navigate(item.path); setOpen(false); }}
+                  onClick={() => {
+                    if (onNavigate) onNavigate(item.path);
+                    else navigate(item.path);
+                    setOpen(false);
+                  }}
                   className={cn(
                     "w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all text-left cursor-click",
                     isActive

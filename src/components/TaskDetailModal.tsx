@@ -133,7 +133,7 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
     }
 
     const taskData = {
-      title: title.trim(),
+      title: title.trim() ? title.replace(/\r\n/g, '\n') : task.title || '',
       description: description.trim() || null,
       due_date: dueDate || null,
       estimated_minutes: estimatedMinutes || null,
@@ -234,10 +234,10 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
                     {/* Title Section */}
                     <div className="space-y-1">
                       <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Tarea</label>
-                      <input
+                      <AutoTextarea
                         value={title}
                         onChange={(e) => { setTitle(e.target.value); markChanged(); }}
-                        className="w-full text-xl font-black bg-surface border border-outline-variant rounded-[20px] px-5 py-4 focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-muted-foreground/30 transition-all"
+                        className="w-full whitespace-pre-wrap break-words text-xl font-black leading-tight bg-surface border border-outline-variant rounded-[20px] px-5 py-4 focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-muted-foreground/30 transition-all"
                         placeholder="¿Qué necesitas hacer?"
                       />
                     </div>

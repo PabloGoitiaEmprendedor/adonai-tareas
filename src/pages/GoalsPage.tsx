@@ -348,7 +348,7 @@ const GoalsPage = () => {
         {/* Header */}
         <div className="text-center mb-12">
           <div className="inline-flex items-center gap-3">
-            <h1 className="text-[28px] sm:text-[32px] font-black tracking-tight" style={{ color: '#1f2937' }}>Metas</h1>
+            <h1 className="text-[30px] sm:text-[34px] font-black tracking-tight text-foreground drop-shadow-sm">Metas</h1>
             <button
               onClick={() => { setWizardData({ title: '', deadline: '', meaningful: '', obstacle: '', taskTitle: '' }); setWizardStep(0); setWizardOpen(true); }}
               className="w-9 h-9 rounded-lg flex items-center justify-center transition-all hover:scale-110 active:scale-95"
@@ -360,8 +360,84 @@ const GoalsPage = () => {
         </div>
 
         {/* Active Goals — Post-it notes */}
+        {/* Active Goals (móvil) */}
+        <div className="sm:hidden grid grid-cols-1 gap-4">
+          {activeGoals.length === 0 ? (
+            <button
+              onClick={() => { setWizardData({ title: '', deadline: '', meaningful: '', obstacle: '', taskTitle: '' }); setWizardStep(0); setWizardOpen(true); }}
+              className="w-full rounded-2xl border-2 p-5 text-left cursor-click"
+              style={{ backgroundColor: '#FEF3C7', borderColor: '#FCD34D', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}
+            >
+              <p className="font-black text-[#92400E]">Crea tu primera meta</p>
+              <p className="text-xs mt-1 text-[#A16207]/70">Escribe aquí tu objetivo...</p>
+            </button>
+          ) : (
+            activeGoals.map((goal) => {
+              const stats = getGoalStats(goal);
+              const hasDeadline = stats.daysLeft !== null;
+              const desc = parseDesc(goal);
+              const pin = desc._pin || {};
+              const colorIdx = pin.colorIdx ?? 0;
+              const postitColor = POSTIT_COLORS[colorIdx % POSTIT_COLORS.length];
+
+              return (
+                <div
+                  key={goal.id}
+                  className="relative mx-auto w-full max-w-[390px] rounded-lg border-2 p-4 active:scale-[0.99] transition-transform cursor-click"
+                  style={{
+                    backgroundColor: postitColor.bg,
+                    borderColor: postitColor.border,
+                    boxShadow: '0 12px 28px rgba(0,0,0,0.18), 0 2px 4px rgba(0,0,0,0.08)',
+                    transform: `rotate(${(activeGoals.indexOf(goal) % 3) - 1}deg)`,
+                  }}
+                  onClick={() => setDetailGoal(goal)}
+                >
+                  <div className="absolute -top-2 left-1/2 h-4 w-4 -translate-x-1/2 rounded-full border-2 border-zinc-300 bg-zinc-400 shadow-sm" />
+                  <div className="pointer-events-none absolute inset-x-4 top-14 bottom-4 opacity-15" style={{ backgroundImage: 'repeating-linear-gradient(180deg, #1f2937 0 1px, transparent 1px 28px)' }} />
+                  <div className="flex items-start gap-3">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleCompleteGoal(goal); }}
+                      className="mt-0.5 h-6 w-6 shrink-0 rounded border-2 flex items-center justify-center hover:bg-black/5 transition-colors"
+                      style={{ borderColor: postitColor.border }}
+                    >
+                      <Check className="w-4 h-4 text-transparent hover:text-current transition-colors" strokeWidth={3} />
+                    </button>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="text-[15px] font-black leading-snug break-words" style={{ color: '#1f2937' }}>
+                        {goal.title}
+                      </h3>
+                      {hasDeadline && (
+                        <div className="mt-3 space-y-1">
+                          <div className="relative h-2" style={{ color: '#1f2937' }}>
+                            <div className="absolute inset-0 border-b border-dashed opacity-30" style={{ borderColor: '#1f2937', borderBottomWidth: '1.5px' }} />
+                            <motion.div
+                              initial={false}
+                              animate={{ width: `${Math.max(4, stats.progress)}%` }}
+                              className="absolute bottom-0 left-0 h-full"
+                              style={{
+                                background: `repeating-linear-gradient(90deg, ${postitColor.border} 0 2px, transparent 2px 4px)`,
+                                borderBottom: '2px solid ' + postitColor.border,
+                              }}
+                              transition={{ type: 'spring', stiffness: 120, damping: 20 }}
+                            />
+                          </div>
+                          <div className="flex items-center justify-between text-[11px] font-bold" style={{ color: '#4b5563' }}>
+                            <span>{stats.progress}%</span>
+                            <span>{stats.daysLeft === 0 ? 'Hoy' : `${Math.max(0, stats.daysLeft)} días`}</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* Active Goals â€” Post-it notes (desktop/tablet) */}
         <div
-          className="relative min-h-[60vh] overflow-x-auto overflow-y-auto overscroll-contain"
+          className="relative hidden sm:block min-h-[60vh] overflow-x-auto overflow-y-auto overscroll-contain"
           style={{
             WebkitOverflowScrolling: 'touch',
             minWidth: activeGoals.length > 0 ? `${20 + (Math.min(activeGoals.length, 3)) * 280 + 60}px` : undefined,

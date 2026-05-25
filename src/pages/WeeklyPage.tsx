@@ -71,14 +71,14 @@ const WeeklyPage = () => {
   const { colors: priorityColors } = usePriorityColors();
 
   return (
-      <div className="max-w-full mx-auto px-4 pt-2 pb-10 space-y-4">
-        <section id="weekly-calendar-main" className="space-y-4 pt-2">
+      <div className="max-w-full mx-auto px-0 sm:px-4 pt-2 pb-10 space-y-4">
+        <section id="weekly-calendar-main" className="space-y-4 pt-2 px-0">
           {/* Adonai 360 Calendar — fully interactive, persists to Supabase */}
           <AdonaiCalendarView
             selectedDate={selectedDay}
             onSelectDate={setSelectedDay}
             dragDisabled={false}
-            className="overflow-x-auto lg:overflow-visible"
+            className="overflow-visible"
           />
         </section>
 

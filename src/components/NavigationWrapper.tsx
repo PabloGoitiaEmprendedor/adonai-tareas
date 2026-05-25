@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { NotebookTabs, Users, User, Calendar, Settings, Menu, Target, Trophy, BarChart3, Sun, History, Palette, X, Flame, ChevronDown } from 'lucide-react';
+import { NotebookTabs, Users, User, Calendar, Settings, Menu, Target, Trophy, BarChart3, Sun, History, Palette, X, Flame } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import AppTutorial from './AppTutorial';
@@ -15,7 +15,6 @@ import FirstTaskSignupModal from './FirstTaskSignupModal';
 import ExitIntentModal from './ExitIntentModal';
 import { useTasks } from '@/hooks/useTasks';
 import { usePriorityColors, getPriorityKey } from '@/hooks/usePriorityColors';
-import { useGlobalVoiceCapture } from '@/hooks/useGlobalVoiceCapture';
 import { MobileDynamicIsland } from '@/components/ui/mobile-task-island';
 import FAB from '@/components/FAB';
 import TaskCaptureModal, { type TaskCaptureModalHandle } from '@/components/TaskCaptureModal';
@@ -26,6 +25,11 @@ import { useNotionIntegration } from '@/hooks/useNotionIntegration';
 import { useRef, useCallback } from 'react';
 import { useStreaks } from '@/hooks/useStreaks';
 import { NavigationPilot } from './NavigationPilot';
+import ProfilePage from '@/pages/ProfilePage';
+import AchievementsPage from '@/pages/AchievementsPage';
+import AppSettingsPage from '@/pages/SettingsPage';
+import PrioritySettingsPage from '@/pages/PrioritySettingsPage';
+import TrashPage from '@/pages/TrashPage';
 
 // Detect if running inside Electron (desktop app)
 const isElectronEnv: boolean =
@@ -33,6 +37,46 @@ const isElectronEnv: boolean =
   (!!window.electronAPI ||
     navigator.userAgent.toLowerCase().includes('electron') ||
     !!(window.process && window.process.versions && window.process.versions.electron));
+
+const SETTINGS_PATHS = ['/profile', '/achievements', '/settings', '/priority-settings', '/trash'];
+
+const SETTINGS_DIALOG_ITEMS = [
+  {
+    label: 'Perfil',
+    icon: User,
+    path: '/profile',
+    description: 'Identidad, presencia y resumen personal.',
+    Component: ProfilePage,
+  },
+  {
+    label: 'Logros',
+    icon: Trophy,
+    path: '/achievements',
+    description: 'Rachas, niveles y recompensas desbloqueadas.',
+    Component: AchievementsPage,
+  },
+  {
+    label: 'Configuraci\u00f3n',
+    icon: Settings,
+    path: '/settings',
+    description: 'Preferencias generales, conexiones e integraciones.',
+    Component: AppSettingsPage,
+  },
+  {
+    label: 'Personalizar',
+    icon: Palette,
+    path: '/priority-settings',
+    description: 'Colores de prioridades y experiencia visual.',
+    Component: PrioritySettingsPage,
+  },
+  {
+    label: 'Historial',
+    icon: History,
+    path: '/trash',
+    description: 'Tareas eliminadas y recuperaci\u00f3n.',
+    Component: TrashPage,
+  },
+];
 
 interface NavigationWrapperProps {
   children: React.ReactNode;
@@ -71,9 +115,6 @@ const ProfileProgress = ({ metrics }: { metrics: any }) => (
 );
 
 const SidebarContent = ({ user, profile, metrics, menuItems, location, handleNavigate, startTutorial, isSheet, toggleSidebar }: any) => {
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const settingsPaths = ['/profile', '/achievements', '/settings', '/priority-settings', '/trash'];
-  const settingsActive = settingsPaths.includes(location.pathname);
 
   return (
   <div className="flex flex-col h-full bg-surface text-foreground">
@@ -114,23 +155,28 @@ const SidebarContent = ({ user, profile, metrics, menuItems, location, handleNav
     <div className="flex-1 overflow-y-auto py-4">
       <div className="px-3 space-y-1">
         {menuItems.map((item: any) => (
+          (() => {
+            const active = location.pathname === item.path || item.activePaths?.includes(location.pathname);
+            return (
           <Button
             key={item.path}
             id={`nav-${item.path.replace('/', '') || 'today'}`}
             variant="ghost"
             onClick={() => handleNavigate(item.path)}
             className={`w-full justify-start gap-4 h-12 rounded-xl transition-all duration-300 ${
-              location.pathname === item.path 
+              active
                 ? 'bg-primary/20 text-foreground font-bold' 
                 : 'text-on-surface-variant hover:bg-surface-container hover:text-foreground'
             }`}
           >
-            <item.icon className={`w-5 h-5 ${location.pathname === item.path ? 'text-foreground' : ''}`} />
+            <item.icon className={`w-5 h-5 ${active ? 'text-foreground' : ''}`} />
             <span className="text-sm tracking-wide">{item.label}</span>
           </Button>
+            );
+          })()
         ))}
 
-        {/* Admin panel — CEO only */}
+        {/* Admin panel Ã¢â‚¬â€ CEO only */}
         {user?.email === 'pablogoitiaemprendedor@gmail.com' && (
           <Button
             variant="ghost"
@@ -147,44 +193,6 @@ const SidebarContent = ({ user, profile, metrics, menuItems, location, handleNav
         )}
       </div>
 
-      <div className="mt-8 px-3">
-        <button
-          type="button"
-          onClick={() => setSettingsOpen((open) => !open)}
-          className={`w-full h-11 px-3 rounded-xl flex items-center justify-between transition-all ${
-            settingsActive
-              ? 'bg-surface-container text-foreground'
-              : 'text-on-surface-variant hover:bg-surface-container hover:text-foreground'
-          }`}
-          aria-expanded={settingsOpen}
-        >
-          <span className="flex items-center gap-4">
-            <Settings className="w-4 h-4" />
-            <span className="text-xs font-bold">Ajustes</span>
-          </span>
-          <ChevronDown className={`w-4 h-4 transition-transform ${settingsOpen ? 'rotate-180' : ''}`} />
-        </button>
-
-        {settingsOpen && (
-          <div className="mt-2 space-y-1 pl-2">
-            <Button id="nav-profile" onClick={() => handleNavigate('/profile')} variant="ghost" className={`w-full justify-start gap-4 h-10 text-xs ${location.pathname === '/profile' ? 'text-foreground bg-surface-container font-bold' : 'text-on-surface-variant hover:text-foreground hover:bg-surface-container'}`}>
-              <User className="w-4 h-4" /> <span>Perfil</span>
-            </Button>
-            <Button id="nav-achievements" onClick={() => handleNavigate('/achievements')} variant="ghost" className={`w-full justify-start gap-4 h-10 text-xs ${location.pathname === '/achievements' ? 'text-foreground bg-surface-container font-bold' : 'text-on-surface-variant hover:text-foreground hover:bg-surface-container'}`}>
-              <Trophy className="w-4 h-4" /> <span>Logros</span>
-            </Button>
-            <Button id="nav-settings" onClick={() => handleNavigate('/settings')} variant="ghost" className={`w-full justify-start gap-4 h-10 text-xs ${location.pathname === '/settings' ? 'text-foreground bg-surface-container font-bold' : 'text-on-surface-variant hover:text-foreground hover:bg-surface-container'}`}>
-              <Settings className="w-4 h-4" /> <span>Ajustes</span>
-            </Button>
-            <Button id="nav-personalizar" onClick={() => handleNavigate('/priority-settings')} variant="ghost" className={`w-full justify-start gap-4 h-10 text-xs ${location.pathname === '/priority-settings' ? 'text-foreground bg-surface-container font-bold' : 'text-on-surface-variant hover:text-foreground hover:bg-surface-container'}`}>
-              <Palette className="w-4 h-4" /> <span>Personalizar</span>
-            </Button>
-            <Button id="nav-trash" onClick={() => handleNavigate('/trash')} variant="ghost" className={`w-full justify-start gap-4 h-10 text-xs ${location.pathname === '/trash' ? 'text-foreground bg-surface-container font-bold' : 'text-on-surface-variant hover:text-foreground hover:bg-surface-container'}`}>
-              <History className="w-4 h-4" /> <span>Historial</span>
-            </Button>
-          </div>
-        )}
-      </div>
     </div>
 
     {user?.is_anonymous && (
@@ -206,6 +214,8 @@ const SidebarContent = ({ user, profile, metrics, menuItems, location, handleNav
 const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
   const [open, setOpen] = useState(false);
   const [tutorialRun, setTutorialRun] = useState(false);
+  const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
+  const [settingsPanelPath, setSettingsPanelPath] = useState('/profile');
 
   const location = useLocation();
   const [draftActive, setDraftActive] = useState(false);
@@ -307,28 +317,19 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
   const openCaptureInVoiceMode = useCallback((context?: { goalId?: string; folderId?: string }) => {
     if (context) setTargetContext(context);
     else setTargetContext({});
-    setCaptureInitialMode(null);
+    setCaptureInitialMode('text');
     setCaptureOpen(true);
-    setTimeout(() => {
-      captureModalRef.current?.openInVoiceMode();
-    }, 10);
   }, []);
-
-  useGlobalVoiceCapture(captureModalRef, () => openCapture());
 
   // Listen for global open-capture events
   useEffect(() => {
     const handleOpenCapture = (e: any) => {
-      const { goalId, folderId, voice } = e.detail || {};
-      if (voice) {
-        openCaptureInVoiceMode({ goalId, folderId });
-      } else {
-        openCaptureInTextMode({ goalId, folderId });
-      }
+      const { goalId, folderId } = e.detail || {};
+      openCaptureInTextMode({ goalId, folderId });
     };
     window.addEventListener('adonai:open-capture' as any, handleOpenCapture);
     return () => window.removeEventListener('adonai:open-capture' as any, handleOpenCapture);
-  }, [openCaptureInTextMode, openCaptureInVoiceMode]);
+  }, [openCaptureInTextMode]);
 
   const menuItems = [
     { label: 'Hoy', icon: Sun, path: '/daily' },
@@ -336,10 +337,17 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
     { label: 'Calendario', icon: Calendar, path: '/week' },
     { label: 'Metas', icon: Target, path: '/goals' },
     { label: 'Amigos', icon: Users, path: '/friends' },
+    { label: 'Ajustes', icon: Settings, path: '#settings', activePaths: SETTINGS_PATHS },
   ];
 
   const handleNavigate = (path: string) => {
     if (path === '#') return;
+    if (path === '#settings') {
+      setSettingsPanelPath(SETTINGS_PATHS.includes(location.pathname) ? location.pathname : '/profile');
+      setSettingsDialogOpen(true);
+      setOpen(false);
+      return;
+    }
     navigate(path);
     setOpen(false);
   };
@@ -422,6 +430,67 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
         </SheetContent>
       </Sheet>
 
+      <Dialog open={settingsDialogOpen} onOpenChange={setSettingsDialogOpen}>
+        <DialogContent className="h-[min(92dvh,780px)] w-[calc(100vw-1rem)] max-w-[1120px] rounded-[26px] border border-outline-variant/25 bg-surface/94 p-0 shadow-2xl shadow-black/35 backdrop-blur-xl overflow-hidden sm:w-[calc(100vw-1.5rem)] sm:rounded-[28px]">
+          <DialogHeader>
+            <DialogTitle className="sr-only">Ajustes</DialogTitle>
+          </DialogHeader>
+
+          <div className="grid h-full min-h-0 grid-rows-[auto_1fr] sm:grid-cols-[240px_1fr] sm:grid-rows-1">
+            <aside className="min-w-0 border-b border-outline-variant/20 bg-surface-container/50 p-3 sm:border-b-0 sm:border-r sm:p-4">
+              <div className="mb-4 hidden px-2 sm:block">
+                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-on-surface-variant/45">Centro</p>
+                <h2 className="text-xl font-black tracking-tight">Ajustes</h2>
+              </div>
+              <div className="flex gap-2 overflow-x-auto no-scrollbar sm:block sm:space-y-1.5 sm:overflow-visible">
+                {SETTINGS_DIALOG_ITEMS.map((item) => {
+                  const Icon = item.icon;
+                  const active = settingsPanelPath === item.path;
+                  return (
+                    <button
+                      key={item.path}
+                      type="button"
+                      onClick={() => setSettingsPanelPath(item.path)}
+                      className={`flex shrink-0 items-center gap-2 rounded-2xl px-3 py-2.5 text-left transition-all sm:w-full sm:gap-3 sm:py-3 ${
+                        active ? 'bg-background text-foreground shadow-sm' : 'text-on-surface-variant hover:bg-background/45 hover:text-foreground'
+                      }`}
+                    >
+                      <Icon className={`h-4 w-4 shrink-0 ${active ? 'text-primary' : ''}`} />
+                      <span className="whitespace-nowrap text-xs font-bold sm:text-sm">{item.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </aside>
+
+            <section className="min-h-0 overflow-hidden bg-background/45">
+              {(() => {
+                const cleanItem = SETTINGS_DIALOG_ITEMS.find((option) => option.path === settingsPanelPath) || SETTINGS_DIALOG_ITEMS[0];
+                const Icon = cleanItem.icon;
+                const ActiveSettingsPage = cleanItem.Component;
+                return (
+                  <div className="flex h-full min-h-0 flex-col">
+                    <div className="flex items-center gap-3 border-b border-outline-variant/15 bg-surface/70 px-4 py-3 backdrop-blur-xl sm:px-7 sm:py-4">
+                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary/12 text-primary">
+                          <Icon className="h-5 w-5" />
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-primary/60">Sección</p>
+                          <h3 className="text-xl font-black tracking-tight">{cleanItem.label}</h3>
+                          <p className="hidden text-xs font-medium text-on-surface-variant/60 sm:block">{cleanItem.description}</p>
+                        </div>
+                      </div>
+                    <div className="min-h-0 flex-1 overflow-y-auto [&_.min-h-screen]:min-h-0 [&_.pb-32]:pb-10 [&_.pt-8]:pt-4 [&_.pt-6]:pt-4">
+                      <ActiveSettingsPage />
+                      </div>
+                  </div>
+                );
+              })()}
+            </section>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Floating Header Trigger - mobile only (pilot handles desktop) */}
       {!open && (
         <div className={`fixed left-3 z-[70] flex items-center gap-2 sm:left-4 lg:hidden ${
@@ -430,9 +499,9 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
             id="global-menu-trigger"
             onClick={() => setOpen(true)}
             aria-label="Mostrar menú"
-            className="w-10 h-10 rounded-xl bg-background/80 text-on-surface-variant/70 shadow-lg shadow-black/5 backdrop-blur-xl border border-outline-variant/10 hover:text-foreground transition-all active:scale-90 flex items-center justify-center"
+            className="w-9 h-9 rounded-xl bg-transparent text-on-surface-variant/70 backdrop-blur-xl border border-outline-variant/10 hover:bg-surface-container/40 hover:text-foreground transition-all active:scale-90 flex items-center justify-center"
           >
-            <Menu className="w-5 h-5" />
+            <Menu className="w-4 h-4" />
           </button>
           {user?.is_anonymous && (
             <button
@@ -445,19 +514,13 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
         </div>
       )}
 
-      {/* Navigation Pilot — floating hover menu (desktop only) */}
+      {/* Navigation Pilot Ã¢â‚¬â€ floating hover menu (desktop only) */}
       <NavigationPilot
         menuItems={menuItems}
-        settingsItems={[
-          { label: 'Perfil', icon: User, path: '/profile' },
-          { label: 'Logros', icon: Trophy, path: '/achievements' },
-          { label: 'Ajustes', icon: Settings, path: '/settings' },
-          { label: 'Personalizar', icon: Palette, path: '/priority-settings' },
-          { label: 'Historial', icon: History, path: '/trash' },
-        ]}
         showAdmin={user?.email === 'pablogoitiaemprendedor@gmail.com'}
         electronOffset={isElectronEnv}
         user={user}
+        onNavigate={handleNavigate}
       />
 
       <main
@@ -653,3 +716,4 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
 };
 
 export default NavigationWrapper;
+

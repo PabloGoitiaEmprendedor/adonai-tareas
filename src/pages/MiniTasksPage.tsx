@@ -1,5 +1,5 @@
 /**
- * MiniTasksPage — Adaptive floating pill widget.
+ * MiniTasksPage â€” Adaptive floating pill widget.
  * - Pill (collapsed): small window, draggable ANYWHERE freely
  * - Expanded: panel that adapts direction based on screen position
  * - Inline per-task timer with primary accent
@@ -119,7 +119,7 @@ function formatTimer(seconds: number): string {
 }
 
 
-// ─── Task Row ────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Task Row â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const TaskRowRaw = ({ task, onToggle, onDetail, activeTimerId, onTimerToggle, updateTask, folders, currentDate, ensureCalendarOpen }: {
  task: any; onToggle: (task: any) => void; onDetail: (task: any) => void;
  activeTimerId: string | null; onTimerToggle: (taskId: string, estimatedMinutes?: number) => void;
@@ -433,7 +433,7 @@ const TaskRowRaw = ({ task, onToggle, onDetail, activeTimerId, onTimerToggle, up
 };
 const TaskRow = memo(TaskRowRaw);
 
-// ─── Drag hook ───────────────────────────────────────────────────────────────
+// â”€â”€â”€ Drag hook â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function useDragWindow() {
  const isDraggingRef = useRef(false);
  const startRef = useRef({ x: 0, y: 0 });
@@ -464,7 +464,7 @@ function useDragWindow() {
  return { onMouseDown, hasMovedRef, isDraggingRef };
 }
 
-// ─── Main component ──────────────────────────────────────────────────────────
+// â”€â”€â”€ Main component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const MiniTaskList = () => {
  const { user, loading } = useAuth();
  const { theme } = useTheme();
@@ -519,11 +519,11 @@ const MiniTaskList = () => {
  }, [viewDate]);
 
  const openVoiceCapture = useCallback(() => {
- setCaptureMode('voice');
- setCaptureCreationSource('mini_voice');
+ setCaptureMode('text');
+ setCaptureCreationSource('mini_plus');
  setCaptureOpen(true);
- void captureModalRef.current?.openInVoiceMode();
- }, []);
+ captureModalRef.current?.openInTextMode(format(viewDate, 'yyyy-MM-dd'));
+ }, [viewDate]);
 
  const { onMouseDown: onDragMouseDown, hasMovedRef, isDraggingRef: isDraggingWindowRef } = useDragWindow();
 
@@ -605,7 +605,7 @@ const MiniTaskList = () => {
  }
 
  if (!isExpanded) {
- // EXPANDING — save current pill position for later restore
+ // EXPANDING â€” save current pill position for later restore
  const pos = await api.getMiniPosition();
  if (!pos) { setIsExpanded(true); return; }
 
@@ -631,7 +631,7 @@ const MiniTaskList = () => {
  api.setMiniBounds({ x: Math.round(panelX), y: Math.round(panelY), w: WINDOW_W, h: PANEL_H });
  setIsExpanded(true);
  } else {
- // COLLAPSING — restore pill to original saved position
+ // COLLAPSING â€” restore pill to original saved position
  const pillW = activeTimerId? PILL_TIMER_W: PILL_W;
  const pos = await api.getMiniPosition();
  if (originalPosRef.current) {
@@ -812,11 +812,9 @@ const MiniTaskList = () => {
  }, [tasks, activeTimerId, updateTask]);
 
  const filteredTasks = useMemo(() => {
- // La pestaña "General" (null) solo muestra las tareas que NO tienen cuaderno asignado
  if (!selectedFolderId) {
- return tasks.filter((t: any) =>!t.folder_id);
+ return tasks;
  }
- // Si hay un cuaderno seleccionado, muestra solo las tareas de ese cuaderno
  return tasks.filter((t: any) => t.folder_id === selectedFolderId);
  }, [tasks, selectedFolderId]);
 
@@ -938,7 +936,7 @@ const MiniTaskList = () => {
  }
  }, [updateTask, tasks, checkAndUnlock, profile?.name, activeTimerId]);
 
- // ── COLLAPSED PILL ──
+ // â”€â”€ COLLAPSED PILL â”€â”€
  if (!isReady) {
  return <div style={{ width: '100%', height: '100%' }} />;
  }
@@ -1001,11 +999,11 @@ const MiniTaskList = () => {
  // Detect if running in browser (not Electron) for preview mode
  const isElectron =!!(window as any).electronAPI;
 
- // ── EXPANDED PANEL ──
+ // â”€â”€ EXPANDED PANEL â”€â”€
  // In browser: render inside a preview shell that simulates the floating window
  const panelContent = (
  <>
- {/* OUTER: position context — no overflow clip so the tab can protrude */}
+ {/* OUTER: position context â€” no overflow clip so the tab can protrude */}
  <div
  onMouseEnter={() => {
  handleMouseEnterUI();
@@ -1075,14 +1073,14 @@ const MiniTaskList = () => {
  }}>
  {/* Left panel: tasks */}
  <div style={{ width: PANEL_W, display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
- {/* Top bar — fully draggable */}
+ {/* Top bar â€” fully draggable */}
  <div onMouseDown={onDragMouseDown} style={{
  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
  padding: '10px 16px 6px', flexShrink: 0, cursor: 'grab', userSelect: 'none',
  }}>
- {/* LEFT: collapse pill (…) + direct action buttons */}
+ {/* LEFT: collapse pill (â€¦) + direct action buttons */}
  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
- {/* Collapse / timer pill — same... design as collapsed state */}
+ {/* Collapse / timer pill â€” same... design as collapsed state */}
  <div onClick={handleToggleExpand} style={{
  height: activeTimerId? 28: 26, borderRadius: 999,
  padding: activeTimerId? '0 11px': '0',
@@ -1101,7 +1099,7 @@ const MiniTaskList = () => {
  )}
  </div>
 
- {/* 1. TEXT button — + icon */}
+ {/* 1. TEXT button â€” + icon */}
  <div
  onClick={(e) => { e.stopPropagation(); openTextCapture(); }}
  style={{
@@ -1112,15 +1110,16 @@ const MiniTaskList = () => {
  cursor: 'pointer', flexShrink: 0,
  transition: 'all 0.2s ease',
  }}
- title="Añadir tarea"
+ title="AÃ±adir tarea"
  >
  <Plus style={{ width: 16, height: 16, color: C.text }} />
  </div>
 
- {/* 2. VOICE button — Audio icon */}
+ {/* 2. VOICE button â€” Audio icon */}
  <div
  onClick={(e) => { e.stopPropagation(); openVoiceCapture(); }}
  style={{
+ display: 'none',
  width: 34, height: 28, borderRadius: 10,
  background: C.subBg,
  border: `1px solid ${C.border}`,
@@ -1128,7 +1127,7 @@ const MiniTaskList = () => {
  cursor: 'pointer', flexShrink: 0,
  transition: 'all 0.2s ease',
  }}
- title="Añadir por voz"
+ title="AÃ±adir por voz"
  >
  <Mic style={{ width: 15, height: 15, color: C.text }} />
  </div>
@@ -1149,7 +1148,7 @@ const MiniTaskList = () => {
  <Notebook style={{ width: 14, height: 14, color: showFolderBar? C.accent: C.text }} />
  </div>
 
- {/* 4. RECURRENCE button — Repeat icon */}
+ {/* 4. RECURRENCE button â€” Repeat icon */}
  <div
  onClick={(e) => { 
  e.stopPropagation(); 
@@ -1189,7 +1188,7 @@ const MiniTaskList = () => {
  </div>
  )}
 
- {/* Notebook bar — Toggleable */}
+ {/* Notebook bar â€” Toggleable */}
  <AnimatePresence>
  {showFolderBar && (
  <motion.div 
@@ -1355,6 +1354,7 @@ const MiniTaskList = () => {
  <button
  onClick={openVoiceCapture}
  style={{
+ display: 'none',
  flex: 1, height: 36, borderRadius: 12,
  background: 'rgba(255,255,255,0.03)', border: `1px solid ${C.border}`,
  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
@@ -1377,7 +1377,7 @@ const MiniTaskList = () => {
  <div style={{ textAlign: 'center', padding: 24 }}>
  <span style={{ fontSize: 28 }}></span>
  <p style={{ fontSize: 11, fontWeight: 800, marginTop: 8, color: C.text, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
- {selectedFolderId? 'Sin tareas en este cuaderno': '¡Día despejado!'}
+ {selectedFolderId? 'Sin tareas en este cuaderno': 'Â¡DÃ­a despejado!'}
  </p>
  </div>
  ): (
@@ -1417,7 +1417,7 @@ const MiniTaskList = () => {
  style={{ margin: '6px 0', padding: '10px', borderRadius: 12, textAlign: 'center', background: C.accentBg, border: `1px solid ${C.accentBorder}` }}
  >
  <span style={{ fontSize: 20 }}></span>
- <p style={{ fontSize: 12, fontWeight: 800, color: C.accent, marginTop: 4 }}>¡Todo completado!</p>
+ <p style={{ fontSize: 12, fontWeight: 800, color: C.accent, marginTop: 4 }}>Â¡Todo completado!</p>
  </motion.div>
  )}
  </div>
@@ -1500,10 +1500,10 @@ const MiniTaskList = () => {
  fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.25)',
  letterSpacing: '0.1em', textTransform: 'uppercase', userSelect: 'none',
  }}>
- Vista previa — Mini Ventana
+ Vista previa â€” Mini Ventana
  </div>
 
- {/* Simulated window — overflow visible so tab protrudes */}
+ {/* Simulated window â€” overflow visible so tab protrudes */}
  <div style={{
  width: PANEL_W + (calendarOpen? CALENDAR_W + 16: 0),
  height: PANEL_H,
