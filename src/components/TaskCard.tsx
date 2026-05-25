@@ -52,6 +52,8 @@ export const TaskCard = memo(({
   const [isEditing, setIsEditing] = useState(false);
   const [editedTitle, setEditedTitle] = useState(task.title);
   const titleTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dragStartedRef = useRef(false);
 
   const resizeTitleEditor = () => {
     const editor = titleTextareaRef.current;
@@ -131,9 +133,31 @@ export const TaskCard = memo(({
             handleDragStart?.(taskIdx);
           }}
           onDragEnd={() => handleDragEnd?.()}
-          onTouchStart={(e) => { e.preventDefault(); e.stopPropagation(); handleTouchStart?.(taskIdx, e); }}
-          onTouchMove={(e) => { e.preventDefault(); handleTouchMove?.(e); }}
-          onTouchEnd={() => handleTouchEnd?.()}
+          onTouchStart={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dragStartedRef.current = false;
+            longPressTimer.current = setTimeout(() => {
+              dragStartedRef.current = true;
+              if ('vibrate' in navigator) navigator.vibrate(20);
+              handleTouchStart?.(taskIdx, e);
+            }, 1000);
+          }}
+          onTouchMove={(e) => {
+            if (!dragStartedRef.current) {
+              if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
+              return;
+            }
+            e.preventDefault();
+            handleTouchMove?.(e);
+          }}
+          onTouchEnd={() => {
+            if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
+            if (dragStartedRef.current) {
+              dragStartedRef.current = false;
+              handleTouchEnd?.();
+            }
+          }}
           style={{ touchAction: 'none', WebkitTouchCallout: 'none' as any, userSelect: 'none' }}
         >
           <span className="flex flex-col gap-0.5">
@@ -243,9 +267,6 @@ export const TaskCard = memo(({
               <span 
                 className="cursor-edit relative z-10 block min-w-0 flex-1 whitespace-pre-wrap break-words rounded px-1 -ml-1 transition-colors hover:bg-on-surface-variant/5 hover:text-primary leading-snug"
                 onClick={(e) => { e.stopPropagation(); setIsEditing(true); setEditedTitle(task.title); window.dispatchEvent(new CustomEvent('adonai:task-editing-change', { detail: { active: true } })); }}
-                onTouchStart={(e) => handleTouchStart?.(taskIdx, e)}
-                onTouchMove={(e) => handleTouchMove?.(e)}
-                onTouchEnd={() => handleTouchEnd?.()}
                 draggable={false}
                 data-no-drag="true"
               >
