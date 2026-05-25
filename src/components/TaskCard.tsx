@@ -68,6 +68,7 @@ export const TaskCard = memo(({
   const cancelEdit = () => {
     setEditedTitle(task.title);
     setIsEditing(false);
+    window.dispatchEvent(new CustomEvent('adonai:task-editing-change', { detail: { active: false } }));
   };
 
   const submitEdit = () => {
@@ -76,6 +77,7 @@ export const TaskCard = memo(({
       updateTask.mutate({ id: task.id, title: normalizedTitle });
     }
     setIsEditing(false);
+    window.dispatchEvent(new CustomEvent('adonai:task-editing-change', { detail: { active: false } }));
   };
   const { colors } = usePriorityColors();
 
@@ -109,12 +111,12 @@ export const TaskCard = memo(({
         view === 'daily' ? 'min-h-[42px] border-b-transparent' : 'min-h-[42px]'
       } ${highlighted ? 'ring-2 ring-primary/40 bg-primary/5' : ''} border-x-transparent border-t-transparent hover:border-primary/18 cursor-pointer`}
     >
-      {/* Drag handle (desktop + mobile): the only area that starts drag */}
+        {/* Drag handle (desktop + mobile): the only area that starts drag */}
       {(
         <div
           data-drag-handle="true"
           draggable
-          className="relative z-20 flex h-8 w-5 flex-shrink-0 items-center justify-center rounded-lg text-on-surface-variant/35 hover:bg-on-surface-variant/5 hover:text-on-surface-variant/60 cursor-grab active:cursor-grabbing"
+          className="relative z-20 flex h-8 w-5 flex-shrink-0 items-center justify-center rounded-lg text-on-surface-variant/35 hover:bg-on-surface-variant/5 hover:text-on-surface-variant/60 cursor-grab active:cursor-grabbing select-none"
           title="Arrastra para reordenar"
           aria-label="Arrastrar tarea"
           onClick={(e) => e.stopPropagation()}
@@ -129,10 +131,10 @@ export const TaskCard = memo(({
             handleDragStart?.(taskIdx);
           }}
           onDragEnd={() => handleDragEnd?.()}
-          onTouchStart={(e) => handleTouchStart?.(taskIdx, e)}
-          onTouchMove={(e) => handleTouchMove?.(e)}
+          onTouchStart={(e) => { e.preventDefault(); e.stopPropagation(); handleTouchStart?.(taskIdx, e); }}
+          onTouchMove={(e) => { e.preventDefault(); handleTouchMove?.(e); }}
           onTouchEnd={() => handleTouchEnd?.()}
-          style={{ touchAction: 'none' }}
+          style={{ touchAction: 'none', WebkitTouchCallout: 'none' as any, userSelect: 'none' }}
         >
           <span className="flex flex-col gap-0.5">
             <span className="block h-1 w-1 rounded-full bg-current opacity-70" />
@@ -240,7 +242,10 @@ export const TaskCard = memo(({
             ) : (
               <span 
                 className="cursor-edit relative z-10 block min-w-0 flex-1 whitespace-pre-wrap break-words rounded px-1 -ml-1 transition-colors hover:bg-on-surface-variant/5 hover:text-primary leading-snug"
-                onClick={(e) => { e.stopPropagation(); setIsEditing(true); setEditedTitle(task.title); }}
+                onClick={(e) => { e.stopPropagation(); setIsEditing(true); setEditedTitle(task.title); window.dispatchEvent(new CustomEvent('adonai:task-editing-change', { detail: { active: true } })); }}
+                onTouchStart={(e) => handleTouchStart?.(taskIdx, e)}
+                onTouchMove={(e) => handleTouchMove?.(e)}
+                onTouchEnd={() => handleTouchEnd?.()}
                 draggable={false}
                 data-no-drag="true"
               >

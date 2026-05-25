@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { NotebookTabs, Users, User, Calendar, Settings, Menu, Target, Trophy, BarChart3, Sun, History, Palette, X, Flame } from 'lucide-react';
 import { toast } from 'sonner';
+import { motion, AnimatePresence } from 'framer-motion';
 
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -221,9 +222,10 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
   const [draftActive, setDraftActive] = useState(false);
   const [detailActive, setDetailActive] = useState(false);
   const [eventCreateOpen, setEventCreateOpen] = useState(false);
+  const [taskEditingActive, setTaskEditingActive] = useState(false);
 
   const isPathFabHidden = ['/folders', '/goals', '/friends', '/profile', '/settings', '/priority-settings', '/trash', '/achievements'].some(path => location.pathname.startsWith(path));
-  const fabHidden = draftActive || detailActive || eventCreateOpen || isPathFabHidden;
+  const fabHidden = draftActive || detailActive || eventCreateOpen || taskEditingActive || isPathFabHidden;
 
   useEffect(() => {
     const handler = (e: Event) => setDraftActive((e as CustomEvent).detail.active)
@@ -239,6 +241,12 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
       window.removeEventListener('adonai:dialog-state-change', handler)
       window.removeEventListener('adonai:detail-state-change', handler)
     }
+  }, [])
+
+  useEffect(() => {
+    const handler = (e: Event) => setTaskEditingActive((e as CustomEvent).detail.active)
+    window.addEventListener('adonai:task-editing-change', handler)
+    return () => window.removeEventListener('adonai:task-editing-change', handler)
   }, [])
 
   useEffect(() => {
@@ -421,6 +429,39 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
   
   const showNavigation = !loading && !isWelcomePage && !isAuthPage && !isMiniPage && !isLandingPage && !isPrivacyPage && !isTermsPage && !isDocsPage && !isCaracteristicasPage && !isFaqPage && !isOnboardingPage;
 
+  // Mobile page swipe navigation
+  const SWIPE_PAGES = ['/daily', '/week', '/folders'];
+  const touchSwipeX = useRef<number | null>(null);
+  const touchSwipeY = useRef<number | null>(null);
+  const swipeDirection = useRef(1);
+  useEffect(() => {
+    const el = document.getElementById('main-content');
+    if (!el) return;
+    const onTouchStart = (e: TouchEvent) => {
+      touchSwipeX.current = e.touches[0].clientX;
+      touchSwipeY.current = e.touches[0].clientY;
+    };
+    const onTouchEnd = (e: TouchEvent) => {
+      if (touchSwipeX.current === null || touchSwipeY.current === null) return;
+      const dx = e.changedTouches[0].clientX - touchSwipeX.current;
+      const dy = e.changedTouches[0].clientY - touchSwipeY.current;
+      if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+        const idx = SWIPE_PAGES.indexOf(location.pathname);
+        if (idx === -1) return;
+        if (dx > 0 && idx > 0) { swipeDirection.current = -1; navigate(SWIPE_PAGES[idx - 1]); }
+        else if (dx < 0 && idx < SWIPE_PAGES.length - 1) { swipeDirection.current = 1; navigate(SWIPE_PAGES[idx + 1]); }
+      }
+      touchSwipeX.current = null;
+      touchSwipeY.current = null;
+    };
+    el.addEventListener('touchstart', onTouchStart, { passive: true });
+    el.addEventListener('touchend', onTouchEnd, { passive: true });
+    return () => {
+      el.removeEventListener('touchstart', onTouchStart);
+      el.removeEventListener('touchend', onTouchEnd);
+    };
+  }, [location.pathname, navigate]);
+
   if (!showNavigation) {
     return <>{children}</>;
   }
@@ -545,9 +586,25 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
         id="main-content"
         className="flex-1 pb-24 lg:pb-12 min-h-screen bg-background"
       >
-        <div className={`w-full ${window.electronAPI ? 'pt-16' : 'pt-[4.5rem]'}`}>
-          {children}
-        </div>
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={location.pathname}
+            custom={swipeDirection.current}
+            variants={{
+              initial: (d: number) => ({ opacity: 0, x: d * 24 }),
+              animate: { opacity: 1, x: 0 },
+              exit: (d: number) => ({ opacity: 0, x: d * -24 }),
+            }}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+          >
+            <div className={`w-full ${window.electronAPI ? 'pt-16' : 'pt-[4.5rem]'}`}>
+              {children}
+            </div>
+          </motion.div>
+        </AnimatePresence>
       </main>
 
       {/* Universal Task Capture UI */}

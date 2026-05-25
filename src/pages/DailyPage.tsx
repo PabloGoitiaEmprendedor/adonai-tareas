@@ -852,24 +852,27 @@ const DailyPage = () => {
   ): visibleNotebookTasks.length > 0? (
   <>
   <div className="space-y-0 pl-[44px] pr-4 py-2">
-  {visibleNotebookTasks.map((task, idx) => (
-  <TaskCard
-  key={task.id}
-  task={task}
-  taskIdx={(notebookPage - 1) * TASKS_PER_NOTEBOOK_PAGE + idx}
-  isDone={task.status === 'done'}
-  completingTaskId={completingTaskId}
-  dragIdx={dragIdx}
-  handleDragStart={handleDragStart}
-  handleDragOver={handleDragOver}
-  handleDragEnd={handleDragEnd}
-  setSelectedTask={setSelectedTask}
-  handleComplete={handleComplete}
-  handleUncomplete={handleUncomplete}
- handleStartTimer={handleStartTimer}
- view="daily"
- highlighted={highlightedTaskId === task.id}
- />
+   {visibleNotebookTasks.map((task, idx) => (
+   <TaskCard
+   key={task.id}
+   task={task}
+   taskIdx={(notebookPage - 1) * TASKS_PER_NOTEBOOK_PAGE + idx}
+   isDone={task.status === 'done'}
+   completingTaskId={completingTaskId}
+   dragIdx={dragIdx}
+   handleDragStart={handleDragStart}
+   handleDragOver={handleDragOver}
+   handleDragEnd={handleDragEnd}
+   handleTouchStart={handleTouchStart}
+   handleTouchMove={handleTouchMove}
+   handleTouchEnd={handleTouchEnd}
+   setSelectedTask={setSelectedTask}
+   handleComplete={handleComplete}
+   handleUncomplete={handleUncomplete}
+  handleStartTimer={handleStartTimer}
+  view="daily"
+  highlighted={highlightedTaskId === task.id}
+  />
   ))}
   {!isLoading && showNotebookQuickAdd && !isMainNotebookComplete && (
     <div className="pt-1">

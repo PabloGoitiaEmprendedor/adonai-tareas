@@ -403,9 +403,28 @@ const GoalsPage = () => {
                       <Check className="w-4 h-4 text-transparent hover:text-current transition-colors" strokeWidth={3} />
                     </button>
                     <div className="min-w-0 flex-1">
-                      <h3 className="text-[15px] font-black leading-snug break-words" style={{ color: '#1f2937' }}>
-                        {goal.title}
-                      </h3>
+                      <div className="flex items-start justify-between gap-2">
+                        <h3 className="text-[15px] font-black leading-snug break-words" style={{ color: '#1f2937' }}>
+                          {goal.title}
+                        </h3>
+                        <div className="flex gap-1 shrink-0 mt-0.5">
+                          {POSTIT_COLORS.map((c, i) => (
+                            <button
+                              key={c.name}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const desc = parseDesc(goal);
+                                const pin = desc._pin || {};
+                                const pos = pin;
+                                const newDesc = { ...desc, _pin: { ...pin, colorIdx: i } };
+                                updateGoal.mutate({ id: goal.id, description: JSON.stringify(newDesc) });
+                              }}
+                              className={`w-4 h-4 rounded-full border-2 transition-transform active:scale-125 ${i === colorIdx ? 'border-white scale-125' : 'border-white/60'}`}
+                              style={{ backgroundColor: c.bg }}
+                            />
+                          ))}
+                        </div>
+                      </div>
                       {hasDeadline && (
                         <div className="mt-3 space-y-1">
                           <div className="relative h-2" style={{ color: '#1f2937' }}>
