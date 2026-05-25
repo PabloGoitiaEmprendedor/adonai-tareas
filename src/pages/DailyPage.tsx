@@ -310,9 +310,41 @@ const DailyPage = () => {
  turnNotebookPage(-1);
  }, [turnNotebookPage]);
 
- const goToNextPage = useCallback(() => {
- turnNotebookPage(1);
- }, [turnNotebookPage]);
+  const goToNextPage = useCallback(() => {
+  turnNotebookPage(1);
+  }, [turnNotebookPage]);
+
+  // Mobile notebook page swipe
+  const notebookSwipeX = useRef<number | null>(null);
+  const notebookSwipeY = useRef<number | null>(null);
+  useEffect(() => {
+    const el = document.querySelector('[data-notebook-swipe]');
+    if (!el) return;
+    const onTouchStart = (e: TouchEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.closest('[data-drag-handle]') || target.closest('[data-no-drag]') || target.closest('button, a, input, textarea, select')) return;
+      notebookSwipeX.current = e.touches[0].clientX;
+      notebookSwipeY.current = e.touches[0].clientY;
+    };
+    const onTouchEnd = (e: TouchEvent) => {
+      if (notebookSwipeX.current === null || notebookSwipeY.current === null) return;
+      const dx = e.changedTouches[0].clientX - notebookSwipeX.current;
+      const dy = e.changedTouches[0].clientY - notebookSwipeY.current;
+      if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+        if (dx > 0) goToPrevPage();
+        else goToNextPage();
+        e.preventDefault();
+      }
+      notebookSwipeX.current = null;
+      notebookSwipeY.current = null;
+    };
+    el.addEventListener('touchstart', onTouchStart, { passive: true });
+    el.addEventListener('touchend', onTouchEnd, { passive: false });
+    return () => {
+      el.removeEventListener('touchstart', onTouchStart);
+      el.removeEventListener('touchend', onTouchEnd);
+    };
+  }, [goToPrevPage, goToNextPage]);
 
  const pageTurnVariants = {
  enter: (direction: number) => ({
@@ -819,7 +851,7 @@ const DailyPage = () => {
   </div>
 
   {/* Task content with swipe */}
-  <div className="relative z-10 flex-1 overflow-y-auto">
+  <div className="relative z-10 flex-1 overflow-y-auto" data-notebook-swipe>
   <AnimatePresence mode="wait" custom={pageTurnDirection}>
   <motion.div
   key={`mobile-page-${notebookPage}`}
