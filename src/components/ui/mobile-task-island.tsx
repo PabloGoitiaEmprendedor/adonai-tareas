@@ -1,7 +1,6 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Plus,
   ChevronDown,
   Search,
   X,
@@ -9,8 +8,8 @@ import {
   NotebookText,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Input } from '@/components/ui/input';
-import { isSameDay, startOfDay } from 'date-fns';
+import { format, isToday } from 'date-fns';
+import { es } from 'date-fns/locale';
 
 interface MobileDynamicIslandProps {
   tasks: any[];
@@ -36,7 +35,6 @@ export const MobileDynamicIsland = ({
   folders = []
 }: MobileDynamicIslandProps) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
   const [selectedFolderId, setSelectedFolderId] = useState<string | 'all' | 'shared'>('all');
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
 
@@ -49,7 +47,8 @@ export const MobileDynamicIsland = ({
   const startPos = useRef({ x: 0, y: 0 });
 
   const buildCalendarDragTask = (task: any) => {
-    const startTime = task.startTime || task.start_time || new Date(currentDate);
+    const taskDate = task.due_date ? new Date(`${task.due_date}T12:00:00`) : currentDate;
+    const startTime = task.startTime || task.start_time || taskDate;
     const endTime = task.endTime || task.end_time || new Date(new Date(startTime).getTime() + 30 * 60 * 1000);
     const priorityKey = getPriorityKey(task.urgency || false, task.importance || false);
 
@@ -134,14 +133,11 @@ export const MobileDynamicIsland = ({
     : 3, []);
 
   const filteredTasks = useMemo(() => {
+    const currentDateStr = format(currentDate, 'yyyy-MM-dd');
     return tasks.filter(t => {
-      const title = t.title || '';
-      const matchesSearch = title.toLowerCase().includes(searchQuery.toLowerCase());
-      
-      const taskDate = t.startTime || t.start_time || (t.date ? new Date(t.date) : new Date());
-      const isCompleted = t.completed || t.status === 'done';
-      const inTimeRange = isSameDay(taskDate, currentDate) || 
-                         (taskDate < startOfDay(currentDate) && !isCompleted);
+      const taskDate = t.startTime || t.start_time || (t.due_date ? new Date(`${t.due_date}T12:00:00`) : (t.date ? new Date(t.date) : currentDate));
+      const taskDateStr = format(taskDate, 'yyyy-MM-dd');
+      const inTimeRange = taskDateStr === currentDateStr;
       
       let matchesFolder = true;
       if (selectedFolderId === 'shared') {
@@ -152,9 +148,9 @@ export const MobileDynamicIsland = ({
         matchesFolder = t.folder_id === selectedFolderId;
       }
 
-      return matchesSearch && inTimeRange && matchesFolder;
+      return inTimeRange && matchesFolder;
     });
-  }, [tasks, searchQuery, currentDate, selectedFolderId]);
+  }, [tasks, currentDate, selectedFolderId]);
 
   const sortedTasks = useMemo(() => {
     return [...filteredTasks].sort((a, b) => {
@@ -181,6 +177,8 @@ export const MobileDynamicIsland = ({
     setExpandedFolders(newSet);
   };
 
+  const titleLabel = isToday(currentDate) ? 'Tareas de hoy' : `Tareas del ${format(currentDate, 'd MMM', { locale: es })}`;
+
   return (
     <div className="lg:hidden fixed bottom-4 left-1/2 -translate-x-1/2 z-[100] w-full max-w-[calc(100vw-32px)] flex flex-col items-center pointer-events-none">
       <AnimatePresence>
@@ -202,7 +200,7 @@ export const MobileDynamicIsland = ({
             <div className="relative z-10 p-4 flex flex-col gap-3 overflow-hidden h-full">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-[14px] font-black" style={{ color: '#1f2937' }}>Tareas de hoy</h3>
+                  <h3 className="text-[15px] font-black" style={{ color: '#1f2937' }}>{titleLabel}</h3>
                   <p className="text-[10px] font-medium mt-0.5 notebook-handwriting" style={{ color: '#6b7280' }}>Mantén presionado para arrastrar al calendario</p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -216,18 +214,6 @@ export const MobileDynamicIsland = ({
                 </div>
               </div>
 
-              {/* Search */}
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5" style={{ color: '#6b7280', opacity: 0.5 }} />
-                <Input 
-                  placeholder="Buscar tarea..." 
-                  className="pl-9 h-9 text-[12px] font-bold rounded-lg placeholder:opacity-40 border-0"
-                  style={{ backgroundColor: 'rgba(30,41,59,0.05)', color: '#1f2937' }}
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-              </div>
-
               {/* Notebooks Navigation */}
               <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1 border-b" style={{ borderColor: 'rgba(30,41,59,0.08)' }}>
                 <button
@@ -235,7 +221,7 @@ export const MobileDynamicIsland = ({
                   className={cn(
                     "flex-shrink-0 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wide transition-all border notebook-handwriting",
                     selectedFolderId === 'all' 
-                      ? 'bg-foreground text-background border-foreground'
+                      ? 'bg-primary/15 text-primary border-primary/35'
                       : 'bg-white/40 text-[#4b5563] border-[rgba(30,41,59,0.18)]'
                   )}
                 >
@@ -254,7 +240,7 @@ export const MobileDynamicIsland = ({
                     className={cn(
                       "flex-shrink-0 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wide transition-all border notebook-handwriting",
                       selectedFolderId === folder.id 
-                        ? 'bg-foreground text-background border-foreground'
+                        ? 'bg-primary/15 text-primary border-primary/35'
                         : 'bg-white/40 text-[#4b5563] border-[rgba(30,41,59,0.18)]'
                     )}
                   >

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Apple, HelpCircle, Mail, Menu, Monitor, X } from "lucide-react";
+import { Apple, HelpCircle, Mail, Menu, Monitor, X, LogIn } from "lucide-react";
 import { BrandLogo } from "@/components/BrandLogo";
 import { startGuidedDownload } from "@/lib/downloadGuide";
 
@@ -82,7 +82,7 @@ function SupportModal({ onClose }: { onClose: () => void }) {
   );
 }
 
-export function PublicNav() {
+export function PublicNav({ user, profile }: { user?: any; profile?: any }) {
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -160,29 +160,55 @@ export function PublicNav() {
         </nav>
 
         <div className="hidden items-center gap-2 md:flex">
-          <button
-            onClick={() => setChoiceOpen(true)}
-            id="nav-download-win"
-            className="inline-flex items-center gap-1.5 rounded-full bg-white px-4 py-2 text-xs font-black text-[#151820] transition hover:bg-white/88"
-          >
-            <Monitor className="h-3.5 w-3.5 text-[#5B7CFA]" />
-            Descargar ahora
-          </button>
-          <Link
-            to="/faq"
-            className="inline-flex items-center gap-1.5 rounded-full border border-[#151820]/16 px-4 py-2 text-xs font-bold text-[#151820] transition hover:bg-white/18"
-          >
-            <HelpCircle className="h-3.5 w-3.5" />
-            FAQ
-          </Link>
-          <button
-            type="button"
-            onClick={() => setSupportOpen(true)}
-            className="inline-flex items-center gap-1.5 rounded-full border border-[#151820]/16 px-4 py-2 text-xs font-bold text-[#151820] transition hover:bg-white/18"
-          >
-            <Mail className="h-3.5 w-3.5" />
-            Soporte
-          </button>
+          {user ? (
+            <>
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/50 border border-[#151820]/10">
+                {profile?.avatar_url ? (
+                  <img src={profile.avatar_url} alt="" className="h-6 w-6 rounded-full object-cover" />
+                ) : (
+                  <div className="h-6 w-6 rounded-full bg-[#5B7CFA]/20 flex items-center justify-center">
+                    <User className="h-3 w-3 text-[#5B7CFA]" />
+                  </div>
+                )}
+                <span className="text-xs font-bold text-[#151820]/70 max-w-[100px] truncate">
+                  {profile?.name || user.email || user.phone || 'Usuario'}
+                </span>
+              </div>
+              <Link
+                to="/daily"
+                className="inline-flex items-center gap-1.5 rounded-full bg-[#5B7CFA] px-4 py-2 text-xs font-black text-white transition hover:bg-[#4F6EE8]"
+              >
+                <LogIn className="h-3.5 w-3.5" />
+                Entrar
+              </Link>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={() => setChoiceOpen(true)}
+                id="nav-download-win"
+                className="inline-flex items-center gap-1.5 rounded-full bg-white px-4 py-2 text-xs font-black text-[#151820] transition hover:bg-white/88"
+              >
+                <Monitor className="h-3.5 w-3.5 text-[#5B7CFA]" />
+                Descargar ahora
+              </button>
+              <Link
+                to="/faq"
+                className="inline-flex items-center gap-1.5 rounded-full border border-[#151820]/16 px-4 py-2 text-xs font-bold text-[#151820] transition hover:bg-white/18"
+              >
+                <HelpCircle className="h-3.5 w-3.5" />
+                FAQ
+              </Link>
+              <button
+                type="button"
+                onClick={() => setSupportOpen(true)}
+                className="inline-flex items-center gap-1.5 rounded-full border border-[#151820]/16 px-4 py-2 text-xs font-bold text-[#151820] transition hover:bg-white/18"
+              >
+                <Mail className="h-3.5 w-3.5" />
+                Soporte
+              </button>
+            </>
+          )}
         </div>
 
         <button
@@ -197,25 +223,52 @@ export function PublicNav() {
 
       {mobileOpen && (
         <div className="space-y-1 border-t border-white/28 bg-[#5B7CFA]/44 px-6 py-4 backdrop-blur-2xl lg:hidden">
+          {user && (
+            <div className="flex items-center gap-3 px-3 py-2 mb-2 rounded-2xl bg-white/50 border border-[#151820]/10">
+              {profile?.avatar_url ? (
+                <img src={profile.avatar_url} alt="" className="h-9 w-9 rounded-full object-cover" />
+              ) : (
+                <div className="h-9 w-9 rounded-full bg-[#5B7CFA]/20 flex items-center justify-center">
+                  <User className="h-4 w-4 text-[#5B7CFA]" />
+                </div>
+              )}
+              <span className="text-sm font-bold text-[#151820]/80 truncate">
+                {profile?.name || user.email || user.phone || 'Usuario'}
+              </span>
+            </div>
+          )}
           {NAV_LINKS.map((item) => renderNavItem(item, true))}
           <div className="flex flex-col gap-2 pt-3">
-            <button
-              onClick={() => {
-                setChoiceOpen(true);
-                setMobileOpen(false);
-              }}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-black text-[#151820] transition hover:bg-white/90"
-            >
-              <Monitor className="h-4 w-4 text-[#5B7CFA]" />
-              Descargar ahora
-            </button>
-            <Link
-              to="/welcome"
-              onClick={() => setMobileOpen(false)}
-              className="inline-flex w-full items-center justify-center rounded-full border border-[#151820]/16 px-5 py-3 text-sm font-bold text-[#151820] transition hover:bg-white/18"
-            >
-              Entrar a la app web
-            </Link>
+            {user ? (
+              <Link
+                to="/daily"
+                onClick={() => setMobileOpen(false)}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#5B7CFA] px-5 py-3 text-sm font-black text-white transition hover:bg-[#4F6EE8]"
+              >
+                <LogIn className="h-4 w-4" />
+                Entrar
+              </Link>
+            ) : (
+              <>
+                <button
+                  onClick={() => {
+                    setChoiceOpen(true);
+                    setMobileOpen(false);
+                  }}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-black text-[#151820] transition hover:bg-white/90"
+                >
+                  <Monitor className="h-4 w-4 text-[#5B7CFA]" />
+                  Descargar ahora
+                </button>
+                <Link
+                  to="/welcome"
+                  onClick={() => setMobileOpen(false)}
+                  className="inline-flex w-full items-center justify-center rounded-full border border-[#151820]/16 px-5 py-3 text-sm font-bold text-[#151820] transition hover:bg-white/18"
+                >
+                  Entrar a la app web
+                </Link>
+              </>
+            )}
           </div>
         </div>
       )}

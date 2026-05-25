@@ -460,6 +460,7 @@ export function EventManager({
       const resolved = typeof nextDate === 'function' ? nextDate(previous) : nextDate
       const normalized = new Date(resolved)
       onDateChange?.(normalized)
+      window.dispatchEvent(new CustomEvent('adonai:calendar-selected-date-change', { detail: { date: normalized } }))
       return normalized
     })
   }, [onDateChange])
@@ -690,7 +691,9 @@ export function EventManager({
   }, []);
 
   const getSidebarTaskDateRank = useCallback((event: Event) => {
-    return event.startTime < startOfDay(currentDate) && !event.completed ? 1 : 0;
+    const currentDateStr = format(currentDate, 'yyyy-MM-dd');
+    const todayStr = format(new Date(), 'yyyy-MM-dd');
+    return currentDateStr === todayStr && event.startTime < startOfDay(currentDate) && !event.completed ? 1 : 0;
   }, [currentDate]);
 
   const compareSidebarTasks = useCallback((a: Event, b: Event) => {
@@ -774,10 +777,12 @@ export function EventManager({
   }, [canReorderSidebarTask, compareSidebarTasks, events, getSidebarTaskGroupKey, onEventUpdate, sidebarReorderId]);
 
   const tasksByFolder = useMemo(() => {
+    const currentDateStr = format(currentDate, 'yyyy-MM-dd');
+    const todayStr = format(new Date(), 'yyyy-MM-dd');
     const tasks = filteredEvents.filter(e => {
       if (e.isEvent || e.id.startsWith('block-')) return false;
-      const inTimeRange = (isSameDay(e.startTime, currentDate)) || 
-        (e.startTime < startOfDay(currentDate) && !e.completed);
+      const inTimeRange = (isSameDay(e.startTime, currentDate)) ||
+        (currentDateStr === todayStr && e.startTime < startOfDay(currentDate) && !e.completed);
       const taskCat = e.category || 'Hoy';
       // 'Hoy' tab shows tasks with no category or category === 'Hoy'
       const matchesCategory = selectedCategory === 'Hoy'
@@ -801,6 +806,10 @@ export function EventManager({
   }, [compareSidebarTasks, filteredEvents, currentDate, selectedCategory]);
 
   const hasActiveFilters = selectedColors.length > 0 || selectedTags.length > 0 || selectedCategories.length > 0
+
+  const calendarVisibleEvents = useMemo(() => (
+    filteredEvents.filter((event) => !event.isAllDay || event.isEvent || event.id.startsWith('block-'))
+  ), [filteredEvents])
 
   const clearFilters = () => {
     setSelectedColors([])
@@ -1525,7 +1534,7 @@ export function EventManager({
             {view === "month" && (
               <MonthView
                 currentDate={currentDate}
-                events={filteredEvents}
+                events={calendarVisibleEvents}
                 onEventClick={(event) => {
                   if (onEventClick) {
                     onEventClick(event)
@@ -1551,7 +1560,7 @@ export function EventManager({
             {view === "year" && (
               <YearView
                 currentDate={currentDate}
-                events={filteredEvents}
+                events={calendarVisibleEvents}
                 onSelectMonth={(monthDate) => {
                   commitCurrentDate(monthDate)
                   setView("month")
@@ -1607,13 +1616,13 @@ export function EventManager({
                     />
 
                     {/* Vertical margin line */}
-                    <div className="absolute top-8 bottom-8 left-9 w-px bg-rose-300/20 pointer-events-none z-20" />
+                    <div className="absolute top-[122px] bottom-8 left-9 w-px bg-rose-300/20 pointer-events-none z-20" />
 
                     <div className="relative z-10 px-5 py-3 pl-11">
                       <h2 className="text-lg font-bold font-headline tracking-tight notebook-handwriting text-foreground/70">
                         Tareas de hoy
                       </h2>
-                      <p className="text-[10px] text-foreground/40 font-medium mt-0.5 notebook-handwriting">
+                      <p className="text-[12px] leading-snug text-foreground/50 font-semibold mt-1 notebook-handwriting">
                         Mantén presionado para arrastrar al calendario
                       </p>
                     </div>
@@ -1628,7 +1637,7 @@ export function EventManager({
                             onClick={() => setSelectedCategory(cat)}
                             className={`flex-shrink-0 px-4 py-1.5 rounded-full text-[11px] font-black uppercase tracking-wide transition-all border notebook-handwriting ${
                               isSelected
-                                ? 'bg-foreground text-background border-foreground'
+                                ? 'bg-primary/15 text-primary border-primary/35 shadow-sm'
                                 : 'bg-white/40 text-on-surface-variant/80 border-outline-variant/40 hover:text-foreground hover:border-outline-variant/60'
                             }`}
                           >
@@ -1645,7 +1654,7 @@ export function EventManager({
                       }}
                     >
                       {/* Tasks for the active folder tab */}
-                      <div className="space-y-0">
+                      <div className="space-y-1">
                         {Object.values(tasksByFolder).flat().length > 0 ? (
                           Object.values(tasksByFolder).flat().map((event) => {
                             const evColor = (event.color.startsWith('#') || event.color.startsWith('var')) ? event.color : undefined;
@@ -1666,14 +1675,14 @@ export function EventManager({
                                     setIsDialogOpen(true)
                                   }
                                 }}
-                                className="group flex items-center gap-3 px-2 py-0 transition-colors cursor-grab active:cursor-grabbing border border-transparent hover:border-primary/18 touch-none"
+                                className="group flex items-start gap-3 px-2 py-2 transition-colors cursor-grab active:cursor-grabbing border-b border-outline-variant/10 hover:border-primary/18 touch-none"
                               >
                                 <div
-                                  className="h-[18px] w-[18px] rounded-full border-2 shrink-0"
+                                  className="mt-0.5 h-[18px] w-[18px] rounded-full border-2 shrink-0"
                                   style={{ borderColor: evColor || priorityColors[getPriorityKey(event.urgency || false, event.importance || false)] || 'var(--outline)' }}
                                 />
                                 <div className="flex-1 min-w-0">
-                                  <span className="block text-[14px] font-semibold leading-snug tracking-normal text-foreground transition-colors group-hover:text-primary break-words whitespace-normal">{event.title}</span>
+                                  <span className="block text-[14px] font-semibold leading-snug tracking-normal text-foreground transition-colors group-hover:text-primary break-words whitespace-pre-wrap">{event.title}</span>
                                 </div>
                               </div>
                             );
@@ -1735,7 +1744,7 @@ export function EventManager({
 
             {view === "schedule" && (
               <ScheduleView
-                events={filteredEvents}
+                events={calendarVisibleEvents}
                 currentDate={currentDate}
                 onEventClick={(event) => {
                   if (onEventClick) {

@@ -25,6 +25,7 @@ interface TaskCardProps {
   handleStartTimer: (task: any, e: React.MouseEvent) => void;
   view: 'daily' | 'weekly';
   hideTimer?: boolean;
+  highlighted?: boolean;
 }
 
 export const TaskCard = memo(({
@@ -44,7 +45,8 @@ export const TaskCard = memo(({
   handleUncomplete,
   handleStartTimer,
   view,
-  hideTimer = true
+  hideTimer = true,
+  highlighted = false
 }: TaskCardProps) => {
   const { updateTask } = useTasks();
   const [isEditing, setIsEditing] = useState(false);
@@ -95,6 +97,7 @@ export const TaskCard = memo(({
       layoutId={view === 'weekly' ? task.id : undefined}
       layout={false}
       data-task-idx={taskIdx}
+      data-task-id={task.id}
       onDragEnd={() => handleDragEnd?.()}
       initial={view === 'daily' ? { opacity: 0 } : { opacity: 0, scale: 0.98 }}
       animate={{ opacity: 1 }}
@@ -104,7 +107,7 @@ export const TaskCard = memo(({
       onClick={() => setSelectedTask(task)}
       className={`relative flex items-start gap-2 overflow-hidden border px-1.5 py-2 transition-colors group/task md:px-2 ${
         view === 'daily' ? 'min-h-[42px] border-b-transparent' : 'min-h-[42px]'
-      } border-x-transparent border-t-transparent hover:border-primary/18 cursor-pointer`}
+      } ${highlighted ? 'ring-2 ring-primary/40 bg-primary/5' : ''} border-x-transparent border-t-transparent hover:border-primary/18 cursor-pointer`}
     >
       {/* Drag handle (desktop + mobile): the only area that starts drag */}
       {(

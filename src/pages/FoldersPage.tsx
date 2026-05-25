@@ -6,7 +6,7 @@ import { useFolderShares } from '@/hooks/useFolderShares';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProfile } from '@/hooks/useProfile';
 import { supabase } from '@/integrations/supabase/client';
-import { Notebook, Plus, ChevronRight, ChevronLeft, Users, Trash2, Check, Clock, Edit2, ArrowLeft, Share2, Settings, Sparkles, X } from 'lucide-react';
+import { Notebook, Plus, ChevronRight, ChevronLeft, Users, Trash2, Check, Clock, Edit2, ArrowLeft, Share2, Settings, Sparkles, X, Search } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import TaskDetailModal from '@/components/TaskDetailModal';
 import FullscreenTimer from '@/components/FullscreenTimer';
@@ -41,6 +41,7 @@ const FoldersPage = () => {
   const [completingTaskId, setCompletingTaskId] = useState<string | null>(null);
   const [isCreatingInline, setIsCreatingInline] = useState(false);
   const [inlineName, setInlineName] = useState('');
+  const [taskSearchQuery, setTaskSearchQuery] = useState('');
   const timerDurationRef = useRef(0);
 
   const handleSelectFolder = (id: string | null) => {
@@ -135,6 +136,25 @@ const FoldersPage = () => {
       : selectedFolder ? tasks.filter((t) => t.folder_id === selectedFolder) : [];
     return [...raw].sort(compareTasksWithinQuadrants);
   }, [tasks, selectedFolder, isUncategorized]);
+
+  const taskSearchResults = useMemo(() => {
+    const query = taskSearchQuery.trim().toLowerCase();
+    if (query.length < 2) return [];
+    return tasks
+      .filter((task: any) => (task.title || '').toLowerCase().includes(query))
+      .sort(compareTasksWithinQuadrants)
+      .slice(0, 8);
+  }, [tasks, taskSearchQuery]);
+
+  const jumpToFolderTask = useCallback((task: any) => {
+    const folderId = task.folder_id || null;
+    setSelectedFolder(folderId);
+    setTaskSearchQuery('');
+    window.setTimeout(() => {
+      const el = document.querySelector(`[data-task-id="${task.id}"]`);
+      el?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }, 200);
+  }, []);
 
   const [orderedFolderTasks, setOrderedFolderTasks] = useState<any[]>([]);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
@@ -485,6 +505,45 @@ const FoldersPage = () => {
               <h1 className="page-title text-center text-4xl md:text-5xl font-black font-headline !pl-0">
                 Cuadernos
               </h1>
+            </div>
+
+            {/* Search Bar */}
+            <div className="relative max-w-md mx-auto w-full -mt-4 mb-4">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-on-surface-variant/45" />
+              <input
+                value={taskSearchQuery}
+                onChange={(event) => setTaskSearchQuery(event.target.value)}
+                placeholder="Buscar tareas en todos los cuadernos..."
+                className="h-9 w-full rounded-full border border-outline-variant/20 bg-surface-container-low pl-9 pr-9 text-[12px] font-semibold text-foreground outline-none transition focus:border-primary/35 focus:bg-surface-container"
+              />
+              {taskSearchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setTaskSearchQuery('')}
+                  className="absolute right-2 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-on-surface-variant/45 hover:bg-black/5 hover:text-foreground"
+                  aria-label="Limpiar busqueda"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+              {taskSearchResults.length > 0 && (
+                <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-50 overflow-hidden rounded-2xl border border-outline-variant/16 bg-background/95 shadow-xl backdrop-blur-xl">
+                  {taskSearchResults.map((task: any) => {
+                    const folder = folders.find((item: any) => item.id === task.folder_id);
+                    return (
+                      <button
+                        key={task.id}
+                        type="button"
+                        onClick={() => jumpToFolderTask(task)}
+                        className="block w-full border-b border-outline-variant/8 px-4 py-2.5 text-left last:border-b-0 hover:bg-primary/8"
+                      >
+                        <span className="block truncate text-[12px] font-bold text-foreground">{task.title}</span>
+                        <span className="mt-0.5 block text-[9px] font-black uppercase tracking-[0.12em] text-primary/70">{folder?.name || 'Hoy'}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             {/* Folders Grid */}

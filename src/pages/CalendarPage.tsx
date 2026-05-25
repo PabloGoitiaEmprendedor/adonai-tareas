@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useCalendarEvents } from '@/hooks/useCalendarEvents';
 
 import { startOfMonth, endOfMonth } from 'date-fns';
@@ -17,6 +17,10 @@ const CalendarPage = () => {
     rangeStart.toISOString(), 
     rangeEnd.toISOString()
   );
+
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('adonai:calendar-selected-date-change', { detail: { date: selectedDate } }));
+  }, [selectedDate]);
 
   return (
     <div className="themed-cursor min-h-screen bg-background pb-20 lg:pb-6">

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { NotebookTabs, Users, User, Calendar, Settings, Menu, Target, Trophy, BarChart3, Sun, History, Palette, X, Flame } from 'lucide-react';
 import { toast } from 'sonner';
@@ -19,7 +19,7 @@ import { MobileDynamicIsland } from '@/components/ui/mobile-task-island';
 import FAB from '@/components/FAB';
 import TaskCaptureModal, { type TaskCaptureModalHandle } from '@/components/TaskCaptureModal';
 import QuickRecurrenceFlow from '@/components/QuickRecurrenceFlow';
-import { format, addMinutes } from 'date-fns';
+import { format, addMinutes, startOfMonth, endOfMonth } from 'date-fns';
 import { useFolders } from '@/hooks/useFolders';
 import { useNotionIntegration } from '@/hooks/useNotionIntegration';
 import { useRef, useCallback } from 'react';
@@ -294,11 +294,29 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
   const captureModalRef = useRef<TaskCaptureModalHandle>(null);
 
   const today = format(new Date(), 'yyyy-MM-dd');
-  const { tasks, createTask } = useTasks({ date: today });
+  const [mobileIslandDate, setMobileIslandDate] = useState(new Date());
+  const mobileMonthStart = startOfMonth(mobileIslandDate);
+  const mobileMonthEnd = endOfMonth(mobileIslandDate);
+  const mobileTasksFilter = useMemo(() => ({
+    startDate: format(mobileMonthStart, 'yyyy-MM-dd'),
+    endDate: format(mobileMonthEnd, 'yyyy-MM-dd'),
+  }), [mobileMonthStart, mobileMonthEnd]);
+  const { tasks, createTask } = useTasks(mobileTasksFilter);
   const { folders } = useFolders();
   const { colors: priorityColors } = usePriorityColors();
   const notion = useNotionIntegration();
   const lastNotionAutoSyncRef = useRef(0);
+
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const date = (event as CustomEvent).detail?.date;
+      if (!date) return;
+      const nextDate = date instanceof Date ? date : new Date(date);
+      if (!Number.isNaN(nextDate.getTime())) setMobileIslandDate(nextDate);
+    };
+    window.addEventListener('adonai:calendar-selected-date-change', handler);
+    return () => window.removeEventListener('adonai:calendar-selected-date-change', handler);
+  }, []);
 
   const openCapture = useCallback((context?: { goalId?: string; folderId?: string }) => {
     if (context) setTargetContext(context);
@@ -539,7 +557,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
           {(isWeeklyPage || isCalendarPage) && !draftActive && (
             <MobileDynamicIsland
               tasks={tasks}
-              currentDate={new Date()}
+              currentDate={mobileIslandDate}
               onAddTask={() => openCaptureInTextMode()}
               onTaskClick={(task) => {
                 window.dispatchEvent(new CustomEvent('adonai:open-task-detail', { detail: task }));

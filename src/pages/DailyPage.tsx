@@ -65,6 +65,7 @@ const DailyPage = () => {
  const [pageTurnDirection, setPageTurnDirection] = useState(1);
  const [pagePeel, setPagePeel] = useState<'next' | 'prev' | null>(null);
  const [completingTaskId, setCompletingTaskId] = useState<string | null>(null);
+  const [highlightedTaskId, setHighlightedTaskId] = useState<string | null>(null);
  const timerDurationRef = useRef(0);
  const hasTrackedDayRef = useRef(false);
  const tasksRef = useRef(tasks);
@@ -116,6 +117,14 @@ const DailyPage = () => {
  
  return [...filtered].sort(compareTasksWithinQuadrants);
  }, [tasks, selectedFolderId, today]);
+
+
+
+ useEffect(() => {
+ if (!highlightedTaskId) return;
+ const timeout = window.setTimeout(() => setHighlightedTaskId(null), 2400);
+ return () => window.clearTimeout(timeout);
+ }, [highlightedTaskId]);
 
  useEffect(() => {
  setOrderedTasks(sortedTasks);
@@ -605,6 +614,7 @@ const DailyPage = () => {
     <h2 className="text-lg font-bold font-headline tracking-tight notebook-handwriting text-foreground/70">
       Tareas de hoy
     </h2>
+    {/* Folder pills moved up, search removed */}
   </div>
   <div className="relative z-10 flex items-center gap-2 overflow-x-auto no-scrollbar py-1 pb-1 mb-1 border-b border-outline-variant/10 justify-start">
      <button
@@ -671,6 +681,7 @@ const DailyPage = () => {
  handleUncomplete={handleUncomplete}
  handleStartTimer={handleStartTimer}
  view="daily"
+ highlighted={highlightedTaskId === task.id}
  />
  ))}
  </div>
@@ -778,7 +789,7 @@ const DailyPage = () => {
   </div>
 
   {/* Folder pills ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â scrollable row */}
-  <div className="relative z-20 flex items-center gap-2 overflow-x-auto no-scrollbar py-1 px-2 border-b border-outline-variant/10">
+  <div className="relative z-20 flex items-center gap-2 overflow-x-auto no-scrollbar py-1 px-2 border-b border-outline-variant/10" style={{ paddingLeft: '44px' }}>
      <button
        onClick={() => selectFolderWithSound(null)}
        className={`flex-shrink-0 px-3 py-1.5 rounded-full text-[11px] font-black uppercase tracking-wide transition-all border ${
@@ -855,9 +866,10 @@ const DailyPage = () => {
   setSelectedTask={setSelectedTask}
   handleComplete={handleComplete}
   handleUncomplete={handleUncomplete}
-  handleStartTimer={handleStartTimer}
-  view="daily"
-  />
+ handleStartTimer={handleStartTimer}
+ view="daily"
+ highlighted={highlightedTaskId === task.id}
+ />
   ))}
   {!isLoading && showNotebookQuickAdd && !isMainNotebookComplete && (
     <div className="pt-1">

@@ -352,137 +352,83 @@ const SettingsPage = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="max-w-[430px] lg:max-w-[800px] mx-auto px-5 pt-6 pb-24 space-y-8">
+      <div className="max-w-[430px] lg:max-w-[800px] mx-auto px-5 pt-6 pb-24 space-y-6">
         
-        <div className="flex items-center gap-4 mb-4 justify-center md:justify-start">
-          <button onClick={() => navigate(-1)} className="w-10 h-10 rounded-xl bg-surface-container flex items-center justify-center hover:bg-surface-container-high transition-colors">
-            <ChevronLeft className="w-5 h-5 text-foreground" />
+        <div className="flex items-center gap-3">
+          <button onClick={() => navigate(-1)} className="w-9 h-9 rounded-xl bg-surface-container flex items-center justify-center hover:bg-surface-container-high transition-colors shrink-0">
+            <ChevronLeft className="w-4 h-4" />
           </button>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center border border-primary/20">
-              <Settings className="w-5 h-5 text-primary" />
-            </div>
-            <h1 className="page-title">Ajustes</h1>
-          </div>
+          <h1 className="text-xl font-black tracking-tight">Ajustes</h1>
         </div>
 
         {/* Desktop Settings - Hide on mobile via CSS */}
         <div className="hidden md:block">
-          <motion.section 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="space-y-4"
-          >
-            <div className="bg-gradient-to-br from-primary/20 to-surface-container-low border border-primary/20 rounded-[32px] p-1 shadow-2xl shadow-primary/5">
-                <div className="bg-surface-container-low rounded-[31px] overflow-hidden">
-                    <div className="p-6 flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                            <div className="w-14 h-14 rounded-[22px] bg-primary/10 flex items-center justify-center border border-primary/20">
-                                <Zap className="w-7 h-7 text-primary" />
-                            </div>
-                            <div>
-                                <span className="block font-black text-[15px] text-foreground uppercase tracking-tight">Mini Ventana Automática</span>
-                                <p className="text-[11px] text-on-surface-variant/60 font-medium max-w-[200px]">Se abre al iniciar tu ordenador para que nunca olvides capturar tus ideas.</p>
-                            </div>
-                        </div>
-                        <div className="flex flex-col items-end gap-3">
-                            <button 
-                                onClick={() => {
-                                    const next = !autoStart;
-                                    setAutoStart(next);
-                                    if ((window as any).electronAPI?.setAutoStart) {
-                                        (window as any).electronAPI.setAutoStart(next);
-                                    }
-                                    toast.success(next ? 'Inicio automático activado' : 'Inicio automático desactivado', {
-                                        icon: <Zap className="w-4 h-4 text-primary" />
-                                    });
-                                }}
-                                className={cn(
-                                    "w-16 h-8 rounded-full relative transition-all duration-500 border-2",
-                                    autoStart 
-                                        ? "bg-primary border-primary shadow-[0_0_20px_-5px_rgba(163,230,53,0.5)]" 
-                                        : "bg-surface-container-highest border-outline-variant/30"
-                                )}
-                            >
-                                <div className={cn(
-                                    "absolute top-1 left-1 w-5 h-5 bg-white rounded-full transition-all duration-500 shadow-lg flex items-center justify-center",
-                                    autoStart ? "translate-x-8" : "translate-x-0"
-                                )}>
-                                    {autoStart && <div className="w-1.5 h-1.5 rounded-full bg-primary" />}
-                                </div>
-                                <span className={cn(
-                                    "absolute top-1/2 -translate-y-1/2 text-[8px] font-black tracking-widest transition-opacity duration-300",
-                                    autoStart ? "left-2.5 text-black/40" : "right-2.5 text-on-surface-variant/40"
-                                )}>
-                                    {autoStart ? 'ON' : 'OFF'}
-                                </span>
-                            </button>
-                        </div>
-                    </div>
-                    <div className="px-6 py-4 bg-primary/5 border-t border-primary/10">
-                        <div className="flex items-center gap-2">
-                            <Sparkles className="w-3 h-3 text-primary" />
-                            <p className="text-[10px] text-primary font-black uppercase tracking-[0.1em]">
-                                RECOMENDADO: MANTENER ACTIVADO PARA MÁXIMA PRODUCTIVIDAD
-                            </p>
-                        </div>
-                    </div>
-                </div>
+          <div className="bg-surface-container-low border border-outline-variant/10 rounded-2xl p-5 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Zap className="w-5 h-5 text-primary" />
+              <div>
+                <span className="block text-sm font-bold text-foreground">Mini Ventana Automática</span>
+                <p className="text-xs text-on-surface-variant/40">Se abre al iniciar tu ordenador</p>
+              </div>
             </div>
-          </motion.section>
+            <button 
+              onClick={() => {
+                const next = !autoStart;
+                setAutoStart(next);
+                if ((window as any).electronAPI?.setAutoStart) {
+                  (window as any).electronAPI.setAutoStart(next);
+                }
+                toast.success(next ? 'Inicio automático activado' : 'Inicio automático desactivado');
+              }}
+              className={`w-12 h-6 rounded-full relative transition-all border ${autoStart ? 'bg-primary border-primary' : 'bg-surface-container-high border-outline-variant/30'}`}
+            >
+              <div className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-all shadow-sm ${autoStart ? 'translate-x-6' : 'translate-x-0'}`} />
+            </button>
+          </div>
         </div>
 
         {/* Appearance Section */}
-        <section className="space-y-4">
-            <div className="flex items-center justify-between px-2">
-                <h3 className="text-xs font-black text-on-surface-variant uppercase tracking-[0.2em]">Configuración</h3>
+        <section className="space-y-3">
+            <div className="flex items-center justify-between">
+                <h3 className="text-xs font-bold text-on-surface-variant/50 uppercase tracking-[0.2em]">Configuración</h3>
                 {currentUser?.email === 'pablogoitiaemprendedor@gmail.com' && (
-                <button 
-                    onClick={() => window.dispatchEvent(new CustomEvent('restart-adonai-tour'))}
-                    className="flex items-center gap-2 text-[10px] font-black text-primary uppercase tracking-widest bg-primary/10 px-3 py-1.5 rounded-full hover:bg-primary/20 transition-all"
-                >
-                    <Play className="w-3 h-3" />
-                    Probar Tutorial
+                <button onClick={() => window.dispatchEvent(new CustomEvent('restart-adonai-tour'))} className="text-[10px] font-bold text-primary/60 hover:text-primary transition-colors">
+                  Probar Tutorial
                 </button>
                 )}
             </div>
-            <div className="bg-surface-container-low border border-outline-variant/10 rounded-[32px] overflow-hidden">
-                {/* Theme */}
-                <div>
-                <button onClick={() => setEditingField(editingField === 'theme' ? null : 'theme')} className="w-full flex items-center justify-between p-6 hover:bg-surface-container-high transition-colors">
-                    <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-[20px] bg-surface-container-highest flex items-center justify-center"><Moon className="w-6 h-6 text-foreground" /></div>
-                    <span className="font-bold text-foreground">Apariencia</span>
+            <div className="bg-surface-container-low border border-outline-variant/10 rounded-2xl overflow-hidden divide-y divide-outline-variant/10">
+                <button onClick={() => setEditingField(editingField === 'theme' ? null : 'theme')} className="w-full flex items-center justify-between p-4 hover:bg-surface-container-high transition-colors">
+                    <div className="flex items-center gap-3">
+                      <Moon className="w-4 h-4 text-foreground/60" />
+                      <span className="text-sm font-bold text-foreground">Apariencia</span>
                     </div>
                     <div className="flex items-center gap-2">
-                    <span className="text-sm text-primary font-black uppercase tracking-widest">{themeLabels[profile?.theme || 'dark']}</span>
-                    <ChevronDown className={`w-5 h-5 text-on-surface-variant transition-transform ${editingField === 'theme' ? 'rotate-180' : ''}`} />
+                      <span className="text-xs font-bold text-primary">{themeLabels[profile?.theme || 'dark']}</span>
+                      <ChevronDown className={`w-4 h-4 text-on-surface-variant/40 transition-transform ${editingField === 'theme' ? 'rotate-180' : ''}`} />
                     </div>
                 </button>
                 <OptionSelector field="theme" options={themeOptions} currentValue={profile?.theme || 'dark'}
                     onSelect={(v) => { setAppTheme(v as 'dark' | 'light' | 'system'); updateProfile.mutate({ theme: v }); }} />
-                </div>
-
-                <button onClick={handleLogout}
-                    className="w-full p-6 text-tertiary font-black text-sm uppercase tracking-[0.2em] flex items-center gap-4 hover:bg-tertiary-container/10 transition-all border-t border-outline-variant/10">
-                    <div className="w-12 h-12 rounded-[20px] bg-tertiary-container/20 flex items-center justify-center"><LogOut className="w-6 h-6" /></div>
+                <button onClick={handleLogout} className="w-full p-4 text-sm font-bold text-tertiary/70 hover:text-tertiary hover:bg-tertiary-container/10 transition-colors flex items-center gap-3">
+                    <LogOut className="w-4 h-4" />
                     Cerrar sesión
                 </button>
             </div>
         </section>
 
         {/* Integrations */}
-        <section className="space-y-4">
-            <h3 className="text-xs font-black text-on-surface-variant uppercase tracking-[0.2em] px-2">Integraciones</h3>
-            <div className="bg-surface-container-low border border-outline-variant/10 rounded-[32px] overflow-hidden">
-                <div className="p-6 flex flex-col md:flex-row md:items-center justify-between gap-5">
-                    <div className="flex items-start gap-4">
-                        <div className="w-12 h-12 rounded-[20px] bg-white border border-black/10 shadow-sm flex items-center justify-center shrink-0">
-                            <img src="/logos/notion.png" alt="Notion" className="w-7 h-7 object-contain" />
+        <section className="space-y-3">
+            <h3 className="text-xs font-bold text-on-surface-variant/50 uppercase tracking-[0.2em]">Integraciones</h3>
+            <div className="bg-surface-container-low border border-outline-variant/10 rounded-2xl overflow-hidden">
+                <div className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div className="flex items-start gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-white border border-black/10 flex items-center justify-center shrink-0">
+                            <img src="/logos/notion.png" alt="Notion" className="w-5 h-5 object-contain" />
                         </div>
-                        <div className="space-y-1">
-                            <span className="block font-bold text-foreground">Notion</span>
-                            <span className="block text-[11px] text-on-surface-variant/60 font-medium max-w-[420px]">
+                        <div className="space-y-0.5">
+                            <span className="block text-sm font-bold text-foreground">Notion</span>
+                            <span className="block text-xs text-on-surface-variant/40 max-w-[380px]">
                                 Convierte tus bases de datos de Notion en cuadernos de Adonai e importa sus páginas como tareas.
                             </span>
                         </div>
@@ -490,83 +436,57 @@ const SettingsPage = () => {
 
                     <div className="self-stretch md:self-auto md:shrink-0">
                       {isAdmin ? (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 md:flex gap-2">
+                        <div className="flex flex-wrap gap-2">
                           {!notion.connection ? (
                             <button
                               onClick={() => notion.connect.mutate()}
                               disabled={notion.connect.isPending}
-                              className="w-full md:w-auto min-h-12 px-4 py-3 rounded-2xl bg-primary text-primary-foreground text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 disabled:opacity-60"
+                              className="h-10 px-4 rounded-xl bg-primary text-primary-foreground text-xs font-bold disabled:opacity-60"
                             >
                               <LinkIcon className="w-4 h-4" />
                               Conectar
                             </button>
                           ) : (
                             <>
-                              <button
-                                onClick={handleNotionSync}
-                                disabled={notion.previewImport.isPending || notion.importReviewed.isPending}
-                                className="w-full md:w-auto min-h-12 px-4 py-3 rounded-2xl bg-primary text-primary-foreground text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 disabled:opacity-60 whitespace-normal text-center leading-tight"
-                              >
+                              <button onClick={handleNotionSync} disabled={notion.previewImport.isPending || notion.importReviewed.isPending} className="h-10 px-4 rounded-xl bg-primary text-primary-foreground text-xs font-bold disabled:opacity-60">
                                 <RefreshCw className={`w-4 h-4 ${notion.previewImport.isPending || notion.importReviewed.isPending ? 'animate-spin' : ''}`} />
                                 {notionLoadLabel}
                               </button>
-                              <button
-                                onClick={handleNotionDisconnect}
-                                disabled={notion.disconnect.isPending}
-                                className="w-full md:w-auto min-h-12 px-4 py-3 rounded-2xl bg-red-500/10 text-red-500 border border-red-500/30 text-xs font-black uppercase tracking-widest disabled:opacity-60 hover:bg-red-500/15 transition-colors"
-                              >
+                              <button onClick={handleNotionDisconnect} disabled={notion.disconnect.isPending} className="h-10 px-4 rounded-xl bg-error/10 text-error text-xs font-bold disabled:opacity-60">
                                 Desactivar
                               </button>
                             </>
                           )}
                         </div>
                       ) : (
-                        <div className="flex items-center gap-2 text-on-surface-variant/50">
-                          <Clock className="w-4 h-4" />
-                          <span className="text-xs font-black uppercase tracking-widest">Pronto</span>
-                        </div>
+                        <span className="text-xs text-on-surface-variant/40">Pronto</span>
                       )}
                     </div>
                 </div>
 
                 {isAdmin && notion.connection && notion.mappings.length > 0 && (
-                  <div className="border-t border-outline-variant/10 px-6 py-4 space-y-3">
+                  <div className="border-t border-outline-variant/10 p-4 space-y-2">
                     {notion.mappings.map((mapping) => (
-                      <div key={mapping.id} className="flex items-center justify-between gap-4">
-                        <span className="text-xs font-bold text-foreground truncate">{mapping.notion_title}</span>
-                        <span className="text-[9px] text-on-surface-variant/50 font-black uppercase tracking-widest shrink-0">
-                          {mapping.last_synced_at ? 'Sincronizada' : 'Pendiente'}
-                        </span>
+                      <div key={mapping.id} className="flex items-center justify-between">
+                        <span className="text-sm font-bold text-foreground truncate">{mapping.notion_title}</span>
+                        <span className="text-xs text-on-surface-variant/40">{mapping.last_synced_at ? 'Sincronizada' : 'Pendiente'}</span>
                       </div>
                     ))}
                   </div>
                 )}
 
                 {isAdmin && notion.connection && notion.databases.length > 0 && (
-                  <div className="border-t border-outline-variant/10 px-6 py-4 space-y-3">
-                    <div className="flex items-center justify-between gap-4">
-                      <span className="text-[10px] font-black text-on-surface-variant/50 uppercase tracking-widest">Bases disponibles</span>
-                      <span className="text-[10px] font-black text-primary uppercase tracking-widest">{selectedNotionSources.length} seleccionadas</span>
+                  <div className="border-t border-outline-variant/10 p-4 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-on-surface-variant/50">Bases disponibles</span>
+                      <span className="text-xs font-bold text-primary">{selectedNotionSources.length} seleccionadas</span>
                     </div>
                     {notion.databases.map((database) => {
                       const checked = selectedNotionSources.includes(database.data_source_id);
                       return (
-                        <button
-                          key={database.data_source_id}
-                          onClick={() => {
-                            setSelectedNotionSources((current) =>
-                              current.includes(database.data_source_id)
-                                ? current.filter((id) => id !== database.data_source_id)
-                                : [...current, database.data_source_id]
-                            );
-                          }}
-                          className="w-full flex items-center justify-between gap-4 rounded-2xl bg-surface-container-high/60 px-4 py-3 hover:bg-surface-container-high transition-colors"
-                        >
+                        <button key={database.data_source_id} onClick={() => { setSelectedNotionSources((current) => current.includes(database.data_source_id) ? current.filter((id) => id !== database.data_source_id) : [...current, database.data_source_id]); }} className="w-full flex items-center justify-between gap-3 rounded-xl bg-surface-container-high/60 px-4 py-2.5 hover:bg-surface-container-high transition-colors">
                           <span className="text-sm font-bold text-foreground truncate text-left">{database.title}</span>
-                          <span className={cn(
-                            "w-5 h-5 rounded-md border flex items-center justify-center shrink-0 transition-colors",
-                            checked ? "bg-primary border-primary text-primary-foreground" : "border-outline-variant/50 text-transparent"
-                          )}>
+                          <span className={cn("w-5 h-5 rounded border flex items-center justify-center shrink-0 transition-colors", checked ? "bg-primary border-primary text-primary-foreground" : "border-outline-variant/30")}>
                             <Check className="w-3 h-3" />
                           </span>
                         </button>
@@ -576,22 +496,10 @@ const SettingsPage = () => {
                 )}
 
                 {isAdmin && notion.connection && !notion.isLoading && notion.databases.length === 0 && (
-                  <div className="border-t border-outline-variant/10 px-6 py-5 space-y-3">
-                    <div className="rounded-2xl bg-surface-container-high/60 border border-outline-variant/10 p-4">
-                      <span className="block text-sm font-black text-foreground">
-                        {notion.databasesError ? 'No se pudieron leer las bases' : 'No hay bases disponibles'}
-                      </span>
-                      <span className="block text-xs text-on-surface-variant/60 mt-1">
-                        {notion.databasesError
-                          ? String((notion.databasesError as Error).message || notion.databasesError)
-                          : 'Vuelve a conectar Notion y asegúrate de seleccionar al menos una base de datos o una página que contenga bases.'}
-                      </span>
-                    </div>
-                    <button
-                      onClick={() => notion.connect.mutate()}
-                      disabled={notion.connect.isPending}
-                      className="w-full px-4 py-3 rounded-2xl bg-primary text-primary-foreground text-xs font-black uppercase tracking-widest disabled:opacity-60"
-                    >
+                  <div className="border-t border-outline-variant/10 p-4 space-y-3">
+                    <p className="text-sm font-bold text-foreground">{notion.databasesError ? 'No se pudieron leer las bases' : 'No hay bases disponibles'}</p>
+                    {notion.databasesError && <p className="text-xs text-on-surface-variant/50">{String((notion.databasesError as Error).message || notion.databasesError)}</p>}
+                    <button onClick={() => notion.connect.mutate()} disabled={notion.connect.isPending} className="h-10 px-4 rounded-xl bg-primary text-primary-foreground text-xs font-bold disabled:opacity-60">
                       Elegir bases en Notion
                     </button>
                   </div>
@@ -599,173 +507,42 @@ const SettingsPage = () => {
 
                 <AnimatePresence>
                   {reviewTasks.length > 0 && activeReviewTask && (
-                    <motion.div
-                      className="fixed inset-0 z-[90] bg-background/70 backdrop-blur-2xl px-4 py-5 sm:px-6 sm:py-8 overflow-y-auto"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                    >
-                      <motion.div
-                        className="w-full max-w-[560px] mx-auto bg-surface-container-low border border-outline-variant/20 rounded-[28px] shadow-2xl shadow-black/40 overflow-hidden"
-                        initial={{ opacity: 0, y: 18, scale: 0.98 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: 12, scale: 0.98 }}
-                        transition={{ type: 'spring', stiffness: 260, damping: 28 }}
-                      >
-                        <div className="px-5 pt-4 sm:px-6 flex justify-end">
-                          <button
-                            type="button"
-                            onClick={closeNotionReview}
-                            className="w-9 h-9 rounded-full bg-surface-container-highest/80 text-on-surface-variant hover:text-foreground flex items-center justify-center transition-colors"
-                            aria-label="Cerrar revision de Notion"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
+                    <motion.div className="fixed inset-0 z-[90] bg-background/70 backdrop-blur px-4 py-5 sm:px-6 sm:py-8 overflow-y-auto" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                      <motion.div className="w-full max-w-[560px] mx-auto bg-surface-container-low border border-outline-variant/10 rounded-2xl overflow-hidden" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 8 }}>
+                        <div className="p-5 flex justify-end">
+                          <button type="button" onClick={closeNotionReview} className="w-8 h-8 rounded-lg bg-surface-container-high text-on-surface-variant hover:text-foreground flex items-center justify-center transition-colors"><X className="w-4 h-4" /></button>
                         </div>
-
-                        <div>
-                          <div className="p-5 sm:p-6 space-y-5">
+                        <div className="px-5 pb-5 space-y-5">
+                          <h4 className="text-xl font-bold text-foreground">{activeReviewTask.title || 'Tarea sin título'}</h4>
+                          {activeReviewPrimaryLink && (
+                            <a href={activeReviewPrimaryLink} target="_blank" rel="noreferrer" className="flex items-center gap-2 rounded-xl bg-surface-container-high border border-outline-variant/10 px-4 py-2.5 text-xs font-bold text-primary hover:bg-surface-container-high transition-colors">
+                              <LinkIcon className="w-4 h-4 shrink-0" />
+                              <span className="truncate">{activeReviewPrimaryLink}</span>
+                            </a>
+                          )}
+                          <div className="space-y-4">
+                            <label className="space-y-1.5">
+                              <span className="text-xs font-bold text-on-surface-variant/50">Fecha</span>
+                              <input type="date" value={activeReviewTask.due_date || ''} onChange={(event) => updateNotionImportTask(activeReviewTask.notion_page_id, { due_date: event.target.value })} className="w-full h-12 bg-surface-container-high px-4 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-primary/30 border border-outline-variant/10" />
+                            </label>
                             <div className="space-y-2">
-                              <h4 className="text-2xl sm:text-3xl font-black text-foreground leading-tight tracking-tight">
-                                {activeReviewTask.title || 'Tarea sin titulo'}
-                              </h4>
-                              <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-on-surface-variant/50">
-                                <Notebook className="w-4 h-4" />
-                                {activeReviewGroup?.title || activeReviewTask.database_title || 'Base de Notion'}
+                              <span className="text-xs font-bold text-on-surface-variant/50">Prioridad</span>
+                              <div className="flex gap-2">
+                                <button type="button" onClick={() => { updateNotionImportTask(activeReviewTask.notion_page_id, { importance: !(activeReviewTask.importance === true), urgency: activeReviewTask.urgency ?? false }); }} className={`flex-1 h-10 rounded-xl text-xs font-bold border transition-all ${activeReviewTask.importance === true ? 'bg-amber-500/15 text-amber-600 border-amber-500/30' : 'bg-surface-container-high text-on-surface-variant/50 border-outline-variant/10'}`}>IMPORTANTE</button>
+                                <button type="button" onClick={() => { updateNotionImportTask(activeReviewTask.notion_page_id, { urgency: !(activeReviewTask.urgency === true), importance: activeReviewTask.importance ?? false }); }} className={`flex-1 h-10 rounded-xl text-xs font-bold border transition-all ${activeReviewTask.urgency === true ? 'bg-red-500/15 text-red-600 border-red-500/30' : 'bg-surface-container-high text-on-surface-variant/50 border-outline-variant/10'}`}>URGENTE</button>
                               </div>
                             </div>
-
-                            {activeReviewPrimaryLink && (
-                              <a
-                                href={activeReviewPrimaryLink}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="flex items-center gap-2 rounded-2xl bg-surface-container-high/55 border border-outline-variant/10 px-4 py-3 text-xs font-bold text-primary hover:bg-surface-container-high transition-colors"
-                              >
-                                <LinkIcon className="w-4 h-4 shrink-0" />
-                                <span className="truncate">{activeReviewPrimaryLink}</span>
-                              </a>
+                          </div>
+                          <div className="flex gap-2 pt-1">
+                            <button type="button" onClick={goToPreviousNotionReviewTask} disabled={!canGoToPreviousReviewTask} className="h-11 px-4 rounded-xl bg-surface-container-high text-foreground text-xs font-bold disabled:opacity-30"><ArrowLeft className="w-4 h-4" /> Anterior</button>
+                            {canGoToNextReviewTask ? (
+                              <button type="button" onClick={handleNextNotionReviewTask} className="h-11 flex-1 px-4 rounded-xl bg-primary text-primary-foreground text-xs font-bold">Siguiente <ArrowRight className="w-4 h-4" /></button>
+                            ) : (
+                              <button type="button" onClick={handleSaveNotionReview} disabled={notion.importReviewed.isPending} className="h-11 flex-1 px-4 rounded-xl bg-primary text-primary-foreground text-xs font-bold disabled:opacity-45">{notion.importReviewed.isPending ? 'Guardando' : 'Guardar tareas'}</button>
                             )}
-
-                            <div className="grid gap-5">
-                              <label className="space-y-2">
-                                <span className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/50">Fecha obligatoria</span>
-                                <input
-                                  type="date"
-                                  value={activeReviewTask.due_date || ''}
-                                  onChange={(event) => updateNotionImportTask(activeReviewTask.notion_page_id, { due_date: event.target.value })}
-                                  className="w-full h-14 bg-surface-container-highest px-4 rounded-2xl text-base font-black outline-none focus:ring-2 focus:ring-primary/50 border border-outline-variant/10"
-                                />
-                              </label>
-
-                              <div className="space-y-2">
-                                <span className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/50">Prioridad obligatoria</span>
-                                <div className="grid grid-cols-2 gap-3">
-                                  <motion.button
-                                    type="button"
-                                    whileTap={{ scale: 0.96 }}
-                                    onClick={() => {
-                                      const importance = !(activeReviewTask.importance === true);
-                                      updateNotionImportTask(activeReviewTask.notion_page_id, {
-                                        importance,
-                                        urgency: activeReviewTask.urgency ?? false,
-                                      });
-                                    }}
-                                    className={cn(
-                                      "flex flex-col items-center justify-center gap-1 rounded-[22px] font-black uppercase tracking-widest text-[9px] transition-all border h-14",
-                                      activeReviewTask.importance === true
-                                        ? "bg-amber-500/20 text-amber-600 border-amber-500/50 shadow-lg shadow-amber-500/10"
-                                        : "bg-surface text-muted-foreground border-outline-variant hover:bg-on-surface/5"
-                                    )}
-                                  >
-                                    IMPORTANTE
-                                  </motion.button>
-                                  <motion.button
-                                    type="button"
-                                    whileTap={{ scale: 0.96 }}
-                                    onClick={() => {
-                                      const urgency = !(activeReviewTask.urgency === true);
-                                      updateNotionImportTask(activeReviewTask.notion_page_id, {
-                                        urgency,
-                                        importance: activeReviewTask.importance ?? false,
-                                      });
-                                    }}
-                                    className={cn(
-                                      "flex flex-col items-center justify-center gap-1 rounded-[22px] font-black uppercase tracking-widest text-[9px] transition-all border h-14",
-                                      activeReviewTask.urgency === true
-                                        ? "bg-red-500/20 text-red-600 border-red-500/50 shadow-lg shadow-red-500/10"
-                                        : "bg-surface text-muted-foreground border-outline-variant hover:bg-on-surface/5"
-                                    )}
-                                  >
-                                    URGENTE
-                                  </motion.button>
-                                </div>
-                                <button
-                                  type="button"
-                                  aria-pressed={activeReviewTask.urgency === false && activeReviewTask.importance === false}
-                                  onClick={() => updateNotionImportTask(activeReviewTask.notion_page_id, {
-                                    urgency: false,
-                                    importance: false,
-                                  })}
-                                  className={cn(
-                                    "w-full h-10 rounded-[22px] border text-[9px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2",
-                                    activeReviewTask.urgency === false && activeReviewTask.importance === false
-                                      ? "bg-surface-container-highest text-muted-foreground border-outline-variant shadow-sm"
-                                      : "bg-surface text-muted-foreground border-outline-variant hover:bg-on-surface/5"
-                                  )}
-                                >
-                                  {activeReviewTask.urgency === false && activeReviewTask.importance === false && (
-                                    <Check className="w-3 h-3" />
-                                  )}
-                                  No importante ni urgente
-                                </button>
-                              </div>
-                            </div>
-
-                            <div className="flex gap-3 pt-2">
-                              <button
-                                type="button"
-                                onClick={goToPreviousNotionReviewTask}
-                                disabled={!canGoToPreviousReviewTask}
-                                className="h-14 px-4 rounded-2xl bg-surface-container-highest text-foreground text-xs font-black uppercase tracking-widest disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                              >
-                                <ArrowLeft className="w-4 h-4" />
-                                Anterior
-                              </button>
-                              {canGoToNextReviewTask ? (
-                                <button
-                                  type="button"
-                                  onClick={handleNextNotionReviewTask}
-                                  className="h-14 flex-1 px-4 rounded-2xl bg-primary text-primary-foreground text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2"
-                                >
-                                  Siguiente
-                                  <ArrowRight className="w-4 h-4" />
-                                </button>
-                              ) : (
-                                <button
-                                  type="button"
-                                  onClick={handleSaveNotionReview}
-                                  disabled={notion.importReviewed.isPending}
-                                  className="h-14 flex-1 px-5 rounded-2xl bg-primary text-primary-foreground text-xs font-black uppercase tracking-widest disabled:opacity-45 disabled:cursor-not-allowed"
-                                >
-                                  {notion.importReviewed.isPending ? 'Guardando' : 'Guardar tareas'}
-                                </button>
-                              )}
-                            </div>
-                            <div
-                              className="h-2 overflow-hidden rounded-full bg-surface-container-highest"
-                              role="progressbar"
-                              aria-valuemin={0}
-                              aria-valuemax={100}
-                              aria-valuenow={Math.round(reviewProgressPercent)}
-                            >
-                              <motion.div
-                                className="h-full rounded-full bg-primary"
-                                initial={false}
-                                animate={{ width: `${reviewProgressPercent}%` }}
-                                transition={{ duration: 1.05, ease: [0.16, 1, 0.3, 1] }}
-                              />
-                            </div>
+                          </div>
+                          <div className="h-1.5 rounded-full bg-surface-container-high overflow-hidden">
+                            <motion.div className="h-full rounded-full bg-primary" initial={false} animate={{ width: `${reviewProgressPercent}%` }} transition={{ duration: 0.5 }} />
                           </div>
                         </div>
                       </motion.div>
@@ -775,284 +552,158 @@ const SettingsPage = () => {
             </div>
 
             {/* Google Calendar Integration */}
-            <div className="bg-surface-container-low border border-outline-variant/10 rounded-[32px] overflow-hidden mt-4">
-                <div className="p-6 flex flex-col md:flex-row md:items-center justify-between gap-5">
-                    <div className="flex items-start gap-4">
-                        <div className="w-12 h-12 rounded-[20px] bg-white border border-black/10 shadow-sm flex items-center justify-center shrink-0">
-                            <Calendar className="w-7 h-7 text-primary" />
+            <div className="bg-surface-container-low border border-outline-variant/10 rounded-2xl overflow-hidden mt-3">
+                <div className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div className="flex items-start gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                            <Calendar className="w-5 h-5 text-primary" />
                         </div>
-                        <div className="space-y-1">
-                            <span className="block font-bold text-foreground">Google Calendar</span>
-                            <span className="block text-[11px] text-on-surface-variant/60 font-medium max-w-[420px]">
-                                Sincroniza tus eventos de Google Calendar con tus tareas y administra todo en un solo lugar.
+                        <div className="space-y-0.5">
+                            <span className="block text-sm font-bold text-foreground">Google Calendar</span>
+                            <span className="block text-xs text-on-surface-variant/40 max-w-[380px]">
+                                Sincroniza tus eventos de Google Calendar con tus tareas.
                             </span>
                         </div>
                     </div>
 
                     <div className="self-stretch md:self-auto md:shrink-0">
                       {isAdmin ? (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 md:flex gap-2">
+                        <div className="flex flex-wrap gap-2">
                           {!calendar.connected ? (
-                            <button
-                              onClick={() => {
-                                toast.loading('Iniciando conexión...');
-                                calendar.connect.mutate();
-                              }}
-                              disabled={calendar.connect.isPending}
-                              className="w-full md:w-auto min-h-12 px-4 py-3 rounded-2xl bg-primary text-primary-foreground text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 disabled:opacity-60"
-                            >
+                            <button onClick={() => { toast.loading('Iniciando conexión...'); calendar.connect.mutate(); }} disabled={calendar.connect.isPending} className="h-10 px-4 rounded-xl bg-primary text-primary-foreground text-xs font-bold disabled:opacity-60">
                               <LinkIcon className="w-4 h-4" />
                               Conectar
                             </button>
                           ) : (
                             <>
-                              <button
-                                onClick={() => {
-                                  toast.promise(calendar.sync.mutateAsync(), {
-                                    loading: 'Sincronizando eventos...',
-                                    success: 'Calendario sincronizado correctamente',
-                                    error: 'Error al sincronizar calendario',
-                                  });
-                                }}
-                                disabled={calendar.sync.isPending}
-                                className="w-full md:w-auto min-h-12 px-4 py-3 rounded-2xl bg-primary text-primary-foreground text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 disabled:opacity-60 whitespace-normal text-center leading-tight"
-                              >
+                              <button onClick={() => { toast.promise(calendar.sync.mutateAsync(), { loading: 'Sincronizando eventos...', success: 'Calendario sincronizado', error: 'Error al sincronizar' }); }} disabled={calendar.sync.isPending} className="h-10 px-4 rounded-xl bg-primary text-primary-foreground text-xs font-bold disabled:opacity-60">
                                 <RefreshCw className={`w-4 h-4 ${calendar.sync.isPending ? 'animate-spin' : ''}`} />
-                                {calendar.sync.isPending ? 'Sincronizando' : 'Sincronizar ahora'}
+                                {calendar.sync.isPending ? 'Sincronizando' : 'Sincronizar'}
                               </button>
-                              <button
-                                onClick={() => {
-                                  toast.promise(calendar.disconnect.mutateAsync(), {
-                                    loading: 'Desconectando...',
-                                    success: 'Google Calendar desconectado',
-                                    error: 'Error al desconectar',
-                                  });
-                                }}
-                                disabled={calendar.disconnect.isPending}
-                                className="w-full md:w-auto min-h-12 px-4 py-3 rounded-2xl bg-red-500/10 text-red-500 border border-red-500/30 text-xs font-black uppercase tracking-widest disabled:opacity-60 hover:bg-red-500/15 transition-colors"
-                              >
+                              <button onClick={() => { toast.promise(calendar.disconnect.mutateAsync(), { loading: 'Desconectando...', success: 'Google Calendar desconectado', error: 'Error' }); }} disabled={calendar.disconnect.isPending} className="h-10 px-4 rounded-xl bg-error/10 text-error text-xs font-bold disabled:opacity-60">
                                 Desactivar
                               </button>
                             </>
                           )}
                         </div>
                       ) : (
-                        <div className="flex items-center gap-2 text-on-surface-variant/50">
-                          <Clock className="w-4 h-4" />
-                          <span className="text-xs font-black uppercase tracking-widest">Pronto</span>
-                        </div>
+                        <span className="text-xs text-on-surface-variant/40">Pronto</span>
                       )}
                     </div>
                 </div>
             </div>
 
             {/* Google Sheets Integration */}
-            <div className="bg-surface-container-low border border-outline-variant/10 rounded-[32px] overflow-hidden mt-4">
-                <div className="p-6 flex flex-col md:flex-row md:items-center justify-between gap-5">
-                    <div className="flex items-start gap-4">
-                        <div className="w-12 h-12 rounded-[20px] bg-emerald-500/10 border border-emerald-500/20 shadow-sm flex items-center justify-center shrink-0">
-                            <FileSpreadsheet className="w-7 h-7 text-emerald-600" />
+            <div className="bg-surface-container-low border border-outline-variant/10 rounded-2xl overflow-hidden mt-3">
+                <div className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div className="flex items-start gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center shrink-0">
+                            <FileSpreadsheet className="w-5 h-5 text-emerald-600" />
                         </div>
-                        <div className="space-y-1">
-                            <span className="block font-bold text-foreground">Google Sheets</span>
-                            <span className="block text-[11px] text-on-surface-variant/60 font-medium max-w-[420px]">
-                                Vincula tus hojas de cálculo para importar todas tus tareas improvisadas y administrarlas definitivamente en Adonai.
+                        <div className="space-y-0.5">
+                            <span className="block text-sm font-bold text-foreground">Google Sheets</span>
+                            <span className="block text-xs text-on-surface-variant/40 max-w-[380px]">
+                                Vincula tus hojas de cálculo para importar tareas a Adonai.
                             </span>
                         </div>
                     </div>
 
                     <div className="self-stretch md:self-auto md:shrink-0">
                       {isAdmin ? (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 md:flex gap-2">
+                        <div className="flex flex-wrap gap-2">
                           {!sheets.connected && (
-                            <button
-                              onClick={() => {
-                                toast.loading('Iniciando conexión...');
-                                sheets.connect.mutate();
-                              }}
-                              disabled={sheets.connect.isPending}
-                              className="w-full md:w-auto min-h-12 px-4 py-3 rounded-2xl bg-primary text-primary-foreground text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 disabled:opacity-60"
-                            >
+                            <button onClick={() => { toast.loading('Iniciando conexión...'); sheets.connect.mutate(); }} disabled={sheets.connect.isPending} className="h-10 px-4 rounded-xl bg-primary text-primary-foreground text-xs font-bold disabled:opacity-60">
                               <LinkIcon className="w-4 h-4" />
                               Conectar
                             </button>
                           )}
                         </div>
                       ) : (
-                        <div className="flex items-center gap-2 text-on-surface-variant/50">
-                          <Clock className="w-4 h-4" />
-                          <span className="text-xs font-black uppercase tracking-widest">Pronto</span>
-                        </div>
+                        <span className="text-xs text-on-surface-variant/40">Pronto</span>
                       )}
                     </div>
                 </div>
 
                 {isAdmin && sheets.connected && (
-                  <div className="mt-4 px-6 pb-6 space-y-4 border-t border-outline-variant/10 pt-6">
+                  <div className="border-t border-outline-variant/10 p-4 space-y-3">
                     <div className="space-y-2">
-                      <span className="block text-[10px] font-black text-on-surface-variant/50 uppercase tracking-widest">Enlace de tu Google Sheet</span>
-                      <div className="flex flex-col sm:flex-row gap-2">
-                        <input
-                          type="text"
-                          placeholder="Pega la URL de tu Google Sheet (ej. https://docs.google.com/spreadsheets/d/...)"
-                          value={sheetUrl}
-                          onChange={(e) => setSheetUrl(e.target.value)}
-                          className="flex-1 bg-surface-container-highest px-4 py-3 rounded-2xl text-xs font-bold outline-none border border-outline-variant/10 focus:ring-2 focus:ring-primary/50 text-foreground placeholder:text-on-surface-variant/40"
-                        />
-                        <button
-                          onClick={() => {
-                            if (!sheetUrl.trim()) {
-                              toast.error("Por favor, ingresa una URL de Google Sheet válida");
-                              return;
-                            }
-                            toast.promise(sheets.importSheets.mutateAsync(sheetUrl), {
-                              loading: 'Importando tareas...',
-                              success: (data) => {
-                                setSheetUrl('');
-                                return data.message;
-                              },
-                              error: (err) => err.message || 'Error al importar las tareas',
-                            });
-                          }}
-                          disabled={sheets.importSheets.isPending}
-                          className="px-6 py-3 rounded-2xl bg-primary text-primary-foreground text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:scale-105 active:scale-95 transition-all disabled:opacity-60 shrink-0"
-                        >
+                      <span className="block text-xs font-bold text-on-surface-variant/50">Enlace de tu Google Sheet</span>
+                      <div className="flex gap-2">
+                        <input type="text" placeholder="URL de tu Google Sheet" value={sheetUrl} onChange={(e) => setSheetUrl(e.target.value)} className="flex-1 bg-surface-container-high px-4 py-2.5 rounded-xl text-xs font-bold outline-none border border-outline-variant/10 focus:border-primary/30 text-foreground placeholder:text-on-surface-variant/30" />
+                        <button onClick={() => { if (!sheetUrl.trim()) { toast.error("Ingresa una URL válida"); return; } toast.promise(sheets.importSheets.mutateAsync(sheetUrl), { loading: 'Importando...', success: (data) => { setSheetUrl(''); return data.message; }, error: (err) => err.message || 'Error' }); }} disabled={sheets.importSheets.isPending} className="px-5 py-2.5 rounded-xl bg-primary text-primary-foreground text-xs font-bold disabled:opacity-60 shrink-0">
                           {sheets.importSheets.isPending ? 'Importando...' : 'Importar'}
                         </button>
                       </div>
-                      <p className="text-[10px] text-on-surface-variant/40 font-medium">
-                        Nota: Asegúrate de que la primera fila contenga las cabeceras (Título, Prioridad, Vencimiento, etc.).
-                      </p>
                     </div>
-                    
-                    <div className="flex justify-end pt-2">
-                      <button
-                        onClick={() => {
-                          const confirmed = window.confirm('¿Quieres desconectar Google Sheets?');
-                          if (confirmed) {
-                            toast.promise(sheets.disconnect.mutateAsync(), {
-                              loading: 'Desconectando...',
-                              success: 'Google Sheets desconectado',
-                              error: 'Error al desconectar',
-                            });
-                          }
-                        }}
-                        disabled={sheets.disconnect.isPending}
-                        className="px-4 py-2.5 rounded-2xl bg-red-500/10 text-red-500 border border-red-500/30 text-xs font-black uppercase tracking-widest hover:bg-red-500/15 transition-colors disabled:opacity-60"
-                      >
-                        Desactivar
-                      </button>
-                    </div>
+                    <button onClick={() => { const c = window.confirm('¿Desconectar Google Sheets?'); if (c) { toast.promise(sheets.disconnect.mutateAsync(), { loading: 'Desconectando...', success: 'Google Sheets desconectado', error: 'Error' }); } }} disabled={sheets.disconnect.isPending} className="text-xs font-bold text-error/60 hover:text-error transition-colors">
+                      Desactivar
+                    </button>
                   </div>
                 )}
             </div>
         </section>
 
         {/* Notification Settings */}
-        <section className="space-y-4">
-            <h3 className="text-xs font-black text-on-surface-variant uppercase tracking-[0.2em] px-2">Notificaciones Inteligentes</h3>
-            <div className="bg-surface-container-low border border-outline-variant/10 rounded-[32px] overflow-hidden divide-y divide-outline-variant/5">
-                <div className="p-6 flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-[20px] bg-surface-container-highest flex items-center justify-center">
-                            <BellRing className="w-6 h-6 text-primary" />
-                        </div>
+        <section className="space-y-3">
+            <h3 className="text-xs font-bold text-on-surface-variant/50 uppercase tracking-[0.2em]">Notificaciones</h3>
+            <div className="bg-surface-container-low border border-outline-variant/10 rounded-2xl overflow-hidden divide-y divide-outline-variant/10">
+                
+                <div className="p-4 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <BellRing className="w-4 h-4 text-foreground/60" />
                         <div>
-                            <span className="block font-bold text-foreground">Notificaciones</span>
-                            <span className="text-[11px] text-on-surface-variant/60 font-medium">Avisos externos del sistema y navegador</span>
+                            <span className="block text-sm font-bold text-foreground">Notificaciones</span>
+                            <span className="text-xs text-on-surface-variant/40">Avisos del sistema y navegador</span>
                         </div>
                     </div>
-                    <button 
-                        onClick={async () => {
-                            const next = !notificationsEnabled;
-                            if (next && 'Notification' in window && Notification.permission === 'default') {
-                                await Notification.requestPermission();
-                            }
-                            localStorage.setItem('adonai_notifications_enabled', String(next));
-                            setNotificationsEnabled(next);
-                            toast.success(next ? 'Notificaciones activadas' : 'Notificaciones desactivadas');
-                        }}
-                        className={`w-12 h-6 rounded-full relative transition-colors ${notificationsEnabled ? 'bg-primary' : 'bg-surface-container-highest'}`}
-                    >
+                    <button onClick={async () => { const next = !notificationsEnabled; if (next && 'Notification' in window && Notification.permission === 'default') { await Notification.requestPermission(); } localStorage.setItem('adonai_notifications_enabled', String(next)); setNotificationsEnabled(next); toast.success(next ? 'Notificaciones activadas' : 'Notificaciones desactivadas'); }} className={`w-12 h-6 rounded-full relative transition-colors ${notificationsEnabled ? 'bg-primary' : 'bg-surface-container-highest'}`}>
                         <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${notificationsEnabled ? 'translate-x-6' : ''}`} />
                     </button>
                 </div>
                 
-                {/* Bedtime / Tomorrow Plan */}
-                <div className="p-6 flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-[20px] bg-surface-container-highest flex items-center justify-center">
-                            <Clock className="w-6 h-6 text-foreground" />
-                        </div>
+                <div className="p-4 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <Clock className="w-4 h-4 text-foreground/60" />
                         <div>
-                            <span className="block font-bold text-foreground">Plan de Mañana</span>
-                            <span className="text-[11px] text-on-surface-variant/60 font-medium">Recordatorio para organizar el día</span>
+                            <span className="block text-sm font-bold text-foreground">Plan de Mañana</span>
+                            <span className="text-xs text-on-surface-variant/40">Recordatorio para organizar el día</span>
                         </div>
                     </div>
-                    <input 
-                        type="time" 
-                        defaultValue={localStorage.getItem('adonai_notif_bedtime') || '20:00'}
-                        onChange={(e) => localStorage.setItem('adonai_notif_bedtime', e.target.value)}
-                        className="bg-surface-container-highest px-4 py-2 rounded-xl text-sm font-black text-primary border-none focus:ring-1 focus:ring-primary outline-none"
-                    />
+                    <input type="time" defaultValue={localStorage.getItem('adonai_notif_bedtime') || '20:00'} onChange={(e) => localStorage.setItem('adonai_notif_bedtime', e.target.value)} className="bg-surface-container-high px-3 py-1.5 rounded-lg text-xs font-bold text-primary border-none outline-none" />
                 </div>
 
-                {/* Streak Protection */}
-                <div className="p-6 flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-[20px] bg-surface-container-highest flex items-center justify-center">
-                            <Zap className="w-6 h-6 text-orange-500" />
-                        </div>
+                <div className="p-4 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <Zap className="w-4 h-4 text-orange-500" />
                         <div>
-                            <span className="block font-bold text-foreground">Protección de Racha</span>
-                            <span className="text-[11px] text-on-surface-variant/60 font-medium">Avisar si tu racha peligra a las 6pm</span>
+                            <span className="block text-sm font-bold text-foreground">Protección de Racha</span>
+                            <span className="text-xs text-on-surface-variant/40">Avisar si tu racha peligra</span>
                         </div>
                     </div>
-                    <button 
-                        onClick={() => {
-                            const next = !streakEnabled;
-                            localStorage.setItem('adonai_notif_streak', String(next));
-                            setStreakEnabled(next);
-                            toast.success(next ? 'Protección activada' : 'Protección desactivada');
-                        }}
-                        className={`w-12 h-6 rounded-full relative transition-colors ${streakEnabled ? 'bg-primary' : 'bg-surface-container-highest'}`}
-                    >
+                    <button onClick={() => { const next = !streakEnabled; localStorage.setItem('adonai_notif_streak', String(next)); setStreakEnabled(next); toast.success(next ? 'Protección activada' : 'Protección desactivada'); }} className={`w-12 h-6 rounded-full relative transition-colors ${streakEnabled ? 'bg-primary' : 'bg-surface-container-highest'}`}>
                         <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${streakEnabled ? 'translate-x-6' : ''}`} />
                     </button>
                 </div>
 
-                {/* Health Reminders */}
-                <div className="p-6 flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-[20px] bg-surface-container-highest flex items-center justify-center">
-                            <BellRing className="w-6 h-6 text-secondary" />
-                        </div>
+                <div className="p-4 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <BellRing className="w-4 h-4 text-secondary/60" />
                         <div>
-                            <span className="block font-bold text-foreground">Recordatorios de Salud</span>
-                            <span className="text-[11px] text-on-surface-variant/60 font-medium">Sugerencias para beber agua o descansar</span>
+                            <span className="block text-sm font-bold text-foreground">Recordatorios de Salud</span>
+                            <span className="text-xs text-on-surface-variant/40">Beber agua o descansar</span>
                         </div>
                     </div>
-                    <button 
-                        onClick={() => {
-                            const next = !healthEnabled;
-                            localStorage.setItem('adonai_notif_health', String(next));
-                            setHealthEnabled(next);
-                            toast.success(next ? 'Recordatorios activados' : 'Recordatorios desactivados');
-                        }}
-                        className={`w-12 h-6 rounded-full relative transition-colors ${healthEnabled ? 'bg-secondary' : 'bg-surface-container-highest'}`}
-                    >
+                    <button onClick={() => { const next = !healthEnabled; localStorage.setItem('adonai_notif_health', String(next)); setHealthEnabled(next); toast.success(next ? 'Recordatorios activados' : 'Recordatorios desactivados'); }} className={`w-12 h-6 rounded-full relative transition-colors ${healthEnabled ? 'bg-secondary' : 'bg-surface-container-highest'}`}>
                         <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${healthEnabled ? 'translate-x-6' : ''}`} />
                     </button>
                 </div>
-
             </div>
         </section>
 
-        {/* Legal links */}
         <div className="flex justify-center gap-3 pt-2 pb-4">
-          <a href="/privacy" className="text-[10px] text-on-surface-variant/40 hover:text-on-surface-variant/60 transition-colors">Privacidad</a>
+          <a href="/privacy" className="text-[10px] text-on-surface-variant/30 hover:text-on-surface-variant/60 transition-colors">Privacidad</a>
           <span className="text-[10px] text-on-surface-variant/20">·</span>
-          <a href="/terms" className="text-[10px] text-on-surface-variant/40 hover:text-on-surface-variant/60 transition-colors">Términos</a>
+          <a href="/terms" className="text-[10px] text-on-surface-variant/30 hover:text-on-surface-variant/60 transition-colors">Términos</a>
         </div>
       </div>
     </div>

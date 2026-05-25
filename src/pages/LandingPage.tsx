@@ -16,10 +16,13 @@ import {
   NotebookPen,
   Timer,
   Zap,
+  User,
 } from "lucide-react";
 import { PublicFooter } from "@/components/PublicFooter";
 import { PublicNav } from "@/components/PublicNav";
 import { startGuidedDownload } from "@/lib/downloadGuide";
+import { useAuth } from '@/contexts/AuthContext';
+import { useProfile } from '@/hooks/useProfile';
 
 const fadeUp = {
   initial: { opacity: 0, y: 18 },
@@ -154,15 +157,17 @@ function PrimaryCTA({ className = "", tone = "brand" }: { className?: string; to
   );
 }
 
-function WebButton({ label = "Usar version web" }: { label?: string }) {
+function WebButton({ label }: { label?: string }) {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const isLoggedIn = !!user;
   return (
     <button
-      onClick={() => navigate("/welcome")}
+      onClick={() => navigate(isLoggedIn ? "/daily" : "/welcome")}
       className="inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-full bg-white/30 px-4 text-xs font-medium text-[#151820]/45 backdrop-blur transition hover:bg-white/60 hover:text-[#151820]/70 active:translate-y-0 sm:w-auto sm:px-5"
     >
       <Globe className="h-3.5 w-3.5" />
-      {label}
+      {label ?? (isLoggedIn ? "Entrar" : "Usar version web")}
     </button>
   );
 }
@@ -743,6 +748,8 @@ function MobileStickyCTA() {
 }
 
 export default function LandingPage() {
+  const { user } = useAuth();
+  const { profile } = useProfile();
   useEffect(() => {
     document.title = "Adonai | Sistema operativo mental para emprendedores LATAM";
     document.querySelector('meta[name="description"]')?.setAttribute(
@@ -755,7 +762,7 @@ export default function LandingPage() {
     <div className="min-h-screen overflow-x-hidden bg-[#151820] text-[#151820] selection:bg-[#5B7CFA] selection:text-white">
       <IntroExperience />
       <div className="bg-white">
-      <PublicNav />
+      <PublicNav user={user} profile={profile} />
       <main className="pt-16">
         <Hero />
         <IntegrationsStrip />

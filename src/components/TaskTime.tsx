@@ -1,5 +1,6 @@
 import { memo } from 'react';
 import type { MouseEvent } from 'react';
+import type { CSSProperties } from 'react';
 import { Clock, Pause } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -10,6 +11,7 @@ interface TaskTimerButtonProps {
   size?: 'sm' | 'md';
   title?: string;
   className?: string;
+  style?: CSSProperties;
 }
 
 interface TaskDurationBadgeProps {
@@ -33,6 +35,7 @@ export const TaskTimerButton = memo(({
   size = 'md',
   title = 'Iniciar temporizador',
   className,
+  style,
 }: TaskTimerButtonProps) => {
   const Icon = active ? Pause : Clock;
 
@@ -42,6 +45,7 @@ export const TaskTimerButton = memo(({
       onClick={onClick}
       title={title}
       aria-label={title}
+      style={style}
       className={cn(
         'inline-flex shrink-0 items-center justify-center border transition-all active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30',
         size === 'sm' ? 'h-7 w-7 rounded-lg' : 'h-8 w-8 rounded-[10px]',

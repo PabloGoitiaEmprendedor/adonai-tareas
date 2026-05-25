@@ -11,8 +11,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTasks } from '@/hooks/useTasks';
 import { useFolders } from '@/hooks/useFolders';
 import { format, parseISO, addMinutes } from 'date-fns';
-import { es } from 'date-fns/locale';
-import { Check, ChevronRight, CalendarDays, Plus, Mic, Repeat, Paperclip, Notebook, NotebookText, X, Users as UsersIcon, GripHorizontal, ChevronsUpDown } from 'lucide-react';
+import { Check, CalendarDays, Plus, Repeat, Paperclip, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import TaskCaptureModal, { type TaskCaptureModalHandle } from '@/components/TaskCaptureModal';
 import TaskDetailModal from '@/components/TaskDetailModal';
@@ -56,25 +55,25 @@ const C = {
 
 type MiniThemeVars = CSSProperties & Record<`--mini-${string}`, string>;
 
-const getMiniThemeVars = (isDarkMode: boolean): MiniThemeVars => ({
- '--mini-bg': isDarkMode? '#0B1220': '#F7F8FC',
- '--mini-border': isDarkMode? 'rgba(91, 124, 250, 0.12)': 'rgba(21, 24, 32, 0.1)',
- '--mini-text': isDarkMode? 'rgba(245,247,255,0.94)': '#151820',
- '--mini-muted': isDarkMode? 'rgba(211,219,245,0.56)': 'rgba(21,24,32,0.54)',
- '--mini-accent': isDarkMode? '#3E5CC8': '#5B7CFA',
- '--mini-accent-bg': isDarkMode? 'rgba(62, 92, 200, 0.08)': 'rgba(91, 124, 250, 0.1)',
- '--mini-accent-soft': isDarkMode? 'rgba(62, 92, 200, 0.16)': 'rgba(91, 124, 250, 0.14)',
- '--mini-accent-border': isDarkMode? 'rgba(91, 124, 250, 0.22)': 'rgba(91, 124, 250, 0.26)',
- '--mini-accent-glow': isDarkMode? 'rgba(62, 92, 200, 0.16)': 'rgba(91, 124, 250, 0.16)',
- '--mini-task-bg': isDarkMode? '#101826': '#FFFFFF',
- '--mini-task-border': isDarkMode? 'rgba(255, 255, 255, 0.07)': 'rgba(21, 24, 32, 0.08)',
- '--mini-sub-bg': isDarkMode? '#080F1B': '#EEF2FA',
+const getMiniThemeVars = (_isDarkMode: boolean): MiniThemeVars => ({
+ '--mini-bg': '#F5F0E1',
+ '--mini-border': 'rgba(30, 41, 59, 0.12)',
+ '--mini-text': '#1F2937',
+ '--mini-muted': 'rgba(75, 85, 99, 0.58)',
+ '--mini-accent': '#111827',
+ '--mini-accent-bg': 'rgba(255, 255, 255, 0.34)',
+ '--mini-accent-soft': '#111827',
+ '--mini-accent-border': '#111827',
+ '--mini-accent-glow': 'rgba(17, 24, 39, 0.14)',
+ '--mini-task-bg': 'rgba(255, 255, 255, 0.34)',
+ '--mini-task-border': 'rgba(30, 41, 59, 0.12)',
+ '--mini-sub-bg': 'rgba(255, 255, 255, 0.42)',
 });
 
 const getApplePillStyles = (isDarkMode: boolean) => ({
- background: isDarkMode? 'linear-gradient(180deg, rgba(255,255,255,0.11), rgba(255,255,255,0.035))': 'linear-gradient(180deg, rgba(91,124,250,0.18), rgba(62,92,200,0.08))',
- border: isDarkMode? 'rgba(255,255,255,0.14)': 'rgba(91,124,250,0.18)',
- shadow: isDarkMode? '0 10px 26px rgba(0,0,0,0.34), inset 0 1px 0 rgba(255,255,255,0.16), inset 0 -1px 0 rgba(0,0,0,0.18)': '0 10px 24px rgba(4,10,24,0.22), inset 0 1px 0 rgba(255,255,255,0.08), inset 0 -1px 0 rgba(0,0,0,0.18)',
+ background: isDarkMode? 'linear-gradient(180deg, rgba(13,20,34,0.98), rgba(6,11,20,0.96))': 'linear-gradient(180deg, rgba(91,124,250,0.18), rgba(62,92,200,0.08))',
+ border: isDarkMode? 'rgba(124,151,255,0.22)': 'rgba(91,124,250,0.18)',
+ shadow: isDarkMode? '0 10px 26px rgba(0,0,0,0.42), inset 0 1px 0 rgba(255,255,255,0.08), inset 0 -1px 0 rgba(0,0,0,0.26)': '0 10px 24px rgba(4,10,24,0.22), inset 0 1px 0 rgba(255,255,255,0.08), inset 0 -1px 0 rgba(0,0,0,0.18)',
 });
 
 const AppleDots = ({ size = 6, isDarkMode }: { size?: number; isDarkMode: boolean }) => (
@@ -133,8 +132,9 @@ const TaskRowRaw = ({ task, onToggle, onDetail, activeTimerId, onTimerToggle, up
 
  const submitEdit = () => {
  setIsEditing(false);
- if (draftTitle.trim() && draftTitle.trim()!== task.title) {
- updateTask.mutate({ id: task.id, title: draftTitle.trim() });
+ const normalizedTitle = draftTitle.replace(/\r\n/g, '\n');
+ if (normalizedTitle.trim() && normalizedTitle !== task.title) {
+ updateTask.mutate({ id: task.id, title: normalizedTitle });
  } else {
  setDraftTitle(task.title);
  }
@@ -148,8 +148,7 @@ const TaskRowRaw = ({ task, onToggle, onDetail, activeTimerId, onTimerToggle, up
  return colors.p4;
  };
  const priorityColor = getTaskPriorityColor();
- const baseBg = priorityColor === 'transparent'? C.taskBg: `${priorityColor}4D`;
-
+ const timerHoverColor = priorityColor === 'transparent'? 'rgba(31,41,55,0.075)': `${priorityColor}26`;
  const actualSeconds = task.actual_duration_seconds || 0;
 
  const TIME_PREFIX_REGEX = /^\[T:(\d{2}:\d{2})-(\d{2}:\d{2})\]/;
@@ -267,14 +266,17 @@ const TaskRowRaw = ({ task, onToggle, onDetail, activeTimerId, onTimerToggle, up
 
  return (
  <motion.div layout initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
- exit={{ opacity: 0, scale: 0.95 }} style={{ marginBottom: 4 }}>
+ exit={{ opacity: 0, scale: 0.95 }} style={{ marginBottom: 0 }}>
  <div 
  onClick={() => onDetail(task)}
  style={{
- display: 'flex', alignItems: 'center', gap: 10, padding: '10px',
- borderRadius: 12, cursor: 'pointer',
- background: isDone? 'transparent': isTimerActive? C.accentBg: baseBg,
- border: `1px solid ${isDone? 'transparent': isTimerActive? C.accentBorder: C.taskBorder}`,
+ display: 'flex', alignItems: 'flex-start', gap: 9, padding: '10px 0 10px 0',
+ borderRadius: 0, cursor: 'pointer',
+ background: 'transparent',
+ borderTop: 'none',
+ borderRight: 'none',
+ borderLeft: 'none',
+ borderBottom: `1px solid ${isTimerActive? 'rgba(17,24,39,0.18)': 'rgba(31,41,55,0.09)'}`,
  opacity: isDone? 0.45: 1,
  }}
  >
@@ -284,19 +286,23 @@ const TaskRowRaw = ({ task, onToggle, onDetail, activeTimerId, onTimerToggle, up
  title="Arrastra para ordenar"
  aria-label="Arrastra para ordenar"
  style={{
- width: 16,
- height: 28,
+ width: 14,
+ height: 30,
  flexShrink: 0,
- borderRadius: 8,
+ borderRadius: 7,
  display: 'flex',
  alignItems: 'center',
  justifyContent: 'center',
- color: C.muted,
- opacity: 0.62,
+ color: 'rgba(31,41,55,0.36)',
+ opacity: 1,
  cursor: 'grab',
  }}
  >
- <ChevronsUpDown style={{ width: 13, height: 13, strokeWidth: 1.8 }} />
+ <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+ <span style={{ width: 4, height: 4, borderRadius: 999, background: 'currentColor', opacity: 0.82 }} />
+ <span style={{ width: 4, height: 4, borderRadius: 999, background: 'currentColor', opacity: 0.45 }} />
+ <span style={{ width: 4, height: 4, borderRadius: 999, background: 'currentColor', opacity: 0.82 }} />
+ </span>
  </div>
  ): (
  <div style={{ width: 16, flexShrink: 0 }} />
@@ -309,25 +315,30 @@ const TaskRowRaw = ({ task, onToggle, onDetail, activeTimerId, onTimerToggle, up
  <TaskCheckbox checked={isDone} priorityColor={priorityColor} size="sm" />
  </div>
  
- <div style={{ flex: 1, minWidth: 0 }}>
+ <div style={{ flex: 1, minWidth: 0, paddingTop: 1 }}>
  {isEditing? (
- <input
+ <textarea
  autoFocus
  value={draftTitle}
  onChange={e => setDraftTitle(e.target.value)}
  onBlur={submitEdit}
  onKeyDown={e => {
- if (e.key === 'Enter') submitEdit();
+ if (e.key === 'Enter' && !e.shiftKey) {
+ e.preventDefault();
+ submitEdit();
+ }
  if (e.key === 'Escape') {
  setDraftTitle(task.title);
  setIsEditing(false);
  }
  }}
  onClick={e => e.stopPropagation()}
+ rows={2}
  style={{
- width: '100%', fontSize: 13, fontWeight: 600, lineHeight: 1.3,
+ width: '100%', minHeight: 34, fontSize: 13, fontWeight: 650, lineHeight: 1.35,
  color: C.text, background: 'transparent', border: 'none',
- borderBottom: `1px solid ${C.accent}`, outline: 'none', padding: 0
+ borderBottom: `1px solid ${C.accent}`, outline: 'none', padding: 0,
+ resize: 'none', overflow: 'hidden', whiteSpace: 'pre-wrap'
  }}
  />
  ): (
@@ -335,10 +346,13 @@ const TaskRowRaw = ({ task, onToggle, onDetail, activeTimerId, onTimerToggle, up
  onClick={(e) => { e.stopPropagation(); setIsEditing(true); setDraftTitle(task.title); }}
  title="Haz clic para editar"
  style={{
- display: 'block', fontSize: 13, fontWeight: 550, lineHeight: 1.35,
+ display: 'block', fontSize: 13, fontWeight: 650, lineHeight: 1.38,
  color: isDone? C.muted: C.text,
  textDecoration: isDone? 'line-through': 'none',
- cursor: 'text'
+ cursor: 'text',
+ whiteSpace: 'pre-wrap',
+ overflowWrap: 'anywhere',
+ wordBreak: 'break-word'
  }}
  >
  {task.title}
@@ -401,28 +415,10 @@ const TaskRowRaw = ({ task, onToggle, onDetail, activeTimerId, onTimerToggle, up
  active={isTimerActive}
  priorityColor={priorityColor}
  size="sm"
+ className="border-transparent bg-transparent text-on-surface-variant/65 shadow-none hover:bg-[var(--mini-task-timer-hover)] hover:text-foreground/75"
+ style={{ '--mini-task-timer-hover': timerHoverColor } as CSSProperties}
  onClick={(e) => { e.stopPropagation(); onTimerToggle(task.id, task.estimated_minutes || 30); }}
  />
- )}
-
- {!isDone && (
- <button
- type="button"
- title="Arrastrar al calendario"
- onMouseDown={handleMouseDownDrag}
- onTouchStart={handleTouchStartDrag}
- onClick={(e) => e.stopPropagation()}
- style={{
- width: 24, height: 24, borderRadius: 6, flexShrink: 0,
- background: 'transparent',
- border: '1px solid transparent',
- display: 'flex', alignItems: 'center', justifyContent: 'center',
- cursor: 'grab',
- opacity: 0.48,
- }}
- >
- <GripHorizontal style={{ width: 11, height: 11, color: C.muted }} />
- </button>
  )}
  </>
  )}
@@ -474,7 +470,7 @@ const MiniTaskList = () => {
  const [viewDate, setViewDate] = useState(new Date());
  const { tasks, updateTask, createTask, isLoading } = useTasks({ 
  date: format(viewDate, 'yyyy-MM-dd'), 
- excludeEvents: false 
+ excludeEvents: true
  });
  const { folders, createFolder } = useFolders();
  const { checkAndUnlock } = useGamification();
@@ -488,14 +484,10 @@ const MiniTaskList = () => {
  }, []);
  const [isExpanded, setIsExpanded] = useState(false);
  const [isReady, setIsReady] = useState(false);
- const [now, setNow] = useState(new Date());
  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
- const [showFolderBar, setShowFolderBar] = useState(false);
  const [isCreatingFolder, setIsCreatingFolder] = useState(false);
  const [newFolderName, setNewFolderName] = useState('');
  const [newFolderColor, setNewFolderColor] = useState(FOLDER_COLORS[0]);
- const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
- const [isCreatingQuickTask, setIsCreatingQuickTask] = useState(false);
 
  // Timer state
  const [activeTimerId, setActiveTimerId] = useState<string | null>(null);
@@ -512,13 +504,6 @@ const MiniTaskList = () => {
  const captureModalRef = useRef<TaskCaptureModalHandle>(null);
 
  const openTextCapture = useCallback(() => {
- setCaptureMode('text');
- setCaptureCreationSource('mini_plus');
- setCaptureOpen(true);
- captureModalRef.current?.openInTextMode(format(viewDate, 'yyyy-MM-dd'));
- }, [viewDate]);
-
- const openVoiceCapture = useCallback(() => {
  setCaptureMode('text');
  setCaptureCreationSource('mini_plus');
  setCaptureOpen(true);
@@ -698,11 +683,6 @@ const MiniTaskList = () => {
  }, [detailOpen, captureOpen, closeCalendarPanel]);
 
  useEffect(() => {
- const t = setInterval(() => setNow(new Date()), 30000);
- return () => clearInterval(t);
- }, []);
-
- useEffect(() => {
  const handleDragStart = () => {
  calendarBusyRef.current = true;
  openCalendarPanel();
@@ -813,7 +793,7 @@ const MiniTaskList = () => {
 
  const filteredTasks = useMemo(() => {
  if (!selectedFolderId) {
- return tasks;
+ return tasks.filter((t: any) => !t.folder_id);
  }
  return tasks.filter((t: any) => t.folder_id === selectedFolderId);
  }, [tasks, selectedFolderId]);
@@ -861,7 +841,6 @@ const MiniTaskList = () => {
 
  const completedCount = filteredTasks.filter((t: any) => t.status === 'done').length;
  const totalCount = filteredTasks.length;
- const progress = totalCount > 0? (completedCount / totalCount) * 100: 0;
 
  const handleToggle = useCallback((task: any, e?: React.MouseEvent) => {
  if (e) e.stopPropagation();
@@ -989,7 +968,7 @@ const MiniTaskList = () => {
  {activeTimerId? (
  <TimerText seconds={timerSeconds} />
  ): (
- <AppleDots size={5.5} isDarkMode />
+ <AppleDots size={5.5} isDarkMode={isDarkMode} />
  )}
  </div>
  </div>
@@ -1041,21 +1020,23 @@ const MiniTaskList = () => {
  transition={{ type: 'spring', stiffness: 420, damping: 30, mass: 0.8 }}
  style={{
  position: 'absolute',
- left: PANEL_W - 24,
+ left: PANEL_W - 12,
  top: '50%',
+ zIndex: 0,
  transform: 'translateY(-50%)',
- width: 48, height: 48, 
- borderRadius: '50%',
- background: 'linear-gradient(135deg, hsl(var(--surface-container-high)) 0%, hsl(var(--surface-container)) 100%)',
- border: `1.5px solid ${C.accentBorder}`,
- boxShadow: '4px 0 16px rgba(0,0,0,0.45)',
+ width: 46, height: 60,
+ borderRadius: '0 18px 18px 0',
+ background: C.bg,
+ border: '1px solid rgba(31,41,55,0.16)',
+ borderLeft: 'none',
+ boxShadow: '8px 0 18px rgba(0,0,0,0.14)',
  display: 'flex', alignItems: 'center', justifyContent: 'center',
  cursor: 'pointer', 
  pointerEvents: calendarOpen? 'none': 'auto',
  }}
  title="Ver calendario"
  >
- <CalendarDays style={{ width: 22, height: 22, color: C.accent, marginLeft: 12 }} />
+ <CalendarDays style={{ width: 18, height: 18, color: 'rgba(31,41,55,0.64)', marginLeft: 10 }} />
  </motion.div>
 
  {/* INNER: visual panel with clipping */}
@@ -1063,26 +1044,33 @@ const MiniTaskList = () => {
  position: 'absolute',
  left: 0, top: 0, bottom: 0,
  width: calendarOpen? PANEL_W + CALENDAR_W: PANEL_W,
- background: C.bg, borderRadius: isElectron? 20: 18,
+ background: C.bg,
+ backgroundImage: 'radial-gradient(circle at 20% 22%, rgba(255,255,255,0.10) 0 1px, transparent 1.6px), radial-gradient(circle at 78% 62%, rgba(0,0,0,0.045) 0 1px, transparent 1.7px)',
+ backgroundPosition: '0 17px',
+ borderRadius: isElectron? 20: 18,
  border: `1px solid ${C.border}`,
- boxShadow: '0 12px 48px rgba(0,0,0,0.6)',
+ boxShadow: '0 18px 45px rgba(0,0,0,0.22)',
  display: 'flex', flexDirection: 'row',
+ zIndex: 2,
  overflow: 'hidden',
  boxSizing: 'border-box',
  transition: 'width 0.34s cubic-bezier(0.16, 1, 0.3, 1)',
  }}>
  {/* Left panel: tasks */}
- <div style={{ width: PANEL_W, display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
+ <div className="notebook-cream-bg" style={{ width: PANEL_W, display: 'flex', flexDirection: 'column', flexShrink: 0, position: 'relative', overflow: 'hidden' }}>
+ <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', background: 'linear-gradient(180deg, rgba(255,255,255,0.035), transparent 54px)' }} />
+ <div style={{ position: 'absolute', left: 26, top: 124, bottom: 18, width: 1, background: 'rgba(31,41,55,0.16)', pointerEvents: 'none' }} />
  {/* Top bar â€” fully draggable */}
  <div onMouseDown={onDragMouseDown} style={{
- display: 'flex', alignItems: 'center', justifyContent: 'space-between',
- padding: '10px 16px 6px', flexShrink: 0, cursor: 'grab', userSelect: 'none',
+ display: 'flex', alignItems: 'center', justifyContent: 'flex-start',
+ padding: '12px 12px 10px 34px', flexShrink: 0, cursor: 'grab', userSelect: 'none',
+ position: 'relative', zIndex: 2,
  }}>
  {/* LEFT: collapse pill (â€¦) + direct action buttons */}
- <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+ <div style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
  {/* Collapse / timer pill â€” same... design as collapsed state */}
  <div onClick={handleToggleExpand} style={{
- height: activeTimerId? 28: 26, borderRadius: 999,
+ height: 28, borderRadius: 999,
  padding: activeTimerId? '0 11px': '0',
  width: activeTimerId? 'auto': 52,
  minWidth: activeTimerId? 82: 52,
@@ -1103,59 +1091,26 @@ const MiniTaskList = () => {
  <div
  onClick={(e) => { e.stopPropagation(); openTextCapture(); }}
  style={{
- width: 34, height: 28, borderRadius: 10,
- background: C.subBg,
+ width: 30, height: 28, borderRadius: 10,
+ background: 'rgba(255,255,255,0.42)',
  border: `1px solid ${C.border}`,
  display: 'flex', alignItems: 'center', justifyContent: 'center',
  cursor: 'pointer', flexShrink: 0,
  transition: 'all 0.2s ease',
  }}
- title="AÃ±adir tarea"
+ title="Añadir tarea"
  >
  <Plus style={{ width: 16, height: 16, color: C.text }} />
  </div>
 
- {/* 2. VOICE button â€” Audio icon */}
- <div
- onClick={(e) => { e.stopPropagation(); openVoiceCapture(); }}
- style={{
- display: 'none',
- width: 34, height: 28, borderRadius: 10,
- background: C.subBg,
- border: `1px solid ${C.border}`,
- display: 'flex', alignItems: 'center', justifyContent: 'center',
- cursor: 'pointer', flexShrink: 0,
- transition: 'all 0.2s ease',
- }}
- title="AÃ±adir por voz"
- >
- <Mic style={{ width: 15, height: 15, color: C.text }} />
- </div>
-
- {/* 3. FOLDERS Toggle Button */}
- <div
- onClick={(e) => { e.stopPropagation(); setShowFolderBar(!showFolderBar); }}
- style={{
- width: 34, height: 28, borderRadius: 10,
- background: showFolderBar? C.accentSoft: C.subBg,
- border: `1px solid ${showFolderBar? C.accentBorder: C.border}`,
- display: 'flex', alignItems: 'center', justifyContent: 'center',
- cursor: 'pointer', flexShrink: 0,
- transition: 'all 0.2s ease',
- }}
- title="Ver cuadernos"
- >
- <Notebook style={{ width: 14, height: 14, color: showFolderBar? C.accent: C.text }} />
- </div>
-
- {/* 4. RECURRENCE button â€” Repeat icon */}
+ {/* 2. RECURRENCE button â€” Repeat icon */}
  <div
  onClick={(e) => { 
  e.stopPropagation(); 
  setRecurrenceFlowOpen(true);
  }}
  style={{
- width: 34, height: 28, borderRadius: 10,
+ width: 30, height: 28, borderRadius: 10,
  background: C.subBg,
  border: `1px solid ${C.border}`,
  display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -1168,50 +1123,49 @@ const MiniTaskList = () => {
  </div>
  </div>
 
- <div style={{ textAlign: 'right' }}>
- <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.03em', color: C.text, lineHeight: 1 }}>
- {format(now, 'h:mm')}
- <span style={{ fontSize: 13, fontWeight: 600, color: C.muted, marginLeft: 3 }}>{format(now, 'a')}</span>
  </div>
- <div style={{ fontSize: 10, color: C.muted, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
- {format(now, 'EEE d MMM', { locale: es })}
- </div>
- </div>
- </div>
-
- {/* Progress bar */}
- {totalCount > 0 && (
- <div style={{ height: 3, background: 'rgba(255,255,255,0.06)', flexShrink: 0, margin: '0 0 2px' }}>
- <motion.div initial={{ width: 0 }} animate={{ width: `${progress}%` }}
- transition={{ duration: 0.5, ease: 'easeOut' }}
- style={{ height: '100%', background: 'rgba(62, 92, 200, 0.58)' }} />
- </div>
- )}
-
  {/* Notebook bar â€” Toggleable */}
+ <div style={{
+ padding: '10px 12px 7px 38px',
+ borderBottom: '1px solid rgba(30,41,59,0.10)',
+ position: 'relative',
+ zIndex: 2,
+ }}>
+ <h2 className="notebook-handwriting font-headline" style={{
+ margin: 0,
+ color: C.text,
+ fontSize: 19,
+ lineHeight: 1.05,
+ fontWeight: 800,
+ letterSpacing: 0,
+ whiteSpace: 'nowrap',
+ }}>
+ Tareas de hoy
+ </h2>
+ </div>
  <AnimatePresence>
- {showFolderBar && (
+ {true && (
  <motion.div 
  initial={{ height: 0, opacity: 0 }}
  animate={{ height: 'auto', opacity: 1 }}
  exit={{ height: 0, opacity: 0 }}
- style={{ overflow: 'hidden' }}
+ style={{ overflow: 'hidden', position: 'relative', zIndex: 2 }}
  >
  <div style={{ 
  display: 'flex', alignItems: 'center', gap: 6, 
- padding: '8px 12px', overflowX: 'auto', 
- borderBottom: `1px solid ${C.border}33`,
- background: 'rgba(255,255,255,0.02)'
+ padding: '7px 12px 7px 38px', overflowX: 'auto',
+ borderBottom: '1px solid rgba(30,41,59,0.10)',
+ background: 'transparent'
  }} className="no-scrollbar">
  <button
  onClick={() => setSelectedFolderId(null)}
  style={{
- flexShrink: 0, padding: '4px 12px', borderRadius: 8,
- fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em',
- background:!selectedFolderId? C.accentSoft: 'transparent',
- color:!selectedFolderId? C.text: C.muted,
- border: `1px solid ${!selectedFolderId? C.accentBorder: C.border}`,
- display: 'flex', alignItems: 'center', gap: 4,
+ flexShrink: 0, padding: '6px 14px', borderRadius: 999,
+ fontSize: 10, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.04em',
+ background:!selectedFolderId? 'hsl(var(--primary) / 0.14)': 'rgba(255,255,255,0.40)',
+ color:!selectedFolderId? 'hsl(var(--primary))': 'rgba(75,85,99,0.82)',
+ border: `1px solid ${!selectedFolderId? 'hsl(var(--primary) / 0.34)': 'rgba(30,41,59,0.18)'}`,
+ display: 'flex', alignItems: 'center',
  transition: 'all 0.2s ease'
  }}
  >
@@ -1219,39 +1173,22 @@ const MiniTaskList = () => {
  </button>
  {folders.map(folder => (
  <div key={folder.id} style={{
- flexShrink: 0, display: 'flex', alignItems: 'center', borderRadius: 8,
- background: selectedFolderId === folder.id? C.accentSoft: 'transparent',
- border: `1px solid ${selectedFolderId === folder.id? C.accentBorder: C.border}`,
+ flexShrink: 0, display: 'flex', alignItems: 'center', borderRadius: 999,
+ background: selectedFolderId === folder.id? 'hsl(var(--primary) / 0.14)': 'rgba(255,255,255,0.40)',
+ border: `1px solid ${selectedFolderId === folder.id? 'hsl(var(--primary) / 0.34)': 'rgba(30,41,59,0.18)'}`,
  overflow: 'hidden',
  transition: 'all 0.2s ease'
  }}>
  <button
  onClick={() => setSelectedFolderId(folder.id)}
  style={{
- padding: '4px 8px 4px 12px',
- fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em',
- color: selectedFolderId === folder.id? C.text: C.muted,
+ padding: '6px 12px',
+ fontSize: 10, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.04em',
+ color: selectedFolderId === folder.id? 'hsl(var(--primary))': 'rgba(75,85,99,0.82)',
  border: 'none', background: 'transparent', cursor: 'pointer',
- display: 'flex', alignItems: 'center', gap: 4
+ display: 'flex', alignItems: 'center', fontFamily: 'var(--font-headline, ui-rounded, system-ui, sans-serif)'
  }}
  >
- {folder.isShared? (
- <UsersIcon style={{ width: 10, height: 10, color: selectedFolderId === folder.id? C.accent: folder.color }} />
- ): (
- <motion.div
- key={selectedFolderId === folder.id? 'open': 'closed'}
- initial={{ rotateY: selectedFolderId === folder.id? 180: -180, scale: 0.8 }}
- animate={{ rotateY: 0, scale: 1 }}
- transition={{ type: 'spring', stiffness: 400, damping: 15 }}
- style={{ display: 'flex' }}
- >
- {selectedFolderId === folder.id? (
- <NotebookText style={{ width: 10, height: 10, color: C.accent }} />
- ): (
- <Notebook style={{ width: 10, height: 10, color: folder.color }} />
- )}
- </motion.div>
- )}
  {folder.name}
  </button>
  </div>
@@ -1336,7 +1273,15 @@ const MiniTaskList = () => {
  )}
  </AnimatePresence>
 
- <div style={{ flex: 1, overflowY: 'auto', padding: '6px 10px 10px' }} data-sidebar-droptarget="true" tabIndex={0}>
+ <div
+ style={{
+ flex: 1,
+ overflowY: 'auto',
+ padding: '4px 18px 10px 44px',
+ }}
+ data-sidebar-droptarget="true"
+ tabIndex={0}
+ >
  {selectedFolderId && (
  <div style={{ padding: '0 8px', marginBottom: 12, display: 'flex', gap: 8 }}>
  <button
@@ -1351,19 +1296,6 @@ const MiniTaskList = () => {
  >
  <Plus style={{ width: 14, height: 14, color: C.muted }} /> Texto
  </button>
- <button
- onClick={openVoiceCapture}
- style={{
- display: 'none',
- flex: 1, height: 36, borderRadius: 12,
- background: 'rgba(255,255,255,0.03)', border: `1px solid ${C.border}`,
- display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
- color: C.text, fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em',
- cursor: 'pointer', transition: 'all 0.2s ease'
- }}
- >
- <Mic style={{ width: 14, height: 14, color: C.accent }} /> Audio
- </button>
  </div>
  )}
 
@@ -1377,7 +1309,7 @@ const MiniTaskList = () => {
  <div style={{ textAlign: 'center', padding: 24 }}>
  <span style={{ fontSize: 28 }}></span>
  <p style={{ fontSize: 11, fontWeight: 800, marginTop: 8, color: C.text, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
- {selectedFolderId? 'Sin tareas en este cuaderno': 'Â¡DÃ­a despejado!'}
+ {selectedFolderId? 'Sin tareas en este cuaderno': '¡Día despejado!'}
  </p>
  </div>
  ): (
@@ -1417,7 +1349,7 @@ const MiniTaskList = () => {
  style={{ margin: '6px 0', padding: '10px', borderRadius: 12, textAlign: 'center', background: C.accentBg, border: `1px solid ${C.accentBorder}` }}
  >
  <span style={{ fontSize: 20 }}></span>
- <p style={{ fontSize: 12, fontWeight: 800, color: C.accent, marginTop: 4 }}>Â¡Todo completado!</p>
+ <p style={{ fontSize: 12, fontWeight: 800, color: C.accent, marginTop: 4 }}>¡Todo completado!</p>
  </motion.div>
  )}
  </div>
@@ -1500,7 +1432,7 @@ const MiniTaskList = () => {
  fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.25)',
  letterSpacing: '0.1em', textTransform: 'uppercase', userSelect: 'none',
  }}>
- Vista previa â€” Mini Ventana
+ Vista previa - Mini Ventana
  </div>
 
  {/* Simulated window â€” overflow visible so tab protrudes */}
