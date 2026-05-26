@@ -23,6 +23,7 @@ import QuickRecurrenceFlow from '@/components/QuickRecurrenceFlow';
 import { format, addMinutes, startOfMonth, endOfMonth } from 'date-fns';
 import { useFolders } from '@/hooks/useFolders';
 import { useNotionIntegration } from '@/hooks/useNotionIntegration';
+import { useFriendUnreadCount } from '@/hooks/useFriendChats';
 import { useRef, useCallback } from 'react';
 import { useStreaks } from '@/hooks/useStreaks';
 import { NavigationPilot } from './NavigationPilot';
@@ -170,7 +171,14 @@ const SidebarContent = ({ user, profile, metrics, menuItems, location, handleNav
                 : 'text-on-surface-variant hover:bg-surface-container hover:text-foreground'
             }`}
           >
-            <item.icon className={`w-5 h-5 ${active ? 'text-foreground' : ''}`} />
+            <span className="relative flex h-5 w-5 items-center justify-center">
+              <item.icon className={`w-5 h-5 ${active ? 'text-foreground' : ''}`} />
+              {item.badge > 0 && (
+                <span className="absolute -right-2 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-black leading-none text-white">
+                  {item.badge > 99 ? '99+' : item.badge}
+                </span>
+              )}
+            </span>
             <span className="text-sm tracking-wide">{item.label}</span>
           </Button>
             );
@@ -313,6 +321,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
   const { folders } = useFolders();
   const { colors: priorityColors } = usePriorityColors();
   const notion = useNotionIntegration();
+  const friendUnreadCount = useFriendUnreadCount();
   const lastNotionAutoSyncRef = useRef(0);
 
   useEffect(() => {
@@ -362,7 +371,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
     { label: 'Cuadernos', icon: NotebookTabs, path: '/folders' },
     { label: 'Calendario', icon: Calendar, path: '/week' },
     { label: 'Metas', icon: Target, path: '/goals' },
-    { label: 'Amigos', icon: Users, path: '/friends' },
+    { label: 'Amigos', icon: Users, path: '/friends', badge: friendUnreadCount },
     { label: 'Ajustes', icon: Settings, path: '#settings', activePaths: SETTINGS_PATHS },
   ];
 
@@ -426,8 +435,9 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
   const isCaracteristicasPage = location.pathname === '/caracteristicas';
   const isFaqPage = location.pathname === '/faq';
   const isOnboardingPage = location.pathname === '/onboarding';
+  const isInvitePage = location.pathname.startsWith('/invite/');
   
-  const showNavigation = !loading && !isWelcomePage && !isAuthPage && !isMiniPage && !isLandingPage && !isPrivacyPage && !isTermsPage && !isDocsPage && !isCaracteristicasPage && !isFaqPage && !isOnboardingPage;
+  const showNavigation = !loading && !isWelcomePage && !isAuthPage && !isMiniPage && !isLandingPage && !isPrivacyPage && !isTermsPage && !isDocsPage && !isCaracteristicasPage && !isFaqPage && !isOnboardingPage && !isInvitePage;
 
   if (!showNavigation) {
     return <>{children}</>;

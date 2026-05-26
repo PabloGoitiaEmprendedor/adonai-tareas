@@ -280,7 +280,7 @@ const GoogleCalendarView: React.FC<GoogleCalendarViewProps> = ({
                       initial={{ opacity: 0, scale: 0.95 }}
                       animate={{ opacity: 1, scale: 1 }}
                       onClick={(e) => { e.stopPropagation(); handleEventClick(event); }}
-                      className="absolute p-3 rounded-[24px] text-xs shadow-xl border-l-4 border-primary overflow-hidden cursor-pointer group bg-white/95 dark:bg-surface-container-highest/95 backdrop-blur-xl hover:shadow-2xl hover:scale-[1.02] transition-all z-10"
+                      className="absolute p-3 rounded-[24px] text-xs shadow-xl border-l-4 border-primary overflow-hidden cursor-grab active:cursor-grabbing group bg-white/95 dark:bg-surface-container-highest/95 backdrop-blur-xl hover:shadow-2xl hover:scale-[1.02] transition-all z-10"
                       style={{
                         top: `${startHour * hourHeight + 4}px`,
                         height: `${Math.max(duration * hourHeight - 8, hourHeight/2)}px`,

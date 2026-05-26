@@ -787,12 +787,9 @@ const FoldersPage = () => {
                   >
                     <div
                       className="relative z-10 mt-2 pb-4 pt-[2px] flex-1"
-                      style={{
-                        backgroundImage: 'repeating-linear-gradient(180deg, rgba(120,145,190,0.07) 0 1px, transparent 1px 38px)',
-                      }}
                     >
                       {visibleFolderTasks.length > 0 ? (
-                        <div className="space-y-0">
+                        <div className="notebook-task-list">
                           {visibleFolderTasks.map((task, idx) => (
                             <TaskCard
                               key={task.id}
@@ -812,6 +809,7 @@ const FoldersPage = () => {
                               handleUncomplete={handleUncomplete}
                               handleStartTimer={handleStartTimer}
                               view="daily"
+                              notebookView
                             />
                           ))}
                         </div>
@@ -959,12 +957,9 @@ const FoldersPage = () => {
                   >
                     <div
                       className="relative z-10 pb-4 pt-[2px] flex-1"
-                      style={{
-                        backgroundImage: 'repeating-linear-gradient(180deg, rgba(120,145,190,0.07) 0 1px, transparent 1px 38px)',
-                      }}
                     >
                       {visibleFolderTasks.length > 0 ? (
-                        <div className="space-y-0">
+                        <div className="notebook-task-list">
                           {visibleFolderTasks.map((task, idx) => (
                             <TaskCard
                               key={task.id}
@@ -984,6 +979,7 @@ const FoldersPage = () => {
                               handleUncomplete={handleUncomplete}
                               handleStartTimer={handleStartTimer}
                               view="daily"
+                              notebookView
                             />
                           ))}
                         </div>

@@ -175,24 +175,15 @@ autoUpdater.on('checking-for-update', () => {
 });
 
 autoUpdater.on('update-available', (info) => {
-  sendToAllWindows('update-available', {
-    version: info.version,
-    releaseNotes: info.releaseNotes || '',
-  });
+  // silent auto-download
 });
 
-autoUpdater.on('download-progress', (progressObj) => {
-  sendToAllWindows('update-download-progress', progressObj.percent);
+autoUpdater.on('download-progress', () => {
+  // silent
 });
 
-autoUpdater.on('update-downloaded', (info) => {
-  sendToAllWindows('update-downloaded', null);
-  // Auto-install after 10 seconds if user hasn't restarted yet
-  setTimeout(() => {
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      autoUpdater.quitAndInstall(false, true);
-    }
-  }, 10000);
+autoUpdater.on('update-downloaded', () => {
+  // silent – will install on next app quit (autoInstallOnAppQuit = true)
 });
 
 autoUpdater.on('update-not-available', () => {
@@ -234,7 +225,7 @@ function createMainWindow() {
       logToFile(`Failed to load index.html: ${err}`);
       console.error('Failed to load index.html:', err);
     });
-    autoUpdater.checkForUpdatesAndNotify();
+    autoUpdater.checkForUpdates();
   }
 
   mainWindow.once('ready-to-show', () => {

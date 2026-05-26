@@ -26,6 +26,7 @@ interface TaskCardProps {
   view: 'daily' | 'weekly';
   hideTimer?: boolean;
   highlighted?: boolean;
+  notebookView?: boolean;
 }
 
 export const TaskCard = memo(({
@@ -46,7 +47,8 @@ export const TaskCard = memo(({
   handleStartTimer,
   view,
   hideTimer = true,
-  highlighted = false
+  highlighted = false,
+  notebookView = false
 }: TaskCardProps) => {
   const { updateTask } = useTasks();
   const [isEditing, setIsEditing] = useState(false);
@@ -54,6 +56,7 @@ export const TaskCard = memo(({
   const titleTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dragStartedRef = useRef(false);
+  const cardBodyRef = useRef<HTMLDivElement | null>(null);
 
   const resizeTitleEditor = () => {
     const editor = titleTextareaRef.current;
@@ -81,6 +84,37 @@ export const TaskCard = memo(({
     setIsEditing(false);
     window.dispatchEvent(new CustomEvent('adonai:task-editing-change', { detail: { active: false } }));
   };
+
+  const handleBodyTouchStart = (e: React.TouchEvent) => {
+    const target = e.target as HTMLElement;
+    if (target.closest('[data-drag-handle]') || target.closest('[data-no-drag]') || target.closest('button, a, input, textarea, select')) return;
+    dragStartedRef.current = false;
+    longPressTimer.current = setTimeout(() => {
+      dragStartedRef.current = true;
+      if ('vibrate' in navigator) navigator.vibrate(20);
+      if (cardBodyRef.current) cardBodyRef.current.style.touchAction = 'none';
+      handleTouchStart?.(taskIdx, e);
+    }, 1000);
+  };
+
+  const handleBodyTouchMove = (e: React.TouchEvent) => {
+    if (!dragStartedRef.current) {
+      if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
+      return;
+    }
+    e.preventDefault();
+    handleTouchMove?.(e);
+  };
+
+  const handleBodyTouchEnd = () => {
+    if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
+    if (dragStartedRef.current) {
+      dragStartedRef.current = false;
+      if (cardBodyRef.current) cardBodyRef.current.style.touchAction = '';
+      handleTouchEnd?.();
+    }
+  };
+
   const { colors } = usePriorityColors();
 
   const getTaskPriorityColor = () => {
@@ -98,6 +132,7 @@ export const TaskCard = memo(({
 
   return (
     <motion.div
+      ref={cardBodyRef}
       layoutId={view === 'weekly' ? task.id : undefined}
       layout={false}
       data-task-idx={taskIdx}
@@ -107,11 +142,18 @@ export const TaskCard = memo(({
       animate={{ opacity: 1 }}
       exit={view === 'daily' ? { opacity: 0, transition: { duration: 0.08 } } : undefined}
       onDragOver={(e) => handleDragOver?.(e, taskIdx)}
+      onTouchStart={handleBodyTouchStart}
+      onTouchMove={handleBodyTouchMove}
+      onTouchEnd={handleBodyTouchEnd}
       style={cardStyle}
       onClick={() => setSelectedTask(task)}
-      className={`relative flex items-start gap-2 overflow-hidden border px-1.5 py-2 transition-colors group/task md:px-2 ${
-        view === 'daily' ? 'min-h-[42px] border-b-transparent' : 'min-h-[42px]'
-      } ${highlighted ? 'ring-2 ring-primary/40 bg-primary/5' : ''} border-x-transparent border-t-transparent hover:border-primary/18 cursor-pointer`}
+      className={`relative flex items-start gap-2 overflow-hidden border px-1.5 py-2 transition-all group/task md:px-2 select-none ${
+        notebookView ? 'notebook-task-row min-h-[42px]' : view === 'daily' ? 'min-h-[42px] border-b-transparent border-x-transparent border-t-transparent' : 'min-h-[42px] border-x-transparent border-t-transparent'
+      } ${
+        highlighted ? 'ring-2 ring-primary/40 bg-primary/5' : ''
+      } ${
+        dragIdx === taskIdx ? 'ring-2 ring-primary/40 shadow-[0_0_14px_rgba(99,102,241,0.18)]' : ''
+      } border-x-transparent border-t-transparent hover:border-primary/18 ${notebookView ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'}`}
     >
         {/* Drag handle (desktop + mobile): the only area that starts drag */}
       {(
@@ -233,12 +275,16 @@ export const TaskCard = memo(({
                     target.style.height = Math.min(target.scrollHeight, 220) + 'px';
                   }}
                   onKeyDown={e => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      submitEdit();
+                    }
                     if (e.key === 'Escape') cancelEdit();
                   }}
                   onClick={e => e.stopPropagation()}
                   draggable={false}
                   data-no-drag="true"
-                  className="cursor-edit relative z-10 min-h-[28px] min-w-0 flex-1 whitespace-pre-wrap break-words bg-transparent px-1 focus:outline-none resize-none overflow-hidden leading-snug"
+                  className="notebook-task-editor cursor-edit relative z-10 min-h-[28px] min-w-0 flex-1 bg-transparent px-1 focus:outline-none resize-none overflow-hidden leading-snug"
                   rows={Math.max(1, editedTitle.split('\n').length)}
                   spellCheck={false}
                 />
@@ -265,7 +311,7 @@ export const TaskCard = memo(({
               </>
             ) : (
               <span 
-                className="cursor-edit relative z-10 block min-w-0 flex-1 whitespace-pre-wrap break-words rounded px-1 -ml-1 transition-colors hover:bg-on-surface-variant/5 hover:text-primary leading-snug"
+                className="notebook-task-editor cursor-edit relative z-10 block min-w-0 flex-1 rounded px-1 -ml-1 transition-colors hover:bg-on-surface-variant/5 hover:text-primary leading-snug"
                 onClick={(e) => { e.stopPropagation(); setIsEditing(true); setEditedTitle(task.title); window.dispatchEvent(new CustomEvent('adonai:task-editing-change', { detail: { active: true } })); }}
                 draggable={false}
                 data-no-drag="true"

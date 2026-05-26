@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -13,6 +13,8 @@ const AuthPage = () => {
   const [loading, setLoading] = useState(false);
   const [countdown, setCountdown] = useState(0);
   const navigate = useNavigate();
+  const location = useLocation();
+  const redirectTo = new URLSearchParams(location.search).get('redirect') || '/';
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -72,7 +74,7 @@ const AuthPage = () => {
       });
       if (error) throw error;
       toast.success('¡Bienvenido!');
-      navigate('/');
+      navigate(redirectTo);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Código incorrecto';
       toast.error(message);

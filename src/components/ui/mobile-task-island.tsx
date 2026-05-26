@@ -193,8 +193,6 @@ export const MobileDynamicIsland = ({
           >
             {/* Notebook spiral rings */}
 
-            {/* Ruled lines background */}
-
             {/* Vertical margin line */}
 
             <div className="relative z-10 p-4 flex flex-col gap-3 overflow-hidden h-full">
@@ -215,7 +213,7 @@ export const MobileDynamicIsland = ({
               </div>
 
               {/* Notebooks Navigation */}
-              <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1 border-b" style={{ borderColor: 'rgba(30,41,59,0.08)' }}>
+              <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
                 <button
                   onClick={() => setSelectedFolderId('all')}
                   className={cn(
@@ -250,13 +248,8 @@ export const MobileDynamicIsland = ({
               </div>
 
               {/* Task List */}
-              <div className="flex-1 overflow-y-auto no-scrollbar space-y-0 pb-2">
-                <div className="space-y-0"
-                  style={{
-                    backgroundImage: 'repeating-linear-gradient(180deg, rgba(120,145,190,0.08) 0 1px, transparent 1px 42px)',
-                    backgroundPosition: '0 5px',
-                  }}
-                >
+              <div className="flex-1 overflow-y-auto no-scrollbar pb-2">
+                <div className="notebook-task-list">
                     {sortedTasks.length > 0 ? (
                       sortedTasks
                         .map((task) => {
@@ -271,15 +264,11 @@ export const MobileDynamicIsland = ({
                               onTouchEnd={handleTouchEnd}
                               onTouchCancel={handleTouchEnd}
                               onClick={() => !dragStarted.current && onTaskClick(task)}
-                              className="group flex items-center gap-3 px-2 py-1.5 transition-colors cursor-grab active:cursor-grabbing touch-none"
+                              className="group flex items-start gap-2 px-2 py-1.5 transition-colors cursor-grab active:cursor-grabbing touch-none"
                             >
-                              <div
-                                className="h-[18px] w-[18px] rounded-full border-2 shrink-0"
-                                style={{ borderColor: evColor || priorityColors?.[priorityKey] || 'rgba(30,41,59,0.2)' }}
-                              />
                               <div className="flex-1 min-w-0">
-                                <span className="block text-[14px] font-semibold leading-snug tracking-normal break-words whitespace-normal" style={{ color: task.status === 'done' ? '#6b7280' : '#1f2937' }}>
-                                  {task.title}
+                                  <span className="block text-[14px] font-semibold leading-snug tracking-normal break-words whitespace-normal" style={{ color: task.status === 'done' ? '#6b7280' : '#1f2937' }}>
+                                  <span className="select-none mr-1.5 text-[16px]" style={{ color: evColor || priorityColors?.[priorityKey] || 'var(--outline)' }}>*</span>{task.title}
                                 </span>
                               </div>
                             </motion.div>

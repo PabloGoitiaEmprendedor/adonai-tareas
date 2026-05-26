@@ -37,6 +37,8 @@ const CALENDAR_W = 600;
 const PILL_W = 100;
 const PILL_H = 52;
 const PILL_TIMER_W = 130;
+const CURSOR_CLICK = 'var(--cursor-hand-point), pointer';
+const CURSOR_GRAB = 'var(--cursor-hand), grab';
 
 const C = {
  bg: 'var(--mini-bg)',
@@ -129,6 +131,19 @@ const TaskRowRaw = ({ task, onToggle, onDetail, activeTimerId, onTimerToggle, up
  const isTimerActive = activeTimerId === task.id;
  const [isEditing, setIsEditing] = useState(false);
  const [draftTitle, setDraftTitle] = useState(task.title);
+ const editorRef = useRef<HTMLTextAreaElement | null>(null);
+
+ const resizeEditor = useCallback(() => {
+ const editor = editorRef.current;
+ if (!editor) return;
+ editor.style.height = 'auto';
+ editor.style.height = `${Math.min(editor.scrollHeight, 190)}px`;
+ }, []);
+
+ useEffect(() => {
+ if (!isEditing) return;
+ resizeEditor();
+ }, [draftTitle, isEditing, resizeEditor]);
 
  const submitEdit = () => {
  setIsEditing(false);
@@ -271,12 +286,11 @@ const TaskRowRaw = ({ task, onToggle, onDetail, activeTimerId, onTimerToggle, up
  onClick={() => onDetail(task)}
  style={{
  display: 'flex', alignItems: 'flex-start', gap: 9, padding: '10px 0 10px 0',
- borderRadius: 0, cursor: 'pointer',
+ borderRadius: 0, cursor: CURSOR_GRAB,
  background: 'transparent',
  borderTop: 'none',
  borderRight: 'none',
  borderLeft: 'none',
- borderBottom: `1px solid ${isTimerActive? 'rgba(17,24,39,0.18)': 'rgba(31,41,55,0.09)'}`,
  opacity: isDone? 0.45: 1,
  }}
  >
@@ -295,7 +309,7 @@ const TaskRowRaw = ({ task, onToggle, onDetail, activeTimerId, onTimerToggle, up
  justifyContent: 'center',
  color: 'rgba(31,41,55,0.36)',
  opacity: 1,
- cursor: 'grab',
+ cursor: CURSOR_GRAB,
  }}
  >
  <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -317,11 +331,16 @@ const TaskRowRaw = ({ task, onToggle, onDetail, activeTimerId, onTimerToggle, up
  
  <div style={{ flex: 1, minWidth: 0, paddingTop: 1 }}>
  {isEditing? (
+ <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
  <textarea
+ ref={editorRef}
  autoFocus
  value={draftTitle}
- onChange={e => setDraftTitle(e.target.value)}
- onBlur={submitEdit}
+ onChange={e => {
+ setDraftTitle(e.target.value);
+ resizeEditor();
+ }}
+ onInput={resizeEditor}
  onKeyDown={e => {
  if (e.key === 'Enter' && !e.shiftKey) {
  e.preventDefault();
@@ -333,14 +352,48 @@ const TaskRowRaw = ({ task, onToggle, onDetail, activeTimerId, onTimerToggle, up
  }
  }}
  onClick={e => e.stopPropagation()}
- rows={2}
+ rows={Math.max(2, draftTitle.split('\n').length)}
  style={{
  width: '100%', minHeight: 34, fontSize: 13, fontWeight: 650, lineHeight: 1.35,
  color: C.text, background: 'transparent', border: 'none',
  borderBottom: `1px solid ${C.accent}`, outline: 'none', padding: 0,
- resize: 'none', overflow: 'hidden', whiteSpace: 'pre-wrap'
+ resize: 'none', overflow: 'hidden', whiteSpace: 'pre-wrap',
+ overflowWrap: 'anywhere', wordBreak: 'break-word'
  }}
  />
+ <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+ <button
+ type="button"
+ onClick={(e) => { e.stopPropagation(); submitEdit(); }}
+ style={{
+ width: 24, height: 24, borderRadius: 6, flexShrink: 0,
+ background: C.accentSoft,
+ border: `1px solid ${C.accentBorder}`,
+ display: 'flex', alignItems: 'center', justifyContent: 'center',
+ cursor: CURSOR_CLICK,
+ }}
+ title="Guardar"
+ aria-label="Guardar"
+ >
+ <Check style={{ width: 12, height: 12, color: '#ffffff', strokeWidth: 3 }} />
+ </button>
+ <button
+ type="button"
+ onClick={(e) => { e.stopPropagation(); setDraftTitle(task.title); setIsEditing(false); }}
+ style={{
+ width: 24, height: 24, borderRadius: 6, flexShrink: 0,
+ background: 'rgba(0,0,0,0.04)',
+ border: '1px solid rgba(0,0,0,0.08)',
+ display: 'flex', alignItems: 'center', justifyContent: 'center',
+ cursor: CURSOR_CLICK,
+ }}
+ title="Cancelar"
+ aria-label="Cancelar"
+ >
+ <X style={{ width: 12, height: 12, color: '#6b7280', strokeWidth: 2 }} />
+ </button>
+ </div>
+ </div>
  ): (
  <span 
  onClick={(e) => { e.stopPropagation(); setIsEditing(true); setDraftTitle(task.title); }}
@@ -367,7 +420,7 @@ const TaskRowRaw = ({ task, onToggle, onDetail, activeTimerId, onTimerToggle, up
  actualSeconds > 0 && (
  <TaskDurationBadge seconds={actualSeconds} estimatedMinutes={task.estimated_minutes} compact />
  )
- ): (
+ ): !isEditing ? (
  <>
  {task.link && task.link.split(/\s+/).filter(Boolean).map((url: string, i: number) => {
  const href = url.startsWith('http')? url: `https://${url}`;
@@ -385,7 +438,7 @@ const TaskRowRaw = ({ task, onToggle, onDetail, activeTimerId, onTimerToggle, up
  style={{
  width: 24, height: 24, borderRadius: 8, flexShrink: 0,
  display: 'flex', alignItems: 'center', justifyContent: 'center',
- cursor: 'pointer', 
+ cursor: CURSOR_CLICK, 
  background: C.subBg,
  border: `1px solid ${C.border}`,
  boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
@@ -397,20 +450,6 @@ const TaskRowRaw = ({ task, onToggle, onDetail, activeTimerId, onTimerToggle, up
  );
  })}
  
- {isEditing? (
- <div
- onClick={(e) => { e.stopPropagation(); submitEdit(); }}
- style={{
- width: 24, height: 24, borderRadius: 6, flexShrink: 0,
- background: C.accentSoft,
- border: `1px solid ${C.accentBorder}`,
- display: 'flex', alignItems: 'center', justifyContent: 'center',
- cursor: 'pointer',
- }}
- >
- <Check style={{ width: 12, height: 12, color: C.accent, strokeWidth: 3 }} />
- </div>
- ): (
  <TaskTimerButton
  active={isTimerActive}
  priorityColor={priorityColor}
@@ -419,9 +458,8 @@ const TaskRowRaw = ({ task, onToggle, onDetail, activeTimerId, onTimerToggle, up
  style={{ '--mini-task-timer-hover': timerHoverColor } as CSSProperties}
  onClick={(e) => { e.stopPropagation(); onTimerToggle(task.id, task.estimated_minutes || 30); }}
  />
- )}
  </>
- )}
+ ) : null}
  </div>
  </div>
  </motion.div>
@@ -951,7 +989,7 @@ const MiniTaskList = () => {
  border: `1px solid ${activeTimerId? (timerSeconds < 0? 'rgba(255,122,122,0.34)': 'rgba(124,151,255,0.28)'): 'rgba(91,124,250,0.16)'}`,
  boxShadow: showLedGlow? `0 0 0 0 rgba(62, 92, 200, 0.16), 0 0 16px 2px ${C.accentGlow}, 0 0 28px 4px rgba(62, 92, 200, 0.07), inset 0 0 6px rgba(62, 92, 200, 0.06)`: activeTimerId? (timerSeconds < 0? '0 10px 26px rgba(0,0,0,0.4), 0 0 18px rgba(255,122,122,0.16), inset 0 1px 0 rgba(255,255,255,0.1)': '0 10px 26px rgba(0,0,0,0.4), 0 0 18px rgba(62,92,200,0.14), inset 0 1px 0 rgba(255,255,255,0.1), inset 0 -1px 0 rgba(0,0,0,0.24)'): '0 10px 26px rgba(0,0,0,0.34), inset 0 1px 0 rgba(255,255,255,0.08), inset 0 -1px 0 rgba(0,0,0,0.24)',
  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0,
- userSelect: 'none', cursor: 'grab',
+ userSelect: 'none', cursor: CURSOR_GRAB,
  position: 'relative',
  animation: showLedGlow? 'ledPulse 1.5s ease-in-out infinite': 'none',
  willChange: 'transform, opacity',
@@ -968,7 +1006,7 @@ const MiniTaskList = () => {
  {activeTimerId? (
  <TimerText seconds={timerSeconds} />
  ): (
- <AppleDots size={5.5} isDarkMode={isDarkMode} />
+ <AppleDots size={5.5} isDarkMode={false} />
  )}
  </div>
  </div>
@@ -1031,7 +1069,7 @@ const MiniTaskList = () => {
  borderLeft: 'none',
  boxShadow: '8px 0 18px rgba(0,0,0,0.14)',
  display: 'flex', alignItems: 'center', justifyContent: 'center',
- cursor: 'pointer', 
+ cursor: CURSOR_CLICK, 
  pointerEvents: calendarOpen? 'none': 'auto',
  }}
  title="Ver calendario"
@@ -1059,11 +1097,10 @@ const MiniTaskList = () => {
  {/* Left panel: tasks */}
  <div className="notebook-cream-bg" style={{ width: PANEL_W, display: 'flex', flexDirection: 'column', flexShrink: 0, position: 'relative', overflow: 'hidden' }}>
  <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', background: 'linear-gradient(180deg, rgba(255,255,255,0.035), transparent 54px)' }} />
- <div style={{ position: 'absolute', left: 26, top: 124, bottom: 18, width: 1, background: 'rgba(31,41,55,0.16)', pointerEvents: 'none' }} />
  {/* Top bar â€” fully draggable */}
  <div onMouseDown={onDragMouseDown} style={{
- display: 'flex', alignItems: 'center', justifyContent: 'flex-start',
- padding: '12px 12px 10px 34px', flexShrink: 0, cursor: 'grab', userSelect: 'none',
+ display: 'flex', alignItems: 'center', justifyContent: 'center',
+ padding: '12px 16px 10px', flexShrink: 0, cursor: CURSOR_GRAB, userSelect: 'none',
  position: 'relative', zIndex: 2,
  }}>
  {/* LEFT: collapse pill (â€¦) + direct action buttons */}
@@ -1078,12 +1115,12 @@ const MiniTaskList = () => {
  border: `1px solid ${activeTimerId? (timerSeconds < 0? 'rgba(255,122,122,0.3)': 'rgba(124,151,255,0.24)'): applePill.border}`,
  boxShadow: activeTimerId? '0 6px 18px rgba(0,0,0,0.26), inset 0 1px 0 rgba(255,255,255,0.1), inset 0 -1px 0 rgba(0,0,0,0.2)': applePill.shadow,
  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0,
- cursor: 'pointer',
+ cursor: CURSOR_CLICK,
  }} title="Colapsar">
  {activeTimerId? (
  <TimerText seconds={timerSeconds} compact />
  ): (
- <AppleDots size={4.5} isDarkMode={isDarkMode} />
+ <AppleDots size={4.5} isDarkMode={false} />
  )}
  </div>
 
@@ -1095,7 +1132,7 @@ const MiniTaskList = () => {
  background: 'rgba(255,255,255,0.42)',
  border: `1px solid ${C.border}`,
  display: 'flex', alignItems: 'center', justifyContent: 'center',
- cursor: 'pointer', flexShrink: 0,
+ cursor: CURSOR_CLICK, flexShrink: 0,
  transition: 'all 0.2s ease',
  }}
  title="Añadir tarea"
@@ -1114,7 +1151,7 @@ const MiniTaskList = () => {
  background: C.subBg,
  border: `1px solid ${C.border}`,
  display: 'flex', alignItems: 'center', justifyContent: 'center',
- cursor: 'pointer', flexShrink: 0,
+ cursor: CURSOR_CLICK, flexShrink: 0,
  transition: 'all 0.2s ease',
  }}
  title="Crear tarea recurrente"
@@ -1126,6 +1163,7 @@ const MiniTaskList = () => {
  </div>
  {/* Notebook bar â€” Toggleable */}
  <div style={{
+ display: 'none',
  padding: '10px 12px 7px 38px',
  borderBottom: '1px solid rgba(30,41,59,0.10)',
  position: 'relative',
@@ -1153,8 +1191,7 @@ const MiniTaskList = () => {
  >
  <div style={{ 
  display: 'flex', alignItems: 'center', gap: 6, 
- padding: '7px 12px 7px 38px', overflowX: 'auto',
- borderBottom: '1px solid rgba(30,41,59,0.10)',
+ padding: '8px 16px 8px 26px', overflowX: 'auto',
  background: 'transparent'
  }} className="no-scrollbar">
  <button
@@ -1185,7 +1222,7 @@ const MiniTaskList = () => {
  padding: '6px 12px',
  fontSize: 10, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.04em',
  color: selectedFolderId === folder.id? 'hsl(var(--primary))': 'rgba(75,85,99,0.82)',
- border: 'none', background: 'transparent', cursor: 'pointer',
+ border: 'none', background: 'transparent', cursor: CURSOR_CLICK,
  display: 'flex', alignItems: 'center', fontFamily: 'var(--font-headline, ui-rounded, system-ui, sans-serif)'
  }}
  >
@@ -1228,14 +1265,14 @@ const MiniTaskList = () => {
  setIsCreatingFolder(false);
  }
  }}
- style={{ padding: 4, background: C.accentSoft, borderRadius: 6, border: `1px solid ${C.accentBorder}`, cursor: 'pointer', color: C.accent }}
+ style={{ padding: 4, background: C.accentSoft, borderRadius: 6, border: `1px solid ${C.accentBorder}`, cursor: CURSOR_CLICK, color: C.accent }}
  title="Guardar"
  >
  <Check style={{ width: 12, height: 12 }} />
  </button>
  <button
  onClick={() => { setIsCreatingFolder(false); setNewFolderName(''); }}
- style={{ padding: 4, background: 'transparent', border: 'none', cursor: 'pointer', color: C.muted }}
+ style={{ padding: 4, background: 'transparent', border: 'none', cursor: CURSOR_CLICK, color: C.muted }}
  title="Cancelar"
  >
  <X style={{ width: 12, height: 12 }} />
@@ -1247,7 +1284,7 @@ const MiniTaskList = () => {
  key={c}
  onClick={() => setNewFolderColor(c)}
  style={{
- width: 14, height: 14, borderRadius: '50%', background: c, border: 'none', cursor: 'pointer',
+ width: 14, height: 14, borderRadius: '50%', background: c, border: 'none', cursor: CURSOR_CLICK,
  boxShadow: newFolderColor === c? `0 0 0 2px ${C.bg}, 0 0 0 4px ${c}`: 'none'
  }}
  />
@@ -1261,7 +1298,7 @@ const MiniTaskList = () => {
  flexShrink: 0, padding: '4px 12px', borderRadius: 8,
  fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em',
  background: 'transparent', color: C.muted, border: `1px dashed ${C.border}`,
- display: 'flex', alignItems: 'center', gap: 4, transition: 'all 0.2s ease', cursor: 'pointer'
+ display: 'flex', alignItems: 'center', gap: 4, transition: 'all 0.2s ease', cursor: CURSOR_CLICK
  }}
  title="Crear nuevo cuaderno"
  >
@@ -1277,7 +1314,7 @@ const MiniTaskList = () => {
  style={{
  flex: 1,
  overflowY: 'auto',
- padding: '4px 18px 10px 44px',
+ padding: '8px 18px 10px 26px',
  }}
  data-sidebar-droptarget="true"
  tabIndex={0}
@@ -1291,7 +1328,7 @@ const MiniTaskList = () => {
  background: 'rgba(255,255,255,0.03)', border: `1px solid ${C.border}`,
  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
  color: C.text, fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em',
- cursor: 'pointer', transition: 'all 0.2s ease'
+ cursor: CURSOR_CLICK, transition: 'all 0.2s ease'
  }}
  >
  <Plus style={{ width: 14, height: 14, color: C.muted }} /> Texto
@@ -1313,7 +1350,7 @@ const MiniTaskList = () => {
  </p>
  </div>
  ): (
- <div key="task-list-items">
+  <div key="task-list-items" className="notebook-task-list">
  <AnimatePresence mode="popLayout">
  {orderedTasks.map((task: any, idx: number) => (
  <div
@@ -1323,8 +1360,10 @@ const MiniTaskList = () => {
  onDragOver={(event) => handleMiniReorderOver(event, idx)}
  onDragEnd={handleMiniReorderEnd}
  style={{
- cursor: task.status === 'done'? 'default': 'grab',
+ cursor: task.status === 'done'? 'default': CURSOR_GRAB,
  opacity: reorderIdx === idx? 0.72: 1,
+ outline: reorderIdx === idx? '2px solid rgba(91,124,250,0.42)': 'none',
+ outlineOffset: -2,
  transition: 'opacity 120ms ease, transform 120ms ease',
  }}
  >

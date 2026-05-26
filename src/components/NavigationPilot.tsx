@@ -8,6 +8,7 @@ interface NavItem {
   icon: React.ComponentType<{ className?: string }>;
   path: string;
   activePaths?: string[];
+  badge?: number;
 }
 
 interface NavigationPilotProps {
@@ -102,7 +103,14 @@ export function NavigationPilot({ menuItems, settingsItems, showAdmin, electronO
                       : "text-on-surface-variant hover:bg-surface-container hover:text-foreground"
                   )}
                 >
-                  <Icon className={cn("w-5 h-5 shrink-0", isActive ? "text-foreground" : "")} />
+                  <span className="relative flex h-5 w-5 shrink-0 items-center justify-center">
+                    <Icon className={cn("w-5 h-5", isActive ? "text-foreground" : "")} />
+                    {(item.badge || 0) > 0 && (
+                      <span className="absolute -right-2 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-black leading-none text-white">
+                        {item.badge! > 99 ? '99+' : item.badge}
+                      </span>
+                    )}
+                  </span>
                   <span className="text-sm font-medium">{item.label}</span>
                 </button>
               );

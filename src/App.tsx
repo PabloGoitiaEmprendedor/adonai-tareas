@@ -18,6 +18,7 @@ import GoalsPage from "./pages/GoalsPage";
 import ProfilePage from "./pages/ProfilePage";
 import FoldersPage from "./pages/FoldersPage";
 import FriendsPage from "./pages/FriendsPage";
+import FriendInvitePage from "./pages/FriendInvitePage";
 import PrivacyPolicyPage from "./pages/PrivacyPolicyPage";
 import TermsOfServicePage from "./pages/TermsOfServicePage";
 import TrashPage from "./pages/TrashPage";
@@ -222,6 +223,7 @@ const AppRoutes = () => {
         <Route path="/auth" element={
           loading ? <LoadingScreen message="Sincronizando Adonai" /> : user && !user.is_anonymous ? <Navigate to="/daily" replace /> : <AuthPage />
         } />
+        <Route path="/invite/:inviterId" element={<FriendInvitePage />} />
         <Route path="/onboarding" element={<OnboardingPage />} />
         <Route path="/calendar-callback" element={appRouteElement(<CalendarCallback />)} />
         <Route path="/sheets-callback" element={appRouteElement(<SheetsCallback />)} />
@@ -262,9 +264,15 @@ const AppRoutes = () => {
 
 const App = () => {
   useEffect(() => {
+    const browserPath = window.location.pathname.replace(/\/$/, '');
+    if (!window.location.hash && browserPath.startsWith('/invite/')) {
+      window.location.replace(`${window.location.origin}/#${browserPath}`);
+      return;
+    }
+
     const isMiniRoute =
       window.location.hash.startsWith('#/mini') ||
-      window.location.pathname.replace(/\/$/, '') === '/mini';
+      browserPath === '/mini';
 
     if (!window.electronAPI && window.location.hostname === '127.0.0.1' && isMiniRoute) {
       const canonicalUrl = new URL(window.location.href);

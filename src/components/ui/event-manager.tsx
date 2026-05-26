@@ -1606,15 +1606,6 @@ export function EventManager({
                       ))}
                     </div>
 
-                    {/* Ruled lines background */}
-                    <div 
-                      className="absolute inset-0 pointer-events-none z-0"
-                      style={{
-                        backgroundImage: 'repeating-linear-gradient(180deg, rgba(120,145,190,0.08) 0 1px, transparent 1px 42px)',
-                        backgroundPosition: '0 0',
-                      }}
-                    />
-
                     {/* Vertical margin line */}
                     <div className="absolute top-[122px] bottom-8 left-9 w-px bg-rose-300/20 pointer-events-none z-20" />
 
@@ -1628,7 +1619,7 @@ export function EventManager({
                     </div>
 
                     {/* Folder tab bar — matching DailyPage notebook style */}
-                    <div className="relative z-10 flex items-center gap-2 overflow-x-auto no-scrollbar px-5 py-1 pb-1 mb-1 border-b border-outline-variant/10 justify-start pl-11">
+                    <div className="relative z-10 flex items-center gap-2 overflow-x-auto no-scrollbar px-5 py-1 pb-1 mb-1 justify-start pl-11">
                       {uniqueCategories.map(cat => {
                         const isSelected = selectedCategory === cat;
                         return (
@@ -1647,14 +1638,9 @@ export function EventManager({
                       })}
                     </div>
 
-                    <div ref={sidebarScrollRef} className="relative z-10 flex-1 overflow-y-auto custom-scrollbar px-5 py-3 pl-11 focus:outline-none focus:ring-2 focus:ring-primary/20" data-sidebar-scroll="true" tabIndex={0}
-                      style={{
-                        backgroundImage: 'repeating-linear-gradient(180deg, rgba(120,145,190,0.08) 0 1px, transparent 1px 42px)',
-                        backgroundPosition: '0 5px',
-                      }}
-                    >
+                    <div ref={sidebarScrollRef} className="relative z-10 flex-1 overflow-y-auto custom-scrollbar px-5 py-3 pl-11 focus:outline-none focus:ring-2 focus:ring-primary/20" data-sidebar-scroll="true" tabIndex={0}>
                       {/* Tasks for the active folder tab */}
-                      <div className="space-y-1">
+                      <div className="notebook-task-list">
                         {Object.values(tasksByFolder).flat().length > 0 ? (
                           Object.values(tasksByFolder).flat().map((event) => {
                             const evColor = (event.color.startsWith('#') || event.color.startsWith('var')) ? event.color : undefined;
@@ -1667,6 +1653,10 @@ export function EventManager({
                                 onTouchStart={(e) => {
                                   handleSidebarTouchStart(e, event);
                                 }}
+                                draggable={canReorderSidebarTask(event)}
+                                onDragStart={(e) => handleSidebarReorderStart(e, event)}
+                                onDragOver={(e) => handleSidebarReorderOver(e, event)}
+                                onDragEnd={handleSidebarReorderEnd}
                                 onClick={() => {
                                   if (onEventClick) {
                                     onEventClick(event)
@@ -1675,14 +1665,14 @@ export function EventManager({
                                     setIsDialogOpen(true)
                                   }
                                 }}
-                                className="group flex items-start gap-3 px-2 py-2 transition-colors cursor-grab active:cursor-grabbing border-b border-outline-variant/10 hover:border-primary/18 touch-none"
+                                className={`group flex items-start gap-3 px-2 py-2 transition-colors cursor-grab active:cursor-grabbing hover:border-primary/18 touch-none ${
+                                  sidebarReorderId === event.id || globalDragEvent?.id === event.id
+                                    ? 'ring-2 ring-primary/40 bg-primary/5 shadow-[0_0_14px_rgba(99,102,241,0.18)]'
+                                    : ''
+                                }`}
                               >
-                                <div
-                                  className="mt-0.5 h-[18px] w-[18px] rounded-full border-2 shrink-0"
-                                  style={{ borderColor: evColor || priorityColors[getPriorityKey(event.urgency || false, event.importance || false)] || 'var(--outline)' }}
-                                />
                                 <div className="flex-1 min-w-0">
-                                  <span className="block text-[14px] font-semibold leading-snug tracking-normal text-foreground transition-colors group-hover:text-primary break-words whitespace-pre-wrap">{event.title}</span>
+                                  <span className="block text-[14px] font-semibold leading-snug tracking-normal text-foreground transition-colors group-hover:text-primary break-words whitespace-pre-wrap"><span className="select-none mr-1.5 text-[16px]" style={{ color: evColor || priorityColors[getPriorityKey(event.urgency || false, event.importance || false)] || 'var(--outline)' }}>*</span>{event.title}</span>
                                 </div>
                               </div>
                             );
@@ -3455,10 +3445,11 @@ function TimeGridView({
                           onEventClick(event);
                         }}
                         className={cn(
-                          "absolute rounded-xl px-2.5 py-2 sm:p-2 text-[12px] sm:text-[10px] font-semibold text-white cursor-grab active:cursor-grabbing hover:brightness-110 z-10 overflow-hidden group select-none touch-pan-y",
+                          "absolute rounded-xl px-2.5 py-2 sm:p-2 text-[12px] sm:text-[10px] font-semibold text-white hover:brightness-110 z-10 overflow-hidden group select-none touch-pan-y",
                           "transition-[opacity,transform] duration-200 ease-out", // No shadow transition - prevents shadow accumulation
                           event.color && !event.color.startsWith('#') && !event.color.startsWith('var') && getColorClasses(event.color).bg,
                           isResizing === event.id && "z-50 shadow-xl brightness-125 ring-2 ring-white/50 transition-none", // Disable transitions while resizing
+                          !dragDisabled && "cursor-grab active:cursor-grabbing",
                           isMoving === event.id && "z-50 shadow-xl scale-[1.02] brightness-110 ring-2 ring-white/30 transition-none cursor-grabbing", // Premium feedback while moving
                           isDraggingRef.current && "transition-none", // Disable transitions while dragging
                           event.completed && "opacity-50 grayscale-[0.3]"
