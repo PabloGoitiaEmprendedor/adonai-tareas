@@ -11,7 +11,7 @@
  * - Clarity embed link
  * - Custom event query builder for future metrics
  */
-import { useState, useMemo } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useAdminAnalytics, useIsAdmin, type UserStat, type UsageBreakdownKey, type UsageBreakdownItem } from '@/hooks/useAdminAnalytics';
 import { Navigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -21,12 +21,13 @@ import {
   Plus, Zap, Target, TrendingUp, Flame, Clock, UserCheck,
   ChevronDown, ChevronUp, ExternalLink, Search, RefreshCw, Trash2,
   Trophy, CalendarRange, Users2, Image as ImageIcon, Monitor,
-  NotebookTabs, Bell, Activity, Pin, AlertTriangle
+  NotebookTabs, Bell, Activity, Pin, AlertTriangle, Bot, Save
 } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area, CartesianGrid, Legend, LineChart, Line } from 'recharts';
 import { useAdminNotifications } from '@/hooks/useAdminNotifications';
+import { supabase } from '@/integrations/supabase/client';
 
 // ─── Section Wrapper ─────────────────────────────────────────────────────────
 const Section = ({ title, icon: Icon, description, children }: { title: string; icon: any; description?: string; children: React.ReactNode }) => (
@@ -222,7 +223,7 @@ const MiniWindowTrendsChart = ({ data }: { data: any[] }) => (
   </div>
 );
 
-type AdminFolder = 'usuarios' | 'beta' | 'retencion' | 'core' | 'uso' | 'notificaciones' | 'mini';
+type AdminFolder = 'usuarios' | 'beta' | 'retencion' | 'core' | 'uso' | 'notificaciones' | 'mini' | 'ia';
 
 const ADMIN_FOLDERS: Array<{ key: AdminFolder; label: string; icon: any; description: string }> = [
   { key: 'usuarios', label: 'Usuarios nuevos', icon: Users, description: 'Registros y detalle' },
@@ -232,6 +233,7 @@ const ADMIN_FOLDERS: Array<{ key: AdminFolder; label: string; icon: any; descrip
   { key: 'uso', label: 'Uso', icon: Activity, description: 'Volumen, metas y prioridades' },
   { key: 'notificaciones', label: 'Notificaciones', icon: Bell, description: 'Envios y lecturas' },
   { key: 'mini', label: 'Mini ventana', icon: Monitor, description: 'Uso de la ventana flotante' },
+  { key: 'ia', label: 'Agente IA', icon: Bot, description: 'Prompt y memoria global' },
 ];
 
 const TRIAL_DAYS = 90;
@@ -286,6 +288,75 @@ const AdminPanelPage = () => {
   const [activeFolder, setActiveFolder] = useState<AdminFolder>('usuarios');
   const [showExcludedUsers, setShowExcludedUsers] = useState(false);
   const [viewingUsage, setViewingUsage] = useState<{ key: UsageBreakdownKey; title: string; value: number | string } | null>(null);
+  const [agentPrompt, setAgentPrompt] = useState('');
+  const [agentPromptStatus, setAgentPromptStatus] = useState('');
+  const [methodologyName, setMethodologyName] = useState('');
+  const [methodologyContent, setMethodologyContent] = useState('');
+  const [insightTitle, setInsightTitle] = useState('');
+  const [insightContent, setInsightContent] = useState('');
+  const [agentMethodologies, setAgentMethodologies] = useState<any[]>([]);
+  const [agentInsights, setAgentInsights] = useState<any[]>([]);
+
+  const loadAgentConfig = async () => {
+    const [promptRes, methodologiesRes, insightsRes] = await Promise.all([
+      (supabase as any).from('chat_global_prompts').select('*').eq('is_active', true).maybeSingle(),
+      (supabase as any).from('chat_prompt_methodologies').select('*').eq('is_active', true).order('created_at', { ascending: false }).limit(20),
+      (supabase as any).from('chat_global_insights').select('*').eq('is_active', true).order('weight', { ascending: false }).limit(20),
+    ]);
+    setAgentPrompt(promptRes.data?.prompt || '');
+    setAgentMethodologies(methodologiesRes.data || []);
+    setAgentInsights(insightsRes.data || []);
+  };
+
+  useEffect(() => {
+    if (activeFolder === 'ia') {
+      loadAgentConfig();
+    }
+  }, [activeFolder]);
+
+  const saveAgentPrompt = async () => {
+    setAgentPromptStatus('Guardando...');
+    await (supabase as any).from('chat_global_prompts').update({ is_active: false }).eq('is_active', true);
+    const { error } = await (supabase as any).from('chat_global_prompts').insert({
+      prompt: agentPrompt.trim(),
+      is_active: true,
+      created_by: user?.id || null,
+    });
+    setAgentPromptStatus(error ? error.message : 'Prompt global actualizado');
+    if (!error) await loadAgentConfig();
+  };
+
+  const addAgentMethodology = async () => {
+    if (!methodologyName.trim() || !methodologyContent.trim()) return;
+    const { error } = await (supabase as any).from('chat_prompt_methodologies').insert({
+      name: methodologyName.trim(),
+      content: methodologyContent.trim(),
+      created_by: user?.id || null,
+    });
+    setAgentPromptStatus(error ? error.message : 'Metodologia agregada');
+    if (!error) {
+      setMethodologyName('');
+      setMethodologyContent('');
+      await loadAgentConfig();
+    }
+  };
+
+  const addAgentInsight = async () => {
+    if (!insightTitle.trim() || !insightContent.trim()) return;
+    const { error } = await (supabase as any).from('chat_global_insights').insert({
+      title: insightTitle.trim(),
+      insight: insightContent.trim(),
+      category: 'productivity',
+      weight: 0.75,
+      created_by: user?.id || null,
+    });
+    setAgentPromptStatus(error ? error.message : 'Insight global agregado');
+    if (!error) {
+      setInsightTitle('');
+      setInsightContent('');
+      await loadAgentConfig();
+    }
+  };
 
   const handleExcludeUser = (userId: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -481,6 +552,103 @@ const AdminPanelPage = () => {
             );
           })}
         </div>
+
+        {activeFolder === 'ia' && (
+          <Section title="Agente IA" icon={Bot} description="Prompt global, metodologias e insights anonimizados">
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+              <section className="rounded-2xl border border-outline-variant/10 bg-card p-5 shadow-sm">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <div>
+                    <h3 className="text-sm font-black uppercase tracking-[0.14em] text-foreground">System prompt global</h3>
+                    <p className="mt-1 text-xs font-bold text-on-surface-variant/50">
+                      Se suma al prompt base, memoria privada del usuario, agenda e insights globales.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={saveAgentPrompt}
+                    className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-xs font-black text-primary-foreground transition-opacity hover:opacity-90"
+                  >
+                    <Save className="h-4 w-4" />
+                    Guardar
+                  </button>
+                </div>
+                <textarea
+                  value={agentPrompt}
+                  onChange={(event) => setAgentPrompt(event.target.value)}
+                  placeholder="Instrucciones globales para Adonai..."
+                  className="min-h-[260px] w-full resize-y rounded-2xl border border-outline-variant/15 bg-surface-container-low p-4 text-sm font-semibold leading-6 outline-none focus:border-primary/35"
+                />
+                {agentPromptStatus && <p className="mt-3 text-xs font-black text-primary">{agentPromptStatus}</p>}
+              </section>
+
+              <section className="space-y-4">
+                <div className="rounded-2xl border border-outline-variant/10 bg-card p-5 shadow-sm">
+                  <h3 className="text-sm font-black uppercase tracking-[0.14em] text-foreground">Nueva metodologia</h3>
+                  <input
+                    value={methodologyName}
+                    onChange={(event) => setMethodologyName(event.target.value)}
+                    placeholder="Nombre"
+                    className="mt-3 w-full rounded-xl border border-outline-variant/15 bg-surface-container-low px-3 py-2 text-sm font-bold outline-none focus:border-primary/35"
+                  />
+                  <textarea
+                    value={methodologyContent}
+                    onChange={(event) => setMethodologyContent(event.target.value)}
+                    placeholder="Reglas, criterios o marco de productividad..."
+                    className="mt-3 min-h-[110px] w-full resize-y rounded-xl border border-outline-variant/15 bg-surface-container-low px-3 py-2 text-sm font-semibold outline-none focus:border-primary/35"
+                  />
+                  <button type="button" onClick={addAgentMethodology} className="mt-3 w-full rounded-xl bg-primary/12 px-4 py-2 text-xs font-black text-primary">
+                    Agregar metodologia
+                  </button>
+                </div>
+
+                <div className="rounded-2xl border border-outline-variant/10 bg-card p-5 shadow-sm">
+                  <h3 className="text-sm font-black uppercase tracking-[0.14em] text-foreground">Insight global anonimo</h3>
+                  <input
+                    value={insightTitle}
+                    onChange={(event) => setInsightTitle(event.target.value)}
+                    placeholder="Titulo"
+                    className="mt-3 w-full rounded-xl border border-outline-variant/15 bg-surface-container-low px-3 py-2 text-sm font-bold outline-none focus:border-primary/35"
+                  />
+                  <textarea
+                    value={insightContent}
+                    onChange={(event) => setInsightContent(event.target.value)}
+                    placeholder="Patron agregado sin datos personales..."
+                    className="mt-3 min-h-[90px] w-full resize-y rounded-xl border border-outline-variant/15 bg-surface-container-low px-3 py-2 text-sm font-semibold outline-none focus:border-primary/35"
+                  />
+                  <button type="button" onClick={addAgentInsight} className="mt-3 w-full rounded-xl bg-primary/12 px-4 py-2 text-xs font-black text-primary">
+                    Agregar insight
+                  </button>
+                </div>
+              </section>
+            </div>
+
+            <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
+              <div className="rounded-2xl border border-outline-variant/10 bg-card p-5">
+                <h3 className="mb-3 text-xs font-black uppercase tracking-[0.14em] text-on-surface-variant/60">Metodologias activas</h3>
+                <div className="space-y-2">
+                  {agentMethodologies.length === 0 ? <p className="text-xs font-bold text-on-surface-variant/45">Sin metodologias activas.</p> : agentMethodologies.map(item => (
+                    <div key={item.id} className="rounded-xl bg-surface-container-low p-3">
+                      <p className="text-sm font-black">{item.name}</p>
+                      <p className="mt-1 line-clamp-3 text-xs font-semibold leading-5 text-on-surface-variant/65">{item.content}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="rounded-2xl border border-outline-variant/10 bg-card p-5">
+                <h3 className="mb-3 text-xs font-black uppercase tracking-[0.14em] text-on-surface-variant/60">Insights activos</h3>
+                <div className="space-y-2">
+                  {agentInsights.length === 0 ? <p className="text-xs font-bold text-on-surface-variant/45">Sin insights activos.</p> : agentInsights.map(item => (
+                    <div key={item.id} className="rounded-xl bg-surface-container-low p-3">
+                      <p className="text-sm font-black">{item.title}</p>
+                      <p className="mt-1 line-clamp-3 text-xs font-semibold leading-5 text-on-surface-variant/65">{item.insight}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </Section>
+        )}
 
         {activeFolder === 'usuarios' && (
           <>

@@ -1645,8 +1645,10 @@ export function EventManager({
                           Object.values(tasksByFolder).flat().map((event) => {
                             const evColor = (event.color.startsWith('#') || event.color.startsWith('var')) ? event.color : undefined;
                             return (
-                              <div
+                              <motion.div
                                 key={event.id}
+                                layout="position"
+                                transition={{ layout: { duration: 0.08, ease: [0.2, 0.8, 0.2, 1] } }}
                                 onMouseDown={(e) => {
                                   handleSidebarMouseDown(e, event);
                                 }}
@@ -1667,14 +1669,14 @@ export function EventManager({
                                 }}
                                 className={`group flex items-start gap-3 px-2 py-2 transition-colors cursor-grab active:cursor-grabbing hover:border-primary/18 touch-none ${
                                   sidebarReorderId === event.id || globalDragEvent?.id === event.id
-                                    ? 'ring-2 ring-primary/40 bg-primary/5 shadow-[0_0_14px_rgba(99,102,241,0.18)]'
+                                    ? 'rounded-xl border border-primary/45 bg-primary/5 ring-2 ring-primary/45 shadow-[0_0_18px_rgba(99,102,241,0.24)]'
                                     : ''
                                 }`}
                               >
                                 <div className="flex-1 min-w-0">
                                   <span className="block text-[14px] font-semibold leading-snug tracking-normal text-foreground transition-colors group-hover:text-primary break-words whitespace-pre-wrap"><span className="select-none mr-1.5 text-[16px]" style={{ color: evColor || priorityColors[getPriorityKey(event.urgency || false, event.importance || false)] || 'var(--outline)' }}>*</span>{event.title}</span>
                                 </div>
-                              </div>
+                              </motion.div>
                             );
                           })
                         ) : (

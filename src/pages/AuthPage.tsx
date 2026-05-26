@@ -174,19 +174,19 @@ const AuthPage = () => {
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: 20 }}
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className="relative z-10 w-full max-w-[400px] space-y-10"
+            className="relative z-10 mx-auto flex w-full max-w-[400px] flex-col items-center space-y-10 text-center"
           >
-            <div className="text-center space-y-4">
+            <div className="w-full space-y-4 text-center">
               <div className="flex items-center justify-center mx-auto mb-6">
                 <BrandLogo className="h-20 w-20 drop-shadow-[0_0_15px_rgba(91,124,250,0.3)]" />
               </div>
-              <h1 className="page-title">Adonai</h1>
+              <h1 className="page-title w-full text-center">Adonai</h1>
               <p className="text-on-surface-variant font-medium text-lg opacity-80">
                 Ingresa tu email para recibir un código
               </p>
             </div>
 
-            <div className="space-y-6">
+            <div className="w-full space-y-6">
               <input
                 type="email"
                 value={email}
@@ -216,13 +216,13 @@ const AuthPage = () => {
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className="relative z-10 w-full max-w-[400px] space-y-10"
+            className="relative z-10 mx-auto flex w-full max-w-[400px] flex-col items-center space-y-10 text-center"
           >
-            <div className="text-center space-y-4">
+            <div className="w-full space-y-4 text-center">
               <div className="flex items-center justify-center mx-auto mb-6">
                 <BrandLogo className="h-20 w-20 drop-shadow-[0_0_15px_rgba(91,124,250,0.3)]" />
               </div>
-              <h1 className="page-title">Verifica</h1>
+              <h1 className="page-title w-full text-center">Verifica</h1>
               <p className="text-on-surface-variant font-medium text-lg opacity-80">
                 Ingresa el código enviado a
               </p>

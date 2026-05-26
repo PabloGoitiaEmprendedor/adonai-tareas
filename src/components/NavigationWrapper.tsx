@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { NotebookTabs, Users, User, Calendar, Settings, Menu, Target, Trophy, BarChart3, Sun, History, Palette, X, Flame } from 'lucide-react';
+import { NotebookTabs, Users, User, Calendar, Settings, Menu, Target, Trophy, BarChart3, Sun, History, Palette, X, Flame, MessageSquare } from 'lucide-react';
 import { toast } from 'sonner';
 
 
@@ -180,6 +180,11 @@ const SidebarContent = ({ user, profile, metrics, menuItems, location, handleNav
               )}
             </span>
             <span className="text-sm tracking-wide">{item.label}</span>
+            {item.badge > 0 && (
+              <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-black leading-none text-white shadow-sm shadow-red-500/30">
+                {item.badge > 99 ? '99+' : item.badge}
+              </span>
+            )}
           </Button>
             );
           })()
@@ -232,7 +237,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
   const [eventCreateOpen, setEventCreateOpen] = useState(false);
   const [taskEditingActive, setTaskEditingActive] = useState(false);
 
-  const isPathFabHidden = ['/folders', '/goals', '/friends', '/profile', '/settings', '/priority-settings', '/trash', '/achievements'].some(path => location.pathname.startsWith(path));
+  const isPathFabHidden = ['/folders', '/goals', '/friends', '/profile', '/settings', '/priority-settings', '/trash', '/achievements', '/chat'].some(path => location.pathname.startsWith(path));
   const fabHidden = draftActive || detailActive || eventCreateOpen || taskEditingActive || isPathFabHidden;
 
   useEffect(() => {
@@ -323,6 +328,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
   const notion = useNotionIntegration();
   const friendUnreadCount = useFriendUnreadCount();
   const lastNotionAutoSyncRef = useRef(0);
+  const isAdmin = user?.email === 'pablogoitiaemprendedor@gmail.com';
 
   useEffect(() => {
     const handler = (event: Event) => {
@@ -370,6 +376,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
     { label: 'Hoy', icon: Sun, path: '/daily' },
     { label: 'Cuadernos', icon: NotebookTabs, path: '/folders' },
     { label: 'Calendario', icon: Calendar, path: '/week' },
+    { label: isAdmin ? 'Chat IA' : 'IA pronto', icon: MessageSquare, path: '/chat' },
     { label: 'Metas', icon: Target, path: '/goals' },
     { label: 'Amigos', icon: Users, path: '/friends', badge: friendUnreadCount },
     { label: 'Ajustes', icon: Settings, path: '#settings', activePaths: SETTINGS_PATHS },
@@ -436,8 +443,9 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
   const isFaqPage = location.pathname === '/faq';
   const isOnboardingPage = location.pathname === '/onboarding';
   const isInvitePage = location.pathname.startsWith('/invite/');
+  const isGroupInvitePage = location.pathname.startsWith('/group-invite/');
   
-  const showNavigation = !loading && !isWelcomePage && !isAuthPage && !isMiniPage && !isLandingPage && !isPrivacyPage && !isTermsPage && !isDocsPage && !isCaracteristicasPage && !isFaqPage && !isOnboardingPage && !isInvitePage;
+  const showNavigation = !loading && !isWelcomePage && !isAuthPage && !isMiniPage && !isLandingPage && !isPrivacyPage && !isTermsPage && !isDocsPage && !isCaracteristicasPage && !isFaqPage && !isOnboardingPage && !isInvitePage && !isGroupInvitePage;
 
   if (!showNavigation) {
     return <>{children}</>;
@@ -535,9 +543,14 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
             id="global-menu-trigger"
             onClick={() => setOpen(true)}
             aria-label="Mostrar menú"
-            className="w-9 h-9 rounded-xl bg-transparent text-on-surface-variant/70 backdrop-blur-xl border border-outline-variant/10 hover:bg-surface-container/40 hover:text-foreground transition-all active:scale-90 flex items-center justify-center"
+            className="relative w-9 h-9 rounded-xl bg-transparent text-on-surface-variant/70 backdrop-blur-xl border border-outline-variant/10 hover:bg-surface-container/40 hover:text-foreground transition-all active:scale-90 flex items-center justify-center"
           >
             <Menu className="w-4 h-4" />
+            {friendUnreadCount > 0 && (
+              <span className="absolute -right-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-black leading-none text-white shadow-lg shadow-red-500/35">
+                {friendUnreadCount > 99 ? '99+' : friendUnreadCount}
+              </span>
+            )}
           </button>
           {user?.is_anonymous && (
             <button

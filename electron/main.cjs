@@ -108,22 +108,66 @@ function handleDeepLink(url) {
 // ── Window State Management ────────────────────────────────────────────────
 const configPath = path.join(app.getPath('userData'), 'window-state.json');
 const authStoragePath = path.join(app.getPath('userData'), 'supabase-auth.json');
+const authStorageBackupPath = `${authStoragePath}.bak`;
+const authStorageTempPath = `${authStoragePath}.tmp`;
 
 function readAuthStorage() {
+  const readJsonFile = (filePath) => {
+    if (!fs.existsSync(filePath)) return null;
+    const raw = fs.readFileSync(filePath, 'utf8');
+    if (!raw.trim()) return {};
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      throw new Error('Auth storage is not an object');
+    }
+    return parsed;
+  };
+
   try {
-    if (!fs.existsSync(authStoragePath)) return {};
-    return JSON.parse(fs.readFileSync(authStoragePath, 'utf8'));
+    return readJsonFile(authStoragePath) || {};
   } catch (e) {
-    console.error('Failed to read auth storage', e);
-    return {};
+    console.error('Failed to read auth storage, trying backup', e);
+    logToFile(`Failed to read auth storage, trying backup: ${e.message || e}`);
   }
+
+  try {
+    const backup = readJsonFile(authStorageBackupPath);
+    if (backup) {
+      writeAuthStorage(backup);
+      return backup;
+    }
+  } catch (e) {
+    console.error('Failed to read auth storage backup', e);
+    logToFile(`Failed to read auth storage backup: ${e.message || e}`);
+  }
+
+  return {};
 }
 
 function writeAuthStorage(store) {
   try {
-    fs.writeFileSync(authStoragePath, JSON.stringify(store));
+    const next = JSON.stringify(store);
+    fs.writeFileSync(authStorageTempPath, next, 'utf8');
+
+    if (fs.existsSync(authStoragePath)) {
+      fs.copyFileSync(authStoragePath, authStorageBackupPath);
+      fs.rmSync(authStoragePath, { force: true });
+    }
+
+    fs.renameSync(authStorageTempPath, authStoragePath);
   } catch (e) {
     console.error('Failed to write auth storage', e);
+    logToFile(`Failed to write auth storage: ${e.message || e}`);
+    try {
+      fs.writeFileSync(authStoragePath, JSON.stringify(store), 'utf8');
+    } catch (fallbackError) {
+      console.error('Failed fallback auth storage write', fallbackError);
+      logToFile(`Failed fallback auth storage write: ${fallbackError.message || fallbackError}`);
+    }
+  } finally {
+    try {
+      if (fs.existsSync(authStorageTempPath)) fs.rmSync(authStorageTempPath, { force: true });
+    } catch (_) {}
   }
 }
 

@@ -73,9 +73,9 @@ const getMiniThemeVars = (_isDarkMode: boolean): MiniThemeVars => ({
 });
 
 const getApplePillStyles = (isDarkMode: boolean) => ({
- background: isDarkMode? 'linear-gradient(180deg, rgba(13,20,34,0.98), rgba(6,11,20,0.96))': 'linear-gradient(180deg, rgba(91,124,250,0.18), rgba(62,92,200,0.08))',
- border: isDarkMode? 'rgba(124,151,255,0.22)': 'rgba(91,124,250,0.18)',
- shadow: isDarkMode? '0 10px 26px rgba(0,0,0,0.42), inset 0 1px 0 rgba(255,255,255,0.08), inset 0 -1px 0 rgba(0,0,0,0.26)': '0 10px 24px rgba(4,10,24,0.22), inset 0 1px 0 rgba(255,255,255,0.08), inset 0 -1px 0 rgba(0,0,0,0.18)',
+ background: isDarkMode? 'linear-gradient(180deg, rgba(255,255,255,0.96), rgba(242,245,250,0.90))': 'linear-gradient(180deg, rgba(255,255,255,0.96), rgba(242,245,250,0.90))',
+ border: 'rgba(255,255,255,0)',
+ shadow: '0 14px 30px rgba(15,23,42,0.18), 0 2px 8px rgba(15,23,42,0.08), inset 0 1px 0 rgba(255,255,255,0.72)',
 });
 
 const AppleDots = ({ size = 6, isDarkMode }: { size?: number; isDarkMode: boolean }) => (
@@ -87,8 +87,8 @@ const AppleDots = ({ size = 6, isDarkMode }: { size?: number; isDarkMode: boolea
  width: size,
  height: size,
  borderRadius: '50%',
- background: isDarkMode? 'linear-gradient(180deg, rgba(124,151,255,0.82), rgba(62,92,200,0.52))': 'linear-gradient(180deg, rgba(20,32,56,0.88), rgba(20,32,56,0.48))',
- boxShadow: isDarkMode? '0 1px 2px rgba(0,0,0,0.42), 0 0 8px rgba(62,92,200,0.18), inset 0 1px 0 rgba(255,255,255,0.12)': '0 1px 2px rgba(15,23,42,0.12), inset 0 1px 0 rgba(255,255,255,0.58)',
+ background: 'linear-gradient(180deg, rgba(91,124,250,0.90), rgba(54,75,156,0.58))',
+ boxShadow: '0 1px 2px rgba(15,23,42,0.14), inset 0 1px 0 rgba(255,255,255,0.70)',
  opacity: dot === 1? 0.82: 0.68,
  }}
  />
@@ -121,10 +121,11 @@ function formatTimer(seconds: number): string {
 
 
 // â”€â”€â”€ Task Row â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-const TaskRowRaw = ({ task, onToggle, onDetail, activeTimerId, onTimerToggle, updateTask, folders, currentDate, ensureCalendarOpen }: {
+const TaskRowRaw = ({ task, taskIdx, onToggle, onDetail, activeTimerId, onTimerToggle, updateTask, folders, currentDate, ensureCalendarOpen, onReorderPointerStart }: {
  task: any; onToggle: (task: any) => void; onDetail: (task: any) => void;
  activeTimerId: string | null; onTimerToggle: (taskId: string, estimatedMinutes?: number) => void;
  updateTask: any; folders: any[]; currentDate: Date; ensureCalendarOpen?: () => void;
+ taskIdx?: number; onReorderPointerStart?: (idx: number, clientX: number, clientY: number) => void;
 }) => {
  const isDone = task.status === 'done';
  const [open, setOpen] = useState(false);
@@ -296,20 +297,34 @@ const TaskRowRaw = ({ task, onToggle, onDetail, activeTimerId, onTimerToggle, up
  >
  {!isDone? (
  <div
+ className="cursor-grab active:cursor-grabbing"
  onClick={(e) => e.stopPropagation()}
+ onMouseDown={(event) => {
+ event.preventDefault();
+ event.stopPropagation();
+ if (taskIdx === undefined) return;
+ onReorderPointerStart?.(taskIdx, event.clientX, event.clientY);
+ }}
+ onTouchStart={(event) => {
+ event.stopPropagation();
+ const touch = event.touches[0];
+ if (taskIdx === undefined || !touch) return;
+ onReorderPointerStart?.(taskIdx, touch.clientX, touch.clientY);
+ }}
  title="Arrastra para ordenar"
  aria-label="Arrastra para ordenar"
  style={{
- width: 14,
- height: 30,
+ width: 18,
+ height: 34,
  flexShrink: 0,
  borderRadius: 7,
  display: 'flex',
  alignItems: 'center',
  justifyContent: 'center',
- color: 'rgba(31,41,55,0.36)',
+ color: 'rgba(31,41,55,0.42)',
  opacity: 1,
- cursor: CURSOR_GRAB,
+ cursor: 'var(--cursor-hand), grab',
+ touchAction: 'none',
  }}
  >
  <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -504,7 +519,7 @@ const MiniTaskList = () => {
  const { theme } = useTheme();
  const isDarkMode = theme === 'dark' || (theme === 'system' && document.documentElement.classList.contains('dark'));
  const miniThemeVars = getMiniThemeVars(isDarkMode);
- const applePill = getApplePillStyles(isDarkMode);
+ const applePill = getApplePillStyles(false);
  const [viewDate, setViewDate] = useState(new Date());
  const { tasks, updateTask, createTask, isLoading } = useTasks({ 
  date: format(viewDate, 'yyyy-MM-dd'), 
@@ -560,6 +575,10 @@ const MiniTaskList = () => {
  const [calendarOpen, setCalendarOpen] = useState(false);
  const [orderedTasks, setOrderedTasks] = useState<any[]>([]);
  const [reorderIdx, setReorderIdx] = useState<number | null>(null);
+ const reorderIdxRef = useRef<number | null>(null);
+ const orderedTasksRef = useRef<any[]>([]);
+ const suppressOrderSyncRef = useRef(false);
+ const suppressOrderSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
  const calendarTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
  const calendarHoverRef = useRef(false);
  const calendarBusyRef = useRef(false);
@@ -841,8 +860,17 @@ const MiniTaskList = () => {
  }, [filteredTasks]);
 
  useEffect(() => {
+ if (suppressOrderSyncRef.current) return;
  setOrderedTasks(sortedTasks);
  }, [sortedTasks]);
+
+ useEffect(() => {
+ orderedTasksRef.current = orderedTasks;
+ }, [orderedTasks]);
+
+ useEffect(() => () => {
+ if (suppressOrderSyncTimerRef.current) clearTimeout(suppressOrderSyncTimerRef.current);
+ }, []);
 
  const persistMiniOrder = useCallback((nextOrder: any[]) => {
  nextOrder.forEach((task, idx) => {
@@ -854,28 +882,128 @@ const MiniTaskList = () => {
 
  const handleMiniReorderStart = useCallback((idx: number) => {
  if (orderedTasks[idx]?.status === 'done') return;
+ reorderIdxRef.current = idx;
  setReorderIdx(idx);
  }, [orderedTasks]);
 
  const handleMiniReorderOver = useCallback((event: React.DragEvent, idx: number) => {
  event.preventDefault();
- if (reorderIdx === null || reorderIdx === idx) return;
- const dragged = orderedTasks[reorderIdx];
+ const currentReorderIdx = reorderIdxRef.current ?? reorderIdx;
+ if (currentReorderIdx === null || currentReorderIdx === idx) return;
+ const dragged = orderedTasks[currentReorderIdx];
  const target = orderedTasks[idx];
  if (!dragged ||!target || dragged.status === 'done' || target.status === 'done') return;
  if (getTaskManualOrderGroupKey(dragged)!== getTaskManualOrderGroupKey(target)) return;
 
  const next = [...orderedTasks];
- const [moved] = next.splice(reorderIdx, 1);
+ const [moved] = next.splice(currentReorderIdx, 1);
  next.splice(idx, 0, moved);
  setOrderedTasks(next);
+ reorderIdxRef.current = idx;
  setReorderIdx(idx);
  }, [orderedTasks, reorderIdx]);
 
  const handleMiniReorderEnd = useCallback(() => {
- if (reorderIdx!== null) persistMiniOrder(orderedTasks);
+ if ((reorderIdxRef.current ?? reorderIdx)!== null) {
+ const finalOrder = orderedTasksRef.current;
+ persistMiniOrder(finalOrder);
+ const optimisticOrder = finalOrder.map((task, idx) => ({ ...task, sort_order: idx }));
+ orderedTasksRef.current = optimisticOrder;
+ suppressOrderSyncRef.current = true;
+ if (suppressOrderSyncTimerRef.current) clearTimeout(suppressOrderSyncTimerRef.current);
+ suppressOrderSyncTimerRef.current = setTimeout(() => {
+ suppressOrderSyncRef.current = false;
+ suppressOrderSyncTimerRef.current = null;
+ }, 2200);
+ setOrderedTasks(optimisticOrder);
+ }
+ reorderIdxRef.current = null;
  setReorderIdx(null);
  }, [orderedTasks, persistMiniOrder, reorderIdx]);
+
+ const moveMiniReorderToPoint = useCallback((clientX: number, clientY: number) => {
+ const currentIdx = reorderIdxRef.current;
+ if (currentIdx === null) return;
+
+ const rows = Array.from(document.querySelectorAll<HTMLElement>('[data-mini-task-idx]'));
+ const targetEl = rows.find((row) => {
+ const rect = row.getBoundingClientRect();
+ return clientY >= rect.top && clientY <= rect.bottom && clientX >= rect.left - 36 && clientX <= rect.right + 36;
+ }) || rows.reduce<HTMLElement | null>((closest, row) => {
+ const rect = row.getBoundingClientRect();
+ const rowCenter = rect.top + rect.height / 2;
+ if (clientX < rect.left - 36 || clientX > rect.right + 36) return closest;
+ if (!closest) return row;
+ const closestRect = closest.getBoundingClientRect();
+ const closestCenter = closestRect.top + closestRect.height / 2;
+ return Math.abs(clientY - rowCenter) < Math.abs(clientY - closestCenter) ? row : closest;
+ }, null);
+ if (!targetEl) return;
+ const targetIdx = Number(targetEl.dataset.miniTaskIdx);
+ if (Number.isNaN(targetIdx) || targetIdx === currentIdx) return;
+
+ const currentOrder = orderedTasksRef.current;
+ const dragged = currentOrder[currentIdx];
+ const target = currentOrder[targetIdx];
+ if (!dragged || !target || dragged.status === 'done' || target.status === 'done') return;
+ if (getTaskManualOrderGroupKey(dragged) !== getTaskManualOrderGroupKey(target)) return;
+
+ const next = [...currentOrder];
+ const [moved] = next.splice(currentIdx, 1);
+ next.splice(targetIdx, 0, moved);
+ orderedTasksRef.current = next;
+ reorderIdxRef.current = targetIdx;
+ setReorderIdx(targetIdx);
+ setOrderedTasks(next);
+ }, []);
+
+ const handleMiniReorderPointerStart = useCallback((idx: number, clientX: number, clientY: number) => {
+ if (orderedTasksRef.current[idx]?.status === 'done') return;
+ reorderIdxRef.current = idx;
+ setReorderIdx(idx);
+ document.body.style.cursor = 'var(--cursor-hand-grabbing), grabbing';
+ moveMiniReorderToPoint(clientX, clientY);
+
+ const onMove = (event: MouseEvent) => {
+ event.preventDefault();
+ moveMiniReorderToPoint(event.clientX, event.clientY);
+ };
+ const onTouchMove = (event: TouchEvent) => {
+ const touch = event.touches[0];
+ if (!touch) return;
+ if (event.cancelable) event.preventDefault();
+ moveMiniReorderToPoint(touch.clientX, touch.clientY);
+ };
+ const finish = () => {
+ window.removeEventListener('mousemove', onMove);
+ window.removeEventListener('mouseup', finish);
+ window.removeEventListener('touchmove', onTouchMove);
+ window.removeEventListener('touchend', finish);
+ window.removeEventListener('touchcancel', finish);
+ document.body.style.cursor = '';
+ if (reorderIdxRef.current !== null) {
+ const finalOrder = orderedTasksRef.current;
+ persistMiniOrder(finalOrder);
+ const optimisticOrder = finalOrder.map((task, idx) => ({ ...task, sort_order: idx }));
+ orderedTasksRef.current = optimisticOrder;
+ suppressOrderSyncRef.current = true;
+ if (suppressOrderSyncTimerRef.current) clearTimeout(suppressOrderSyncTimerRef.current);
+ suppressOrderSyncTimerRef.current = setTimeout(() => {
+ suppressOrderSyncRef.current = false;
+ suppressOrderSyncTimerRef.current = null;
+ }, 2200);
+ setOrderedTasks(optimisticOrder);
+ }
+ reorderIdxRef.current = null;
+ setReorderIdx(null);
+ };
+
+ window.addEventListener('mousemove', onMove);
+ window.addEventListener('mouseup', finish);
+ window.addEventListener('touchmove', onTouchMove, { passive: false });
+ window.addEventListener('touchend', finish);
+ window.addEventListener('touchcancel', finish);
+ }, [moveMiniReorderToPoint, persistMiniOrder]);
 
  const completedCount = filteredTasks.filter((t: any) => t.status === 'done').length;
  const totalCount = filteredTasks.length;
@@ -985,9 +1113,9 @@ const MiniTaskList = () => {
  padding: activeTimerId? '0 8px 0 7px': '0',
  width: activeTimerId? 'auto': 64,
  minWidth: activeTimerId? 92: 64,
- background: activeTimerId? 'linear-gradient(180deg, rgba(9,18,34,0.99), rgba(5,10,20,0.98))': 'linear-gradient(180deg, rgba(16,24,38,0.98), rgba(8,15,27,0.96))',
- border: `1px solid ${activeTimerId? (timerSeconds < 0? 'rgba(255,122,122,0.34)': 'rgba(124,151,255,0.28)'): 'rgba(91,124,250,0.16)'}`,
- boxShadow: showLedGlow? `0 0 0 0 rgba(62, 92, 200, 0.16), 0 0 16px 2px ${C.accentGlow}, 0 0 28px 4px rgba(62, 92, 200, 0.07), inset 0 0 6px rgba(62, 92, 200, 0.06)`: activeTimerId? (timerSeconds < 0? '0 10px 26px rgba(0,0,0,0.4), 0 0 18px rgba(255,122,122,0.16), inset 0 1px 0 rgba(255,255,255,0.1)': '0 10px 26px rgba(0,0,0,0.4), 0 0 18px rgba(62,92,200,0.14), inset 0 1px 0 rgba(255,255,255,0.1), inset 0 -1px 0 rgba(0,0,0,0.24)'): '0 10px 26px rgba(0,0,0,0.34), inset 0 1px 0 rgba(255,255,255,0.08), inset 0 -1px 0 rgba(0,0,0,0.24)',
+ background: activeTimerId? 'linear-gradient(180deg, rgba(9,18,34,0.99), rgba(5,10,20,0.98))': applePill.background,
+ border: `1px solid ${activeTimerId? (timerSeconds < 0? 'rgba(255,122,122,0.34)': 'rgba(124,151,255,0.28)'): applePill.border}`,
+ boxShadow: showLedGlow? `0 0 0 0 rgba(62, 92, 200, 0.16), 0 0 16px 2px ${C.accentGlow}, 0 0 28px 4px rgba(62, 92, 200, 0.07), inset 0 0 6px rgba(62, 92, 200, 0.06)`: activeTimerId? (timerSeconds < 0? '0 10px 26px rgba(0,0,0,0.4), 0 0 18px rgba(255,122,122,0.16), inset 0 1px 0 rgba(255,255,255,0.1)': '0 10px 26px rgba(0,0,0,0.4), 0 0 18px rgba(62,92,200,0.14), inset 0 1px 0 rgba(255,255,255,0.1), inset 0 -1px 0 rgba(0,0,0,0.24)'): applePill.shadow,
  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0,
  userSelect: 'none', cursor: CURSOR_GRAB,
  position: 'relative',
@@ -1355,8 +1483,7 @@ const MiniTaskList = () => {
  {orderedTasks.map((task: any, idx: number) => (
  <div
  key={task.id}
- draggable={task.status!== 'done'}
- onDragStart={() => handleMiniReorderStart(idx)}
+ data-mini-task-idx={idx}
  onDragOver={(event) => handleMiniReorderOver(event, idx)}
  onDragEnd={handleMiniReorderEnd}
  style={{
@@ -1369,6 +1496,7 @@ const MiniTaskList = () => {
  >
  <TaskRow
  task={completingId === task.id? {...task, status: 'done' }: task}
+ taskIdx={task.status !== 'done' ? idx : undefined}
  onToggle={handleToggle}
  onDetail={handleDetail}
  activeTimerId={activeTimerId}
@@ -1377,6 +1505,7 @@ const MiniTaskList = () => {
  folders={folders}
  currentDate={viewDate}
  ensureCalendarOpen={openCalendarPanel}
+ onReorderPointerStart={handleMiniReorderPointerStart}
  />
  </div>
  ))}

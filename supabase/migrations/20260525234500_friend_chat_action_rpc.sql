@@ -12,6 +12,7 @@ DECLARE
   invite_id UUID;
   folder_id UUID;
   request_id UUID;
+  message_id UUID;
   message_rec public.friend_messages%ROWTYPE;
   convo_rec public.friend_conversations%ROWTYPE;
   request_rec public.friend_task_requests%ROWTYPE;
@@ -20,6 +21,46 @@ DECLARE
   unread_total INTEGER;
   invite_total INTEGER;
 BEGIN
+  IF action = 'group_invite_info' THEN
+    conv_id := NULLIF(TRIM(payload->>'conversation_id'), '')::UUID;
+    IF conv_id IS NULL THEN
+      RAISE EXCEPTION 'conversation_id is required';
+    END IF;
+
+    SELECT *
+      INTO convo_rec
+    FROM public.friend_conversations
+    WHERE id = conv_id
+      AND type = 'group';
+
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'Group not found';
+    END IF;
+
+    RETURN jsonb_build_object(
+      'group', jsonb_build_object(
+        'id', convo_rec.id,
+        'title', convo_rec.title,
+        'created_at', convo_rec.created_at,
+        'member_count', (
+          SELECT COUNT(*)::INT
+          FROM public.friend_conversation_members
+          WHERE conversation_id = convo_rec.id
+        ),
+        'owner', (
+          SELECT jsonb_build_object(
+            'user_id', p.user_id,
+            'name', COALESCE(NULLIF(TRIM(p.name), ''), 'Tu amigo'),
+            'email', p.email
+          )
+          FROM public.profiles p
+          WHERE p.user_id = convo_rec.created_by
+          LIMIT 1
+        )
+      )
+    );
+  END IF;
+
   IF action = 'invite_submit' THEN
     invite_id := NULLIF(TRIM(payload->>'inviter_id'), '')::UUID;
     IF invite_id IS NULL THEN
@@ -271,6 +312,101 @@ BEGIN
       FROM jsonb_array_elements_text(COALESCE(payload->'member_ids', '[]'::jsonb))
     ) members
     ON CONFLICT (conversation_id, user_id) DO NOTHING;
+
+    RETURN jsonb_build_object('conversation', to_jsonb(convo_rec));
+  END IF;
+
+  IF action = 'add_group_members' THEN
+    conv_id := NULLIF(TRIM(payload->>'conversation_id'), '')::UUID;
+    IF conv_id IS NULL THEN
+      RAISE EXCEPTION 'conversation_id is required';
+    END IF;
+
+    SELECT *
+      INTO convo_rec
+    FROM public.friend_conversations
+    WHERE id = conv_id
+      AND type = 'group';
+
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'Group not found';
+    END IF;
+
+    IF NOT EXISTS (
+      SELECT 1
+      FROM public.friend_conversation_members
+      WHERE conversation_id = conv_id
+        AND user_id = uid
+    ) THEN
+      RAISE EXCEPTION 'Forbidden' USING ERRCODE = '42501';
+    END IF;
+
+    INSERT INTO public.friend_conversation_members(conversation_id, user_id, role)
+    SELECT conv_id, value::UUID, 'member'
+    FROM jsonb_array_elements_text(COALESCE(payload->'member_ids', '[]'::jsonb))
+    ON CONFLICT (conversation_id, user_id) DO NOTHING;
+
+    INSERT INTO public.friend_messages(conversation_id, sender_id, kind, body, payload, created_at)
+    VALUES (
+      conv_id,
+      uid,
+      'system',
+      'Nuevos miembros agregados al grupo',
+      jsonb_build_object('action', 'add_group_members'),
+      now()
+    );
+
+    UPDATE public.friend_conversations
+    SET updated_at = now()
+    WHERE id = conv_id;
+
+    RETURN jsonb_build_object('conversation', to_jsonb(convo_rec));
+  END IF;
+
+  IF action = 'group_join' THEN
+    conv_id := NULLIF(TRIM(payload->>'conversation_id'), '')::UUID;
+    IF conv_id IS NULL THEN
+      RAISE EXCEPTION 'conversation_id is required';
+    END IF;
+
+    SELECT *
+      INTO convo_rec
+    FROM public.friend_conversations
+    WHERE id = conv_id
+      AND type = 'group';
+
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'Group not found';
+    END IF;
+
+    INSERT INTO public.friend_conversation_members(conversation_id, user_id, role)
+    VALUES (conv_id, uid, 'member')
+    ON CONFLICT (conversation_id, user_id) DO NOTHING;
+
+    IF convo_rec.created_by <> uid THEN
+      INSERT INTO public.friendships(requester_id, addressee_id, status, created_at, updated_at)
+      SELECT uid, convo_rec.created_by, 'accepted', now(), now()
+      WHERE NOT EXISTS (
+        SELECT 1
+        FROM public.friendships f
+        WHERE (f.requester_id = uid AND f.addressee_id = convo_rec.created_by)
+           OR (f.requester_id = convo_rec.created_by AND f.addressee_id = uid)
+      );
+    END IF;
+
+    INSERT INTO public.friend_messages(conversation_id, sender_id, kind, body, payload, created_at)
+    VALUES (
+      conv_id,
+      uid,
+      'system',
+      'Nuevo miembro unido por link',
+      jsonb_build_object('action', 'group_join'),
+      now()
+    );
+
+    UPDATE public.friend_conversations
+    SET updated_at = now()
+    WHERE id = conv_id;
 
     RETURN jsonb_build_object('conversation', to_jsonb(convo_rec));
   END IF;

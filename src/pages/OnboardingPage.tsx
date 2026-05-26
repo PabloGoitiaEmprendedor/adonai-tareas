@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ClipboardEvent, type Dispatch, type KeyboardEvent, type SetStateAction } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowRight, Clipboard, Clock, Download, Link2, Lock, Mail, Monitor, ShieldCheck, Smartphone, Sparkles, Trash2, User } from 'lucide-react';
+import { ArrowRight, Clipboard, Clock, Download, Link2, Lock, Mail, Monitor, ShieldCheck, Smartphone, Sparkles, Trash2, User, UserPlus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
@@ -19,6 +19,8 @@ const OnboardingPage = () => {
   const [isFinishing, setIsFinishing] = useState(false);
   const [showWebChoiceModal, setShowWebChoiceModal] = useState(false);
   const [showEmailAuthModal, setShowEmailAuthModal] = useState(false);
+  const [pendingFriendInvite, setPendingFriendInvite] = useState<{ inviterId: string; inviterName: string; userId: string } | null>(null);
+  const [isSendingFriendRequest, setIsSendingFriendRequest] = useState(false);
 
   // Steps definition
   const steps: StepType[] = ['name', 'brain_dump', 'recurring_tasks', 'commitment', 'ready'];
@@ -28,7 +30,9 @@ const OnboardingPage = () => {
   const defaultUrgentTask = (): UrgentTask => ({ title: '', link: '', importance: false, urgency: false });
 
   // State
-  const [name, setName] = useState('');
+  const [name, setName] = useState(() => (
+    typeof window !== 'undefined' ? localStorage.getItem('adonai_onboarding_prefill_name') || '' : ''
+  ));
   const [urgentTasks, setUrgentTasks] = useState<UrgentTask[]>([defaultUrgentTask(), defaultUrgentTask(), defaultUrgentTask()]);
   type RecurringTaskItem = { title: string; time: string; duration: number };
   const defaultRecurringTask = (): RecurringTaskItem => ({ title: '', time: '08:00', duration: 30 });
@@ -196,11 +200,21 @@ const OnboardingPage = () => {
 
       // 5. Success
       localStorage.setItem('adonai_onboarding_done', 'true');
+      localStorage.removeItem('adonai_onboarding_prefill_name');
       trackAnalyticsEvent('onboarding_completed', {
         urgent_tasks_count: urgentRows.length,
         daily_activities_count: dailyActivityRows.length,
         surface: isElectron ? 'desktop' : isMobile ? 'mobile_web' : 'web',
       });
+      const pendingInviteId = localStorage.getItem('adonai_pending_friend_invite');
+      if (pendingInviteId && pendingInviteId !== userId) {
+        setPendingFriendInvite({
+          inviterId: pendingInviteId,
+          inviterName: localStorage.getItem('adonai_pending_friend_invite_name') || 'tu amigo',
+          userId,
+        });
+        return;
+      }
       navigate('/daily');
     } catch (e) {
       console.error('[onboarding] handleFinish error:', e);
@@ -212,6 +226,44 @@ const OnboardingPage = () => {
     } finally {
       setIsFinishing(false);
     }
+  };
+
+  const sendPendingFriendRequest = async () => {
+    if (!pendingFriendInvite) return;
+    setIsSendingFriendRequest(true);
+    try {
+      const { data: existing } = await supabase
+        .from('friendships')
+        .select('id,status')
+        .or(`and(requester_id.eq.${pendingFriendInvite.userId},addressee_id.eq.${pendingFriendInvite.inviterId}),and(requester_id.eq.${pendingFriendInvite.inviterId},addressee_id.eq.${pendingFriendInvite.userId})`)
+        .maybeSingle();
+
+      if (!existing) {
+        const { error } = await supabase.from('friendships').insert({
+          requester_id: pendingFriendInvite.userId,
+          addressee_id: pendingFriendInvite.inviterId,
+          status: 'pending',
+        });
+        if (error) throw error;
+      }
+
+      localStorage.removeItem('adonai_pending_friend_invite');
+      localStorage.removeItem('adonai_pending_friend_invite_name');
+      toast.success(`Solicitud enviada a ${pendingFriendInvite.inviterName}`);
+      setPendingFriendInvite(null);
+      navigate('/daily');
+    } catch (error: any) {
+      toast.error(error?.message || 'No se pudo enviar la solicitud');
+    } finally {
+      setIsSendingFriendRequest(false);
+    }
+  };
+
+  const skipPendingFriendRequest = () => {
+    localStorage.removeItem('adonai_pending_friend_invite');
+    localStorage.removeItem('adonai_pending_friend_invite_name');
+    setPendingFriendInvite(null);
+    navigate('/daily');
   };
 
   const handleSendOtp = async () => {
@@ -499,6 +551,51 @@ const OnboardingPage = () => {
     </div>
   );
 
+  const renderPendingFriendInviteModal = () => {
+    if (!pendingFriendInvite) return null;
+
+    return (
+      <div className="fixed inset-0 z-[130] flex items-end justify-center bg-black/60 px-4 py-4 backdrop-blur-md sm:items-center">
+        <motion.div
+          initial={{ opacity: 0, y: 16, scale: 0.98 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          className="w-full max-w-md overflow-hidden rounded-[28px] border border-outline-variant/15 bg-surface-container-low shadow-2xl"
+        >
+          <div className="relative px-6 pb-6 pt-7 text-center">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-[22px] border border-primary/20 bg-primary/10">
+              <UserPlus className="h-7 w-7 text-primary" />
+            </div>
+            <p className="text-[10px] font-black uppercase tracking-[0.22em] text-on-surface-variant/45">Invitacion guardada</p>
+            <h3 className="mt-2 text-2xl font-black tracking-tight text-foreground">
+              Enviar solicitud a {pendingFriendInvite.inviterName}
+            </h3>
+            <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-on-surface-variant/70">
+              Ya tienes tu espacio listo. Envia la solicitud para que puedan chatear, compartir tareas y colaborar desde Adonai.
+            </p>
+          </div>
+          <div className="space-y-3 px-4 pb-4">
+            <button
+              type="button"
+              onClick={sendPendingFriendRequest}
+              disabled={isSendingFriendRequest}
+              className="mx-auto flex h-14 w-full max-w-xs items-center justify-center gap-2 rounded-[22px] bg-primary px-4 text-sm font-black text-primary-foreground shadow-2xl shadow-primary/25 transition active:scale-[0.98] disabled:opacity-55"
+            >
+              {isSendingFriendRequest ? 'Enviando...' : 'Enviar solicitud'}
+              <UserPlus className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={skipPendingFriendRequest}
+              className="mx-auto block px-3 py-2 text-[10px] font-black uppercase tracking-[0.22em] text-on-surface-variant/35 transition-colors hover:text-on-surface-variant/70"
+            >
+              Ahora no
+            </button>
+          </div>
+        </motion.div>
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-background flex flex-col items-center px-6 pb-32 pt-12 selection:bg-primary/30 relative overflow-hidden">
       {/* Dynamic Background */}
@@ -559,7 +656,7 @@ const OnboardingPage = () => {
                   <div className="w-16 h-16 rounded-[24px] bg-primary/10 flex items-center justify-center mb-6 mx-auto">
                     <User className="w-8 h-8 text-primary" />
                   </div>
-                  <h1 className="page-title leading-tight text-foreground">
+                  <h1 className="page-title mx-auto w-full text-center leading-tight text-foreground">
                     Hola. <br />
                     <span className="text-foreground/70">¿Cómo te llamas?</span>
                   </h1>
@@ -1078,6 +1175,7 @@ const OnboardingPage = () => {
       </div>
       {showWebChoiceModal && renderAccessChoiceModal()}
       {showEmailAuthModal && renderEmailAuthModal()}
+      {renderPendingFriendInviteModal()}
     </div>
   );
 };

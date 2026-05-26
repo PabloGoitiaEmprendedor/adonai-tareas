@@ -7,7 +7,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useFriendChats } from '@/hooks/useFriendChats';
 
-const dailyLimit = 3;
+const monthlyLimit = 3;
+const priorityOptions = [
+  { key: 'important-urgent', label: 'Importante/Urgente', value: 'high', urgency: true, importance: true, estimatedMinutes: 45 },
+  { key: 'urgent-not-important', label: 'Urgente/No importante', value: 'medium', urgency: true, importance: false, estimatedMinutes: 30 },
+  { key: 'important-not-urgent', label: 'Importante/No urgente', value: 'medium', urgency: false, importance: true, estimatedMinutes: 30 },
+  { key: 'not-urgent-not-important', label: 'No urgente/No importante', value: 'low', urgency: false, importance: false, estimatedMinutes: 20 },
+] as const;
 
 const FriendInvitePage = () => {
   const { inviterId } = useParams();
@@ -15,16 +21,15 @@ const FriendInvitePage = () => {
   const { user } = useAuth();
   const { ensureDirectConversation } = useFriendChats(null);
   const [senderName, setSenderName] = useState('');
-  const [senderEmail, setSenderEmail] = useState('');
   const [taskTitle, setTaskTitle] = useState('');
   const [taskLink, setTaskLink] = useState('');
   const [message, setMessage] = useState('');
-  const [priority, setPriority] = useState<'high' | 'medium' | 'low'>('medium');
+  const [priorityKey, setPriorityKey] = useState<(typeof priorityOptions)[number]['key']>('urgent-not-important');
   const [sending, setSending] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [sentCount, setSentCount] = useState(0);
 
-  const storageKey = useMemo(() => `adonai_invite_tasks_${inviterId}_${new Date().toISOString().slice(0, 10)}`, [inviterId]);
+  const storageKey = useMemo(() => `adonai_invite_tasks_${inviterId}_${new Date().toISOString().slice(0, 7)}`, [inviterId]);
 
   useEffect(() => {
     setSentCount(Number(localStorage.getItem(storageKey) || '0'));
@@ -36,13 +41,15 @@ const FriendInvitePage = () => {
       if (!inviterId) return null;
       const { data, error } = await (supabase as any).rpc('get_invite_profile', { inviter: inviterId });
       if (error) throw error;
-      return data?.[0] || null;
+      return Array.isArray(data) ? data[0] || null : data || null;
     },
     enabled: !!inviterId,
   });
 
-  const inviterName = inviter?.name || 'Tu amigo';
-  const limitReached = sentCount >= dailyLimit;
+  const hasAccount = !!user && !user.is_anonymous;
+  const inviterName = inviter?.name || (isLoading ? 'Cargando...' : 'la persona que te invito');
+  const limitReached = !hasAccount && sentCount >= monthlyLimit;
+  const selectedPriority = priorityOptions.find((option) => option.key === priorityKey) || priorityOptions[1];
 
   const submitInviteTask = async () => {
     const { error } = await supabase.rpc('friend_chat_action', {
@@ -50,16 +57,16 @@ const FriendInvitePage = () => {
       payload: {
         inviter_id: inviterId,
         sender_name: senderName.trim() || null,
-        sender_email: senderEmail.trim() || null,
+        sender_email: null,
         message: message.trim() || null,
         title: taskTitle.trim(),
         task_payload: {
           title: taskTitle.trim(),
           link: taskLink.trim() || null,
-          priority,
-          urgency: priority !== 'low',
-          importance: priority === 'high',
-          estimated_minutes: priority === 'high' ? 45 : 30,
+          priority: selectedPriority.value,
+          urgency: selectedPriority.urgency,
+          importance: selectedPriority.importance,
+          estimated_minutes: selectedPriority.estimatedMinutes,
         },
       },
     } as any);
@@ -79,9 +86,11 @@ const FriendInvitePage = () => {
     setSending(true);
     try {
       await submitInviteTask();
-      const nextCount = sentCount + 1;
-      localStorage.setItem(storageKey, String(nextCount));
-      setSentCount(nextCount);
+      if (!hasAccount) {
+        const nextCount = sentCount + 1;
+        localStorage.setItem(storageKey, String(nextCount));
+        setSentCount(nextCount);
+      }
       setTaskTitle('');
       setTaskLink('');
       setMessage('');
@@ -94,10 +103,12 @@ const FriendInvitePage = () => {
   };
 
   const handleConnect = async () => {
-    if (!inviterId) return;
+    if (!inviterId || isLoading) return;
     if (!user) {
       localStorage.setItem('adonai_pending_friend_invite', inviterId);
-      navigate(`/auth?redirect=/invite/${inviterId}`);
+      localStorage.setItem('adonai_pending_friend_invite_name', inviterName);
+      if (senderName.trim()) localStorage.setItem('adonai_onboarding_prefill_name', senderName.trim());
+      navigate('/onboarding');
       return;
     }
     if (user.id === inviterId) {
@@ -117,13 +128,17 @@ const FriendInvitePage = () => {
         const { error } = await supabase.from('friendships').insert({
           requester_id: user.id,
           addressee_id: inviterId,
-          status: 'accepted',
+          status: 'pending',
         });
         if (error) throw error;
       }
 
-      await ensureDirectConversation.mutateAsync(inviterId);
-      toast.success(`${inviterName} ya esta en tus amigos`);
+      if (existing?.status === 'accepted') {
+        await ensureDirectConversation.mutateAsync(inviterId);
+        toast.success(`${inviterName} ya esta en tus amigos`);
+      } else {
+        toast.success(`Solicitud enviada a ${inviterName}`);
+      }
       navigate('/friends');
     } catch {
       toast.error('No se pudo agregar el amigo');
@@ -136,8 +151,14 @@ const FriendInvitePage = () => {
     const pendingInvite = localStorage.getItem('adonai_pending_friend_invite');
     if (!user || !inviterId || pendingInvite !== inviterId || connecting) return;
     localStorage.removeItem('adonai_pending_friend_invite');
+    localStorage.removeItem('adonai_pending_friend_invite_name');
     handleConnect();
   }, [user?.id, inviterId]);
+
+  const handleLimitLogin = () => {
+    if (!inviterId) return;
+    navigate(`/auth?redirect=/invite/${inviterId}`);
+  };
 
   return (
     <main className="min-h-screen bg-[#f6f7f9] text-[#172033]">
@@ -152,15 +173,15 @@ const FriendInvitePage = () => {
             <h1 className="text-[40px] font-black leading-[0.98] tracking-tight text-[#121826] md:text-6xl">
               {isLoading ? 'Alguien' : inviterName} quiere organizar tareas contigo.
             </h1>
-            <p className="max-w-xl text-base font-semibold leading-7 text-[#647089] md:text-lg">
-              Puedes enviarle una tarea ahora mismo. Si usas Adonai, quedaran conectados para chatear,
+              <p className="max-w-xl text-base font-semibold leading-7 text-[#647089] md:text-lg">
+              Puedes enviarle una tarea ahora mismo. Sin cuenta puedes enviar 3 tareas al mes. Si usas Adonai, quedaran conectados para chatear,
               compartir carpetas y aprobar tareas sin copiar mensajes entre apps.
             </p>
           </div>
 
           <div className="grid max-w-2xl gap-3 sm:grid-cols-3">
             {[
-              ['Enviar tarea', 'Sin cuenta, hasta 3 por dia'],
+              ['Enviar tarea', 'Sin cuenta, hasta 3 por mes'],
               ['Conectar', 'Se agrega como amigo directo'],
               ['Colaborar', 'Chats, carpetas y prioridades'],
             ].map(([title, copy]) => (
@@ -187,31 +208,46 @@ const FriendInvitePage = () => {
 
             <div className="space-y-3">
               <input value={senderName} onChange={(event) => setSenderName(event.target.value)} placeholder="Tu nombre" className="h-12 w-full rounded-2xl border border-[#e1e5ec] bg-white px-4 text-sm font-bold outline-none focus:border-[#6f8cff]" />
-              <input value={senderEmail} onChange={(event) => setSenderEmail(event.target.value)} placeholder="Email opcional" className="h-12 w-full rounded-2xl border border-[#e1e5ec] bg-white px-4 text-sm font-bold outline-none focus:border-[#6f8cff]" />
               <input value={taskTitle} onChange={(event) => setTaskTitle(event.target.value)} placeholder="Tarea que quieres enviar" className="h-12 w-full rounded-2xl border border-[#e1e5ec] bg-white px-4 text-sm font-bold outline-none focus:border-[#6f8cff]" />
               <input value={taskLink} onChange={(event) => setTaskLink(event.target.value)} placeholder="Link opcional" className="h-12 w-full rounded-2xl border border-[#e1e5ec] bg-white px-4 text-sm font-bold outline-none focus:border-[#6f8cff]" />
-              <select value={priority} onChange={(event) => setPriority(event.target.value as typeof priority)} className="h-12 w-full rounded-2xl border border-[#e1e5ec] bg-white px-4 text-sm font-bold outline-none focus:border-[#6f8cff]">
-                <option value="high">Alta importancia</option>
-                <option value="medium">Media</option>
-                <option value="low">Baja</option>
+              <select value={priorityKey} onChange={(event) => setPriorityKey(event.target.value as typeof priorityKey)} className="h-12 w-full rounded-2xl border border-[#e1e5ec] bg-white px-4 text-sm font-bold outline-none focus:border-[#6f8cff]">
+                {priorityOptions.map((option) => (
+                  <option key={option.key} value={option.key}>{option.label}</option>
+                ))}
               </select>
               <textarea value={message} onChange={(event) => setMessage(event.target.value)} placeholder="Contexto breve opcional" rows={3} className="w-full resize-none rounded-2xl border border-[#e1e5ec] bg-white px-4 py-3 text-sm font-bold outline-none focus:border-[#6f8cff]" />
             </div>
 
             <div className="mt-4 flex items-center justify-between rounded-2xl bg-white px-3 py-2 text-xs font-bold text-[#7a8498]">
               <span className="flex items-center gap-2"><ShieldCheck className="h-4 w-4" /> Revision manual</span>
-              <span>{sentCount}/{dailyLimit} hoy</span>
+              <span>{hasAccount ? 'Ya tienes cuenta' : `${sentCount}/${monthlyLimit} este mes`}</span>
             </div>
+
+            {limitReached && (
+              <div className="mt-4 rounded-2xl border border-[#dfe3ea] bg-white p-4">
+                <p className="text-sm font-black text-[#121826]">Quieres enviar mas tareas?</p>
+                <p className="mt-1 text-xs font-bold leading-5 text-[#6f7a90]">
+                  Inicia sesion con tu correo para enviar tareas sin este limite mensual y seguir conectado con {inviterName}.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleLimitLogin}
+                  className="mt-3 h-11 w-full rounded-2xl bg-[#6f8cff] text-sm font-black text-white transition active:scale-[0.98]"
+                >
+                  Iniciar sesion con correo
+                </button>
+              </div>
+            )}
 
             <button onClick={handleSendTask} disabled={sending || limitReached} className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[#121826] text-sm font-black text-white transition active:scale-[0.98] disabled:opacity-45">
               <Send className="h-4 w-4" />
               {limitReached ? 'Limite alcanzado' : sending ? 'Enviando...' : 'Enviar tarea'}
             </button>
 
-            <button onClick={handleConnect} disabled={connecting} className="mt-3 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[#6f8cff] text-sm font-black text-white transition active:scale-[0.98] disabled:opacity-55">
-              <UserPlus className="h-4 w-4" />
-              {user ? 'Agregar amigo en Adonai' : 'Usar Adonai y conectar'}
-              <ArrowRight className="h-4 w-4" />
+            <button onClick={handleConnect} disabled={connecting || isLoading} className="mt-3 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[#6f8cff] text-sm font-black text-white transition active:scale-[0.98] disabled:opacity-55">
+              <UserPlus className="h-4 w-4 flex-shrink-0" />
+              <span className="min-w-0 truncate">{`Iniciar sesión y agregar a ${inviterName}`}</span>
+              <ArrowRight className="h-4 w-4 flex-shrink-0" />
             </button>
 
             <p className="mt-4 flex items-center justify-center gap-2 text-center text-[11px] font-bold leading-5 text-[#7a8498]">

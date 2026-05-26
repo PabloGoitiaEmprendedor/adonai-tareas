@@ -61,6 +61,9 @@ const DailyPage = () => {
  const [dragIdx, setDragIdx] = useState<number | null>(null);
  const dragIdxRef = useRef<number | null>(null);
  const [orderedTasks, setOrderedTasks] = useState<any[]>([]);
+ const orderedTasksRef = useRef<any[]>([]);
+ const suppressOrderSyncRef = useRef(false);
+ const suppressOrderSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
  const [notebookPage, setNotebookPage] = useState(getInitialNotebookPage);
  const [pageTurnDirection, setPageTurnDirection] = useState(1);
  const [pagePeel, setPagePeel] = useState<'next' | 'prev' | null>(null);
@@ -127,10 +130,22 @@ const DailyPage = () => {
  }, [highlightedTaskId]);
 
  useEffect(() => {
+ orderedTasksRef.current = orderedTasks;
+ }, [orderedTasks]);
+
+ useEffect(() => {
+ if (suppressOrderSyncRef.current) return;
  setOrderedTasks(sortedTasks);
+ orderedTasksRef.current = sortedTasks;
  dragIdxRef.current = null;
  setDragIdx(null);
  }, [sortedTasks]);
+
+ useEffect(() => {
+ return () => {
+ if (suppressOrderSyncTimerRef.current) window.clearTimeout(suppressOrderSyncTimerRef.current);
+ };
+ }, []);
 
  useEffect(() => {
  localStorage.setItem(NOTEBOOK_PAGE_STORAGE_KEY, JSON.stringify({ date: today, page: notebookPage }));
@@ -143,6 +158,98 @@ const DailyPage = () => {
  }
  });
  }, [updateTask]);
+
+ const moveReorderToPoint = useCallback((clientX: number, clientY: number) => {
+ const currentDragIdx = dragIdxRef.current;
+ if (currentDragIdx === null) return;
+ const currentOrder = orderedTasksRef.current;
+ const dragged = currentOrder[currentDragIdx];
+ if (!dragged) return;
+
+ const rows = Array.from(document.querySelectorAll<HTMLElement>('[data-task-idx]'));
+ if (rows.length === 0) return;
+ let targetIdx: number | null = null;
+ for (const row of rows) {
+ const rect = row.getBoundingClientRect();
+ if (clientY >= rect.top && clientY <= rect.bottom && clientX >= rect.left - 48 && clientX <= rect.right + 48) {
+ targetIdx = Number(row.dataset.taskIdx);
+ const midpoint = rect.top + rect.height / 2;
+ if (clientY > midpoint && targetIdx < currentOrder.length - 1) targetIdx += 1;
+ break;
+ }
+ }
+ if (targetIdx === null) {
+ let closestDistance = Number.POSITIVE_INFINITY;
+ for (const row of rows) {
+ const rect = row.getBoundingClientRect();
+ const centerY = rect.top + rect.height / 2;
+ const distance = Math.abs(centerY - clientY);
+ if (distance < closestDistance) {
+ closestDistance = distance;
+ targetIdx = Number(row.dataset.taskIdx);
+ }
+ }
+ }
+ if (targetIdx === null || Number.isNaN(targetIdx)) return;
+ targetIdx = Math.max(0, Math.min(currentOrder.length - 1, targetIdx));
+ if (targetIdx === currentDragIdx) return;
+
+ const target = currentOrder[targetIdx];
+ if (!target) return;
+ if (getTaskManualOrderGroupKey(dragged) !== getTaskManualOrderGroupKey(target)) return;
+
+ const next = [...currentOrder];
+ const [moved] = next.splice(currentDragIdx, 1);
+ next.splice(targetIdx, 0, moved);
+ orderedTasksRef.current = next;
+ dragIdxRef.current = targetIdx;
+ setOrderedTasks(next);
+ setDragIdx(targetIdx);
+ }, []);
+
+ const finishPointerReorder = useCallback(() => {
+ const currentDragIdx = dragIdxRef.current;
+ if (currentDragIdx !== null) {
+ const finalOrder = orderedTasksRef.current;
+ persistVisibleOrder(finalOrder);
+ const optimisticOrder = finalOrder.map((task, idx) => ({ ...task, sort_order: idx }));
+ orderedTasksRef.current = optimisticOrder;
+ setOrderedTasks(optimisticOrder);
+ suppressOrderSyncRef.current = true;
+ if (suppressOrderSyncTimerRef.current) window.clearTimeout(suppressOrderSyncTimerRef.current);
+ suppressOrderSyncTimerRef.current = window.setTimeout(() => {
+ suppressOrderSyncRef.current = false;
+ }, 1600);
+ }
+ dragIdxRef.current = null;
+ setDragIdx(null);
+ document.body.style.cursor = '';
+ document.body.style.userSelect = '';
+ }, [persistVisibleOrder]);
+
+ const handlePointerReorderStart = useCallback((idx: number, clientX: number, clientY: number) => {
+ const task = orderedTasksRef.current[idx];
+ if (!task || task.status === 'done') return;
+ dragIdxRef.current = idx;
+ setDragIdx(idx);
+ document.body.style.cursor = 'grabbing';
+ document.body.style.userSelect = 'none';
+ moveReorderToPoint(clientX, clientY);
+
+ const onPointerMove = (event: PointerEvent) => {
+ event.preventDefault();
+ moveReorderToPoint(event.clientX, event.clientY);
+ };
+ const cleanup = () => {
+ window.removeEventListener('pointermove', onPointerMove);
+ window.removeEventListener('pointerup', cleanup);
+ window.removeEventListener('pointercancel', cleanup);
+ finishPointerReorder();
+ };
+ window.addEventListener('pointermove', onPointerMove, { passive: false });
+ window.addEventListener('pointerup', cleanup);
+ window.addEventListener('pointercancel', cleanup);
+ }, [finishPointerReorder, moveReorderToPoint]);
 
  const handleDragStart = useCallback((idx: number) => {
  dragIdxRef.current = idx;
@@ -702,6 +809,7 @@ const DailyPage = () => {
   handleTouchStart={handleTouchStart}
   handleTouchMove={handleTouchMove}
   handleTouchEnd={handleTouchEnd}
+  handlePointerReorderStart={handlePointerReorderStart}
   setSelectedTask={setSelectedTask}
   handleComplete={handleComplete}
   handleUncomplete={handleUncomplete}
@@ -889,6 +997,7 @@ const DailyPage = () => {
    handleTouchStart={handleTouchStart}
    handleTouchMove={handleTouchMove}
    handleTouchEnd={handleTouchEnd}
+   handlePointerReorderStart={handlePointerReorderStart}
    setSelectedTask={setSelectedTask}
    handleComplete={handleComplete}
    handleUncomplete={handleUncomplete}

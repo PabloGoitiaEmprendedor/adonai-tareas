@@ -108,6 +108,18 @@ export const useFriendChats = (conversationId?: string | null) => {
     onSuccess: invalidate,
   });
 
+  const addGroupMembers = useMutation({
+    mutationFn: async ({ conversationId, memberIds }: { conversationId: string; memberIds: string[] }) => {
+      if (!user) throw new Error('No user');
+      const data = await friendChatAction('add_group_members', {
+        conversation_id: conversationId,
+        member_ids: memberIds,
+      });
+      return data?.conversation;
+    },
+    onSuccess: invalidate,
+  });
+
   const markRead = useMutation({
     mutationFn: async (id: string) => {
       if (!user) throw new Error('No user');
@@ -172,6 +184,7 @@ export const useFriendChats = (conversationId?: string | null) => {
     selectedConversation,
     ensureDirectConversation,
     createGroup,
+    addGroupMembers,
     sendMessage,
     sendTaskRequest,
     approveTaskRequest,

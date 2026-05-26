@@ -73,7 +73,7 @@ export const useTasks = (filters?: { date?: string; startDate?: string; endDate?
       }
 
       const todayStr = format(new Date(), 'yyyy-MM-dd');
-      const todayStart = `${todayStr}T00:00:00`;
+      const recentDoneCutoff = new Date(Date.now() - 3 * 60 * 1000).toISOString();
 
       if (filters?.status === 'history') {
         query = query.in('status', ['done', 'deleted']);
@@ -81,16 +81,16 @@ export const useTasks = (filters?: { date?: string; startDate?: string; endDate?
         // Main App Logic: Hide deleted, and archive done tasks from previous days
         query = query.neq('status', 'deleted');
         
-        // Only show done tasks if they were completed today
-        query = query.or(`status.neq.done,and(status.eq.done,completed_at.gte.${todayStart})`);
+        // Keep completed tasks visible briefly, then archive them from notebook views.
+        query = query.or(`status.neq.done,and(status.eq.done,completed_at.gte.${recentDoneCutoff})`);
       }
 
       if (filters?.date) {
         if (filters.date === todayStr && filters?.status !== 'history') {
           // Rolling tasks for Today view:
-          // We already filtered 'done' tasks above (only today's completions allowed).
+          // We already filtered 'done' tasks above (only very recent completions allowed).
           // Now we just need to handle which tasks to fetch by due_date.
-          query = query.or(`due_date.eq.${filters.date},and(due_date.lt.${filters.date},status.neq.done),and(status.eq.done,completed_at.gte.${todayStart})`);
+          query = query.or(`due_date.eq.${filters.date},and(due_date.lt.${filters.date},status.neq.done),and(status.eq.done,completed_at.gte.${recentDoneCutoff})`);
         } else {
           query = query.eq('due_date', filters.date);
         }
@@ -150,6 +150,7 @@ export const useTasks = (filters?: { date?: string; startDate?: string; endDate?
       return { tasks: realTasks, rules, templates: templates || [], materializedSet };
     },
     enabled: !!user,
+    refetchInterval: filters?.status === 'history' ? false : 10000,
   });
 
   const tasks = useMemo(() => {

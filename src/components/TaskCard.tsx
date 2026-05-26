@@ -19,6 +19,7 @@ interface TaskCardProps {
   handleTouchStart?: (idx: number, e: React.TouchEvent) => void;
   handleTouchMove?: (e: React.TouchEvent) => void;
   handleTouchEnd?: () => void;
+  handlePointerReorderStart?: (idx: number, clientX: number, clientY: number) => void;
   setSelectedTask: (task: any) => void;
   handleComplete: (task: any, e: React.MouseEvent) => void;
   handleUncomplete: (task: any, e: React.MouseEvent) => void;
@@ -41,6 +42,7 @@ export const TaskCard = memo(({
   handleTouchStart,
   handleTouchMove,
   handleTouchEnd,
+  handlePointerReorderStart,
   setSelectedTask,
   handleComplete,
   handleUncomplete,
@@ -134,7 +136,8 @@ export const TaskCard = memo(({
     <motion.div
       ref={cardBodyRef}
       layoutId={view === 'weekly' ? task.id : undefined}
-      layout={false}
+      layout={notebookView ? 'position' : false}
+      transition={{ layout: { duration: 0.08, ease: [0.2, 0.8, 0.2, 1] } }}
       data-task-idx={taskIdx}
       data-task-id={task.id}
       onDragEnd={() => handleDragEnd?.()}
@@ -142,29 +145,41 @@ export const TaskCard = memo(({
       animate={{ opacity: 1 }}
       exit={view === 'daily' ? { opacity: 0, transition: { duration: 0.08 } } : undefined}
       onDragOver={(e) => handleDragOver?.(e, taskIdx)}
-      onTouchStart={handleBodyTouchStart}
-      onTouchMove={handleBodyTouchMove}
-      onTouchEnd={handleBodyTouchEnd}
       style={cardStyle}
-      onClick={() => setSelectedTask(task)}
       className={`relative flex items-start gap-2 overflow-hidden border px-1.5 py-2 transition-all group/task md:px-2 select-none ${
         notebookView ? 'notebook-task-row min-h-[42px]' : view === 'daily' ? 'min-h-[42px] border-b-transparent border-x-transparent border-t-transparent' : 'min-h-[42px] border-x-transparent border-t-transparent'
       } ${
         highlighted ? 'ring-2 ring-primary/40 bg-primary/5' : ''
       } ${
-        dragIdx === taskIdx ? 'ring-2 ring-primary/40 shadow-[0_0_14px_rgba(99,102,241,0.18)]' : ''
+        dragIdx === taskIdx ? 'border-primary/55 bg-primary/5 ring-2 ring-primary/45 shadow-[0_0_18px_rgba(99,102,241,0.24)]' : ''
       } border-x-transparent border-t-transparent hover:border-primary/18 ${notebookView ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'}`}
     >
         {/* Drag handle (desktop + mobile): the only area that starts drag */}
       {(
         <div
           data-drag-handle="true"
-          draggable
+          draggable={false}
           className="relative z-20 flex h-8 w-5 flex-shrink-0 items-center justify-center rounded-lg text-on-surface-variant/35 hover:bg-on-surface-variant/5 hover:text-on-surface-variant/60 cursor-grab active:cursor-grabbing select-none"
           title="Arrastra para reordenar"
           aria-label="Arrastrar tarea"
           onClick={(e) => e.stopPropagation()}
+          onPointerDown={(event) => {
+            if (isDone || isEditing) return;
+            event.preventDefault();
+            event.stopPropagation();
+            dragStartedRef.current = true;
+            if (longPressTimer.current) {
+              clearTimeout(longPressTimer.current);
+              longPressTimer.current = null;
+            }
+            if (cardBodyRef.current) cardBodyRef.current.style.touchAction = 'none';
+            handlePointerReorderStart?.(taskIdx, event.clientX, event.clientY);
+          }}
           onDragStart={(event) => {
+            if (handlePointerReorderStart) {
+              event.preventDefault();
+              return;
+            }
             event.stopPropagation();
             try {
               event.dataTransfer?.setData('text/plain', String(task.id ?? taskIdx));
@@ -176,6 +191,11 @@ export const TaskCard = memo(({
           }}
           onDragEnd={() => handleDragEnd?.()}
           onTouchStart={(e) => {
+            if (handlePointerReorderStart) {
+              e.preventDefault();
+              e.stopPropagation();
+              return;
+            }
             e.preventDefault();
             e.stopPropagation();
             dragStartedRef.current = false;
@@ -332,6 +352,18 @@ export const TaskCard = memo(({
         </div>
       </div>
       
+      <button
+        type="button"
+        className="relative z-10 min-h-8 w-10 flex-shrink-0 appearance-none rounded-xl border-0 bg-transparent p-0 transition-colors hover:bg-on-surface-variant/5 focus:outline-none focus:ring-2 focus:ring-primary/25 md:w-14"
+        title="Abrir detalles"
+        aria-label="Abrir detalles de la tarea"
+        onClick={(e) => {
+          e.stopPropagation();
+          if (dragIdx === taskIdx) return;
+          setSelectedTask(task);
+        }}
+      />
+
       <div className="relative z-10 flex items-center gap-1.5 flex-shrink-0 flex-wrap justify-end max-w-[45%]">
       </div>
     </motion.div>

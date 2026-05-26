@@ -198,7 +198,7 @@
 }
 #root .cursor-hand:active,
 #root .cursor-hand:active * {
-  cursor: grabbing !important;
+  cursor: var(--cursor-hand), grabbing !important;
 }
 
 /* 4. Grab hand: draggable elements */
@@ -207,7 +207,7 @@
 }
 #root .cursor-grab:active,
 #root .cursor-grab:active * {
-  cursor: grabbing !important;
+  cursor: var(--cursor-hand), grabbing !important;
 }
 
 #root [draggable="true"] {
@@ -216,7 +216,7 @@
 
 #root [draggable="true"]:active,
 #root [draggable="true"]:active * {
-  cursor: grabbing !important;
+  cursor: var(--cursor-hand), grabbing !important;
 }
 
 /* 5. Buttons inside grab areas still show pointing hand */
@@ -228,7 +228,7 @@
 
 #root .cursor-grabbing,
 #root .cursor-grabbing * {
-  cursor: grabbing !important;
+  cursor: var(--cursor-hand), grabbing !important;
 }
 
 #root .cursor-ns-resize,

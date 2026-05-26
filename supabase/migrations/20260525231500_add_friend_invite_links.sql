@@ -41,7 +41,7 @@ LANGUAGE sql
 SECURITY DEFINER
 SET search_path = public
 AS $$
-  SELECT p.user_id, coalesce(nullif(trim(p.name), ''), 'Tu amigo') AS name
+  SELECT p.user_id, coalesce(nullif(trim(p.name), ''), nullif(split_part(p.email, '@', 1), ''), 'Tu amigo') AS name
   FROM public.profiles p
   WHERE p.user_id = inviter
   LIMIT 1;
