@@ -8,6 +8,7 @@ interface ImportMetaEnv {
   readonly VITE_ENABLE_ANALYTICS_IN_DEV?: string;
   readonly VITE_ENABLE_ANALYTICS_IN_DESKTOP?: string;
   readonly VITE_ENABLE_GA_MEASUREMENT_PROTOCOL?: string;
+  readonly VITE_PUBLIC_APP_URL?: string;
 }
 
 interface ImportMeta {

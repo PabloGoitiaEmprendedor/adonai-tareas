@@ -61,6 +61,9 @@ const DailyPage = () => {
  const [dragIdx, setDragIdx] = useState<number | null>(null);
  const dragIdxRef = useRef<number | null>(null);
  const [orderedTasks, setOrderedTasks] = useState<any[]>([]);
+ const orderedTasksRef = useRef<any[]>([]);
+ const suppressOrderSyncRef = useRef(false);
+ const suppressOrderSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
  const [notebookPage, setNotebookPage] = useState(getInitialNotebookPage);
  const [pageTurnDirection, setPageTurnDirection] = useState(1);
  const [pagePeel, setPagePeel] = useState<'next' | 'prev' | null>(null);
@@ -127,10 +130,22 @@ const DailyPage = () => {
  }, [highlightedTaskId]);
 
  useEffect(() => {
+ orderedTasksRef.current = orderedTasks;
+ }, [orderedTasks]);
+
+ useEffect(() => {
+ if (suppressOrderSyncRef.current) return;
  setOrderedTasks(sortedTasks);
+ orderedTasksRef.current = sortedTasks;
  dragIdxRef.current = null;
  setDragIdx(null);
  }, [sortedTasks]);
+
+ useEffect(() => {
+ return () => {
+ if (suppressOrderSyncTimerRef.current) window.clearTimeout(suppressOrderSyncTimerRef.current);
+ };
+ }, []);
 
  useEffect(() => {
  localStorage.setItem(NOTEBOOK_PAGE_STORAGE_KEY, JSON.stringify({ date: today, page: notebookPage }));
@@ -143,6 +158,98 @@ const DailyPage = () => {
  }
  });
  }, [updateTask]);
+
+ const moveReorderToPoint = useCallback((clientX: number, clientY: number) => {
+ const currentDragIdx = dragIdxRef.current;
+ if (currentDragIdx === null) return;
+ const currentOrder = orderedTasksRef.current;
+ const dragged = currentOrder[currentDragIdx];
+ if (!dragged) return;
+
+ const rows = Array.from(document.querySelectorAll<HTMLElement>('[data-task-idx]'));
+ if (rows.length === 0) return;
+ let targetIdx: number | null = null;
+ for (const row of rows) {
+ const rect = row.getBoundingClientRect();
+ if (clientY >= rect.top && clientY <= rect.bottom && clientX >= rect.left - 48 && clientX <= rect.right + 48) {
+ targetIdx = Number(row.dataset.taskIdx);
+ const midpoint = rect.top + rect.height / 2;
+ if (clientY > midpoint && targetIdx < currentOrder.length - 1) targetIdx += 1;
+ break;
+ }
+ }
+ if (targetIdx === null) {
+ let closestDistance = Number.POSITIVE_INFINITY;
+ for (const row of rows) {
+ const rect = row.getBoundingClientRect();
+ const centerY = rect.top + rect.height / 2;
+ const distance = Math.abs(centerY - clientY);
+ if (distance < closestDistance) {
+ closestDistance = distance;
+ targetIdx = Number(row.dataset.taskIdx);
+ }
+ }
+ }
+ if (targetIdx === null || Number.isNaN(targetIdx)) return;
+ targetIdx = Math.max(0, Math.min(currentOrder.length - 1, targetIdx));
+ if (targetIdx === currentDragIdx) return;
+
+ const target = currentOrder[targetIdx];
+ if (!target) return;
+ if (getTaskManualOrderGroupKey(dragged) !== getTaskManualOrderGroupKey(target)) return;
+
+ const next = [...currentOrder];
+ const [moved] = next.splice(currentDragIdx, 1);
+ next.splice(targetIdx, 0, moved);
+ orderedTasksRef.current = next;
+ dragIdxRef.current = targetIdx;
+ setOrderedTasks(next);
+ setDragIdx(targetIdx);
+ }, []);
+
+ const finishPointerReorder = useCallback(() => {
+ const currentDragIdx = dragIdxRef.current;
+ if (currentDragIdx !== null) {
+ const finalOrder = orderedTasksRef.current;
+ persistVisibleOrder(finalOrder);
+ const optimisticOrder = finalOrder.map((task, idx) => ({ ...task, sort_order: idx }));
+ orderedTasksRef.current = optimisticOrder;
+ setOrderedTasks(optimisticOrder);
+ suppressOrderSyncRef.current = true;
+ if (suppressOrderSyncTimerRef.current) window.clearTimeout(suppressOrderSyncTimerRef.current);
+ suppressOrderSyncTimerRef.current = window.setTimeout(() => {
+ suppressOrderSyncRef.current = false;
+ }, 1600);
+ }
+ dragIdxRef.current = null;
+ setDragIdx(null);
+ document.body.style.cursor = '';
+ document.body.style.userSelect = '';
+ }, [persistVisibleOrder]);
+
+ const handlePointerReorderStart = useCallback((idx: number, clientX: number, clientY: number) => {
+ const task = orderedTasksRef.current[idx];
+ if (!task || task.status === 'done') return;
+ dragIdxRef.current = idx;
+ setDragIdx(idx);
+ document.body.style.cursor = 'grabbing';
+ document.body.style.userSelect = 'none';
+ moveReorderToPoint(clientX, clientY);
+
+ const onPointerMove = (event: PointerEvent) => {
+ event.preventDefault();
+ moveReorderToPoint(event.clientX, event.clientY);
+ };
+ const cleanup = () => {
+ window.removeEventListener('pointermove', onPointerMove);
+ window.removeEventListener('pointerup', cleanup);
+ window.removeEventListener('pointercancel', cleanup);
+ finishPointerReorder();
+ };
+ window.addEventListener('pointermove', onPointerMove, { passive: false });
+ window.addEventListener('pointerup', cleanup);
+ window.addEventListener('pointercancel', cleanup);
+ }, [finishPointerReorder, moveReorderToPoint]);
 
  const handleDragStart = useCallback((idx: number) => {
  dragIdxRef.current = idx;
@@ -310,9 +417,38 @@ const DailyPage = () => {
  turnNotebookPage(-1);
  }, [turnNotebookPage]);
 
- const goToNextPage = useCallback(() => {
- turnNotebookPage(1);
- }, [turnNotebookPage]);
+  const goToNextPage = useCallback(() => {
+  turnNotebookPage(1);
+  }, [turnNotebookPage]);
+
+  // Mobile notebook page swipe
+  const notebookSwipeX = useRef<number | null>(null);
+  const notebookSwipeY = useRef<number | null>(null);
+  useEffect(() => {
+    const el = document.querySelector('[data-daily-swipe]');
+    if (!el) return;
+    const onTouchStart = (e: TouchEvent) => {
+      notebookSwipeX.current = e.touches[0].clientX;
+      notebookSwipeY.current = e.touches[0].clientY;
+    };
+    const onTouchEnd = (e: TouchEvent) => {
+      if (notebookSwipeX.current === null || notebookSwipeY.current === null) return;
+      const dx = e.changedTouches[0].clientX - notebookSwipeX.current;
+      const dy = e.changedTouches[0].clientY - notebookSwipeY.current;
+      if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.2) {
+        if (dx > 0) goToPrevPage();
+        else goToNextPage();
+      }
+      notebookSwipeX.current = null;
+      notebookSwipeY.current = null;
+    };
+    el.addEventListener('touchstart', onTouchStart, { passive: true, capture: true });
+    el.addEventListener('touchend', onTouchEnd, { passive: true, capture: true });
+    return () => {
+      el.removeEventListener('touchstart', onTouchStart, { capture: true });
+      el.removeEventListener('touchend', onTouchEnd, { capture: true });
+    };
+  }, [goToPrevPage, goToNextPage]);
 
  const pageTurnVariants = {
  enter: (direction: number) => ({
@@ -410,7 +546,7 @@ const DailyPage = () => {
 
  return (
   <div className="min-h-screen text-foreground selection:bg-primary/20 md:bg-background">
-   <div className="mx-auto w-full max-w-full px-0 pt-0 pb-0 md:max-w-[980px] md:px-6 md:pt-6 md:pb-8 relative">
+    <div data-daily-swipe className="mx-auto w-full max-w-full px-0 pt-0 pb-0 md:max-w-[980px] md:px-6 md:pt-6 md:pb-8 relative">
 
  {false && (
  <motion.div 
@@ -616,7 +752,7 @@ const DailyPage = () => {
     </h2>
     {/* Folder pills moved up, search removed */}
   </div>
-  <div className="relative z-10 flex items-center gap-2 overflow-x-auto no-scrollbar py-1 pb-1 mb-1 border-b border-outline-variant/10 justify-start">
+  <div className="relative z-10 flex items-center gap-2 overflow-x-auto no-scrollbar py-1 pb-1 mb-1 justify-start">
      <button
        onClick={() => selectFolderWithSound(null)}
        className={`flex-shrink-0 px-4 py-1.5 rounded-full text-[11px] font-black uppercase tracking-wide transition-all border ${
@@ -645,12 +781,9 @@ const DailyPage = () => {
     })}
  </div>
 
- {/* Task List - Inside Desktop Notebook */}
- <div
- className="relative z-10 mt-1.5 pb-5 pt-[2px]"
- style={{
- backgroundImage: 'repeating-linear-gradient(180deg, rgba(120,145,190,0.08) 0 1px, transparent 1px 42px)',
- }}
+  {/* Task List - Inside Desktop Notebook */}
+  <div
+  className="relative z-10 mt-1.5 pb-5 pt-[2px]"
  >
  {isLoading? (
  <div className="space-y-6">
@@ -661,34 +794,36 @@ const DailyPage = () => {
    ): isMainNotebookComplete ? (
    renderBlankNotebookPage(false)
   ): visibleNotebookTasks.length > 0? (
- <div className="space-y-0">
- {visibleNotebookTasks.map((task, idx) => (
- <TaskCard
- key={task.id}
- task={task}
- taskIdx={(notebookPage - 1) * TASKS_PER_NOTEBOOK_PAGE + idx}
- isDone={task.status === 'done'}
- completingTaskId={completingTaskId}
- dragIdx={dragIdx}
- handleDragStart={handleDragStart}
- handleDragOver={handleDragOver}
- handleDragEnd={handleDragEnd}
- handleTouchStart={handleTouchStart}
- handleTouchMove={handleTouchMove}
- handleTouchEnd={handleTouchEnd}
- setSelectedTask={setSelectedTask}
- handleComplete={handleComplete}
- handleUncomplete={handleUncomplete}
- handleStartTimer={handleStartTimer}
- view="daily"
- highlighted={highlightedTaskId === task.id}
- />
- ))}
- </div>
- ) : null}
-   {/* ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ Quick-add row desktop ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ */}
-   {!isLoading && showNotebookQuickAdd && !isMainNotebookComplete && (
-     <div className="relative z-10 mt-1">
+  <div className="notebook-task-list">
+  {visibleNotebookTasks.map((task, idx) => (
+  <TaskCard
+  key={task.id}
+  task={task}
+  taskIdx={(notebookPage - 1) * TASKS_PER_NOTEBOOK_PAGE + idx}
+  isDone={task.status === 'done'}
+  completingTaskId={completingTaskId}
+  dragIdx={dragIdx}
+  handleDragStart={handleDragStart}
+  handleDragOver={handleDragOver}
+  handleDragEnd={handleDragEnd}
+  handleTouchStart={handleTouchStart}
+  handleTouchMove={handleTouchMove}
+  handleTouchEnd={handleTouchEnd}
+  handlePointerReorderStart={handlePointerReorderStart}
+  setSelectedTask={setSelectedTask}
+  handleComplete={handleComplete}
+  handleUncomplete={handleUncomplete}
+  handleStartTimer={handleStartTimer}
+    view="daily"
+    notebookView
+    highlighted={highlightedTaskId === task.id}
+  />
+  ))}
+  </div>
+  ) : null}
+    {/* Quick-add row desktop */}
+    {!isLoading && showNotebookQuickAdd && !isMainNotebookComplete && (
+      <div className="relative z-10 mt-1">
         <QuickNotebookTaskAdd folderId={selectedFolderId} folderName={currentFolderName} />
      </div>
    )}
@@ -748,11 +883,10 @@ const DailyPage = () => {
   </div>
   
   {/* Vertical margin lines */}
-  <div className="absolute bottom-7 left-8 top-7 w-px bg-rose-300/18" />
   <div className="absolute bottom-7 right-7 top-7 w-px bg-rose-300/12" />
   
   {/* Header: hamburger + title + page arrows */}
-  <div className="relative z-20 flex items-center pt-3 pb-1" style={{ paddingLeft: '44px', paddingRight: '8px' }}>
+  <div className="relative z-20 flex items-center pt-3 pb-1" style={{ paddingLeft: '36px', paddingRight: '8px' }}>
     <button
       onClick={() => {
         const trigger = document.getElementById('global-menu-trigger');
@@ -789,7 +923,7 @@ const DailyPage = () => {
   </div>
 
   {/* Folder pills ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â scrollable row */}
-  <div className="relative z-20 flex items-center gap-2 overflow-x-auto no-scrollbar py-1 px-2 border-b border-outline-variant/10" style={{ paddingLeft: '44px' }}>
+  <div className="relative z-20 flex items-center gap-2 overflow-x-auto no-scrollbar py-1 px-2" style={{ paddingLeft: '36px' }}>
      <button
        onClick={() => selectFolderWithSound(null)}
        className={`flex-shrink-0 px-3 py-1.5 rounded-full text-[11px] font-black uppercase tracking-wide transition-all border ${
@@ -819,7 +953,7 @@ const DailyPage = () => {
   </div>
 
   {/* Task content with swipe */}
-  <div className="relative z-10 flex-1 overflow-y-auto">
+   <div className="relative z-10 flex-1 overflow-y-auto">
   <AnimatePresence mode="wait" custom={pageTurnDirection}>
   <motion.div
   key={`mobile-page-${notebookPage}`}
@@ -835,14 +969,11 @@ const DailyPage = () => {
   {shouldShowTaskPage? (
   <>
   {/* Mobile Task List */}
-  <div
-  className="flex flex-col flex-1"
-  style={{
-  backgroundImage: 'repeating-linear-gradient(180deg, rgba(120,145,190,0.08) 0 1px, transparent 1px 42px)',
-  }}
+   <div
+   className="flex flex-col flex-1"
   >
   {isLoading? (
-  <div className="space-y-4 px-[44px] pr-4 py-2">
+  <div className="space-y-4 px-[36px] pr-4 py-2">
   {[1, 2, 3].map((i) => (
   <div key={i} className="h-20 bg-surface-container-highest/10 border border-outline-variant/10 rounded-2xl animate-pulse" />
   ))}
@@ -851,25 +982,30 @@ const DailyPage = () => {
   renderBlankNotebookPage(true)
   ): visibleNotebookTasks.length > 0? (
   <>
-  <div className="space-y-0 pl-[44px] pr-4 py-2">
-  {visibleNotebookTasks.map((task, idx) => (
-  <TaskCard
-  key={task.id}
-  task={task}
-  taskIdx={(notebookPage - 1) * TASKS_PER_NOTEBOOK_PAGE + idx}
-  isDone={task.status === 'done'}
-  completingTaskId={completingTaskId}
-  dragIdx={dragIdx}
-  handleDragStart={handleDragStart}
-  handleDragOver={handleDragOver}
-  handleDragEnd={handleDragEnd}
-  setSelectedTask={setSelectedTask}
-  handleComplete={handleComplete}
-  handleUncomplete={handleUncomplete}
- handleStartTimer={handleStartTimer}
- view="daily"
- highlighted={highlightedTaskId === task.id}
- />
+   <div className="notebook-task-list mx-[16px] ml-[36px] my-2">
+   {visibleNotebookTasks.map((task, idx) => (
+   <TaskCard
+   key={task.id}
+   task={task}
+   taskIdx={(notebookPage - 1) * TASKS_PER_NOTEBOOK_PAGE + idx}
+   isDone={task.status === 'done'}
+   completingTaskId={completingTaskId}
+   dragIdx={dragIdx}
+   handleDragStart={handleDragStart}
+   handleDragOver={handleDragOver}
+   handleDragEnd={handleDragEnd}
+   handleTouchStart={handleTouchStart}
+   handleTouchMove={handleTouchMove}
+   handleTouchEnd={handleTouchEnd}
+   handlePointerReorderStart={handlePointerReorderStart}
+   setSelectedTask={setSelectedTask}
+   handleComplete={handleComplete}
+   handleUncomplete={handleUncomplete}
+  handleStartTimer={handleStartTimer}
+  view="daily"
+  notebookView
+  highlighted={highlightedTaskId === task.id}
+  />
   ))}
   {!isLoading && showNotebookQuickAdd && !isMainNotebookComplete && (
     <div className="pt-1">
@@ -882,7 +1018,7 @@ const DailyPage = () => {
   <>
   <div className="flex-1" />
   {!isLoading && showNotebookQuickAdd && !isMainNotebookComplete && (
-    <div className="pl-[44px] pr-4 pb-3 shrink-0">
+    <div className="pl-[36px] pr-4 pb-3 shrink-0">
       <QuickNotebookTaskAdd folderId={selectedFolderId} folderName={currentFolderName} />
     </div>
   )}

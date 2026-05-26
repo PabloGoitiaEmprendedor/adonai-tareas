@@ -169,52 +169,108 @@
 #root [role="button"],
 #root label,
 #root select {
-  cursor: pointer !important;
+  cursor: var(--cursor-hand-point), pointer !important;
 }
 
 /* 3. Explicit cursor utilities (override neutral hand) */
-.cursor-click {
-  cursor: pointer !important;
+#root .cursor-click {
+  cursor: var(--cursor-hand-point), pointer !important;
 }
-.cursor-click * {
-  cursor: pointer !important;
+#root .cursor-click * {
+  cursor: var(--cursor-hand-point), pointer !important;
 }
 
-.cursor-drag {
-  cursor: grab !important;
+#root .cursor-drag {
+  cursor: var(--cursor-hand), grab !important;
 }
-.cursor-drag:active,
-.cursor-drag:active * {
+#root .cursor-drag:active,
+#root .cursor-drag:active * {
   cursor: grabbing !important;
 }
 
-.cursor-edit {
+#root .cursor-edit {
   cursor: var(--cursor-pencil), text !important;
 }
 
 /* Legacy utility used across pages for drag handles */
-.cursor-hand {
-  cursor: grab !important;
+#root .cursor-hand {
+  cursor: var(--cursor-hand), grab !important;
 }
-.cursor-hand:active,
-.cursor-hand:active * {
-  cursor: grabbing !important;
+#root .cursor-hand:active,
+#root .cursor-hand:active * {
+  cursor: var(--cursor-hand), grabbing !important;
 }
 
 /* 4. Grab hand: draggable elements */
-.cursor-grab {
-  cursor: grab !important;
+#root .cursor-grab {
+  cursor: var(--cursor-hand), grab !important;
 }
-.cursor-grab:active,
-.cursor-grab:active * {
-  cursor: grabbing !important;
+#root .cursor-grab:active,
+#root .cursor-grab:active * {
+  cursor: var(--cursor-hand), grabbing !important;
+}
+
+#root [draggable="true"] {
+  cursor: var(--cursor-hand), grab !important;
+}
+
+#root [draggable="true"]:active,
+#root [draggable="true"]:active * {
+  cursor: var(--cursor-hand), grabbing !important;
 }
 
 /* 5. Buttons inside grab areas still show pointing hand */
-.cursor-grab a,
-.cursor-grab button:not([disabled]),
-.cursor-grab [role="button"] {
-  cursor: pointer !important;
+#root .cursor-grab a,
+#root .cursor-grab button:not([disabled]),
+#root .cursor-grab [role="button"] {
+  cursor: var(--cursor-hand-point), pointer !important;
+}
+
+#root .cursor-grabbing,
+#root .cursor-grabbing * {
+  cursor: var(--cursor-hand), grabbing !important;
+}
+
+#root .cursor-ns-resize,
+#root .cursor-row-resize {
+  cursor: ns-resize !important;
+}
+
+#root .cursor-ew-resize,
+#root .cursor-col-resize {
+  cursor: ew-resize !important;
+}
+
+#root .cursor-n-resize {
+  cursor: n-resize !important;
+}
+
+#root .cursor-s-resize {
+  cursor: s-resize !important;
+}
+
+#root .cursor-e-resize {
+  cursor: e-resize !important;
+}
+
+#root .cursor-w-resize {
+  cursor: w-resize !important;
+}
+
+#root .cursor-se-resize {
+  cursor: se-resize !important;
+}
+
+#root .cursor-sw-resize {
+  cursor: sw-resize !important;
+}
+
+#root .cursor-ne-resize {
+  cursor: ne-resize !important;
+}
+
+#root .cursor-nw-resize {
+  cursor: nw-resize !important;
 }
 
 /* 6. Pencil: editable text elements (highest priority) */
@@ -234,7 +290,7 @@
 .cursor-eraser button,
 .cursor-pencil a,
 .cursor-eraser a {
-  cursor: pointer !important;
+  cursor: var(--cursor-hand-point), pointer !important;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
@@ -451,6 +507,35 @@
   }
   .notebook-cream-bg .border-outline-variant\/20 {
     border-color: rgba(75, 85, 99, 0.15) !important;
+  }
+
+  .notebook-task-list {
+    --notebook-rule-color: rgba(30, 41, 59, 0.12);
+    border-top: 1px solid var(--notebook-rule-color);
+    border-bottom: 1px solid var(--notebook-rule-color);
+  }
+
+  .notebook-task-list > * {
+    border-bottom: 1px solid var(--notebook-rule-color) !important;
+  }
+
+  .notebook-task-list > *:last-child {
+    border-bottom: 0 !important;
+  }
+
+  .notebook-task-row {
+    border-top: 0 !important;
+    border-right: 0 !important;
+    border-left: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  .notebook-task-editor {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    word-break: break-word;
   }
 }
 

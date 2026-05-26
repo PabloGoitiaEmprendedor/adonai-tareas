@@ -44,3 +44,6 @@ verify_jwt = false
 
 [functions.import-sheets]
 verify_jwt = true
+
+[functions.chat-adonai]
+verify_jwt = false

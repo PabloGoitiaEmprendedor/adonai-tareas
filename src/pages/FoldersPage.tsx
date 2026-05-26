@@ -159,12 +159,27 @@ const FoldersPage = () => {
   const [orderedFolderTasks, setOrderedFolderTasks] = useState<any[]>([]);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const dragIdxRef = useRef<number | null>(null);
+  const orderedFolderTasksRef = useRef<any[]>([]);
+  const suppressOrderSyncRef = useRef(false);
+  const suppressOrderSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
+    if (suppressOrderSyncRef.current) return;
     setOrderedFolderTasks(folderTasks);
+    orderedFolderTasksRef.current = folderTasks;
     dragIdxRef.current = null;
     setDragIdx(null);
   }, [folderTasks]);
+
+  useEffect(() => {
+    orderedFolderTasksRef.current = orderedFolderTasks;
+  }, [orderedFolderTasks]);
+
+  useEffect(() => {
+    return () => {
+      if (suppressOrderSyncTimerRef.current) window.clearTimeout(suppressOrderSyncTimerRef.current);
+    };
+  }, []);
 
   const persistVisibleOrder = useCallback((nextOrder: any[]) => {
     nextOrder.forEach((task, idx) => {
@@ -173,6 +188,98 @@ const FoldersPage = () => {
       }
     });
   }, [updateTask]);
+
+  const moveReorderToPoint = useCallback((clientX: number, clientY: number) => {
+    const currentDragIdx = dragIdxRef.current;
+    if (currentDragIdx === null) return;
+    const currentOrder = orderedFolderTasksRef.current;
+    const dragged = currentOrder[currentDragIdx];
+    if (!dragged) return;
+
+    const rows = Array.from(document.querySelectorAll<HTMLElement>('[data-task-idx]'));
+    if (rows.length === 0) return;
+    let targetIdx: number | null = null;
+    for (const row of rows) {
+      const rect = row.getBoundingClientRect();
+      if (clientY >= rect.top && clientY <= rect.bottom && clientX >= rect.left - 48 && clientX <= rect.right + 48) {
+        targetIdx = Number(row.dataset.taskIdx);
+        const midpoint = rect.top + rect.height / 2;
+        if (clientY > midpoint && targetIdx < currentOrder.length - 1) targetIdx += 1;
+        break;
+      }
+    }
+    if (targetIdx === null) {
+      let closestDistance = Number.POSITIVE_INFINITY;
+      for (const row of rows) {
+        const rect = row.getBoundingClientRect();
+        const centerY = rect.top + rect.height / 2;
+        const distance = Math.abs(centerY - clientY);
+        if (distance < closestDistance) {
+          closestDistance = distance;
+          targetIdx = Number(row.dataset.taskIdx);
+        }
+      }
+    }
+    if (targetIdx === null || Number.isNaN(targetIdx)) return;
+    targetIdx = Math.max(0, Math.min(currentOrder.length - 1, targetIdx));
+    if (targetIdx === currentDragIdx) return;
+
+    const target = currentOrder[targetIdx];
+    if (!target) return;
+    if (getTaskManualOrderGroupKey(dragged) !== getTaskManualOrderGroupKey(target)) return;
+
+    const next = [...currentOrder];
+    const [moved] = next.splice(currentDragIdx, 1);
+    next.splice(targetIdx, 0, moved);
+    orderedFolderTasksRef.current = next;
+    dragIdxRef.current = targetIdx;
+    setOrderedFolderTasks(next);
+    setDragIdx(targetIdx);
+  }, []);
+
+  const finishPointerReorder = useCallback(() => {
+    const currentDragIdx = dragIdxRef.current;
+    if (currentDragIdx !== null) {
+      const finalOrder = orderedFolderTasksRef.current;
+      persistVisibleOrder(finalOrder);
+      const optimisticOrder = finalOrder.map((task, idx) => ({ ...task, sort_order: idx }));
+      orderedFolderTasksRef.current = optimisticOrder;
+      setOrderedFolderTasks(optimisticOrder);
+      suppressOrderSyncRef.current = true;
+      if (suppressOrderSyncTimerRef.current) window.clearTimeout(suppressOrderSyncTimerRef.current);
+      suppressOrderSyncTimerRef.current = window.setTimeout(() => {
+        suppressOrderSyncRef.current = false;
+      }, 1600);
+    }
+    dragIdxRef.current = null;
+    setDragIdx(null);
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+  }, [persistVisibleOrder]);
+
+  const handlePointerReorderStart = useCallback((idx: number, clientX: number, clientY: number) => {
+    const task = orderedFolderTasksRef.current[idx];
+    if (!task || task.status === 'done') return;
+    dragIdxRef.current = idx;
+    setDragIdx(idx);
+    document.body.style.cursor = 'grabbing';
+    document.body.style.userSelect = 'none';
+    moveReorderToPoint(clientX, clientY);
+
+    const onPointerMove = (event: PointerEvent) => {
+      event.preventDefault();
+      moveReorderToPoint(event.clientX, event.clientY);
+    };
+    const cleanup = () => {
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', cleanup);
+      window.removeEventListener('pointercancel', cleanup);
+      finishPointerReorder();
+    };
+    window.addEventListener('pointermove', onPointerMove, { passive: false });
+    window.addEventListener('pointerup', cleanup);
+    window.addEventListener('pointercancel', cleanup);
+  }, [finishPointerReorder, moveReorderToPoint]);
 
   const handleDragStart = useCallback((idx: number) => {
     dragIdxRef.current = idx;
@@ -787,12 +894,9 @@ const FoldersPage = () => {
                   >
                     <div
                       className="relative z-10 mt-2 pb-4 pt-[2px] flex-1"
-                      style={{
-                        backgroundImage: 'repeating-linear-gradient(180deg, rgba(120,145,190,0.07) 0 1px, transparent 1px 38px)',
-                      }}
                     >
                       {visibleFolderTasks.length > 0 ? (
-                        <div className="space-y-0">
+                        <div className="notebook-task-list">
                           {visibleFolderTasks.map((task, idx) => (
                             <TaskCard
                               key={task.id}
@@ -807,11 +911,13 @@ const FoldersPage = () => {
                               handleTouchStart={handleTouchStart}
                               handleTouchMove={handleTouchMove}
                               handleTouchEnd={handleTouchEnd}
+                              handlePointerReorderStart={handlePointerReorderStart}
                               setSelectedTask={setSelectedTask}
                               handleComplete={handleComplete}
                               handleUncomplete={handleUncomplete}
                               handleStartTimer={handleStartTimer}
                               view="daily"
+                              notebookView
                             />
                           ))}
                         </div>
@@ -959,12 +1065,9 @@ const FoldersPage = () => {
                   >
                     <div
                       className="relative z-10 pb-4 pt-[2px] flex-1"
-                      style={{
-                        backgroundImage: 'repeating-linear-gradient(180deg, rgba(120,145,190,0.07) 0 1px, transparent 1px 38px)',
-                      }}
                     >
                       {visibleFolderTasks.length > 0 ? (
-                        <div className="space-y-0">
+                        <div className="notebook-task-list">
                           {visibleFolderTasks.map((task, idx) => (
                             <TaskCard
                               key={task.id}
@@ -979,11 +1082,13 @@ const FoldersPage = () => {
                               handleTouchStart={handleTouchStart}
                               handleTouchMove={handleTouchMove}
                               handleTouchEnd={handleTouchEnd}
+                              handlePointerReorderStart={handlePointerReorderStart}
                               setSelectedTask={setSelectedTask}
                               handleComplete={handleComplete}
                               handleUncomplete={handleUncomplete}
                               handleStartTimer={handleStartTimer}
                               view="daily"
+                              notebookView
                             />
                           ))}
                         </div>

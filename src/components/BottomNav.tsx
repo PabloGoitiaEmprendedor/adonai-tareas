@@ -1,14 +1,17 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Sun, CalendarArrowUp, NotebookTabs } from 'lucide-react';
+import { Sun, CalendarArrowUp, NotebookTabs, MessageSquare } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { useIsAdmin } from '@/hooks/useAdminAnalytics';
 
 const BottomNav = () => {
   const location = useLocation();
+  const isAdmin = useIsAdmin();
 
   const navItems = [
     { icon: Sun, label: 'Hoy', path: '/daily', id: 'nav-today' },
     { icon: CalendarArrowUp, label: 'Calendario', path: '/week', id: 'nav-week' },
     { icon: NotebookTabs, label: 'Cuadernos', path: '/folders', id: 'nav-folders' },
+    { icon: MessageSquare, label: isAdmin ? 'Chat IA' : 'IA pronto', path: '/chat', id: 'nav-chat' },
   ];
 
   return (

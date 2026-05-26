@@ -1,52 +1,106 @@
-import { useState } from 'react';
-import { useFriendships } from '@/hooks/useFriendships';
-import { useAuth } from '@/contexts/AuthContext';
-import { useNavigate } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
-import { Users, Search, UserPlus, Check, X, ChevronRight, Mail, Send, Sparkles } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
+import {
+  ArrowLeft,
+  Check,
+  CheckCircle2,
+  Copy,
+  FolderOpen,
+  Image,
+  Inbox,
+  Link2,
+  MessageCircle,
+  MoreVertical,
+  Plus,
+  Search,
+  Send,
+  Users,
+  X,
+} from 'lucide-react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { useFriendships } from '@/hooks/useFriendships';
+import { FriendTaskPayload, useFriendChats } from '@/hooks/useFriendChats';
+import { useFolders } from '@/hooks/useFolders';
+import { useFolderShares } from '@/hooks/useFolderShares';
 
-const containerVariants = {
-  hidden: {},
-  visible: {
-    transition: { staggerChildren: 0.07 },
-  },
+const priorityOptions = [
+  { key: 'important-urgent', label: 'Importante/Urgente', value: 'high', urgency: true, importance: true },
+  { key: 'urgent-not-important', label: 'Urgente/No importante', value: 'medium', urgency: true, importance: false },
+  { key: 'important-not-urgent', label: 'Importante/No urgente', value: 'medium', urgency: false, importance: true },
+  { key: 'not-urgent-not-important', label: 'No urgente/No importante', value: 'low', urgency: false, importance: false },
+] as const;
+
+const publicAppUrl = (import.meta.env.VITE_PUBLIC_APP_URL || 'https://webadonai.com').replace(/\/$/, '');
+
+const needsChatMigration = (error: any) => {
+  const message = String(error?.message || error?.details || '');
+  return (
+    message.includes('friend_chat_action')
+    || message.includes('schema cache')
+    || message.includes('friend_conversations')
+    || message.includes('friend_conversation_members')
+  );
 };
 
-const itemVariants = {
-  hidden: { opacity: 0, y: 24 },
-  visible: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 260, damping: 22 } },
+const friendChatAction = async (action: string, payload: Record<string, unknown> = {}) => {
+  const { data, error } = await supabase.rpc('friend_chat_action', { action, payload } as any);
+  if (error) throw error;
+  return data as any;
 };
 
 const FriendsPage = () => {
   const { user } = useAuth();
-  const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { friends, pendingReceived, pendingSent, sendRequest, respondRequest } = useFriendships();
-
+  const { folders } = useFolders();
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [message, setMessage] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
-  const [searching, setSearching] = useState(false);
-  const [tab, setTab] = useState<'friends' | 'requests'>('friends');
+  const [mode, setMode] = useState<'chat' | 'search'>('chat');
+  const [groupName, setGroupName] = useState('');
+  const [groupMembers, setGroupMembers] = useState<string[]>([]);
+  const [taskDraft, setTaskDraft] = useState<FriendTaskPayload>({
+    title: '',
+    priority: 'medium',
+    urgency: true,
+    importance: false,
+    estimated_minutes: 30,
+    due_date: format(new Date(), 'yyyy-MM-dd'),
+  });
+  const [taskSchedule, setTaskSchedule] = useState<'now' | 'later'>('now');
+  const [scheduledFor, setScheduledFor] = useState('');
+  const [imageUrl, setImageUrl] = useState('');
+  const [shareFolderId, setShareFolderId] = useState('');
+  const [showTaskBox, setShowTaskBox] = useState(false);
+  const [showImageBox, setShowImageBox] = useState(false);
+  const [showFolderBox, setShowFolderBox] = useState(false);
+  const [showGroupBox, setShowGroupBox] = useState(false);
+  const [showChatMenu, setShowChatMenu] = useState(false);
+  const [showAddMembersBox, setShowAddMembersBox] = useState(false);
+  const [newGroupMembers, setNewGroupMembers] = useState<string[]>([]);
+  const [approvalFolders, setApprovalFolders] = useState<Record<string, string>>({});
+  const [publicTaskFolders, setPublicTaskFolders] = useState<Record<string, string>>({});
+  const [approvedRequestIds, setApprovedRequestIds] = useState<string[]>([]);
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
-  // Invite flow
-  const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteSending, setInviteSending] = useState(false);
-  const [showInviteBox, setShowInviteBox] = useState(false);
+  const selectedPriorityKey = priorityOptions.find((option) => (
+    option.urgency === Boolean(taskDraft.urgency)
+    && option.importance === Boolean(taskDraft.importance)
+  ))?.key || 'urgent-not-important';
 
-  const friendUserIds = friends.map((f) =>
-    f.requester_id === user?.id ? f.addressee_id : f.requester_id
-  );
+  const friendUserIds = friends.map((f) => (f.requester_id === user?.id ? f.addressee_id : f.requester_id));
+  const inviteLink = user ? `${publicAppUrl}/#/invite/${user.id}` : '';
 
   const { data: friendProfiles = [] } = useQuery({
     queryKey: ['friend-profiles', friendUserIds],
     queryFn: async () => {
       if (friendUserIds.length === 0) return [];
-      const { data } = await supabase
-        .from('profiles')
-        .select('user_id, name, email')
-        .in('user_id', friendUserIds);
+      const { data } = await supabase.from('profiles').select('user_id, name, email').in('user_id', friendUserIds);
       return data || [];
     },
     enabled: friendUserIds.length > 0,
@@ -57,399 +111,660 @@ const FriendsPage = () => {
     queryKey: ['pending-profiles', pendingUserIds],
     queryFn: async () => {
       if (pendingUserIds.length === 0) return [];
-      const { data } = await supabase
-        .from('profiles')
-        .select('user_id, name, email')
-        .in('user_id', pendingUserIds);
+      const { data } = await supabase.from('profiles').select('user_id, name, email').in('user_id', pendingUserIds);
       return data || [];
     },
     enabled: pendingUserIds.length > 0,
   });
 
+  const {
+    conversations,
+    messages,
+    taskRequests,
+    selectedConversation,
+    ensureDirectConversation,
+    createGroup,
+    addGroupMembers,
+    sendMessage,
+    sendTaskRequest,
+    approveTaskRequest,
+    rejectTaskRequest,
+    markRead,
+  } = useFriendChats(selectedId);
+
+  const { shareWithFriend } = useFolderShares(shareFolderId || undefined);
+
+  const { data: publicTaskSubmissions = [] } = useQuery({
+    queryKey: ['friend-invite-task-submissions', user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const data = await friendChatAction('invite_list');
+      return data?.submissions || [];
+    },
+    enabled: !!user,
+    refetchInterval: 15000,
+  });
+
+  useEffect(() => {
+    if (!selectedId) return;
+    markRead.mutate(selectedId);
+  }, [selectedId]);
+
+  useEffect(() => {
+    if (!selectedId) return;
+    requestAnimationFrame(() => {
+      messagesEndRef.current?.scrollIntoView({ block: 'end' });
+    });
+  }, [selectedId, messages.length]);
+
+  const selectedOtherMember = selectedConversation?.members?.find((m: any) => m.user_id !== user?.id);
+  const selectedReceiverId = selectedConversation?.type === 'direct' ? selectedOtherMember?.user_id : null;
+
+  const chats = useMemo(() => {
+    return conversations.map((conversation: any) => {
+      const other = conversation.members?.find((m: any) => m.user_id !== user?.id);
+      const title = conversation.type === 'group'
+        ? conversation.title || 'Grupo'
+        : other?.profile?.name || other?.profile?.email || 'Amigo';
+      return { ...conversation, title, other };
+    });
+  }, [conversations, user?.id]);
+
+  const selectedMemberIds = useMemo(
+    () => new Set((selectedConversation?.members || []).map((member: any) => member.user_id)),
+    [selectedConversation?.members],
+  );
+  const availableGroupFriends = friendProfiles.filter((profile: any) => !selectedMemberIds.has(profile.user_id));
+  const selectedChatTitle = chats.find((chat: any) => chat.id === selectedId)?.title || selectedConversation?.title || 'Grupo';
+  const groupInviteLink = selectedConversation?.type === 'group' && selectedId ? `${publicAppUrl}/#/group-invite/${selectedId}` : '';
+
   const handleSearch = async () => {
-    if (!searchQuery.trim()) return;
-    setSearching(true);
-    setShowInviteBox(false);
+    if (!searchQuery.trim() || !user) return;
+    setMode('search');
     const { data } = await supabase
       .from('profiles')
       .select('user_id, name, email')
       .or(`name.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%`)
-      .neq('user_id', user?.id || '')
-      .limit(8);
+      .neq('user_id', user.id)
+      .limit(12);
     setSearchResults(data || []);
-    setSearching(false);
+  };
 
-    // If no results found, suggest invite
-    if (!data || data.length === 0) {
-      setInviteEmail(searchQuery.includes('@') ? searchQuery : '');
-      setShowInviteBox(true);
+  const openDirectChat = async (friendId: string) => {
+    try {
+      const conversation = await ensureDirectConversation.mutateAsync(friendId);
+      setSelectedId(conversation.id);
+      setMode('chat');
+    } catch (error: any) {
+      console.error('[friends] openDirectChat failed', error);
+      toast.error(needsChatMigration(error) ? 'Falta aplicar la funcion de chats en Supabase' : error?.message || 'No se pudo abrir el chat');
     }
   };
 
-  const handleSendRequest = (userId: string) => {
-    sendRequest.mutate(userId, {
-      onSuccess: () => {
-        toast.success('Solicitud de conexión enviada');
-        setSearchResults([]);
-        setSearchQuery('');
-      },
-      onError: () => toast.error('Error al enviar solicitud'),
-    });
+  const handleSendText = async () => {
+    if (!selectedId || !message.trim()) return;
+    await sendMessage.mutateAsync({ id: selectedId, body: message.trim() });
+    setMessage('');
   };
 
-  const handleSendInviteEmail = async () => {
-    if (!inviteEmail.trim() || !inviteEmail.includes('@')) {
-      toast.error('Ingresa un email válido');
+  const handleSendImage = async () => {
+    if (!selectedId || !imageUrl.trim()) return;
+    await sendMessage.mutateAsync({ id: selectedId, kind: 'image', body: 'Foto', payload: { url: imageUrl.trim() } });
+    setImageUrl('');
+    setShowImageBox(false);
+  };
+
+  const handleSendTask = async () => {
+    if (!selectedId || !selectedReceiverId || !taskDraft.title.trim()) {
+      toast.error('Abre un chat directo y escribe la tarea');
       return;
     }
-    setInviteSending(true);
-    try {
-      const emailLower = inviteEmail.trim().toLowerCase();
+    await sendTaskRequest.mutateAsync({
+      id: selectedId,
+      receiverId: selectedReceiverId,
+      task: taskDraft,
+      scheduledFor: taskSchedule === 'later' ? scheduledFor : null,
+    });
+    setTaskDraft({
+      title: '',
+      priority: 'medium',
+      urgency: true,
+      importance: false,
+      estimated_minutes: 30,
+      due_date: format(new Date(), 'yyyy-MM-dd'),
+    });
+    setScheduledFor('');
+    setTaskSchedule('now');
+    setShowTaskBox(false);
+  };
 
-      // 1. Check if user already exists
-      const { data: existingUser } = await supabase
-        .from('profiles')
-        .select('user_id')
-        .eq('email', emailLower)
-        .maybeSingle();
-
-      if (existingUser) {
-        // User exists! Send direct friend request instead of invite
-        sendRequest.mutate(existingUser.user_id, {
-          onSuccess: () => {
-            toast.success(`${emailLower} ya está en Adonai. ¡Solicitud enviada!`);
-            setInviteEmail('');
-            setShowInviteBox(false);
-          },
-          onError: () => toast.error('Ya tienes una solicitud pendiente con este usuario'),
-        });
-        return;
-      }
-
-      // 2. User doesn't exist, send invite email
-      const { data: myProfile } = await supabase
-        .from('profiles')
-        .select('name')
-        .eq('user_id', user?.id || '')
-        .maybeSingle();
-
-      const senderName = myProfile?.name || 'Tu amigo';
-      const inviteUrl = `${window.location.origin}/onboarding`;
-
-      const { error } = await supabase.functions.invoke('send-invite-email', {
-        body: {
-          to: emailLower,
-          senderName,
-          inviteUrl,
-        },
-      });
-
-      if (error) throw error;
-      toast.success(`Invitación enviada a ${inviteEmail}`);
-      setInviteEmail('');
-      setShowInviteBox(false);
-      setSearchQuery('');
-      setSearchResults([]);
-    } catch (err) {
-      console.error('Error in invite flow:', err);
-      // Fallback: copy invite link
-      const inviteUrl = `${window.location.origin}/onboarding?ref=${user?.id}`;
-      await navigator.clipboard.writeText(inviteUrl).catch(() => {});
-      toast.success('Enlace de invitación copiado al portapapeles');
-    } finally {
-      setInviteSending(false);
+  const handleShareFolder = async () => {
+    if (!shareFolderId || !selectedReceiverId || !selectedId) {
+      toast.error('Escoge una carpeta y abre un chat directo');
+      return;
     }
+    await shareWithFriend.mutateAsync({ folderId: shareFolderId, friendId: selectedReceiverId });
+    const folder = folders.find((f: any) => f.id === shareFolderId);
+    await sendMessage.mutateAsync({
+      id: selectedId,
+      kind: 'folder_share',
+      body: `Carpeta compartida: ${folder?.name || 'Carpeta'}`,
+      payload: { folder_id: shareFolderId, folder_name: folder?.name },
+    });
+    setShareFolderId('');
+    setShowFolderBox(false);
+  };
+
+  const handleCreateGroup = async () => {
+    if (!groupName.trim() || groupMembers.length === 0) {
+      toast.error('Escribe un nombre y escoge al menos un amigo');
+      return;
+    }
+    try {
+      const conversation = await createGroup.mutateAsync({ title: groupName.trim(), memberIds: groupMembers });
+      setSelectedId(conversation.id);
+      setGroupName('');
+      setGroupMembers([]);
+      setShowGroupBox(false);
+    } catch (error: any) {
+      console.error('[friends] createGroup failed', error);
+      toast.error(needsChatMigration(error) ? 'Falta aplicar la funcion de chats en Supabase' : error?.message || 'No se pudo crear el grupo');
+    }
+  };
+
+  const handleAddGroupMembers = async () => {
+    if (!selectedId || selectedConversation?.type !== 'group' || newGroupMembers.length === 0) {
+      toast.error('Escoge al menos un amigo');
+      return;
+    }
+
+    await addGroupMembers.mutateAsync({ conversationId: selectedId, memberIds: newGroupMembers });
+    setNewGroupMembers([]);
+    setShowAddMembersBox(false);
+    setShowChatMenu(false);
+    toast.success('Amigos agregados al grupo');
   };
 
   const handleCopyInviteLink = async () => {
-    const inviteUrl = `${window.location.origin}/onboarding?ref=${user?.id}`;
+    if (!inviteLink) return;
+    await navigator.clipboard.writeText(inviteLink);
+    toast.success('Link de invitacion copiado');
+  };
+
+  const handleCopyGroupInviteLink = async () => {
+    if (!groupInviteLink) return;
+    await navigator.clipboard.writeText(groupInviteLink);
+    setShowChatMenu(false);
+    toast.success('Link del grupo copiado');
+  };
+
+  const approvePublicTask = useMutation({
+    mutationFn: async ({ submission, folderId }: { submission: any; folderId?: string | null }) => {
+      if (!user) throw new Error('No user');
+      queryClient.setQueryData(['friend-invite-task-submissions', user.id], (current: any) => {
+        if (!Array.isArray(current)) return current;
+        return current.filter((item: any) => item.id !== submission.id);
+      });
+      await friendChatAction('invite_approve', {
+        submission_id: submission.id,
+        folder_id: folderId || null,
+      });
+      return submission;
+    },
+    onSuccess: (submission) => {
+      queryClient.invalidateQueries({ queryKey: ['friend-invite-task-submissions'] });
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      toast.success(`La tarea ${submission?.task_payload?.title || 'recibida'} se guardo correctamente`);
+    },
+    onError: () => {
+      queryClient.invalidateQueries({ queryKey: ['friend-invite-task-submissions'] });
+      toast.error('No se pudo aprobar la tarea');
+    },
+  });
+
+  const handleApproveTaskRequest = async (request: any) => {
+    setApprovedRequestIds((current) => [...current, request.id]);
     try {
-      await navigator.clipboard.writeText(inviteUrl);
-      toast.success('Enlace copiado. Compártelo con tu amigo de enfoque.');
-    } catch {
-      toast.error('No se pudo copiar el enlace');
+      await approveTaskRequest.mutateAsync({ request, folderId: approvalFolders[request.id] || null });
+      toast.success(`La tarea ${request?.task_payload?.title || request?.payload?.task?.title || 'recibida'} se guardo correctamente`);
+    } catch (error: any) {
+      setApprovedRequestIds((current) => current.filter((id) => id !== request.id));
+      toast.error(error?.message || 'No se pudo aprobar la tarea');
     }
   };
 
-  return (
-    <div className="min-h-screen overflow-x-hidden bg-background pb-32">
-      <div className="pointer-events-none fixed inset-0 opacity-70 [background:radial-gradient(circle_at_18%_12%,rgba(91,124,250,0.12),transparent_30%),radial-gradient(circle_at_82%_22%,rgba(111,207,151,0.09),transparent_28%)]" />
-      <div className="relative mx-auto w-full max-w-[460px] px-4 pt-8 space-y-5 sm:px-6 sm:pt-10 lg:max-w-6xl">
+  const rejectPublicTask = useMutation({
+    mutationFn: async (submission: any) => {
+      await friendChatAction('invite_reject', { submission_id: submission.id });
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['friend-invite-task-submissions'] }),
+  });
 
-        {/* Header */}
-        <header className="overflow-hidden rounded-[32px] border border-outline-variant/18 bg-surface-container/55 p-5 shadow-2xl shadow-black/10 backdrop-blur-xl sm:p-6">
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-5 md:gap-6">
-            <div className="space-y-2.5">
-              <div className="flex items-center gap-3">
-                <div className="h-1 w-8 rounded-full bg-primary sm:w-10" />
-                <span className="text-[10px] font-black uppercase tracking-[0.18em] text-primary/60 sm:text-[11px] sm:tracking-[0.2em]">
-                  Tu Comunidad
-                </span>
+  const requestForMessage = (messageId: string) => taskRequests.find((request: any) => request.message_id === messageId);
+
+  const closeComposerPanels = () => {
+    setShowTaskBox(false);
+    setShowImageBox(false);
+    setShowFolderBox(false);
+  };
+
+  const openComposerPanel = (panel: 'task' | 'image' | 'folder') => {
+    setShowTaskBox(panel === 'task' ? !showTaskBox : false);
+    setShowImageBox(panel === 'image' ? !showImageBox : false);
+    setShowFolderBox(panel === 'folder' ? !showFolderBox : false);
+  };
+
+  const activeComposer = showTaskBox ? 'Tarea' : showImageBox ? 'Foto' : showFolderBox ? 'Carpeta' : null;
+  const mobileTopOffset = typeof window !== 'undefined' && window.electronAPI ? '4rem' : '4.5rem';
+
+  return (
+    <div
+      className="fixed inset-x-0 bottom-0 z-40 bg-surface text-foreground md:static md:min-h-screen md:bg-background md:px-6 md:py-6"
+      style={{ top: mobileTopOffset }}
+    >
+      <div className="mx-auto flex h-full w-full max-w-none overflow-hidden rounded-none border-outline-variant/10 bg-surface shadow-none md:h-[calc(100vh-8rem)] md:max-w-6xl md:rounded-[24px] md:border md:bg-background lg:h-[calc(100vh-7rem)]">
+        <aside className={`${selectedId ? 'hidden lg:flex' : 'flex'} w-full min-w-0 flex-col border-r border-outline-variant/12 bg-surface lg:w-[380px] lg:shrink-0`}>
+          <div className="sticky top-0 z-20 border-b border-outline-variant/10 bg-surface/98 p-4 backdrop-blur-xl">
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <h1 className="text-2xl font-black tracking-tight">Amigos</h1>
+                <p className="text-xs font-medium text-on-surface-variant/55">Chats, tareas y carpetas</p>
               </div>
-              <h1 className="text-[32px] font-black leading-tight tracking-tight text-foreground sm:text-5xl">
-                Amigos
-              </h1>
-              <p className="max-w-sm text-[13px] font-medium leading-relaxed text-on-surface-variant/65 sm:text-sm">
-                Conecta, revisa solicitudes y comparte progreso sin salir del sistema.
-              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleCopyInviteLink}
+                  className="flex h-10 w-10 items-center justify-center rounded-full bg-surface-container text-foreground shadow-sm"
+                  title="Copiar link personal"
+                >
+                  <Link2 className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={() => setShowGroupBox(true)}
+                  className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm"
+                  title="Crear grupo"
+                >
+                  <Users className="h-4 w-4" />
+                </button>
+              </div>
             </div>
 
-            {/* Search */}
-            <div className="flex-1 max-w-md w-full relative">
-              <Search className="w-5 h-5 absolute left-5 top-1/2 -translate-y-1/2 text-on-surface-variant/40 pointer-events-none" />
+            <button
+              onClick={handleCopyInviteLink}
+              className="mb-3 flex w-full items-center justify-between rounded-2xl border border-outline-variant/12 bg-surface-container/70 px-3 py-2 text-left transition hover:bg-surface-container"
+            >
+              <span className="min-w-0">
+                <span className="block text-xs font-black">Link personal de invitacion</span>
+                <span className="block truncate text-[11px] font-semibold text-on-surface-variant/50">{inviteLink}</span>
+              </span>
+              <Copy className="ml-3 h-4 w-4 shrink-0 text-on-surface-variant/60" />
+            </button>
+
+            <div className="flex items-center gap-2 rounded-full bg-surface-container px-3 py-2">
+              <Search className="h-4 w-4 text-on-surface-variant/45" />
               <input
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Buscar por nombre o email..."
-                className="w-full rounded-2xl border border-outline-variant/20 bg-background/70 px-4 py-3.5 pl-12 text-sm font-semibold text-foreground outline-none transition-all focus:border-primary/35 focus:ring-2 focus:ring-primary/20"
-                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                onKeyDown={(event) => event.key === 'Enter' && handleSearch()}
+                placeholder="Buscar o invitar"
+                className="min-w-0 flex-1 bg-transparent text-sm font-semibold outline-none placeholder:text-on-surface-variant/35"
               />
-              {searching && (
-                <div className="absolute right-5 top-1/2 -translate-y-1/2">
-                  <div className="w-4 h-4 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
-                </div>
+              {searchQuery && (
+                <button onClick={handleSearch} className="text-xs font-black text-primary">Buscar</button>
               )}
             </div>
           </div>
-        </header>
 
-        {/* Search Results & Action Center */}
-        <AnimatePresence>
-          {(searchResults.length > 0 || showInviteBox) && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="overflow-hidden rounded-2xl border border-outline-variant/20 bg-surface-container/80 p-2 shadow-xl shadow-black/10 backdrop-blur-xl"
-            >
-              {searchResults.length > 0 && (
-                <div className="p-4 border-b border-outline-variant/10 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Users className="w-3 h-3 text-primary" />
-                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant/60">Usuarios encontrados en Adonai</p>
-                  </div>
-                  <button onClick={() => { setSearchResults([]); setSearchQuery(''); }} className="text-on-surface-variant/40 hover:text-foreground transition-colors">
-                    <X className="w-4 h-4" />
-                  </button>
+          <div className="sticky top-[137px] z-10 flex border-b border-outline-variant/10 bg-surface/98 px-3 py-2 backdrop-blur-xl">
+            <button onClick={() => setMode('chat')} className={`rounded-full px-3 py-1.5 text-xs font-black ${mode === 'chat' ? 'bg-foreground text-background' : 'text-on-surface-variant'}`}>Chats</button>
+            <button onClick={() => setMode('search')} className={`rounded-full px-3 py-1.5 text-xs font-black ${mode === 'search' ? 'bg-foreground text-background' : 'text-on-surface-variant'}`}>Personas</button>
+            {pendingReceived.length > 0 && <span className="ml-auto rounded-full bg-red-500 px-2 py-1 text-[10px] font-black text-white">{pendingReceived.length}</span>}
+          </div>
+
+          <div className="min-h-0 flex-1 overflow-y-auto bg-surface">
+            {publicTaskSubmissions.length > 0 && mode === 'chat' && (
+              <div className="space-y-2 border-b border-outline-variant/10 p-3">
+                <div className="flex items-center gap-2 px-1 text-xs font-black text-on-surface-variant/60">
+                  <Inbox className="h-4 w-4" />
+                  Tareas desde tu link
                 </div>
-              )}
-
-              {searchResults.map((p) => {
-                const alreadyFriend = friendUserIds.includes(p.user_id);
-                const alreadySent = pendingSent.some((f) => f.addressee_id === p.user_id);
-                return (
-                  <div key={p.user_id} className="flex items-center gap-3 rounded-2xl p-3 transition-colors hover:bg-surface-container sm:gap-4 sm:p-4">
-                    <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-lg font-black text-primary flex-shrink-0">
-                      {(p.name || 'U')[0].toUpperCase()}
+                {publicTaskSubmissions.map((submission: any) => (
+                  <div key={submission.id} className="space-y-3 rounded-2xl bg-surface-container p-3">
+                    <div>
+                      <p className="text-sm font-black">{submission.task_payload?.title || 'Tarea recibida'}</p>
+                      <p className="mt-1 text-xs font-semibold text-on-surface-variant/55">
+                        {submission.sender_name || submission.sender_email || 'Visitante del link'}
+                      </p>
+                      {submission.message && <p className="mt-2 text-xs font-semibold leading-5 text-on-surface-variant/70">{submission.message}</p>}
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <h4 className="text-sm font-black tracking-tight">{p.name || 'Usuario'}</h4>
-                      <p className="text-[10px] font-bold text-on-surface-variant/40 uppercase tracking-widest truncate">{p.email}</p>
-                    </div>
-                    {alreadyFriend ? (
-                      <span className="text-[10px] font-black uppercase tracking-widest text-primary px-4 py-2 bg-primary/10 rounded-lg flex-shrink-0">Amigos</span>
-                    ) : alreadySent ? (
-                      <span className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/40 px-4 py-2 bg-surface-container rounded-lg flex-shrink-0">Enviada</span>
-                    ) : (
-                      <button
-                        onClick={() => handleSendRequest(p.user_id)}
-                        className="shrink-0 rounded-xl bg-primary px-4 py-3 text-[10px] font-black uppercase tracking-widest text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:scale-105 sm:px-6"
-                      >
-                        Conectar
-                      </button>
-                    )}
-                  </div>
-                );
-              })}
-
-              {/* Explicit Invite Section when searching or explicitly triggered */}
-              {(showInviteBox || (searchResults.length === 0 && searchQuery.includes('@'))) && (
-                <div className="m-1 space-y-4 rounded-[22px] border border-primary/10 bg-primary/5 p-4 sm:m-2 sm:p-5">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex gap-3 min-w-0">
-                      <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                        <Mail className="w-5 h-5 text-primary" />
-                      </div>
-                      <div>
-                        <h3 className="text-sm font-black">Invitar a un amigo nuevo</h3>
-                        <p className="text-[11px] text-on-surface-variant/60 mt-0.5 leading-relaxed">
-                          Este correo no está registrado. Envíale una invitación para unirse a tu comunidad.
-                        </p>
-                      </div>
-                    </div>
-                    {showInviteBox && (
-                      <button onClick={() => setShowInviteBox(false)} className="text-on-surface-variant/40 hover:text-foreground transition-colors">
-                        <X className="w-4 h-4" />
-                      </button>
-                    )}
-                  </div>
-
-                  <div className="flex flex-col gap-3 sm:flex-row">
-                    <div className="relative flex-1">
-                      <input
-                        autoFocus
-                        type="email"
-                        value={inviteEmail}
-                        onChange={(e) => setInviteEmail(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && handleSendInviteEmail()}
-                        placeholder="email@ejemplo.com"
-                        className="w-full bg-surface-container-lowest border border-outline-variant/30 focus:border-primary/50 rounded-xl px-4 py-3 outline-none transition-all text-sm font-bold"
-                      />
-                    </div>
-                    <button
-                      onClick={handleSendInviteEmail}
-                      disabled={inviteSending || !inviteEmail.includes('@')}
-                      className="flex shrink-0 items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3 text-[10px] font-black uppercase tracking-widest text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:scale-105 disabled:opacity-30"
+                    <select
+                      value={publicTaskFolders[submission.id] || ''}
+                      onChange={(event) => setPublicTaskFolders((prev) => ({ ...prev, [submission.id]: event.target.value }))}
+                      className="w-full rounded-xl bg-background px-3 py-2 text-xs font-bold outline-none"
                     >
-                      {inviteSending ? (
-                        <div className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+                      <option value="">Agregar a Hoy</option>
+                      {folders.map((folder: any) => <option key={folder.id} value={folder.id}>{folder.name}</option>)}
+                    </select>
+                    <div className="flex gap-2">
+                      <button onClick={() => approvePublicTask.mutate({ submission, folderId: publicTaskFolders[submission.id] || null })} className="flex-1 rounded-xl bg-primary py-2 text-xs font-black text-primary-foreground">Aprobar</button>
+                      <button onClick={() => rejectPublicTask.mutate(submission)} className="rounded-xl bg-background px-3 text-xs font-black text-on-surface-variant">No</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {pendingReceived.length > 0 && mode === 'chat' && (
+              <div className="space-y-2 border-b border-outline-variant/10 p-3">
+                {pendingReceived.map((request) => {
+                  const profile = pendingProfiles.find((p: any) => p.user_id === request.requester_id);
+                  return (
+                    <div key={request.id} className="rounded-2xl bg-surface-container p-3">
+                      <p className="text-sm font-black">{profile?.name || profile?.email || 'Solicitud'}</p>
+                      <div className="mt-2 flex gap-2">
+                        <button onClick={() => respondRequest.mutate({ id: request.id, status: 'accepted' })} className="flex-1 rounded-xl bg-primary py-2 text-xs font-black text-primary-foreground">Aceptar</button>
+                        <button onClick={() => respondRequest.mutate({ id: request.id, status: 'rejected' })} className="rounded-xl bg-background px-3 text-xs font-black text-on-surface-variant">No</button>
+                      </div>
+                    </div>
+                  );
+                })}
+                <div ref={messagesEndRef} />
+              </div>
+            )}
+
+            {mode === 'search' ? (
+              <div className="p-2">
+                {[...friendProfiles, ...searchResults].filter((profile, index, arr) => arr.findIndex((p) => p.user_id === profile.user_id) === index).map((profile: any) => {
+                  const isFriend = friendUserIds.includes(profile.user_id);
+                  const sent = pendingSent.some((request) => request.addressee_id === profile.user_id);
+                  return (
+                    <div key={profile.user_id} className="flex items-center gap-3 rounded-2xl p-3 hover:bg-surface-container">
+                      <div className="flex h-11 w-11 items-center justify-center rounded-full bg-primary/12 text-sm font-black text-primary">
+                        {(profile.name || profile.email || 'A')[0].toUpperCase()}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-black">{profile.name || 'Usuario'}</p>
+                        <p className="truncate text-xs text-on-surface-variant/55">{profile.email}</p>
+                      </div>
+                      {isFriend ? (
+                        <button onClick={() => openDirectChat(profile.user_id)} className="rounded-full bg-foreground px-3 py-2 text-xs font-black text-background">Chat</button>
+                      ) : sent ? (
+                        <span className="text-xs font-bold text-on-surface-variant/45">Enviada</span>
                       ) : (
-                        <Send className="w-4 h-4" />
+                        <button onClick={() => sendRequest.mutate(profile.user_id)} className="rounded-full bg-primary px-3 py-2 text-xs font-black text-primary-foreground">Conectar</button>
                       )}
-                      Enviar Invitación
+                    </div>
+                  );
+                })}
+              </div>
+            ) : chats.length === 0 ? (
+              <div className="flex h-full flex-col items-center justify-center px-8 text-center">
+                <MessageCircle className="mb-4 h-10 w-10 text-on-surface-variant/25" />
+                <p className="text-sm font-black">Todavia no hay chats</p>
+                <p className="mt-1 text-xs text-on-surface-variant/55">Busca un amigo y abre una conversación.</p>
+              </div>
+            ) : (
+              chats.map((chat: any) => (
+                <button
+                  key={chat.id}
+                  onClick={() => { setSelectedId(chat.id); setMode('chat'); }}
+                  className={`flex w-full items-center gap-3 border-b border-outline-variant/8 p-4 text-left transition-colors hover:bg-surface-container ${selectedId === chat.id ? 'bg-primary/8' : ''}`}
+                >
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/12 text-sm font-black text-primary">
+                    {chat.type === 'group' ? <Users className="h-5 w-5" /> : (chat.title || 'A')[0].toUpperCase()}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="truncate text-sm font-black">{chat.title}</p>
+                      {(chat.me?.unread_count || 0) > 0 && <span className="ml-auto rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-black text-white">{chat.me.unread_count}</span>}
+                    </div>
+                    <p className="truncate text-xs text-on-surface-variant/55">{chat.lastMessage?.body || 'Sin mensajes todavia'}</p>
+                  </div>
+                </button>
+              ))
+            )}
+          </div>
+        </aside>
+
+        <section className={`min-w-0 flex-1 flex-col bg-[linear-gradient(180deg,hsl(var(--background)),hsl(var(--surface-container-low)))] ${selectedId ? 'flex' : 'hidden lg:flex'}`}>
+          {!selectedConversation ? (
+            <div className="flex h-full flex-col items-center justify-center text-center">
+              <MessageCircle className="mb-4 h-12 w-12 text-on-surface-variant/25" />
+              <h2 className="text-xl font-black">Selecciona un chat</h2>
+              <p className="mt-1 max-w-xs text-sm text-on-surface-variant/55">Habla, comparte tareas, fotos y carpetas desde un solo lugar.</p>
+            </div>
+          ) : (
+            <>
+              <div className="flex h-14 shrink-0 items-center gap-3 border-b border-outline-variant/12 bg-surface/95 px-3 backdrop-blur-xl md:h-auto md:px-4 md:py-3">
+                <button onClick={() => { closeComposerPanels(); setShowChatMenu(false); setSelectedId(null); }} className="flex h-10 w-10 items-center justify-center rounded-full text-on-surface-variant md:hidden"><ArrowLeft className="h-5 w-5" /></button>
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/12 text-sm font-black text-primary">
+                  {selectedConversation.type === 'group' ? <Users className="h-5 w-5" /> : (chats.find((c: any) => c.id === selectedId)?.title || 'A')[0].toUpperCase()}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-black">{selectedChatTitle}</p>
+                  <p className="text-xs text-on-surface-variant/55">{selectedConversation.members?.length || 0} participantes</p>
+                </div>
+                <div className="relative">
+                  <button onClick={() => setShowChatMenu((value) => !value)} className="flex h-10 w-10 items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container">
+                    <MoreVertical className="h-5 w-5" />
+                  </button>
+                  {showChatMenu && (
+                    <div className="absolute right-0 top-11 z-30 w-64 overflow-hidden rounded-2xl border border-outline-variant/15 bg-surface shadow-2xl">
+                      {selectedConversation.type === 'group' ? (
+                        <>
+                          <button onClick={() => { setShowAddMembersBox(true); setShowChatMenu(false); }} className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm font-bold hover:bg-surface-container">
+                            <Users className="h-4 w-4 text-primary" />
+                            Añadir amigos al grupo
+                          </button>
+                          <button onClick={handleCopyGroupInviteLink} className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm font-bold hover:bg-surface-container">
+                            <Link2 className="h-4 w-4 text-primary" />
+                            Copiar link del grupo
+                          </button>
+                        </>
+                      ) : (
+                        <div className="px-4 py-3 text-xs font-bold text-on-surface-variant/60">Sin acciones disponibles</div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="min-h-0 flex-1 space-y-2 overflow-y-auto px-3 py-4 md:space-y-3 md:p-4">
+                {messages.map((msg: any) => {
+                  const mine = msg.sender_id === user?.id;
+                  const request = msg.kind === 'task_request' ? requestForMessage(msg.id) : null;
+                  return (
+                    <div key={msg.id} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
+                      <div className={`max-w-[86%] rounded-2xl px-3.5 py-2.5 shadow-sm md:max-w-[82%] md:px-4 md:py-3 ${mine ? 'rounded-br-sm bg-primary text-primary-foreground' : 'rounded-bl-sm bg-surface text-foreground'}`}>
+                        {msg.kind === 'image' && msg.payload?.url ? (
+                          <img src={msg.payload.url} alt="" className="mb-2 max-h-52 rounded-xl object-cover" />
+                        ) : msg.kind === 'folder_share' ? (
+                          <div className="mb-1 flex items-center gap-2 text-sm font-black"><FolderOpen className="h-4 w-4" /> {msg.payload?.folder_name || 'Carpeta compartida'}</div>
+                        ) : msg.kind === 'task_request' ? (
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2 text-sm font-black"><CheckCircle2 className="h-4 w-4" /> Tarea enviada</div>
+                            <p className="text-sm font-bold">{msg.payload?.task?.title || msg.body}</p>
+                            {msg.payload?.task?.link && <p className="break-all text-xs opacity-75">{msg.payload.task.link}</p>}
+                            {request && request.receiver_id === user?.id && request.status === 'pending' && !approvedRequestIds.includes(request.id) && (
+                              <div className="mt-3 space-y-2 rounded-xl bg-background/35 p-2">
+                                <select
+                                  value={approvalFolders[request.id] || ''}
+                                  onChange={(event) => setApprovalFolders((prev) => ({
+                                    ...prev,
+                                    [request.id]: event.target.value,
+                                  }))}
+                                  className="w-full rounded-lg bg-background px-2 py-2 text-xs font-bold text-foreground outline-none"
+                                >
+                                  <option value="">Agregar a Hoy</option>
+                                  {folders.map((folder: any) => <option key={folder.id} value={folder.id}>{folder.name}</option>)}
+                                </select>
+                                <div className="flex gap-2">
+                                  <button onClick={() => handleApproveTaskRequest(request)} className="flex-1 rounded-lg bg-primary px-3 py-2 text-xs font-black text-primary-foreground">Aprobar</button>
+                                  <button onClick={() => rejectTaskRequest.mutate(request)} className="rounded-lg bg-red-500 px-3 py-2 text-xs font-black text-white">Rechazar</button>
+                                </div>
+                              </div>
+                            )}
+                            {request?.status && request.status !== 'pending' && <p className="text-[10px] font-black uppercase opacity-60">{request.status}</p>}
+                          </div>
+                        ) : msg.kind === 'system' ? (
+                          <p className="text-xs font-bold opacity-70">{msg.body}</p>
+                        ) : (
+                          <p className="whitespace-pre-wrap break-words text-sm font-semibold">{msg.body}</p>
+                        )}
+                        <p className={`mt-1 text-[10px] font-bold ${mine ? 'text-primary-foreground/60' : 'text-on-surface-variant/45'}`}>{format(new Date(msg.created_at), 'p', { locale: es })}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {(showTaskBox || showImageBox || showFolderBox) && (
+                <div className="shrink-0 border-t border-outline-variant/10 bg-surface/95 p-3 shadow-[0_-18px_45px_rgba(0,0,0,0.12)] backdrop-blur-xl">
+                  <div className="mb-3 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/12 text-primary">
+                        {showTaskBox ? <Check className="h-4 w-4" /> : showImageBox ? <Image className="h-4 w-4" /> : <FolderOpen className="h-4 w-4" />}
+                      </span>
+                      <p className="text-sm font-black">{activeComposer}</p>
+                    </div>
+                    <button onClick={closeComposerPanels} className="flex h-9 w-9 items-center justify-center rounded-full bg-surface-container text-on-surface-variant" title="Cerrar">
+                      <X className="h-4 w-4" />
                     </button>
                   </div>
+                  {showTaskBox && (
+                    <div className="grid gap-2 md:grid-cols-[1fr_130px_120px]">
+                      <input value={taskDraft.title} onChange={(e) => setTaskDraft({ ...taskDraft, title: e.target.value })} placeholder="Nombre de la tarea" className="rounded-xl bg-surface-container px-3 py-2 text-sm font-bold outline-none" />
+                      <input value={taskDraft.link || ''} onChange={(e) => setTaskDraft({ ...taskDraft, link: e.target.value })} placeholder="Link" className="rounded-xl bg-surface-container px-3 py-2 text-sm font-bold outline-none" />
+                      <select value={selectedPriorityKey} onChange={(e) => {
+                        const option = priorityOptions.find((p) => p.key === e.target.value) || priorityOptions[1];
+                        setTaskDraft({ ...taskDraft, priority: option.value, urgency: option.urgency, importance: option.importance });
+                      }} className="rounded-xl bg-surface-container px-3 py-2 text-sm font-bold outline-none">
+                        {priorityOptions.map((option) => <option key={option.key} value={option.key}>{option.label}</option>)}
+                      </select>
+                      <label className="rounded-xl bg-surface-container px-3 py-2">
+                        <span className="block text-[10px] font-black uppercase text-on-surface-variant/45">Vence</span>
+                        <input type="date" value={taskDraft.due_date} onChange={(e) => setTaskDraft({ ...taskDraft, due_date: e.target.value })} className="w-full bg-transparent text-sm font-bold outline-none" />
+                      </label>
+                      <select value={taskSchedule} onChange={(e) => setTaskSchedule(e.target.value as 'now' | 'later')} className="rounded-xl bg-surface-container px-3 py-2 text-sm font-bold outline-none">
+                        <option value="now">Enviar ahora</option>
+                        <option value="later">Programar</option>
+                      </select>
+                      {taskSchedule === 'later' && (
+                        <label className="rounded-xl bg-surface-container px-3 py-2">
+                          <span className="block text-[10px] font-black uppercase text-on-surface-variant/45">Enviar a las</span>
+                          <input type="datetime-local" value={scheduledFor} onChange={(e) => setScheduledFor(e.target.value)} className="w-full bg-transparent text-sm font-bold outline-none" />
+                        </label>
+                      )}
+                      <button onClick={handleSendTask} className="rounded-xl bg-primary px-4 py-3 text-xs font-black text-primary-foreground md:py-2">Enviar tarea</button>
+                    </div>
+                  )}
+                  {showImageBox && (
+                    <div className="flex gap-2">
+                      <input value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} placeholder="URL de foto" className="min-w-0 flex-1 rounded-xl bg-surface-container px-3 py-2 text-sm font-bold outline-none" />
+                      <button onClick={handleSendImage} className="rounded-xl bg-primary px-4 py-2 text-xs font-black text-primary-foreground">Enviar</button>
+                    </div>
+                  )}
+                  {showFolderBox && (
+                    <div className="flex gap-2">
+                      <select value={shareFolderId} onChange={(e) => setShareFolderId(e.target.value)} className="min-w-0 flex-1 rounded-xl bg-surface-container px-3 py-2 text-sm font-bold outline-none">
+                        <option value="">Escoge carpeta</option>
+                        {folders.map((folder: any) => <option key={folder.id} value={folder.id}>{folder.name}</option>)}
+                      </select>
+                      <button onClick={handleShareFolder} className="rounded-xl bg-primary px-4 py-2 text-xs font-black text-primary-foreground">Compartir</button>
+                    </div>
+                  )}
                 </div>
               )}
-            </motion.div>
-          )}
-        </AnimatePresence>
 
-        {/* Tabs */}
-        <div className="space-y-6 sm:space-y-8">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="grid w-full grid-cols-2 rounded-2xl border border-outline-variant/20 bg-surface-container p-1.5 sm:flex sm:w-fit">
-              <button
-                onClick={() => setTab('friends')}
-                className={`rounded-xl px-4 py-3 text-[10px] font-black uppercase tracking-widest transition-all sm:px-8 ${tab === 'friends' ? 'bg-background text-foreground shadow-sm' : 'text-on-surface-variant/40 hover:text-foreground'}`}
-              >
-                Amigos ({friends.length})
-              </button>
-              <button
-                onClick={() => setTab('requests')}
-                className={`relative rounded-xl px-4 py-3 text-[10px] font-black uppercase tracking-widest transition-all sm:px-8 ${tab === 'requests' ? 'bg-background text-foreground shadow-sm' : 'text-on-surface-variant/40 hover:text-foreground'}`}
-              >
-                Solicitudes
-                {pendingReceived.length > 0 && (
-                  <span className="ml-2 bg-error text-error-foreground px-1.5 py-0.5 rounded-md text-[9px]">
-                    {pendingReceived.length}
-                  </span>
-                )}
-              </button>
+              <div className="shrink-0 border-t border-outline-variant/12 bg-surface/95 p-2.5 backdrop-blur-xl md:p-3">
+                <div className="mb-2 flex gap-2 overflow-x-auto pb-0.5">
+                  <button onClick={() => openComposerPanel('task')} className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-black ${showTaskBox ? 'bg-primary text-primary-foreground' : 'bg-surface-container'}`}><Check className="mr-1 inline h-3 w-3" />Tarea</button>
+                  <button onClick={() => openComposerPanel('image')} className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-black ${showImageBox ? 'bg-primary text-primary-foreground' : 'bg-surface-container'}`}><Image className="mr-1 inline h-3 w-3" />Foto</button>
+                  <button onClick={() => openComposerPanel('folder')} className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-black ${showFolderBox ? 'bg-primary text-primary-foreground' : 'bg-surface-container'}`}><FolderOpen className="mr-1 inline h-3 w-3" />Carpeta</button>
+                </div>
+                <div className="flex items-end gap-2 rounded-[22px] bg-surface-container p-1.5">
+                  <button onClick={() => openComposerPanel('task')} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-on-surface-variant"><Plus className="h-5 w-5" /></button>
+                  <textarea value={message} onChange={(e) => setMessage(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendText(); } }} placeholder="Mensaje" rows={1} className="max-h-28 min-h-10 flex-1 resize-none bg-transparent py-2 text-sm font-semibold outline-none" />
+                  <button onClick={handleSendText} className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground"><Send className="h-4 w-4" /></button>
+                </div>
+              </div>
+            </>
+          )}
+        </section>
+      </div>
+
+      {showGroupBox && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/70 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-3xl border border-outline-variant/20 bg-surface p-5 shadow-2xl">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-black">Crear grupo</h2>
+              <button onClick={() => setShowGroupBox(false)}><X className="h-5 w-5" /></button>
+            </div>
+            <input value={groupName} onChange={(e) => setGroupName(e.target.value)} placeholder="Nombre del grupo" className="mb-3 w-full rounded-xl bg-surface-container px-3 py-3 text-sm font-bold outline-none" />
+            <div className="max-h-64 space-y-1 overflow-y-auto">
+              {friendProfiles.map((profile: any) => (
+                <label key={profile.user_id} className="flex items-center gap-3 rounded-xl p-3 hover:bg-surface-container">
+                  <input type="checkbox" checked={groupMembers.includes(profile.user_id)} onChange={(e) => setGroupMembers((prev) => e.target.checked ? [...prev, profile.user_id] : prev.filter((id) => id !== profile.user_id))} />
+                  <span className="text-sm font-bold">{profile.name || profile.email}</span>
+                </label>
+              ))}
+            </div>
+            <button onClick={handleCreateGroup} className="mt-4 w-full rounded-xl bg-primary py-3 text-sm font-black text-primary-foreground">Crear grupo</button>
+          </div>
+        </div>
+      )}
+
+      {showAddMembersBox && selectedConversation?.type === 'group' && (
+        <div className="fixed inset-0 z-[100] flex items-end justify-center bg-background/70 p-3 backdrop-blur-sm sm:items-center">
+          <div className="w-full max-w-md rounded-3xl border border-outline-variant/20 bg-surface p-5 shadow-2xl">
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-black">Añadir al grupo</h2>
+                <p className="text-xs font-semibold text-on-surface-variant/55">{selectedChatTitle}</p>
+              </div>
+              <button onClick={() => { setShowAddMembersBox(false); setNewGroupMembers([]); }} className="flex h-9 w-9 items-center justify-center rounded-full bg-surface-container"><X className="h-4 w-4" /></button>
             </div>
 
-            {/* Quick invite button */}
+            {availableGroupFriends.length === 0 ? (
+              <div className="rounded-2xl bg-surface-container p-4 text-sm font-bold text-on-surface-variant/65">
+                Todos tus amigos ya estan en este grupo.
+              </div>
+            ) : (
+              <div className="max-h-72 space-y-1 overflow-y-auto">
+                {availableGroupFriends.map((profile: any) => (
+                  <label key={profile.user_id} className="flex items-center gap-3 rounded-xl p-3 hover:bg-surface-container">
+                    <input
+                      type="checkbox"
+                      checked={newGroupMembers.includes(profile.user_id)}
+                      onChange={(event) => setNewGroupMembers((prev) => (
+                        event.target.checked ? [...prev, profile.user_id] : prev.filter((id) => id !== profile.user_id)
+                      ))}
+                    />
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-black">{profile.name || profile.email || 'Amigo'}</p>
+                      <p className="truncate text-xs text-on-surface-variant/50">{profile.email}</p>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            )}
+
             <button
-              onClick={() => { setShowInviteBox(true); setSearchResults([]); }}
-              className="flex w-full items-center justify-center gap-2 rounded-xl border border-primary/20 bg-primary/10 px-5 py-3 text-[10px] font-black uppercase tracking-widest text-primary transition-all hover:bg-primary/20 sm:w-auto"
+              onClick={handleAddGroupMembers}
+              disabled={newGroupMembers.length === 0}
+              className="mt-4 w-full rounded-xl bg-primary py-3 text-sm font-black text-primary-foreground disabled:opacity-45"
             >
-              <UserPlus className="w-4 h-4" /> Invitar
+              Añadir amigos
+            </button>
+            <button
+              onClick={handleCopyGroupInviteLink}
+              className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-surface-container py-3 text-sm font-black"
+            >
+              <Link2 className="h-4 w-4" />
+              Copiar link del grupo
             </button>
           </div>
-
-          <motion.div
-            variants={containerVariants}
-            initial="hidden"
-            animate="visible"
-            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-          >
-            {/* Friends List */}
-            {tab === 'friends' && (
-              friends.length === 0 ? (
-                <motion.div variants={itemVariants} className="col-span-full flex flex-col items-center gap-4 rounded-[28px] border border-dashed border-outline-variant/20 bg-surface/30 px-5 py-14 text-center sm:rounded-2xl sm:py-20">
-                  <div className="w-16 h-16 rounded-2xl bg-surface-container flex items-center justify-center">
-                    <Sparkles className="w-8 h-8 text-primary/30" />
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-black mb-2">Tu Comunidad de Enfoque</h3>
-                    <p className="text-sm text-on-surface-variant/60 max-w-[280px] leading-relaxed mx-auto">
-                      Conecta con amigos para compartir rachas, reportes y motivarse mutuamente.
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => setShowInviteBox(true)}
-                    className="mt-2 px-8 py-4 rounded-xl bg-primary text-primary-foreground font-black text-sm shadow-lg shadow-primary/30 hover:scale-105 transition-all flex items-center gap-2"
-                  >
-                    <UserPlus className="w-4 h-4" /> Invitar a tu primer amigo
-                  </button>
-                </motion.div>
-              ) : (
-                friends.map((friendship) => {
-                  const friendId = friendship.requester_id === user?.id ? friendship.addressee_id : friendship.requester_id;
-                  const profile = friendProfiles.find((p: any) => p.user_id === friendId);
-                  return (
-                    <motion.div
-                      key={friendship.id}
-                      variants={itemVariants}
-                      onClick={() => navigate(`/profile/${friendId}`)}
-                    className="group relative cursor-pointer overflow-hidden rounded-[26px] border border-outline-variant/15 bg-surface-container/55 p-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 active:translate-y-0 sm:rounded-2xl sm:border-2"
-                    >
-                      <div className="relative z-10 space-y-4">
-                        <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-lg font-black text-primary group-hover:scale-110 transition-transform duration-300">
-                          {(profile?.name || 'U')[0].toUpperCase()}
-                        </div>
-                        <div>
-                          <h4 className="text-base font-bold tracking-tight group-hover:text-primary transition-colors">{profile?.name || 'Usuario'}</h4>
-                          <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/40 mt-0.5 truncate max-w-[180px]">{profile?.email}</p>
-                        </div>
-                        <div className="pt-3 border-t border-outline-variant/10 flex items-center justify-between">
-                          <span className="text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant/30 group-hover:text-primary transition-colors">Ver Perfil</span>
-                          <ChevronRight className="w-4 h-4 text-on-surface-variant/30 group-hover:translate-x-1 transition-all" />
-                        </div>
-                      </div>
-                      <div className="absolute -right-4 -top-4 w-32 h-32 bg-primary/5 rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity" />
-                    </motion.div>
-                  );
-                })
-              )
-            )}
-
-            {/* Requests List */}
-            {tab === 'requests' && (
-              pendingReceived.length === 0 ? (
-                <motion.div variants={itemVariants} className="col-span-full flex flex-col items-center rounded-[28px] border border-dashed border-outline-variant/20 bg-surface/30 px-5 py-14 text-center sm:rounded-2xl sm:py-20">
-                  <p className="text-sm text-on-surface-variant/40 font-black uppercase tracking-[0.2em]">Sin solicitudes pendientes</p>
-                </motion.div>
-              ) : (
-                pendingReceived.map((req) => {
-                  const profile = pendingProfiles.find((p: any) => p.user_id === req.requester_id);
-                  return (
-                    <motion.div
-                      key={req.id}
-                      variants={itemVariants}
-                      className="space-y-4 rounded-[26px] border border-outline-variant/15 bg-surface-container/55 p-5 sm:rounded-2xl sm:border-2"
-                    >
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-lg font-black text-primary">
-                          {(profile?.name || 'U')[0].toUpperCase()}
-                        </div>
-                        <div>
-                          <h4 className="text-base font-bold tracking-tight">{profile?.name || 'Usuario'}</h4>
-                          <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/40 mt-0.5">{profile?.email}</p>
-                        </div>
-                      </div>
-                      <div className="flex gap-3">
-                        <button
-                          onClick={() => respondRequest.mutate({ id: req.id, status: 'accepted' })}
-                          className="flex-1 py-3.5 rounded-xl bg-primary text-primary-foreground font-black text-[10px] uppercase tracking-widest shadow-lg shadow-primary/20 hover:opacity-90 transition-all flex items-center justify-center gap-2"
-                        >
-                          <Check className="w-4 h-4" /> Aceptar
-                        </button>
-                        <button
-                          onClick={() => respondRequest.mutate({ id: req.id, status: 'rejected' })}
-                          className="px-5 py-3.5 rounded-xl bg-surface-container-high text-on-surface-variant font-black text-[10px] uppercase tracking-widest hover:text-error transition-all"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </motion.div>
-                  );
-                })
-              )
-            )}
-          </motion.div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

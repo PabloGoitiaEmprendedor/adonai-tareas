@@ -4,7 +4,7 @@ import { useTasks } from '@/hooks/useTasks';
 import { useFolders } from '@/hooks/useFolders';
 import { format, parseISO, addMinutes } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Flame, X, Notebook, Link as LinkIcon, Paperclip, GripHorizontal, ChevronsUpDown } from 'lucide-react';
+import { Check, Flame, X, Notebook, Link as LinkIcon, Paperclip, GripHorizontal, ChevronsUpDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { usePriorityColors } from '@/hooks/usePriorityColors';
 import AdonaiCalendarView from '@/components/calendar/AdonaiCalendarView';
@@ -28,6 +28,8 @@ export const MiniTaskWidget = ({ isOpen, onClose }: MiniTaskWidgetProps) => {
  const [calendarOpen, setCalendarOpen] = useState(false);
  const [orderedTasks, setOrderedTasks] = useState<any[]>([]);
  const [reorderIdx, setReorderIdx] = useState<number | null>(null);
+ const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+ const [draftTitle, setDraftTitle] = useState('');
  const calendarTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
  const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -139,6 +141,28 @@ export const MiniTaskWidget = ({ isOpen, onClose }: MiniTaskWidgetProps) => {
  );
  }, 400);
  }
+ };
+
+ const startEditingTask = (task: any, e: React.MouseEvent) => {
+ e.stopPropagation();
+ setEditingTaskId(task.id);
+ setDraftTitle(task.title || '');
+ };
+
+ const cancelEditingTask = (e?: React.MouseEvent) => {
+ e?.stopPropagation();
+ setEditingTaskId(null);
+ setDraftTitle('');
+ };
+
+ const submitEditingTask = (task: any, e?: React.MouseEvent) => {
+ e?.stopPropagation();
+ const normalizedTitle = draftTitle.replace(/\r\n/g, '\n');
+ if (normalizedTitle.trim() && normalizedTitle !== task.title) {
+ updateTask.mutate({ id: task.id, title: normalizedTitle });
+ }
+ setEditingTaskId(null);
+ setDraftTitle('');
  };
 
  const handleCalendarEnter = useCallback(() => {
@@ -341,40 +365,41 @@ export const MiniTaskWidget = ({ isOpen, onClose }: MiniTaskWidgetProps) => {
  {selectedFolderId? 'No hay tareas en este cuaderno': 'No hay tareas para hoy'}
  </p>
  </div>
- ): (
- <AnimatePresence mode="popLayout">
- {orderedTasks.map((task: any, idx: number) => {
- const isDone = task.status === 'done';
- const isCompleting = completingId === task.id;
+  ): (
+  <div className="notebook-task-list">
+  <AnimatePresence mode="popLayout">
+  {orderedTasks.map((task: any, idx: number) => {
+  const isDone = task.status === 'done';
+  const isCompleting = completingId === task.id;
 
- const taskPriorityColor = (() => {
- if (task.urgency && task.importance) return priorityColors.p1;
- if (task.urgency &&!task.importance) return priorityColors.p2;
- if (!task.urgency && task.importance) return priorityColors.p3;
- return priorityColors.p4;
- })();
+  const taskPriorityColor = (() => {
+  if (task.urgency && task.importance) return priorityColors.p1;
+  if (task.urgency &&!task.importance) return priorityColors.p2;
+  if (!task.urgency && task.importance) return priorityColors.p3;
+  return priorityColors.p4;
+  })();
 
- const folder = folders.find((f: any) => f.id === task.folder_id);
+  const folder = folders.find((f: any) => f.id === task.folder_id);
 
- return (
- <motion.div
- key={task.id}
- layout
- initial={{ opacity: 0, y: 10 }}
- animate={{
- opacity: isCompleting? 0.3: 1,
- y: 0,
- scale: isCompleting? 0.98: 1,
- }}
- exit={{ opacity: 0, scale: 0.95 }}
- draggable={!isDone}
- onDragStart={() => handleReorderStart(idx)}
- onDragOver={(event) => handleReorderOver(event, idx)}
- onDragEnd={handleReorderEnd}
- onClick={(e) => handleToggle(task, e)}
- className={`group flex items-center gap-4 px-4 py-4 rounded-[24px] cursor-pointer transition-all border ${
- isDone? 'bg-transparent border-transparent opacity-40': 'bg-background border-outline-variant/10 hover:border-primary/30 hover:shadow-xl hover:shadow-primary/5'
- }`}
+  return (
+  <motion.div
+  key={task.id}
+  layout
+  initial={{ opacity: 0, y: 10 }}
+  animate={{
+  opacity: isCompleting? 0.3: 1,
+  y: 0,
+  scale: isCompleting? 0.98: 1,
+  }}
+  exit={{ opacity: 0, scale: 0.95 }}
+  draggable={!isDone}
+  onDragStart={() => handleReorderStart(idx)}
+  onDragOver={(event) => handleReorderOver(event, idx)}
+  onDragEnd={handleReorderEnd}
+  onClick={(e) => handleToggle(task, e)}
+   className={`notebook-task-row group flex items-center gap-4 px-4 py-4 cursor-grab active:cursor-grabbing transition-all ${
+   isDone? 'opacity-40': ''
+   } ${reorderIdx === idx ? 'ring-2 ring-primary/40 shadow-[0_0_14px_rgba(99,102,241,0.18)]' : ''}`}
  >
  {!isDone &&!isCompleting? (
  <div
@@ -404,8 +429,54 @@ export const MiniTaskWidget = ({ isOpen, onClose }: MiniTaskWidgetProps) => {
  </div>
 
  <div className="flex-1 min-w-0">
+ {editingTaskId === task.id ? (
+ <div className="flex items-start gap-2" onClick={(e) => e.stopPropagation()}>
+ <textarea
+ autoFocus
+ value={draftTitle}
+ onChange={(event) => setDraftTitle(event.target.value)}
+ onInput={(event) => {
+ const target = event.target as HTMLTextAreaElement;
+ target.style.height = 'auto';
+ target.style.height = `${Math.min(target.scrollHeight, 180)}px`;
+ }}
+ onKeyDown={(event) => {
+ if (event.key === 'Enter' && !event.shiftKey) {
+ event.preventDefault();
+ submitEditingTask(task);
+ }
+ if (event.key === 'Escape') cancelEditingTask();
+ }}
+ className="notebook-task-editor min-h-[34px] min-w-0 flex-1 resize-none overflow-hidden bg-transparent text-sm font-semibold leading-snug tracking-normal text-foreground outline-none"
+ rows={Math.max(1, draftTitle.split('\n').length)}
+ spellCheck={false}
+ />
+ <div className="flex shrink-0 items-center gap-1">
+ <button
+ type="button"
+ onClick={(event) => submitEditingTask(task, event)}
+ className="flex h-8 w-8 items-center justify-center rounded-xl border border-outline-variant/20 bg-surface/40 text-primary transition-all hover:bg-surface/70 active:scale-95"
+ aria-label="Guardar"
+ title="Guardar"
+ >
+ <Check className="h-4 w-4" strokeWidth={3} />
+ </button>
+ <button
+ type="button"
+ onClick={cancelEditingTask}
+ className="flex h-8 w-8 items-center justify-center rounded-xl border border-outline-variant/20 bg-surface/40 text-muted-foreground transition-all hover:bg-surface/70 active:scale-95"
+ aria-label="Cancelar"
+ title="Cancelar"
+ >
+ <X className="h-4 w-4" />
+ </button>
+ </div>
+ </div>
+ ) : (
+ <>
  <span
- className={`block text-sm font-semibold tracking-normal leading-snug transition-all ${
+ onClick={(event) => startEditingTask(task, event)}
+ className={`notebook-task-editor block text-sm font-semibold tracking-normal leading-snug transition-all ${
  isDone || isCompleting? 'text-on-surface-variant line-through': 'text-foreground'
  }`}
  >
@@ -421,6 +492,8 @@ export const MiniTaskWidget = ({ isOpen, onClose }: MiniTaskWidgetProps) => {
  {folder.name}
  </span>
  </div>
+ )}
+ </>
  )}
  </div>
 
@@ -460,8 +533,9 @@ export const MiniTaskWidget = ({ isOpen, onClose }: MiniTaskWidgetProps) => {
  </motion.div>
  );
  })}
- </AnimatePresence>
- )}
+  </AnimatePresence>
+  </div>
+  )}
 
  {/* All done celebration */}
  {totalCount > 0 && completedCount === totalCount && (
