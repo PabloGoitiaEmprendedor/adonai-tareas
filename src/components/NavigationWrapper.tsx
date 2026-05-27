@@ -14,6 +14,7 @@ import { useProfile } from '@/hooks/useProfile';
 import AnonymousReminder from './AnonymousReminder';
 import FirstTaskSignupModal from './FirstTaskSignupModal';
 import ExitIntentModal from './ExitIntentModal';
+import PostOnboardingVideoTutorial from './PostOnboardingVideoTutorial';
 import { useTasks } from '@/hooks/useTasks';
 import { usePriorityColors, getPriorityKey } from '@/hooks/usePriorityColors';
 import { MobileDynamicIsland } from '@/components/ui/mobile-task-island';
@@ -457,6 +458,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
       <AnonymousReminder />
       <FirstTaskSignupModal />
       <ExitIntentModal />
+      <PostOnboardingVideoTutorial />
       
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent side="left" className="w-[280px] glass-sheet border-r-outline-variant/20 p-0">
