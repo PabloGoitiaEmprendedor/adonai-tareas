@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { ensureAnonymousSession, saveAnonymousUserId, getPreviousAnonymousUserId, migrateAnonymousData } from '@/lib/anonymousSession';
 import { startGuidedDownload } from '@/lib/downloadGuide';
 import { trackAnalyticsEvent } from '@/lib/analytics';
+import { queuePostOnboardingVideoTutorial } from '@/lib/videoTutorial';
 
 type StepType = 'name' | 'brain_dump' | 'recurring_tasks' | 'commitment' | 'security_register' | 'ready';
 
@@ -200,6 +201,7 @@ const OnboardingPage = () => {
 
       // 5. Success
       localStorage.setItem('adonai_onboarding_done', 'true');
+      queuePostOnboardingVideoTutorial();
       localStorage.removeItem('adonai_onboarding_prefill_name');
       trackAnalyticsEvent('onboarding_completed', {
         urgent_tasks_count: urgentRows.length,
