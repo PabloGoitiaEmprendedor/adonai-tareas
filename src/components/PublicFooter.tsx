@@ -31,7 +31,7 @@ export function PublicFooter() {
             </div>
             <div className="flex flex-col gap-4">
               <span className="text-[10px] uppercase tracking-widest text-foreground/25">Soporte</span>
-              <a href="mailto:pablo@webadonai.com" className="transition-colors hover:text-primary">Contacto</a>
+              <a href="https://wa.me/message/KIUXTXD5QBPEJ1" target="_blank" rel="noopener noreferrer" className="transition-colors hover:text-primary">Contacto (WhatsApp)</a>
             </div>
           </div>
         </div>

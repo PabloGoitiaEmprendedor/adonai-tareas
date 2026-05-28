@@ -280,13 +280,15 @@ export default function FAQPage() {
               </p>
               
               <div className="flex flex-col sm:flex-row justify-center items-center gap-4">
-                <Link
-                  to="/auth"
+                <a
+                  href="https://wa.me/message/KIUXTXD5QBPEJ1"
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="w-full sm:w-auto inline-flex items-center justify-center gap-3 rounded-full bg-primary px-10 py-5 text-lg font-black text-primary-foreground transition-all hover:scale-105 active:scale-95 shadow-xl shadow-primary/20"
                 >
                   Ir al soporte oficial
                   <ArrowRight className="w-6 h-6" />
-                </Link>
+                </a>
                 <a
                   href="https://x.com"
                   target="_blank"

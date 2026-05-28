@@ -705,6 +705,30 @@ const SettingsPage = () => {
             </div>
         </section>
 
+        {/* Support Section */}
+        <section className="space-y-3">
+            <h3 className="text-xs font-bold text-on-surface-variant/50 uppercase tracking-[0.2em]">Soporte</h3>
+            <div className="bg-surface-container-low border border-outline-variant/10 rounded-2xl overflow-hidden">
+                <a 
+                  href="https://wa.me/message/KIUXTXD5QBPEJ1" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="w-full p-4 flex items-center justify-between hover:bg-surface-container-high transition-colors group"
+                >
+                    <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                            <Sparkles className="w-4 h-4 text-primary" />
+                        </div>
+                        <div className="text-left">
+                            <span className="block text-sm font-bold text-foreground group-hover:text-primary transition-colors">Contactar Soporte</span>
+                            <span className="text-xs text-on-surface-variant/40">¿Tienes dudas o problemas? Háblanos</span>
+                        </div>
+                    </div>
+                    <ChevronDown className="w-4 h-4 text-on-surface-variant/40 -rotate-90" />
+                </a>
+            </div>
+        </section>
+
         <div className="flex justify-center gap-3 pt-2 pb-4">
           <a href="/privacy" className="text-[10px] text-on-surface-variant/30 hover:text-on-surface-variant/60 transition-colors">Privacidad</a>
           <span className="text-[10px] text-on-surface-variant/20">·</span>

@@ -1,4 +1,4 @@
-﻿// DailyPage ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â Dark mode, no time blocks, no calendar view
+// DailyPage ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â Dark mode, no time blocks, no calendar view
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useTasks } from '@/hooks/useTasks';
 import { useFolders } from '@/hooks/useFolders';
@@ -29,15 +29,7 @@ const DailyPage = () => {
  const today = useMemo(() => format(new Date(), 'yyyy-MM-dd'), []);
  const tasksFilter = useMemo(() => ({ date: today, excludeEvents: false }), [today]);
  const getInitialNotebookPage = () => {
- try {
- const raw = localStorage.getItem(NOTEBOOK_PAGE_STORAGE_KEY);
- if (!raw) return 1;
- const saved = JSON.parse(raw) as { date?: string; page?: number };
- if (saved.date === today) return clampNotebookPage(saved.page || 1);
- return clampNotebookPage((saved.page || 1) + 1);
- } catch {
- return 1;
- }
+   return 1;
  };
 
  const { tasks, updateTask, isLoading } = useTasks(tasksFilter);

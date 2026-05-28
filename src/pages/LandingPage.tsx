@@ -1,4 +1,4 @@
-﻿import { type ReactNode, useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import OrbitalSystem from "@/components/ui/OrbitalSystem";
@@ -16,6 +16,7 @@ import {
   NotebookPen,
   User,
   VolumeX,
+  X,
 } from "lucide-react";
 import { PublicFooter } from "@/components/PublicFooter";
 import { PublicNav } from "@/components/PublicNav";
@@ -135,11 +136,13 @@ function PlatformChoiceModal({ onClose }: { onClose: () => void }) {
   );
 }
 
-function PrimaryCTA({ className = "", tone = "brand", label = "Descargar ahora" }: { className?: string; tone?: "brand" | "dark"; label?: string }) {
+function PrimaryCTA({ className = "", tone = "brand", label = "Descargar ahora" }: { className?: string; tone?: "brand" | "dark" | "light"; label?: string }) {
   const [open, setOpen] = useState(false);
   const toneClass =
     tone === "dark"
       ? "bg-[#151820] text-white shadow-[0_18px_45px_rgba(21,24,32,0.22)] hover:bg-[#0B0F17]"
+      : tone === "light"
+      ? "bg-white text-[#5B7CFA] shadow-[0_18px_45px_rgba(0,0,0,0.15)] hover:bg-white/90"
       : "bg-[#5B7CFA] text-white shadow-[0_18px_45px_rgba(91,124,250,0.26)] hover:bg-[#4F6EE8]";
 
   return (
@@ -248,6 +251,7 @@ function CenteredPhrase() {
 function IntegrationsStrip() {
   const integrationItems = [
     { src: "/logos/google-calendar.png", alt: "Google Calendar", label: "Google Calendar" },
+    { src: "/logos/google-sheets.png", alt: "Google Sheets", label: "Google Sheets" },
     { src: "/logos/notion.png", alt: "Notion", label: "Notion" },
   ];
 
@@ -310,39 +314,40 @@ function IntegrationsStrip() {
 
 function PainMirror() {
   const signals = [
-    { icon: <MessageCircle className="h-5 w-5" />, text: "Tareas que nacen en WhatsApp y se pierden entre chats." },
-    { icon: <NotebookPen className="h-5 w-5" />, text: "Notas fisicas, ideas sueltas y pendientes que dependen de tu memoria." },
-    { icon: <CalendarDays className="h-5 w-5" />, text: "Calendario por un lado, lista por otro, urgencias por todas partes." },
+    { icon: <MessageCircle className="h-6 w-6" />, text: "Tareas en WhatsApp que se pierden." },
+    { icon: <NotebookPen className="h-6 w-6" />, text: "Notas físicas que dependen de tu memoria." },
+    { icon: <CalendarDays className="h-6 w-6" />, text: "Urgencias por todas partes, foco en ninguna." },
   ];
 
   return (
     <section className="bg-white px-5 py-20 sm:px-8 md:py-28 lg:px-10">
-      <div className="mx-auto grid max-w-6xl gap-12 lg:grid-cols-[0.9fr_1.1fr]">
+      <div className="mx-auto max-w-5xl text-center">
         <motion.div {...fadeUp}>
           <SectionLabel>El problema real</SectionLabel>
-          <h2 className="text-4xl font-black leading-[0.98] tracking-[-0.03em] text-[#151820] sm:text-5xl">
-            No estas desorganizado. Estas saturado.
+          <h2 className="text-4xl font-black leading-[0.98] tracking-[-0.03em] text-[#151820] sm:text-5xl lg:text-[4rem]">
+            No est&aacute;s desorganizado.<br className="hidden sm:block" /> <span className="text-[#5B7CFA]">Est&aacute;s saturado.</span>
           </h2>
+          <p className="mx-auto mt-6 max-w-2xl text-lg font-semibold leading-relaxed text-[#151820]/62 sm:text-xl">
+            Las apps de productividad no fallan por ser malas, fallan porque añaden otro sistema que mantener a tu vida ca&oacute;tica.
+          </p>
         </motion.div>
 
-        <div className="space-y-4">
-          <motion.p {...fadeUp} className="text-xl font-semibold leading-relaxed text-[#151820]/68">
-            La mayoria no abandona apps de productividad por flojera. Las abandona porque sienten que ahora tienen otro sistema que mantener.
-          </motion.p>
-          <div className="grid gap-3">
-            {signals.map((item) => (
-              <motion.div
-                key={item.text}
-                {...fadeUp}
-                className="flex items-start gap-4 rounded-2xl border border-[#151820]/8 bg-[#F7F6F1] p-5"
-              >
-                <span className="mt-0.5 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-white text-[#5B7CFA] shadow-sm">
-                  {item.icon}
-                </span>
-                <p className="text-base font-bold leading-relaxed text-[#151820]/72">{item.text}</p>
-              </motion.div>
-            ))}
-          </div>
+        <div className="mt-14 grid gap-5 sm:grid-cols-3">
+          {signals.map((item, index) => (
+            <motion.div
+              key={item.text}
+              initial={{ opacity: 0, y: 16 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.5, delay: index * 0.1 }}
+              className="flex flex-col items-center rounded-3xl border border-[#151820]/8 bg-[#F7F6F1]/50 p-8 transition hover:border-[#151820]/15 hover:bg-[#F7F6F1]"
+            >
+              <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-[#5B7CFA] shadow-[0_8px_20px_rgba(91,124,250,0.12)]">
+                {item.icon}
+              </div>
+              <p className="text-base font-bold leading-relaxed text-[#151820]/80">{item.text}</p>
+            </motion.div>
+          ))}
         </div>
       </div>
     </section>
@@ -442,7 +447,7 @@ function NotebookInsight() {
 
 function NotebookCTA() {
   return (
-    <section className="bg-[#151820] px-5 py-16 text-white sm:px-8 lg:px-10">
+    <section className="bg-[#5B7CFA] px-5 py-20 text-white sm:px-8 md:py-28 lg:px-10">
       <div className="mx-auto max-w-3xl text-center">
         <motion.div
           initial={{ opacity: 0, y: 12 }}
@@ -450,11 +455,11 @@ function NotebookCTA() {
           viewport={{ once: true }}
           transition={{ duration: 0.5, ease: "easeOut" }}
         >
-          <p className="text-lg font-semibold leading-relaxed text-white/62">
+          <h2 className="text-4xl font-black leading-[0.98] tracking-[-0.03em] sm:text-5xl">
             Deja de pelear con tu libreta y tus apps. Adonai unifica todo.
-          </p>
-          <div className="mt-8 flex justify-center">
-            <PrimaryCTA tone="dark" />
+          </h2>
+          <div className="mt-10 flex justify-center">
+            <PrimaryCTA tone="light" />
           </div>
         </motion.div>
       </div>
@@ -520,6 +525,9 @@ function VideoTutorial() {
           <h2 className="text-4xl font-black leading-[0.98] tracking-[-0.03em] text-[#151820] sm:text-6xl">
             Descubre c&oacute;mo funciona
           </h2>
+          <p className="mx-auto mt-6 max-w-2xl text-lg font-medium leading-relaxed text-[#151820]/72">
+            De ahora en adelante, reduce el estr&eacute;s de tu d&iacute;a a d&iacute;a. Libera tu mente de la carga de recordar todo: al anotarlo en Adonai, nada se te olvida y recuperas tu tranquilidad sin culpas.
+          </p>
         </motion.div>
 
         <motion.div
@@ -593,35 +601,78 @@ function Differentiation() {
 
 function LatamUseCases() {
   const cases = [
-    "Cliente escribe por WhatsApp: capturas el pendiente sin perder el hilo.",
-    "Se te ocurre una idea vendiendo: la guardas antes de que desaparezca.",
-    "Tienes pagos, llamadas y entregas: lo conviertes en acciones visibles.",
-    "Te saturas a mitad del dia: haces brain dump y vuelves a respirar.",
+    {
+      icon: MessageCircle,
+      color: "#25D366",
+      bg: "#ECFDF5",
+      title: "Te escribe un cliente por WhatsApp",
+      desc: "Capturas el pendiente en segundos, sin perder el hilo de la conversacion.",
+    },
+    {
+      icon: NotebookPen,
+      color: "#5B7CFA",
+      bg: "#EEF3FF",
+      title: "Se te ocurre una idea vendiendo",
+      desc: "La guardas antes de que se evapore. No mas ideas perdidas en el aire.",
+    },
+    {
+      icon: CalendarDays,
+      color: "#F59E0B",
+      bg: "#FFFBEB",
+      title: "Pagos, llamadas y entregas a la vez",
+      desc: "Los conviertes en acciones visibles y ordenadas. Sin saturarte.",
+    },
+    {
+      icon: VolumeX,
+      color: "#EC4899",
+      bg: "#FDF2F8",
+      title: "Te saturas a mitad del dia",
+      desc: "Haces brain dump en segundos y vuelves a respirar con la mente limpia.",
+    },
   ];
 
   return (
-    <section className="bg-white px-5 py-20 sm:px-8 md:py-28 lg:px-10">
-      <div className="mx-auto grid max-w-6xl gap-12 lg:grid-cols-[0.95fr_1.05fr] lg:items-center">
-        <motion.div {...fadeUp}>
-          <SectionLabel>Hecho para LATAM</SectionLabel>
-          <h2 className="text-4xl font-black leading-[0.98] tracking-[-0.03em] text-[#151820] sm:text-6xl">
+    <section className="bg-[#151820] px-5 py-20 sm:px-8 md:py-28 lg:px-10">
+      <div className="mx-auto max-w-6xl">
+        <motion.div {...fadeUp} className="mb-14 max-w-2xl">
+          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-3 py-2">
+            <img src="/logo.png" alt="" className="h-4 w-4 rounded-sm object-contain" />
+            <p className="text-[11px] font-black uppercase tracking-[0.24em] text-[#AFC0FF]">Hecho para LATAM</p>
+          </div>
+          <h2 className="text-4xl font-black leading-[0.96] tracking-[-0.035em] text-white sm:text-6xl">
             Para el caos real del emprendedor latino.
           </h2>
-          <p className="mt-6 text-lg font-semibold leading-relaxed text-[#151820]/62">
-            No todos trabajan con procesos perfectos, asistentes y dashboards limpios. Muchos construyen entre chats, entregas, clientes, familia y urgencias.
+          <p className="mt-5 text-lg font-semibold leading-relaxed text-white/52">
+            No todos trabajan con procesos perfectos. Muchos construyen entre chats, entregas, clientes, familia y urgencias.
           </p>
         </motion.div>
 
-        <motion.div {...fadeUp} className="rounded-[28px] border border-[#151820]/8 bg-[#F7F6F1] p-4 sm:p-6">
-          <div className="space-y-3">
-            {cases.map((item) => (
-              <div key={item} className="flex items-start gap-3 rounded-2xl bg-white p-4 shadow-sm">
-                <Check className="mt-0.5 h-5 w-5 flex-shrink-0 text-[#5B7CFA]" />
-                <p className="text-sm font-bold leading-relaxed text-[#151820]/72">{item}</p>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {cases.map((c, i) => (
+            <motion.div
+              key={c.title}
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.45, delay: i * 0.08 }}
+              className="group relative overflow-hidden rounded-[24px] border border-white/8 bg-white/[0.04] p-6 backdrop-blur-sm transition hover:border-white/16 hover:bg-white/[0.07]"
+            >
+              {/* Glow */}
+              <div
+                className="absolute -right-4 -top-4 h-24 w-24 rounded-full opacity-20 blur-2xl transition group-hover:opacity-30"
+                style={{ backgroundColor: c.color }}
+              />
+              <div
+                className="mb-5 inline-flex h-11 w-11 items-center justify-center rounded-2xl"
+                style={{ backgroundColor: c.bg }}
+              >
+                <c.icon className="h-5 w-5" style={{ color: c.color }} />
               </div>
-            ))}
-          </div>
-        </motion.div>
+              <h3 className="text-base font-black leading-snug tracking-tight text-white">{c.title}</h3>
+              <p className="mt-2 text-sm font-semibold leading-relaxed text-white/50">{c.desc}</p>
+            </motion.div>
+          ))}
+        </div>
       </div>
     </section>
   );
@@ -830,6 +881,101 @@ function FinalCTA() {
   );
 }
 
+function Comparison() {
+  const tools = [
+    { name: "Notion", feature: "Muy complejo para tareas rápidas." },
+    { name: "Google Calendar", feature: "No gestiona tareas sin fecha." },
+    { name: "Google Sheets", feature: "Cero automatización móvil." },
+    { name: "Libreta de Papel", feature: "Se pierde, no avisa, no unifica." },
+    { name: "Todoist", feature: "Se siente como una lista de supermercado." },
+    { name: "Trello", feature: "Para equipos, no para el caos personal." },
+    { name: "Asana", feature: "Sobrecargado para uso personal rápido." },
+  ];
+
+  return (
+    <section className="bg-white py-24 sm:py-32 border-b border-[#151820]/10">
+      <div className="mx-auto max-w-5xl px-6 lg:px-8">
+        <div className="mx-auto max-w-2xl text-center mb-16">
+          <h2 className="text-3xl font-black tracking-tight text-[#151820] sm:text-4xl">
+            ¿Por qué no usar lo que ya existe?
+          </h2>
+          <p className="mt-4 text-lg text-[#151820]/60">
+            Las soluciones actuales están hechas para empresas o son demasiado complejas. Adonai está diseñado para tu mente.
+          </p>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {tools.map((tool) => (
+            <div key={tool.name} className="flex items-start gap-4 p-5 rounded-2xl bg-[#151820]/5 border border-[#151820]/10">
+               <div className="flex-1">
+                 <h3 className="font-bold text-[#151820] flex items-center gap-2">
+                    <X className="w-4 h-4 text-red-500" /> {tool.name}
+                 </h3>
+                 <p className="text-sm text-[#151820]/60 mt-1">{tool.feature}</p>
+               </div>
+            </div>
+          ))}
+          <div className="flex items-start gap-4 p-5 rounded-2xl bg-[#5B7CFA]/10 border border-[#5B7CFA]/20 sm:col-span-2 md:col-span-1 h-full">
+             <div className="flex-1">
+               <h3 className="font-bold text-[#5B7CFA] flex items-center gap-2">
+                  <Check className="w-4 h-4 text-[#5B7CFA]" /> Adonai
+               </h3>
+               <p className="text-sm text-[#151820]/80 mt-1 font-medium">Todo en un solo lugar, rápido, simple y con recompensas.</p>
+             </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function Testimonials() {
+  const testimonials = [
+    {
+      body: "Antes usaba 3 apps distintas y la libreta. Siempre terminaba perdiendo el hilo de lo importante. Ahora solo abro Adonai y sé qué hacer.",
+      author: "Carlos M.",
+      role: "Emprendedor",
+    },
+    {
+      body: "La ventana flotante es magia. Me llega una idea, la anoto en un segundo y sigo trabajando sin perder la concentración.",
+      author: "Laura G.",
+      role: "Freelancer",
+    },
+    {
+      body: "Por fin una app que entiende el caos de tener TDAH y emprender. El sistema de racha y salud me mantiene a tope.",
+      author: "David R.",
+      role: "Creador de Contenido",
+    },
+  ];
+
+  return (
+    <section className="bg-white py-24 sm:py-32">
+      <div className="mx-auto max-w-7xl px-6 lg:px-8">
+        <div className="mx-auto max-w-2xl text-center mb-16">
+          <h2 className="text-3xl font-black tracking-tight text-[#151820] sm:text-4xl">
+            Lo que dicen nuestros usuarios
+          </h2>
+        </div>
+        <div className="mx-auto grid max-w-2xl grid-cols-1 gap-8 lg:mx-0 lg:max-w-none lg:grid-cols-3">
+          {testimonials.map((testimonial, i) => (
+            <div key={i} className="flex flex-col justify-between rounded-3xl bg-[#151820]/5 p-8 ring-1 ring-[#151820]/10 xl:p-10">
+              <p className="text-base text-[#151820]/80 italic font-medium">"{testimonial.body}"</p>
+              <div className="mt-8 flex items-center gap-x-4">
+                <div className="h-10 w-10 rounded-full bg-[#5B7CFA]/20 flex items-center justify-center font-bold text-[#5B7CFA]">
+                  {testimonial.author[0]}
+                </div>
+                <div>
+                  <div className="font-bold text-[#151820]">{testimonial.author}</div>
+                  <div className="text-sm text-[#151820]/60">{testimonial.role}</div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function MobileStickyCTA() {
   return (
     <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[#151820]/8 bg-white/92 p-3 backdrop-blur-xl sm:hidden">
@@ -872,13 +1018,10 @@ export default function LandingPage() {
           <PainMirror />
           <NotebookInsight />
           <NotebookCTA />
-          <Differentiation />
-          <LatamUseCases />
+          <Comparison />
           <EmotionalDesign />
+          <Testimonials />
           <FAQPreview />
-          <Pricing />
-          <SemanticBlock />
-          <FinalCTA />
         </main>
         <PublicFooter />
         <MobileStickyCTA />

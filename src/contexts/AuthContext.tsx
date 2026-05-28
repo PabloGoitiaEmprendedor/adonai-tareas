@@ -40,6 +40,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (session?.user) {
       localStorage.setItem('adonai_had_session', 'true');
       localStorage.setItem('adonai_session_type', session.user.is_anonymous ? 'anonymous' : 'email');
+      if (!session.user.is_anonymous) {
+        localStorage.setItem('adonai_has_linked_account', 'true');
+      }
       if (session.user.is_anonymous) {
         saveAnonymousUserId(session.user.id);
       }

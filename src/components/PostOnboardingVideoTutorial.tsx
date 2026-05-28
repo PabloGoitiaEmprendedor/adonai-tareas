@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Check, Pause, Play, Volume2, X } from 'lucide-react';
+import { Check, VolumeX, X } from 'lucide-react';
 import { trackAnalyticsEvent } from '@/lib/analytics';
 import {
   completePostOnboardingVideoTutorial,
@@ -9,16 +9,14 @@ import {
 
 export default function PostOnboardingVideoTutorial() {
   const [open, setOpen] = useState(false);
-  const [canActivateSound, setCanActivateSound] = useState(false);
+  const [activated, setActivated] = useState(false);
   const [hasEnded, setHasEnded] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [isPlaying, setIsPlaying] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
     const openTutorial = (source: 'post_onboarding' | 'settings') => {
       setOpen(true);
-      setCanActivateSound(true);
+      setActivated(false);
       setHasEnded(false);
       trackAnalyticsEvent('post_onboarding_video_opened', { source });
     };
@@ -40,17 +38,6 @@ export default function PostOnboardingVideoTutorial() {
     };
   }, []);
 
-  useEffect(() => {
-    if (!open) return;
-    const video = videoRef.current;
-    if (!video) return;
-
-    video.currentTime = 0;
-    video.muted = true;
-    setProgress(0);
-    void video.play().catch(() => setIsPlaying(false));
-  }, [open]);
-
   if (!open) return null;
 
   const closeTutorial = (reason: 'finished' | 'dismissed' | 'cta') => {
@@ -62,28 +49,20 @@ export default function PostOnboardingVideoTutorial() {
     });
   };
 
-  const activateSound = () => {
+  const handleActivateSound = async () => {
     const video = videoRef.current;
     if (!video) return;
     video.muted = false;
     video.volume = 1;
-    setCanActivateSound(false);
-    void video.play().catch(() => undefined);
-    trackAnalyticsEvent('post_onboarding_video_sound_enabled', {
-      source: 'post_onboarding',
-    });
-  };
-
-  const togglePlayback = () => {
-    const video = videoRef.current;
-    if (!video) return;
-
-    if (video.paused) {
-      void video.play().catch(() => undefined);
-      return;
+    try {
+      await video.play();
+      setActivated(true);
+      trackAnalyticsEvent('post_onboarding_video_sound_enabled', {
+        source: 'post_onboarding',
+      });
+    } catch (err) {
+      console.error("Error playing video:", err);
     }
-
-    video.pause();
   };
 
   return (
@@ -92,74 +71,52 @@ export default function PostOnboardingVideoTutorial() {
         <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-primary/20 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-24 right-1/4 h-64 w-64 rounded-full bg-[hsl(var(--success))]/18 blur-3xl" />
 
+        {/* Close Button is always responsive and clickable immediately */}
         <button
           type="button"
           onClick={() => closeTutorial('dismissed')}
-          className="absolute right-3 top-3 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-surface/85 text-on-surface-variant shadow-lg ring-1 ring-outline-variant/70 backdrop-blur-xl transition hover:bg-surface-container-low hover:text-foreground sm:right-5 sm:top-5"
+          className="absolute right-3 top-3 z-30 flex h-10 w-10 items-center justify-center rounded-full bg-surface/85 text-on-surface-variant shadow-lg ring-1 ring-outline-variant/70 backdrop-blur-xl transition hover:bg-surface-container-low hover:text-foreground sm:right-5 sm:top-5"
           aria-label="Cerrar tutorial"
         >
           <X className="h-5 w-5" />
         </button>
 
         <div className="relative grid lg:grid-cols-[1.42fr_0.58fr]">
-          <section className="relative flex flex-col bg-[#070A0F]">
+          <section className="relative flex flex-col bg-[#070A0F] min-h-[240px] lg:min-h-[536px] justify-center items-center overflow-hidden">
             <video
               ref={videoRef}
               src={VIDEO_TUTORIAL_SRC}
               className="h-auto max-h-[54vh] min-h-[240px] w-full flex-1 bg-[#070A0F] object-contain lg:max-h-[78vh] lg:min-h-[536px]"
-              autoPlay
-              muted
               playsInline
               preload="metadata"
+              controls={activated}
               disablePictureInPicture
-              onClick={togglePlayback}
-              onPause={() => setIsPlaying(false)}
-              onPlay={() => setIsPlaying(true)}
-              onPlaying={() => setIsPlaying(true)}
-              onTimeUpdate={(event) => {
-                const video = event.currentTarget;
-                if (!video.duration || Number.isNaN(video.duration)) return;
-                const linearProgress = Math.min(video.currentTime / video.duration, 1);
-                const easedProgress = 1 - Math.pow(1 - linearProgress, 2.6);
-                setProgress(easedProgress * 100);
-              }}
               onEnded={() => {
                 setHasEnded(true);
-                setProgress(100);
                 trackAnalyticsEvent('post_onboarding_video_completed', {
                   source: 'post_onboarding',
                 });
               }}
             />
 
-            <button
-              type="button"
-              onClick={togglePlayback}
-              className={`absolute left-1/2 top-1/2 flex h-20 w-20 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-2xl shadow-primary/40 ring-8 ring-primary/15 transition duration-200 hover:scale-105 active:scale-95 ${
-                isPlaying ? 'opacity-0 hover:opacity-100 focus-visible:opacity-100' : 'opacity-100'
-              }`}
-              aria-label={isPlaying ? 'Pausar video' : 'Reproducir video'}
-            >
-              {isPlaying ? <Pause className="h-8 w-8 fill-current" /> : <Play className="ml-1 h-9 w-9 fill-current" />}
-            </button>
-
-            {canActivateSound && (
+            {!activated && (
               <button
                 type="button"
-                onClick={activateSound}
-                className="absolute bottom-8 left-4 flex items-center gap-2 rounded-full bg-surface px-4 py-2 text-xs font-black text-foreground shadow-xl shadow-black/20 ring-1 ring-white/10 transition hover:scale-[1.02] active:scale-95"
+                onClick={handleActivateSound}
+                className="absolute inset-0 flex flex-col cursor-pointer items-center justify-center bg-black/40 backdrop-blur-[1px] transition hover:bg-black/50 z-10"
               >
-                <Volume2 className="h-4 w-4" />
-                Activar sonido
+                <div className="relative flex flex-col items-center gap-4">
+                  {/* Decorative pulsing circles for premium feel */}
+                  <div className="absolute -inset-4 rounded-full bg-white/10 animate-ping opacity-75" />
+                  <div className="relative flex h-20 w-20 items-center justify-center rounded-full bg-white shadow-2xl transition hover:scale-105 active:scale-95 duration-200">
+                    <VolumeX className="h-9 w-9 text-[#070A0F]" />
+                  </div>
+                  <span className="text-white text-xs font-black uppercase tracking-[0.2em] bg-black/40 px-4 py-2 rounded-full backdrop-blur-md border border-white/10">
+                    Hacer clic para escuchar
+                  </span>
+                </div>
               </button>
             )}
-
-            <div className="h-3 w-full bg-white/10">
-              <div
-                className="h-full rounded-r-full bg-gradient-to-r from-primary via-primary-container to-[hsl(var(--success))] transition-[width] duration-300 ease-out"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
           </section>
 
           <aside className="relative flex flex-col justify-between gap-7 overflow-hidden bg-surface p-5 text-foreground sm:p-8 lg:min-h-[560px]">
@@ -167,7 +124,7 @@ export default function PostOnboardingVideoTutorial() {
 
             <div>
               <h2 className="max-w-[9ch] text-4xl font-black leading-[0.92] tracking-tight text-foreground sm:text-5xl lg:text-5xl">
-                &iquest;Como se usa?
+                ¿Cómo se usa?
               </h2>
 
               <p className="mt-6 rounded-2xl bg-primary/10 px-4 py-3 text-sm font-black leading-relaxed text-primary">
@@ -175,14 +132,14 @@ export default function PostOnboardingVideoTutorial() {
               </p>
 
               <p className="mt-5 border-l-4 border-[hsl(var(--success))] pl-4 text-sm font-semibold leading-relaxed text-on-surface-variant">
-                Si estas en movil, no te preocupes, es exactamente lo mismo, la unica diferencia es que el mini cuaderno solo esta disponible para ordenador.
+                Si estás en móvil, no te preocupes, es exactamente lo mismo, la única diferencia es que el mini cuaderno solo está disponible para ordenador.
               </p>
             </div>
 
             <button
               type="button"
               onClick={() => closeTutorial(hasEnded ? 'finished' : 'cta')}
-              className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-primary px-5 py-4 text-sm font-black text-primary-foreground shadow-xl shadow-primary/25 transition hover:translate-y-[-1px] hover:bg-primary-container active:translate-y-0"
+              className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-primary px-5 py-4 text-sm font-black text-primary-foreground shadow-xl shadow-primary/25 transition hover:translate-y-[-1px] hover:bg-primary-container active:translate-y-0 z-10"
             >
               <Check className="h-5 w-5" />
               Entrar
