@@ -11,14 +11,14 @@ const UpdateDialog = () => {
   useEffect(() => {
     if (!window.electronAPI) return;
 
-    window.electronAPI.onUpdateAvailable?.((_event: any, info: any) => {
+    window.electronAPI.onUpdateAvailable?.((info: any) => {
       setUpdateInfo({
         version: info.version,
         releaseNotes: info.releaseNotes || '',
       });
     });
 
-    window.electronAPI.onUpdateDownloadProgress?.((_event: any, progress: number) => {
+    window.electronAPI.onUpdateDownloadProgress?.((progress: number) => {
       setDownloading(true);
       setDownloadProgress(Math.round(progress));
     });
@@ -41,6 +41,37 @@ const UpdateDialog = () => {
     setUpdateInfo(null);
     setReady(false);
   };
+
+  const isMiniRoute = typeof window !== 'undefined' && (
+    window.location.hash.startsWith('#/mini') ||
+    window.location.pathname.replace(/\/$/, '') === '/mini'
+  );
+
+  if (isMiniRoute) {
+    return (
+      <AnimatePresence>
+        {(updateInfo || downloading || ready) && (
+          <motion.div
+            initial={{ opacity: 0, y: -8, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -8, scale: 0.96 }}
+            className="fixed right-2 top-2 z-[100000] flex items-center gap-1.5 rounded-full border border-black/10 bg-white/95 py-1 pl-2.5 pr-1 text-[10px] font-black text-slate-900 shadow-lg"
+            style={{ WebkitAppRegion: 'no-drag' } as any}
+          >
+            <span>{ready ? 'Lista' : 'Actualizando'}</span>
+            <button
+              type="button"
+              onClick={handleDismiss}
+              className="flex h-5 w-5 items-center justify-center rounded-full text-slate-500 transition hover:bg-black/5 hover:text-slate-900"
+              aria-label="Quitar aviso"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    );
+  }
 
   return (
     <AnimatePresence>

@@ -31,6 +31,7 @@ import { NotionImportTask, useNotionIntegration } from '@/hooks/useNotionIntegra
 import { useCalendarIntegration } from '@/hooks/useCalendarIntegration';
 import { useSheetsIntegration } from '@/hooks/useSheetsIntegration';
 import { usePriorityColors } from '@/hooks/usePriorityColors';
+import { replayVideoTutorial } from '@/lib/videoTutorial';
 
 const SettingsPage = () => {
   const { user: currentUser } = useAuth();
@@ -410,6 +411,10 @@ const SettingsPage = () => {
                 </button>
                 <OptionSelector field="theme" options={themeOptions} currentValue={profile?.theme || 'dark'}
                     onSelect={(v) => { setAppTheme(v as 'dark' | 'light' | 'system'); updateProfile.mutate({ theme: v }); }} />
+                <button onClick={replayVideoTutorial} className="w-full p-4 text-sm font-bold text-foreground hover:bg-surface-container-high transition-colors flex items-center gap-3">
+                    <Play className="w-4 h-4 text-foreground/60" />
+                    Ver tutorial
+                </button>
                 <button onClick={handleLogout} className="w-full p-4 text-sm font-bold text-tertiary/70 hover:text-tertiary hover:bg-tertiary-container/10 transition-colors flex items-center gap-3">
                     <LogOut className="w-4 h-4" />
                     Cerrar sesión

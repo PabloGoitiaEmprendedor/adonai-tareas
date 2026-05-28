@@ -219,14 +219,18 @@ autoUpdater.on('checking-for-update', () => {
 });
 
 autoUpdater.on('update-available', (info) => {
-  // silent auto-download
+  sendToAllWindows('update-available', {
+    version: info?.version || '',
+    releaseNotes: info?.releaseNotes || '',
+  });
 });
 
-autoUpdater.on('download-progress', () => {
-  // silent
+autoUpdater.on('download-progress', (progress) => {
+  sendToAllWindows('update-download-progress', progress?.percent || 0);
 });
 
 autoUpdater.on('update-downloaded', () => {
+  sendToAllWindows('update-downloaded');
   // silent – will install on next app quit (autoInstallOnAppQuit = true)
 });
 

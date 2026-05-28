@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Apple, HelpCircle, Mail, Menu, Monitor, X, LogIn } from "lucide-react";
+import { Apple, HelpCircle, Mail, Menu, Monitor, X, LogIn, User } from "lucide-react";
 import { BrandLogo } from "@/components/BrandLogo";
 import { startGuidedDownload } from "@/lib/downloadGuide";
 
@@ -10,7 +10,7 @@ const NAV_LINKS = [
   { label: "Inicio", section: "inicio" },
   { label: "Como funciona", section: "como-funciona" },
   { label: "Precio", section: "precio" },
-  { label: "FAQ", to: "/faq" },
+  { label: "Preguntas frecuentes", to: "/faq" },
   { label: "Soporte", support: true },
 ];
 
@@ -90,6 +90,14 @@ export function PublicNav({ user, profile }: { user?: any; profile?: any }) {
   const [supportOpen, setSupportOpen] = useState(false);
 
   const scrollToLandingSection = (section: string) => {
+    if (section === "precio") {
+      if (location.pathname !== "/landing" && location.pathname !== "/") {
+        navigate("/landing?show=precio");
+        return;
+      }
+      navigate("?show=precio", { replace: true });
+      return;
+    }
     if (location.pathname !== "/landing" && location.pathname !== "/") {
       navigate("/landing");
       window.setTimeout(() => document.getElementById(section)?.scrollIntoView({ behavior: "smooth", block: "start" }), 80);
@@ -197,7 +205,7 @@ export function PublicNav({ user, profile }: { user?: any; profile?: any }) {
                 className="inline-flex items-center gap-1.5 rounded-full border border-[#151820]/16 px-4 py-2 text-xs font-bold text-[#151820] transition hover:bg-white/18"
               >
                 <HelpCircle className="h-3.5 w-3.5" />
-                FAQ
+                Preguntas frecuentes
               </Link>
               <button
                 type="button"

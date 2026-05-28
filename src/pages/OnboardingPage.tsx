@@ -1,19 +1,31 @@
 import { useEffect, useRef, useState, type ClipboardEvent, type Dispatch, type KeyboardEvent, type SetStateAction } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ArrowRight, Clipboard, Clock, Download, Link2, Lock, Mail, Monitor, ShieldCheck, Smartphone, Sparkles, Trash2, User, UserPlus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import { ensureAnonymousSession, saveAnonymousUserId, getPreviousAnonymousUserId, migrateAnonymousData } from '@/lib/anonymousSession';
+import {
+  ensureAnonymousSession,
+  saveAnonymousUserId,
+  getPreviousAnonymousUserId,
+  migrateAnonymousData,
+  getCurrentAnonymousUserId,
+  migrateStoredAnonymousDataToUser,
+  beginAnonymousEmailUpgrade,
+  clearAnonymousEmailUpgrade,
+} from '@/lib/anonymousSession';
 import { startGuidedDownload } from '@/lib/downloadGuide';
 import { trackAnalyticsEvent } from '@/lib/analytics';
 import { queuePostOnboardingVideoTutorial } from '@/lib/videoTutorial';
+import { format } from 'date-fns';
 
 type StepType = 'name' | 'brain_dump' | 'recurring_tasks' | 'commitment' | 'security_register' | 'ready';
 
 const OnboardingPage = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { user } = useAuth();
 
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
@@ -22,6 +34,13 @@ const OnboardingPage = () => {
   const [showEmailAuthModal, setShowEmailAuthModal] = useState(false);
   const [pendingFriendInvite, setPendingFriendInvite] = useState<{ inviterId: string; inviterName: string; userId: string } | null>(null);
   const [isSendingFriendRequest, setIsSendingFriendRequest] = useState(false);
+  const [navigateToDaily, setNavigateToDaily] = useState(false);
+
+  useEffect(() => {
+    if (navigateToDaily && user) {
+      navigate('/daily', { replace: true });
+    }
+  }, [navigateToDaily, user, navigate]);
 
   // Steps definition
   const steps: StepType[] = ['name', 'brain_dump', 'recurring_tasks', 'commitment', 'ready'];
@@ -76,7 +95,10 @@ const OnboardingPage = () => {
   }, [currentStep, currentStepIndex, isElectron, isMobile]);
 
   const ensureAnonymousUser = async (): Promise<string> => {
-    if (user) return user.id;
+    if (user) {
+      if (user.is_anonymous) saveAnonymousUserId(user.id);
+      return user.id;
+    }
     const anonymousSession = await ensureAnonymousSession();
     const oldUserId = getPreviousAnonymousUserId();
     if (!anonymousSession.user?.id) throw new Error('No se pudo crear sesion anonima');
@@ -121,12 +143,12 @@ const OnboardingPage = () => {
     }
   };
 
-  const handleFinish = async () => {
+  const handleFinish = async (resolvedUserId?: string) => {
     setShowWebChoiceModal(false);
     setShowEmailAuthModal(false);
     let userId: string;
     try {
-      userId = await ensureAnonymousUser();
+      userId = resolvedUserId || await ensureAnonymousUser();
     } catch (e: any) {
       toast.error(`Error: ${e.message || 'No se pudo iniciar sesión anónima'}`);
       return;
@@ -144,7 +166,7 @@ const OnboardingPage = () => {
       if (profileError) throw profileError;
 
       // 2. Insert Urgent Tasks
-      const today = new Date().toISOString().slice(0, 10);
+      const today = format(new Date(), 'yyyy-MM-dd');
       const urgentRows = urgentTasks
         .filter(t => t.title.trim())
         .map((task, i) => {
@@ -161,6 +183,7 @@ const OnboardingPage = () => {
             source_type: 'text',
             status: 'pending',
             sort_order: i,
+            metadata: { creation_source: 'onboarding' },
           };
         });
 
@@ -168,6 +191,8 @@ const OnboardingPage = () => {
         const { error: urgentErr } = await supabase.from('tasks').insert(urgentRows);
         if (urgentErr) throw urgentErr;
       }
+
+      await queryClient.invalidateQueries({ queryKey: ['tasks'] });
 
       // 3. Daily activities start as calendar-only blocks, not task-list items.
       const recurringTasksValid = recurringTasks.filter(t => t.title.trim());
@@ -217,7 +242,7 @@ const OnboardingPage = () => {
         });
         return;
       }
-      navigate('/daily');
+      setNavigateToDaily(true);
     } catch (e) {
       console.error('[onboarding] handleFinish error:', e);
       trackAnalyticsEvent('onboarding_completion_failed', {
@@ -295,15 +320,23 @@ const OnboardingPage = () => {
     
     setIsAuthenticating(true);
     try {
-        const { error } = await supabase.auth.verifyOtp({
+        const anonymousUserId = beginAnonymousEmailUpgrade(getCurrentAnonymousUserId());
+        const { data, error } = await supabase.auth.verifyOtp({
             email: email.trim().toLowerCase(),
             token,
             type: 'email',
         });
         if (error) throw error;
         toast.success('¡Acceso verificado!');
-        await handleFinish();
+        const emailUserId = data.session?.user?.id;
+        if (anonymousUserId && emailUserId && !data.session?.user?.is_anonymous) {
+            const migrated = await migrateStoredAnonymousDataToUser(emailUserId, anonymousUserId);
+            if (migrated) await queryClient.invalidateQueries();
+        }
+        clearAnonymousEmailUpgrade();
+        await handleFinish(emailUserId);
     } catch (err: any) {
+        clearAnonymousEmailUpgrade();
         toast.error(err.message || 'Código incorrecto');
         setOtpCode(['', '', '', '', '', '']);
     } finally {
@@ -1183,5 +1216,3 @@ const OnboardingPage = () => {
 };
 
 export default OnboardingPage;
-
-

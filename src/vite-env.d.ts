@@ -29,8 +29,8 @@ interface Window {
     setIgnoreMouseEvents?: (ignore: boolean, options?: { forward?: boolean }) => void;
     getMiniPosition?: () => Promise<any>;
     setMiniBounds?: (bounds: { x: number; y: number; w: number; h: number }) => void;
-    onUpdateAvailable?: (callback: (event: any, data: { version: string; releaseNotes: string }) => void) => void;
-    onUpdateDownloadProgress?: (callback: (event: any, percent: number) => void) => void;
+    onUpdateAvailable?: (callback: (data: { version: string; releaseNotes: string }) => void) => void;
+    onUpdateDownloadProgress?: (callback: (percent: number) => void) => void;
     onUpdateDownloaded?: (callback: () => void) => void;
     restartApp?: () => void;
     showNotification?: (title: string, body: string, type?: 'info' | 'warning' | 'success' | 'error') => void;

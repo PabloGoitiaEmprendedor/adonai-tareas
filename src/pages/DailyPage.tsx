@@ -1,4 +1,4 @@
-// DailyPage ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â Dark mode, no time blocks, no calendar view
+﻿// DailyPage ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â Dark mode, no time blocks, no calendar view
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useTasks } from '@/hooks/useTasks';
 import { useFolders } from '@/hooks/useFolders';
@@ -367,8 +367,8 @@ const DailyPage = () => {
  triggerDailyCelebration(profileName);
  if (window.electronAPI) {
  window.electronAPI.showNotification(
- "ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡MisiÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n Cumplida! ",
- `Has terminado todas tus tareas de hoy, ${profileName || 'Emprendedor'}. ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡Disfruta tu descanso!`,
+ "¡Misión Cumplida!",
+ `Has terminado todas tus tareas de hoy, ${profileName || 'Emprendedor'}. ¡Disfruta tu descanso!`,
  'success'
  );
  }
@@ -378,8 +378,8 @@ const DailyPage = () => {
  triggerTaskCelebration(task.title, profileName);
  if (completedCountRef.current + 1 === 5 && window.electronAPI) {
  window.electronAPI.showNotification(
- "ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡EstÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡s en racha! ",
- "Llevas 5 tareas completadas hoy. Sigue asÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­.",
+ "¡Estás en racha!",
+ "Llevas 5 tareas completadas hoy. Sigue así.",
  'info'
  );
  }

@@ -1,10 +1,12 @@
 import { useState, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { ArrowLeft, Mail, ShieldCheck } from 'lucide-react';
 import { BrandLogo } from '@/components/BrandLogo';
+import { beginAnonymousEmailUpgrade, clearAnonymousEmailUpgrade, getCurrentAnonymousUserId, migrateStoredAnonymousDataToUser } from '@/lib/anonymousSession';
 
 const AuthPage = () => {
   const [step, setStep] = useState<'email' | 'code'>('email');
@@ -14,6 +16,7 @@ const AuthPage = () => {
   const [countdown, setCountdown] = useState(0);
   const navigate = useNavigate();
   const location = useLocation();
+  const queryClient = useQueryClient();
   const redirectTo = new URLSearchParams(location.search).get('redirect') || '/';
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -54,6 +57,7 @@ const AuthPage = () => {
         }
       }, 300);
     } catch (err: unknown) {
+      clearAnonymousEmailUpgrade();
       const message = err instanceof Error ? err.message : 'Error al enviar código';
       toast.error(message);
     } finally {
@@ -67,14 +71,23 @@ const AuthPage = () => {
     
     setLoading(true);
     try {
-      const { error } = await supabase.auth.verifyOtp({
+      const anonymousUserId = beginAnonymousEmailUpgrade(getCurrentAnonymousUserId());
+      const { data, error } = await supabase.auth.verifyOtp({
         email: email.trim().toLowerCase(),
         token,
         type: 'email',
       });
       if (error) throw error;
+      if (anonymousUserId && data.session?.user?.id && !data.session.user.is_anonymous) {
+        const migrated = await migrateStoredAnonymousDataToUser(data.session.user.id, anonymousUserId);
+        if (migrated) {
+          await queryClient.invalidateQueries();
+          toast.success('Tus tareas se guardaron en tu correo');
+        }
+      }
+      clearAnonymousEmailUpgrade();
       toast.success('¡Bienvenido!');
-      navigate(redirectTo);
+      navigate(redirectTo === '/' ? '/daily' : redirectTo, { replace: true });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Código incorrecto';
       toast.error(message);
@@ -230,10 +243,10 @@ const AuthPage = () => {
             </div>
 
               <div className="flex flex-col gap-8">
-                <div className="flex items-center justify-center gap-3" onPaste={handlePaste}>
+                <div className="flex w-full items-center justify-center gap-2" onPaste={handlePaste}>
                   <button
                     onClick={() => handlePaste()}
-                    className="flex flex-col items-center justify-center w-16 h-14 bg-primary/10 text-primary rounded-xl hover:bg-primary/20 transition-all border border-primary/20 shadow-lg shadow-primary/5 group"
+                    className="flex h-14 w-12 flex-shrink-0 flex-col items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-primary shadow-lg shadow-primary/5 transition-all hover:bg-primary/20 sm:w-16 group"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="group-active:scale-90 transition-transform">
                       <rect width="8" height="4" x="8" y="2" rx="1" ry="1"/>
@@ -242,7 +255,7 @@ const AuthPage = () => {
                     <span className="text-[10px] font-black uppercase tracking-tighter mt-0.5">Pegar</span>
                   </button>
 
-                  <div className="flex gap-2">
+                  <div className="grid flex-1 grid-cols-6 gap-1.5 sm:gap-2">
                     {code.map((digit, i) => (
                       <input
                         key={i}
@@ -253,7 +266,7 @@ const AuthPage = () => {
                         value={digit}
                         onChange={(e) => handleCodeChange(i, e.target.value)}
                         onKeyDown={(e) => handleKeyDown(i, e)}
-                        className="w-11 h-14 text-center text-xl font-bold bg-surface-container rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all border-none"
+                        className="h-14 min-w-0 text-center text-xl font-bold bg-surface-container rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all border-none"
                       />
                     ))}
                   </div>

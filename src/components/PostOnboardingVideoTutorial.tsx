@@ -16,17 +16,28 @@ export default function PostOnboardingVideoTutorial() {
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
-    if (!shouldShowPostOnboardingVideoTutorial()) return;
-
-    const timer = window.setTimeout(() => {
+    const openTutorial = (source: 'post_onboarding' | 'settings') => {
       setOpen(true);
       setCanActivateSound(true);
-      trackAnalyticsEvent('post_onboarding_video_opened', {
-        source: 'post_onboarding',
-      });
+      setHasEnded(false);
+      trackAnalyticsEvent('post_onboarding_video_opened', { source });
+    };
+
+    const handleManualOpen = () => openTutorial('settings');
+    window.addEventListener('adonai:open-video-tutorial', handleManualOpen);
+
+    if (!shouldShowPostOnboardingVideoTutorial()) {
+      return () => window.removeEventListener('adonai:open-video-tutorial', handleManualOpen);
+    }
+
+    const timer = window.setTimeout(() => {
+      openTutorial('post_onboarding');
     }, 450);
 
-    return () => window.clearTimeout(timer);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener('adonai:open-video-tutorial', handleManualOpen);
+    };
   }, []);
 
   useEffect(() => {

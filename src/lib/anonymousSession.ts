@@ -2,6 +2,7 @@ import { supabase } from '@/integrations/supabase/client';
 import type { Session } from '@supabase/supabase-js';
 
 const ANON_USER_ID_KEY = 'adonai_anonymous_user_id';
+const ANON_UPGRADE_KEY = 'adonai_anonymous_upgrade_user_id';
 const AUTH_LOCK_RETRY_DELAYS_MS = [150, 350, 700, 1200, 2000];
 
 let pendingAnonymousSession: Promise<Session> | null = null;
@@ -25,6 +26,22 @@ export function clearAnonymousUserId(): void {
 
 export function getCurrentAnonymousUserId(): string | null {
   return localStorage.getItem(ANON_USER_ID_KEY);
+}
+
+export function beginAnonymousEmailUpgrade(userId?: string | null): string | null {
+  const anonymousUserId = userId || getCurrentAnonymousUserId() || getPreviousAnonymousUserId();
+  if (anonymousUserId) {
+    localStorage.setItem(ANON_UPGRADE_KEY, anonymousUserId);
+  }
+  return anonymousUserId;
+}
+
+export function getPendingAnonymousEmailUpgradeUserId(): string | null {
+  return localStorage.getItem(ANON_UPGRADE_KEY);
+}
+
+export function clearAnonymousEmailUpgrade(): void {
+  localStorage.removeItem(ANON_UPGRADE_KEY);
 }
 
 function isAuthLockError(error: unknown): boolean {
@@ -100,4 +117,22 @@ export async function migrateAnonymousData(oldUserId: string, newUserId: string)
     console.error('[anonymousSession] Migration exception:', err);
     return false;
   }
+}
+
+export async function migrateStoredAnonymousDataToUser(newUserId: string, oldUserId?: string | null): Promise<boolean> {
+  const anonymousUserId = oldUserId || getPendingAnonymousEmailUpgradeUserId() || getCurrentAnonymousUserId() || getPreviousAnonymousUserId();
+  if (!anonymousUserId || !newUserId || anonymousUserId === newUserId) return false;
+
+  const migrationKey = `adonai_anonymous_migrated_${anonymousUserId}_${newUserId}`;
+  if (localStorage.getItem(migrationKey) === 'true') return false;
+
+  const migrated = await migrateAnonymousData(anonymousUserId, newUserId);
+  if (migrated) {
+    localStorage.setItem(migrationKey, 'true');
+    clearAnonymousEmailUpgrade();
+    clearAnonymousUserId();
+    localStorage.setItem('adonai_session_type', 'email');
+  }
+
+  return migrated;
 }
