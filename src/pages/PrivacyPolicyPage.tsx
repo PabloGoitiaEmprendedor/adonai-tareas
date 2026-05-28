@@ -208,7 +208,7 @@ export default function PrivacyPolicyPage() {
                   <span className="text-primary/20">06.</span> Contacto
                 </h2>
                 <p className="text-foreground/60 leading-relaxed font-medium">
-                  Si tienes dudas sobre esta política, escríbenos a: <a href="mailto:support@adonai-app.com" className="text-primary font-black underline hover:text-primary/80">support@adonai-app.com</a>
+                  Si tienes dudas sobre esta política, contáctanos en: <a href="https://wa.me/message/KIUXTXD5QBPEJ1" target="_blank" rel="noopener noreferrer" className="text-primary font-black underline hover:text-primary/80">Nuestro WhatsApp de Soporte</a>
                 </p>
               </div>
             </div>

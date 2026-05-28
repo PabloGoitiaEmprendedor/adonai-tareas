@@ -123,7 +123,6 @@ BEGIN
   UPDATE folders SET user_id = new_user_id WHERE user_id = old_user_id;
   UPDATE goals SET user_id = new_user_id WHERE user_id = old_user_id;
   UPDATE time_blocks SET user_id = new_user_id WHERE user_id = old_user_id;
-  UPDATE user_email_settings SET user_id = new_user_id WHERE user_id = old_user_id;
   UPDATE contexts SET user_id = new_user_id WHERE user_id = old_user_id;
   UPDATE user_achievements SET user_id = new_user_id WHERE user_id = old_user_id;
   UPDATE user_context SET user_id = new_user_id WHERE user_id = old_user_id;

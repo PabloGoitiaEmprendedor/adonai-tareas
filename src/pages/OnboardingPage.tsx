@@ -255,6 +255,22 @@ const OnboardingPage = () => {
     }
   };
 
+  // Called after recurring_tasks step: save anonymous data then prompt for email
+  const handleAfterActivities = async () => {
+    try {
+      await ensureAnonymousUser();
+    } catch (e: any) {
+      console.error('[onboarding] handleAfterActivities ensureAnonymousUser error:', e);
+    }
+    // If user already has a linked email account, skip the email prompt
+    if (user && !user.is_anonymous) {
+      void handleFinish();
+      return;
+    }
+    setAuthSubStep('email');
+    setShowEmailAuthModal(true);
+  };
+
   const sendPendingFriendRequest = async () => {
     if (!pendingFriendInvite) return;
     setIsSendingFriendRequest(true);
@@ -317,22 +333,51 @@ const OnboardingPage = () => {
   const handleVerifyOtp = async (tokenOverride?: string) => {
     const token = tokenOverride || otpCode.join('');
     if (token.length !== 6) return;
-    
+
+    // Capture anonymous user ID BEFORE verifyOtp replaces the session
+    const anonymousUserId =
+      getCurrentAnonymousUserId() ||
+      getPreviousAnonymousUserId();
+
+    console.log('[onboarding] OTP verify — anonymous user to migrate:', anonymousUserId);
+
     setIsAuthenticating(true);
     try {
-        const anonymousUserId = beginAnonymousEmailUpgrade(getCurrentAnonymousUserId());
+        // Mark upgrade so AuthContext knows not to auto-recover the anon session
+        beginAnonymousEmailUpgrade(anonymousUserId);
+
         const { data, error } = await supabase.auth.verifyOtp({
             email: email.trim().toLowerCase(),
             token,
             type: 'email',
         });
         if (error) throw error;
+
         toast.success('¡Acceso verificado!');
         const emailUserId = data.session?.user?.id;
+        console.log('[onboarding] OTP verified — email user:', emailUserId);
+
+        // Migrate data from anonymous account to email account
         if (anonymousUserId && emailUserId && !data.session?.user?.is_anonymous) {
-            const migrated = await migrateStoredAnonymousDataToUser(emailUserId, anonymousUserId);
-            if (migrated) await queryClient.invalidateQueries();
+            console.log('[onboarding] Migrating from', anonymousUserId, 'to', emailUserId);
+            try {
+                const { error: rpcError } = await supabase.rpc('migrate_anonymous_data', {
+                    old_user_id: anonymousUserId,
+                    new_user_id: emailUserId,
+                });
+                if (rpcError) {
+                    console.error('[onboarding] RPC migrate_anonymous_data error:', rpcError);
+                } else {
+                    console.log('[onboarding] Migration successful');
+                    // Mark as migrated to prevent double-migration in AuthContext
+                    localStorage.setItem(`adonai_anonymous_migrated_${anonymousUserId}_${emailUserId}`, 'true');
+                    await queryClient.invalidateQueries();
+                }
+            } catch (rpcEx) {
+                console.error('[onboarding] RPC exception:', rpcEx);
+            }
         }
+
         clearAnonymousEmailUpgrade();
         await handleFinish(emailUserId);
     } catch (err: any) {
@@ -510,10 +555,10 @@ const OnboardingPage = () => {
               <ShieldCheck className="w-7 h-7 text-primary" />
             </div>
             <div className="space-y-1">
-              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-on-surface-variant/45">Protege tus tareas</p>
-              <h3 className="text-2xl font-black tracking-tight text-foreground">Inicia sesión con tu correo</h3>
+              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-on-surface-variant/45">Un paso más</p>
+              <h3 className="text-2xl font-black tracking-tight text-foreground">¿A dónde guardamos tus tareas?</h3>
               <p className="mx-auto max-w-sm text-sm leading-relaxed text-on-surface-variant/70">
-                Así guardas tu progreso aunque cambies de equipo. Si quieres, puedes cerrar esto y entrar como invitado.
+                Ya tienes tus tareas listas. Ingresa tu correo para que no las pierdas si cierras el navegador o cambias de equipo.
               </p>
             </div>
           </div>
@@ -576,10 +621,11 @@ const OnboardingPage = () => {
             onClick={() => {
               setShowEmailAuthModal(false);
               setAuthSubStep('email');
+              void handleFinish();
             }}
             className="mx-auto block px-3 py-2 text-[10px] font-black uppercase tracking-[0.22em] text-on-surface-variant/35 hover:text-on-surface-variant/70 transition-colors"
           >
-            Cancelar
+            Entrar sin correo
           </button>
         </div>
       </motion.div>
@@ -962,7 +1008,7 @@ const OnboardingPage = () => {
 
                 <div className="space-y-3">
                   <button
-                    onClick={isMobile ? handleFinish : next}
+                    onClick={handleAfterActivities}
                     disabled={isFinishing}
                     className="w-full h-20 primary-gradient text-primary-foreground rounded-[28px] font-black text-xl flex items-center justify-center gap-3 shadow-2xl shadow-primary/30 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
@@ -974,7 +1020,7 @@ const OnboardingPage = () => {
                   </button>
                   <button
                     type="button"
-                    onClick={isMobile ? handleFinish : next}
+                    onClick={handleAfterActivities}
                     className="mx-auto block px-4 py-2 text-[10px] font-black uppercase tracking-[0.22em] text-on-surface-variant/35 hover:text-on-surface-variant/70 transition-colors"
                   >
                     Saltar
@@ -989,28 +1035,15 @@ const OnboardingPage = () => {
                   <div className="w-16 h-16 rounded-[24px] bg-primary/10 flex items-center justify-center mx-auto">
                     <Lock className="w-8 h-8 text-primary" />
                   </div>
-                  <h2 className="text-4xl font-black tracking-tight leading-tight">
-                    Todo listo, {name.split(' ')[0]}.
+                  <h2 className="text-3xl font-black tracking-tight leading-tight sm:text-4xl">
+                    Felicidades, {name.split(' ')[0]}. Todo está listo.
                   </h2>
-                  <p className="text-2xl font-medium text-on-surface-variant leading-relaxed max-w-2xl mx-auto">
-                    Tu flujo ya esta armado. En la web puedes explorar y seguir capturando ideas. En la app de escritorio se activa la mini ventana.
+                  <p className="text-lg font-medium text-on-surface-variant leading-relaxed max-w-2xl mx-auto sm:text-2xl">
+                    En la web puedes usar la app (móvil y PC). Sin embargo, solo en la app de escritorio tienes habilitado el mini cuaderno con tus tareas y calendario siempre visibles.
                   </p>
                 </div>
 
-                <div className="mx-auto w-full max-w-2xl overflow-hidden rounded-[28px] border border-outline-variant/15 bg-surface-container-low shadow-2xl shadow-black/20">
-                  <video
-                    src="/videos/principal.mp4"
-                    preload="metadata"
-                    poster="/screenshots/daily-view.png"
-                    className="h-[220px] w-full object-cover sm:h-[260px]"
-                    autoPlay
-                    muted
-                    loop
-                    playsInline
-                  />
-                </div>
-
-                <div className="space-y-4">
+                <div className="space-y-4 max-w-md mx-auto pt-6">
                   {isElectron ? (
                     <button 
                       onClick={activateFloatingWindow}
@@ -1027,24 +1060,24 @@ const OnboardingPage = () => {
                     <div className="grid gap-3 sm:grid-cols-2">
                       <button 
                         onClick={() => startGuidedDownload(preferredDownloadPlatform === 'mac' ? 'mac' : 'win')}
-                        className="w-full h-20 rounded-[28px] font-black text-xl flex items-center justify-center gap-3 transition-all bg-foreground text-background hover:scale-[1.02]"
+                        className="w-full h-20 rounded-[28px] font-black text-lg flex items-center justify-center gap-3 transition-all bg-foreground text-background hover:scale-[1.02] active:scale-95 shadow-xl"
                       >
-                        <Monitor className="w-6 h-6" />
+                        <Monitor className="w-5 h-5" />
                         Descargar {preferredDownloadPlatform === 'mac' ? 'Mac' : 'Windows'}
                       </button>
                       <button 
                         onClick={() => startGuidedDownload(preferredDownloadPlatform === 'mac' ? 'win' : 'mac')}
-                        className="w-full h-20 rounded-[28px] font-black text-xl flex items-center justify-center gap-3 transition-all bg-surface-container-high text-foreground border border-outline-variant/20 hover:bg-surface-container-highest hover:scale-[1.02]"
+                        className="w-full h-20 rounded-[28px] font-black text-lg flex items-center justify-center gap-3 transition-all bg-surface-container-high text-foreground border border-outline-variant/20 hover:bg-surface-container-highest hover:scale-[1.02] active:scale-95 shadow-lg"
                       >
-                        <Monitor className="w-6 h-6" />
+                        <Monitor className="w-5 h-5" />
                         Descargar {preferredDownloadPlatform === 'mac' ? 'Windows' : 'Mac'}
                       </button>
                     </div>
                   )}
 
                   <button 
-                    onClick={() => setShowWebChoiceModal(true)}
-                    className="w-full h-16 rounded-[24px] border border-outline-variant/15 bg-surface-container-low/70 text-on-surface-variant/70 font-black uppercase tracking-widest text-[10px] hover:text-primary transition-colors"
+                    onClick={() => handleFinish()}
+                    className="w-full h-16 rounded-[24px] border border-primary/20 bg-primary/10 text-primary font-black uppercase tracking-widest text-[11px] hover:bg-primary/15 active:scale-95 transition-all shadow-md mt-4"
                   >
                     Seguir en la web
                   </button>
@@ -1189,8 +1222,8 @@ const OnboardingPage = () => {
                   )}
 
                   <button
-                    onClick={() => setShowWebChoiceModal(true)}
-                    className="w-full h-14 rounded-[24px] border border-outline-variant/15 bg-surface-container-low/50 text-on-surface-variant/60 font-bold text-sm hover:text-primary hover:border-primary/30 transition-colors"
+                    onClick={() => handleFinish()}
+                    className="w-full h-14 rounded-[24px] border border-primary/20 bg-primary/10 text-primary font-bold text-sm hover:bg-primary/15 hover:border-primary/30 transition-colors"
                   >
                     Seguir en la web
                   </button>

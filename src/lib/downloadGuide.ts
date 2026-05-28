@@ -21,9 +21,12 @@ export function triggerInstallerDownload(platform: DownloadPlatform) {
 
 export function startGuidedDownload(platform: DownloadPlatform, skipAuthGate = false) {
   if (!skipAuthGate) {
-    const onboardingDone = localStorage.getItem('adonai_onboarding_done') === 'true';
     const sessionType = localStorage.getItem('adonai_session_type');
-    if (onboardingDone && sessionType === 'anonymous') {
+    
+    // Si tiene una sesión de invitado/anónima activa (lo que indica que ya completó
+    // el paso de actividades diarias y tiene datos locales en proceso o guardados), 
+    // se le exige registrar su correo antes de descargar para sincronizar y no perder sus tareas.
+    if (sessionType === 'anonymous') {
       window.dispatchEvent(new CustomEvent('adonai:show-download-gate', { detail: { platform } }));
       return;
     }

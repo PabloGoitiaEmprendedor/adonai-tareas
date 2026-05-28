@@ -132,6 +132,7 @@ export async function migrateStoredAnonymousDataToUser(newUserId: string, oldUse
     clearAnonymousEmailUpgrade();
     clearAnonymousUserId();
     localStorage.setItem('adonai_session_type', 'email');
+    localStorage.setItem('adonai_has_linked_account', 'true');
   }
 
   return migrated;

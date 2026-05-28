@@ -70,7 +70,7 @@ const DownloadGateModal = () => {
                     Guarda tus datos primero
                   </h2>
                   <p className="text-on-surface-variant text-sm font-medium leading-relaxed">
-                    Completaste el onboarding pero tus tareas están en modo invitado. 
+                    Completaste los primeros pasos pero tus tareas están en modo invitado. 
                     Inicia sesión con tu correo para que tus datos se sincronicen al descargar la app.
                   </p>
                 </div>

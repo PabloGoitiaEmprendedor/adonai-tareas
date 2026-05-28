@@ -1,17 +1,15 @@
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Apple, HelpCircle, Mail, Menu, Monitor, X, LogIn, User } from "lucide-react";
+import { Apple, HelpCircle, Mail, Menu, Monitor, X, LogIn, User, MessageCircle } from "lucide-react";
 import { BrandLogo } from "@/components/BrandLogo";
 import { startGuidedDownload } from "@/lib/downloadGuide";
-
-const SUPPORT_EMAIL = "pablo@webadonai.com";
 
 const NAV_LINKS = [
   { label: "Inicio", section: "inicio" },
   { label: "Como funciona", section: "como-funciona" },
-  { label: "Precio", section: "precio" },
+  { label: "Precios", to: "/precio" },
   { label: "Preguntas frecuentes", to: "/faq" },
-  { label: "Soporte", support: true },
+  { label: "Soporte", href: "https://wa.me/message/KIUXTXD5QBPEJ1" },
 ];
 
 function NavPlatformChoice({ onClose }: { onClose: () => void }) {
@@ -46,56 +44,15 @@ function NavPlatformChoice({ onClose }: { onClose: () => void }) {
   );
 }
 
-function SupportModal({ onClose }: { onClose: () => void }) {
-  const [copied, setCopied] = useState(false);
-
-  const copyEmail = async () => {
-    await navigator.clipboard.writeText(SUPPORT_EMAIL);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1800);
-  };
-
-  return (
-    <div className="fixed inset-0 z-[90] flex items-end justify-center bg-[#151820]/62 p-3 backdrop-blur-sm sm:items-start sm:pt-20">
-      <div className="w-full max-w-sm overflow-hidden rounded-[24px] border border-white/15 bg-white shadow-[0_28px_90px_rgba(21,24,32,0.3)]">
-        <div className="flex items-center gap-3 bg-[#151820] p-5 text-white">
-          <img src="/logo.png" alt="" className="h-10 w-10 rounded-xl object-contain" />
-          <div>
-            <p className="text-base font-black leading-none">Soporte</p>
-            <p className="mt-1 text-xs font-semibold text-white/52">Escribenos cuando necesites ayuda.</p>
-          </div>
-        </div>
-        <div className="p-4">
-          <div className="rounded-2xl border border-[#151820]/8 bg-[#F7F6F1] p-4">
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#151820]/42">Correo</p>
-            <p className="mt-2 text-lg font-black text-[#151820]">{SUPPORT_EMAIL}</p>
-          </div>
-          <button onClick={copyEmail} className="mt-3 w-full rounded-full bg-[#151820] px-5 py-3 text-sm font-black text-white transition hover:bg-[#0B0F17]">
-            {copied ? "Copiado" : "Copiar correo"}
-          </button>
-          <button onClick={onClose} className="mt-2 w-full rounded-full px-4 py-3 text-xs font-black text-[#151820]/45 transition hover:text-[#151820]">
-            Volver
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export function PublicNav({ user, profile }: { user?: any; profile?: any }) {
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [choiceOpen, setChoiceOpen] = useState(false);
-  const [supportOpen, setSupportOpen] = useState(false);
 
   const scrollToLandingSection = (section: string) => {
     if (section === "precio") {
-      if (location.pathname !== "/landing" && location.pathname !== "/") {
-        navigate("/landing?show=precio");
-        return;
-      }
-      navigate("?show=precio", { replace: true });
+      navigate("/precio");
       return;
     }
     if (location.pathname !== "/landing" && location.pathname !== "/") {
@@ -111,19 +68,18 @@ export function PublicNav({ user, profile }: { user?: any; profile?: any }) {
       ? "block w-full rounded-xl px-4 py-3 text-left text-sm font-bold text-[#151820] transition-colors hover:bg-white/18"
       : "rounded-full px-4 py-2 text-sm font-bold text-[#151820] transition-colors hover:bg-white/18";
 
-    if ("support" in item) {
+    if ("href" in item) {
       return (
-        <button
+        <a
           key={item.label}
-          type="button"
-          onClick={() => {
-            setSupportOpen(true);
-            setMobileOpen(false);
-          }}
+          href={item.href}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={() => setMobileOpen(false)}
           className={className}
         >
           {item.label}
-        </button>
+        </a>
       );
     }
 
@@ -200,21 +156,6 @@ export function PublicNav({ user, profile }: { user?: any; profile?: any }) {
                 <Monitor className="h-3.5 w-3.5 text-[#5B7CFA]" />
                 Descargar ahora
               </button>
-              <Link
-                to="/faq"
-                className="inline-flex items-center gap-1.5 rounded-full border border-[#151820]/16 px-4 py-2 text-xs font-bold text-[#151820] transition hover:bg-white/18"
-              >
-                <HelpCircle className="h-3.5 w-3.5" />
-                Preguntas frecuentes
-              </Link>
-              <button
-                type="button"
-                onClick={() => setSupportOpen(true)}
-                className="inline-flex items-center gap-1.5 rounded-full border border-[#151820]/16 px-4 py-2 text-xs font-bold text-[#151820] transition hover:bg-white/18"
-              >
-                <Mail className="h-3.5 w-3.5" />
-                Soporte
-              </button>
             </>
           )}
         </div>
@@ -281,7 +222,6 @@ export function PublicNav({ user, profile }: { user?: any; profile?: any }) {
         </div>
       )}
       {choiceOpen && <NavPlatformChoice onClose={() => setChoiceOpen(false)} />}
-      {supportOpen && <SupportModal onClose={() => setSupportOpen(false)} />}
     </header>
   );
 }

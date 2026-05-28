@@ -31,7 +31,6 @@ BEGIN
   FROM settings src
   WHERE src.user_id = old_user_id AND dest.user_id = new_user_id;
 
-  -- Reassign tables that can have multiple rows per user
   UPDATE tasks SET user_id = new_user_id WHERE user_id = old_user_id;
   UPDATE recurrence_rules SET user_id = new_user_id WHERE user_id = old_user_id;
   UPDATE usage_events SET user_id = new_user_id WHERE user_id = old_user_id;
@@ -39,6 +38,6 @@ BEGIN
   UPDATE folders SET user_id = new_user_id WHERE user_id = old_user_id;
   UPDATE goals SET user_id = new_user_id WHERE user_id = old_user_id;
   UPDATE time_blocks SET user_id = new_user_id WHERE user_id = old_user_id;
-  UPDATE user_email_settings SET user_id = new_user_id WHERE user_id = old_user_id;
+  UPDATE contexts SET user_id = new_user_id WHERE user_id = old_user_id;
 END;
 $$;
