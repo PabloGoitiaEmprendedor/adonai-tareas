@@ -432,21 +432,38 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
     };
   }, [notion.connection, notion.mappings.length, notion.sync]);
 
-  const isWelcomePage = location.pathname === '/welcome';
-  const isAuthPage = location.pathname === '/auth';
-  const isMiniPage = location.pathname === '/mini';
-  const isCalendarPage = location.pathname === '/calendar';
-  const isLandingPage = location.pathname === '/' || location.pathname === '/landing';
-  const isPrivacyPage = location.pathname === '/politica-de-privacidad';
-  const isTermsPage = location.pathname === '/terminos-de-servicio';
-  const isDocsPage = location.pathname.startsWith('/docs');
-  const isCaracteristicasPage = location.pathname === '/caracteristicas';
-  const isFaqPage = location.pathname === '/faq';
-  const isOnboardingPage = location.pathname === '/onboarding';
-  const isInvitePage = location.pathname.startsWith('/invite/');
-  const isGroupInvitePage = location.pathname.startsWith('/group-invite/');
+  const cleanPath = location.pathname.toLowerCase().trim().replace(/\/$/, '');
+  const isWelcomePage = cleanPath === '/welcome';
+  const isAuthPage = cleanPath === '/auth';
+  const isMiniPage = cleanPath === '/mini';
+  const isCalendarPage = cleanPath === '/calendar';
+  const isLandingPage = cleanPath === '' || cleanPath === '/' || cleanPath === '/landing';
+  const isPrivacyPage = cleanPath === '/politica-de-privacidad';
+  const isTermsPage = cleanPath === '/terminos-de-servicio';
+  const isDocsPage = cleanPath.startsWith('/docs');
+  const isCaracteristicasPage = cleanPath === '/caracteristicas';
+  const isFaqPage = cleanPath === '/faq';
+  const isPrecioPage = cleanPath === '/precio' || cleanPath === '/precios' || cleanPath === '/pricing';
+  const isExitCodesPage = cleanPath === '/codigos-de-retorno';
+  const isOnboardingPage = cleanPath === '/onboarding';
+  const isInvitePage = cleanPath.startsWith('/invite');
+  const isGroupInvitePage = cleanPath.startsWith('/group-invite');
   
-  const showNavigation = !loading && !isWelcomePage && !isAuthPage && !isMiniPage && !isLandingPage && !isPrivacyPage && !isTermsPage && !isDocsPage && !isCaracteristicasPage && !isFaqPage && !isOnboardingPage && !isInvitePage && !isGroupInvitePage;
+  const showNavigation = !loading && 
+    !isWelcomePage && 
+    !isAuthPage && 
+    !isMiniPage && 
+    !isLandingPage && 
+    !isPrivacyPage && 
+    !isTermsPage && 
+    !isDocsPage && 
+    !isCaracteristicasPage && 
+    !isFaqPage && 
+    !isOnboardingPage && 
+    !isInvitePage && 
+    !isGroupInvitePage && 
+    !isPrecioPage &&
+    !isExitCodesPage;
 
   if (!showNavigation) {
     return <>{children}</>;
