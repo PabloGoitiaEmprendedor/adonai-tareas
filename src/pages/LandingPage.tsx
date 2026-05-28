@@ -1,6 +1,7 @@
-import { type ReactNode, useEffect, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+﻿import { type ReactNode, useEffect, useRef, useState } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
+import OrbitalSystem from "@/components/ui/OrbitalSystem";
 import {
   Apple,
   ArrowRight,
@@ -8,15 +9,13 @@ import {
   CalendarDays,
   Check,
   ChevronRight,
-  Clock3,
   Globe,
   Loader2,
   MessageCircle,
   Monitor,
   NotebookPen,
-  Timer,
-  Zap,
   User,
+  VolumeX,
 } from "lucide-react";
 import { PublicFooter } from "@/components/PublicFooter";
 import { PublicNav } from "@/components/PublicNav";
@@ -136,7 +135,7 @@ function PlatformChoiceModal({ onClose }: { onClose: () => void }) {
   );
 }
 
-function PrimaryCTA({ className = "", tone = "brand" }: { className?: string; tone?: "brand" | "dark" }) {
+function PrimaryCTA({ className = "", tone = "brand", label = "Descargar ahora" }: { className?: string; tone?: "brand" | "dark"; label?: string }) {
   const [open, setOpen] = useState(false);
   const toneClass =
     tone === "dark"
@@ -149,7 +148,7 @@ function PrimaryCTA({ className = "", tone = "brand" }: { className?: string; to
         onClick={() => setOpen(true)}
         className={`group inline-flex h-14 w-full items-center justify-center gap-2 rounded-full px-6 text-sm font-semibold transition hover:-translate-y-0.5 active:translate-y-0 sm:w-auto sm:px-7 ${toneClass} ${className}`}
       >
-        Descargar ahora
+        {label}
         <ArrowRight className="h-4 w-4 animate-[ctaArrow_1.15s_ease-in-out_infinite]" />
       </button>
       {open && <PlatformChoiceModal onClose={() => setOpen(false)} />}
@@ -198,49 +197,6 @@ function SectionLabel({ children }: { children: ReactNode }) {
   );
 }
 
-function ProductDemo() {
-  return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.98, y: 18 }}
-      animate={{ opacity: 1, scale: 1, y: 0 }}
-      transition={{ duration: 0.6, ease: "easeOut", delay: 0.1 }}
-      className="relative"
-    >
-      <div className="overflow-hidden rounded-[28px] border border-white/16 bg-[#0D1017] shadow-[0_32px_90px_rgba(21,24,32,0.24)]">
-        <div className="flex h-9 items-center gap-2 border-b border-white/8 px-4">
-          <span className="h-2.5 w-2.5 rounded-full bg-[#FF6B5F]" />
-          <span className="h-2.5 w-2.5 rounded-full bg-[#F4B860]" />
-          <span className="h-2.5 w-2.5 rounded-full bg-[#6FCF97]" />
-          <span className="ml-3 text-[11px] font-bold text-white/38">Adonai mental OS</span>
-        </div>
-        <video
-          src="/videos/principal.mp4"
-          autoPlay
-          loop
-          muted
-          playsInline
-          preload="metadata"
-          className="aspect-[4/3] w-full object-contain sm:aspect-[16/11]"
-        />
-      </div>
-
-      <div className="absolute -bottom-5 left-4 right-4 rounded-2xl border border-white/18 bg-white/90 p-3 shadow-[0_22px_55px_rgba(21,24,32,0.16)] backdrop-blur-xl sm:left-auto sm:right-6 sm:w-[290px]">
-        <div className="mb-2 flex items-center gap-2">
-          <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#E9F0FF] text-[#5B7CFA]">
-            <Zap className="h-4 w-4" />
-          </span>
-          <div>
-            <p className="text-xs font-black text-[#151820]">Captura instantanea</p>
-            <p className="text-[11px] font-semibold leading-snug text-[#151820]/48">
-              No abras otra app. Usa la mini ventana siempre presente en tu escritorio.
-            </p>
-          </div>
-        </div>
-      </div>
-    </motion.div>
-  );
-}
-
 function Hero() {
   return (
     <section id="inicio" className="relative overflow-hidden bg-[#F7F6F1] px-5 pb-20 pt-12 sm:px-8 sm:pb-24 sm:pt-16 lg:px-10 lg:pt-20">
@@ -253,7 +209,7 @@ function Hero() {
           </h1>
 
           <p className="mt-7 max-w-2xl text-lg font-semibold leading-relaxed text-[#151820]/62 sm:text-xl">
-            Convierte tu ruido mental en accion clara, sin estres. Captura pendientes en segundos. Sin abrir apps. Crea metas, agrega amigos y pasa del caos a una vida organizada sin esfuerzo.
+            Organiza tu vida y proyectos m&aacute;s f&aacute;cil. (En un solo lugar, no mas apps)
           </p>
 
           <div className="mt-9 flex max-w-4xl flex-col items-start gap-3">
@@ -261,15 +217,29 @@ function Hero() {
             <WebButton label="Verlo en la web" />
           </div>
 
-          <div className="mt-8 flex max-w-md items-center gap-3 rounded-2xl border border-[#151820]/8 bg-white/70 p-3 shadow-sm backdrop-blur">
-            <img src="/logo.png" alt="Adonai" className="h-12 w-12 flex-shrink-0 rounded-2xl object-contain" />
-            <p className="text-sm font-bold leading-relaxed text-[#151820]/62">
-              Piensalo como ese amigo que te dice: sueltalo aqui, yo lo mantengo visible.
-            </p>
-          </div>
         </motion.div>
 
-        <ProductDemo />
+        <OrbitalSystem />
+      </div>
+    </section>
+  );
+}
+
+function CenteredPhrase() {
+  return (
+    <section className="border-t border-[#151820]/6 bg-white px-5 py-16 sm:px-8 lg:px-10">
+      <div className="mx-auto max-w-5xl">
+        <div className="rounded-[24px] border border-[#5B7CFA]/10 bg-[#F7F6F1] p-8 text-center shadow-sm sm:p-12">
+          <motion.p
+            initial={{ opacity: 0, y: 12 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5, ease: "easeOut" }}
+            className="text-2xl font-black leading-[1.1] tracking-[-0.02em] text-[#151820] sm:text-4xl"
+          >
+            &ldquo;no dejes que lo urgente mate a lo importante en tu vida o negocio&rdquo;
+          </motion.p>
+        </div>
       </div>
     </section>
   );
@@ -420,10 +390,10 @@ function NotebookInsight() {
 
         <motion.div {...fadeUp} className="mt-12 grid gap-4 md:grid-cols-2">
           {[
-            { title: "Con libreta", text: "Capturas rapido, pero despues tienes que volver a buscar, reinterpretar, recordar y pasar todo manualmente al calendario.", highlight: false },
-            { title: "Con Adonai", text: "Capturas igual de rapido, pero tus pendientes quedan visibles, accionables y listos para convertirse en foco, calendario o siguiente paso.", highlight: true },
-            { title: "Lo que se pierde en papel", text: "Ideas enterradas, tareas duplicadas, fechas olvidadas, prioridades mezcladas y esa sensacion de que algo importante se te esta escapando.", highlight: false },
-            { title: "Lo que cambia con Adonai", text: "La mente descansa porque el sistema te acompana: recibe el caos, lo mantiene cerca y te ayuda a avanzar sin administrar otra vida.", highlight: true },
+            { title: "Con libreta", text: "Capturas rapido, pero luego reinterpretas y pasas todo manualmente.", highlight: false },
+            { title: "Con Adonai", text: "Capturas igual de rapido, pero tus pendientes quedan visibles y accionables al instante.", highlight: true },
+            { title: "Lo que se pierde en papel", text: "Ideas enterradas, fechas olvidadas y prioridades mezcladas.", highlight: false },
+            { title: "Lo que cambia con Adonai", text: "La mente descansa porque el sistema recibe el caos y te ayuda a avanzar.", highlight: true },
           ].map((item) => (
             <div
               key={item.title}
@@ -470,51 +440,106 @@ function NotebookInsight() {
   );
 }
 
-function ProductFlow() {
-  const demos = [
-    {
-      src: "/videos/de-tarea-a-calendario.mp4",
-      title: "De pendiente a calendario",
-      text: "Cuando una tarea necesita hora, la conviertes en bloque de ejecucion sin copiar y pegar.",
-      icon: <CalendarDays className="h-4 w-4" />,
-    },
-    {
-      src: "/videos/tiempo.mp4",
-      title: "Foco con limite",
-      text: "Ponle tiempo a la accion para que una tarea pequena no se coma todo el dia.",
-      icon: <Clock3 className="h-4 w-4" />,
-    },
-  ];
+function NotebookCTA() {
+  return (
+    <section className="bg-[#151820] px-5 py-16 text-white sm:px-8 lg:px-10">
+      <div className="mx-auto max-w-3xl text-center">
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.5, ease: "easeOut" }}
+        >
+          <p className="text-lg font-semibold leading-relaxed text-white/62">
+            Deja de pelear con tu libreta y tus apps. Adonai unifica todo.
+          </p>
+          <div className="mt-8 flex justify-center">
+            <PrimaryCTA tone="dark" />
+          </div>
+        </motion.div>
+      </div>
+    </section>
+  );
+}
+
+function ClickToPlayVideo({ src }: { src: string }) {
+  const [activated, setActivated] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  const handleActivate = async () => {
+    const video = videoRef.current;
+    if (!video) return;
+    video.muted = false;
+    try {
+      await video.play();
+      setActivated(true);
+    } catch {}
+  };
 
   return (
-    <section id="como-funciona" className="bg-white px-5 py-20 sm:px-8 md:py-28 lg:px-10">
-      <div className="mx-auto max-w-6xl">
-        <motion.div {...fadeUp} className="mb-12 flex flex-col justify-between gap-6 md:flex-row md:items-end">
-          <div className="max-w-3xl">
-            <SectionLabel>Como funciona</SectionLabel>
-            <h2 className="text-4xl font-black leading-[0.98] tracking-[-0.03em] text-[#151820] sm:text-6xl">
-              De ruido mental a dia claro en menos de un minuto.
-            </h2>
-          </div>
-          <PrimaryCTA className="md:flex-shrink-0" />
+    <div className="relative overflow-hidden rounded-[28px] bg-[#0D1017] shadow-[0_32px_90px_rgba(21,24,32,0.24)]">
+      <video
+        ref={videoRef}
+        src={src}
+        playsInline
+        preload="auto"
+        controls={activated}
+        className="aspect-video w-full object-contain"
+      />
+      {!activated && (
+        <button
+          type="button"
+          onClick={handleActivate}
+          className="absolute inset-0 flex cursor-pointer items-center justify-center bg-black/35 backdrop-blur-[1px] transition hover:bg-black/45"
+        >
+          <motion.div
+            initial={{ scale: 0.85, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ duration: 0.3, ease: "easeOut" }}
+            className="flex h-16 w-16 items-center justify-center rounded-full bg-white shadow-lg"
+          >
+            <VolumeX className="h-7 w-7 text-[#151820]" />
+          </motion.div>
+        </button>
+      )}
+    </div>
+  );
+}
+
+function VideoTutorial() {
+  return (
+    <section id="como-funciona" className="bg-[#F7F6F1] px-5 py-20 sm:px-8 md:py-28 lg:px-10">
+      <div className="mx-auto max-w-5xl">
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.25 }}
+          transition={{ duration: 0.5, ease: "easeOut" }}
+          className="mb-12 text-center"
+        >
+          <h2 className="text-4xl font-black leading-[0.98] tracking-[-0.03em] text-[#151820] sm:text-6xl">
+            Descubre c&oacute;mo funciona
+          </h2>
         </motion.div>
 
-        <div className="grid gap-5 lg:grid-cols-2">
-          {demos.map((demo) => (
-            <motion.article key={demo.title} {...fadeUp} className="overflow-hidden rounded-[28px] border border-[#151820]/8 bg-[#F7F6F1]">
-              <div className="bg-[#0D1017]">
-                <video src={demo.src} autoPlay loop muted playsInline preload="metadata" className="aspect-[16/10] w-full object-contain" />
-              </div>
-              <div className="p-6">
-                <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-white text-[#5B7CFA] shadow-sm">
-                  {demo.icon}
-                </div>
-                <h3 className="text-2xl font-black tracking-[-0.02em] text-[#151820]">{demo.title}</h3>
-                <p className="mt-3 text-sm font-semibold leading-relaxed text-[#151820]/58">{demo.text}</p>
-              </div>
-            </motion.article>
-          ))}
-        </div>
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.25 }}
+          transition={{ duration: 0.5, ease: "easeOut", delay: 0.1 }}
+        >
+          <ClickToPlayVideo src="/videos/video-tutorial.mp4" />
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.25 }}
+          transition={{ duration: 0.5, ease: "easeOut", delay: 0.2 }}
+          className="mt-10 text-center"
+        >
+          <PrimaryCTA tone="dark" label="Descargar Adonai" />
+        </motion.div>
       </div>
     </section>
   );
@@ -625,42 +650,108 @@ function EmotionalDesign() {
 }
 
 function Pricing() {
+  // TODO: reemplazar con el link real de pago
+  const payLink = "https://example.com/pay";
+
+  const freeFeatures = [
+    "Tareas ilimitadas",
+    "Calendario inteligente",
+    "Mini ventana flotante",
+    "Integraciones (Google Calendar, Notion)",
+    "Sistema de amigos y racha",
+    "Acceso web y desktop",
+  ];
+
+  const proFeatures = [
+    { text: "Todo lo del plan Gratis", sub: "" },
+    { text: "IA que te conoce y aprende de ti", sub: "Cada semana entiende mejor tu ritmo, prioridades y bloqueos" },
+    { text: "Planificaci\u00f3n autom\u00e1tica de tu d\u00eda", sub: "La IA organiza tu agenda seg\u00fan lo que importa hoy" },
+    { text: "Priorizaci\u00f3n inteligente de tareas", sub: "Sabe qu\u00e9 hacer primero sin que t\u00fa lo pienses" },
+    { text: "Recomendaciones para lograr tus metas", sub: "Acciones concretas paso a paso seg\u00fan tus objetivos" },
+    { text: "IA integrada en tu d\u00eda a d\u00eda", sub: "No es un chatbot: es tu copiloto de productividad" },
+  ];
+
   return (
     <section id="precio" className="bg-[#F7F6F1] px-5 py-20 sm:px-8 md:py-28 lg:px-10">
-      <div className="mx-auto max-w-6xl overflow-hidden rounded-[30px] border border-[#151820]/8 bg-white shadow-sm">
-        <div className="grid lg:grid-cols-[1.05fr_0.95fr]">
-          <div className="p-7 sm:p-10 lg:p-12">
-            <SectionLabel>Beta</SectionLabel>
-            <h2 className="text-4xl font-black leading-[0.98] tracking-[-0.03em] text-[#151820] sm:text-5xl">
-              Empieza sin riesgo. Ordena tu cabeza esta semana.
-            </h2>
-            <p className="mt-6 text-lg font-semibold leading-relaxed text-[#151820]/62">
-              Usa Adonai Pro gratis durante 3 meses mientras construimos la herramienta junto a emprendedores reales.
-            </p>
-            <div className="mt-8 flex flex-col gap-3">
+      <div className="mx-auto max-w-5xl">
+        <motion.div {...fadeUp} className="mb-12 text-center">
+          <h2 className="text-4xl font-black leading-[0.98] tracking-[-0.03em] text-[#151820] sm:text-5xl">
+            El plan que necesites
+          </h2>
+          <p className="mt-4 text-lg font-semibold text-[#151820]/62">
+            Empieza gratis. Cuando quieras m&aacute;s, actualizas.
+          </p>
+        </motion.div>
+
+        <div className="grid gap-6 lg:grid-cols-2">
+          {/* Plan Gratis */}
+          <motion.div {...fadeUp} className="rounded-[28px] border border-[#151820]/8 bg-white p-8 shadow-sm">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#5B7CFA]">Gratis</p>
+            <p className="mt-2 text-5xl font-black text-[#151820]">$0</p>
+            <p className="mt-1 text-sm font-semibold text-[#151820]/48">Siempre gratis</p>
+
+            <div className="mt-8 space-y-3">
+              {freeFeatures.map((f) => (
+                <div key={f} className="flex items-center gap-3 text-sm font-bold text-[#151820]/72">
+                  <Check className="h-4 w-4 flex-shrink-0 text-[#6FCF97]" />
+                  {f}
+                </div>
+              ))}
+              <div className="flex items-center gap-3 text-sm font-bold text-[#151820]/30 pt-1 border-t border-[#151820]/6 mt-1">
+                <Brain className="h-4 w-4 flex-shrink-0" />
+                Sin inteligencia artificial
+              </div>
+            </div>
+
+            <div className="mt-8 space-y-2">
               <PrimaryCTA />
               <WebButton />
             </div>
-          </div>
-          <div className="bg-[#151820] p-7 text-white sm:p-10 lg:p-12">
-            <p className="text-xs font-black uppercase tracking-[0.22em] text-[#6FCF97]">Incluye</p>
-            <div className="mt-7 space-y-4">
-              {["Tareas ilimitadas", "Calendario", "Mini ventana", "Integraciones", "Amigos", "Racha"].map((item) => (
-                <div key={item} className="flex items-center gap-3 text-sm font-bold text-white/72">
-                  <Check className="h-5 w-5 text-[#6FCF97]" />
-                  {item}
+          </motion.div>
+
+          {/* Plan Pro */}
+          <motion.div
+            {...fadeUp}
+            className="relative rounded-[28px] border border-[#5B7CFA]/25 bg-[#151820] p-8 text-white shadow-[0_18px_50px_rgba(91,124,250,0.18)]"
+          >
+            <div className="absolute right-6 top-6 rounded-full bg-[#5B7CFA] px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-white">
+              Recomendado
+            </div>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#AFC0FF]">Pro</p>
+            <p className="mt-2 text-5xl font-black text-white">$12</p>
+            <p className="mt-1 text-sm font-semibold text-white/48">Por mes &bull; cancela cuando quieras</p>
+
+            <div className="mt-8 space-y-4">
+              {proFeatures.map((f) => (
+                <div key={f.text} className="flex items-start gap-3">
+                  <Check className="mt-0.5 h-4 w-4 flex-shrink-0 text-[#6FCF97]" />
+                  <div>
+                    <p className="text-sm font-bold text-white/88">{f.text}</p>
+                    {f.sub && <p className="mt-0.5 text-xs font-semibold leading-relaxed text-white/44">{f.sub}</p>}
+                  </div>
                 </div>
               ))}
             </div>
-            <div className="mt-8 rounded-2xl border border-white/10 bg-white/[0.04] p-5">
-              <p className="text-5xl font-black">$0</p>
-              <p className="mt-2 text-sm font-semibold text-white/52">por 3 meses en beta. Luego plan Pro.</p>
+
+            <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.05] p-4">
+              <p className="text-xs font-black uppercase tracking-[0.14em] text-[#AFC0FF]">C&oacute;mo funciona la IA</p>
+              <p className="mt-2 text-xs font-semibold leading-relaxed text-white/58">
+                Cuanto m&aacute;s la usas, m&aacute;s sabe qu&eacute; necesitas y cu&aacute;ndo. No es otro chatbot, es un copiloto que aprende de tu rutina y te ayuda a avanzar en tus metas sin saturarte.
+              </p>
             </div>
-            <div className="mt-5 flex flex-wrap gap-2">
-              <DownloadButton platform="win" compact />
-              <DownloadButton platform="mac" compact />
+
+            <div className="mt-6">
+              <a
+                href={payLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex h-14 w-full items-center justify-center gap-2 rounded-full bg-[#5B7CFA] px-6 text-sm font-semibold text-white shadow-[0_18px_45px_rgba(91,124,250,0.26)] transition hover:bg-[#4F6EE8] hover:-translate-y-0.5 active:translate-y-0"
+              >
+                Obtener Pro
+                <ArrowRight className="h-4 w-4 animate-[ctaArrow_1.15s_ease-in-out_infinite]" />
+              </a>
             </div>
-          </div>
+          </motion.div>
         </div>
       </div>
     </section>
@@ -673,15 +764,15 @@ function FAQPreview() {
     ["Necesito configurar un metodo?", "No. La idea es capturar rapido, ver claro y actuar. Puedes ordenar despues, no antes."],
     ["Es para equipos grandes?", "Adonai esta pensado primero para emprendedores, freelancers y operadores que viven entre clientes, chats, ideas y urgencias."],
     ["Puedo usarlo si amo mi libreta?", "Si. Adonai toma lo mejor de la libreta: cero friccion. Pero lo hace visible, conectado y accionable."],
+    ["Que incluye el plan Pro?", "El plan Pro agrega inteligencia artificial que aprende de ti con el tiempo: organiza tu dia, prioriza tus tareas, te sugiere acciones para tus metas y se integra a tu rutina diaria."],
   ];
 
   return (
     <section id="faq" className="bg-white px-5 py-20 sm:px-8 md:py-28 lg:px-10">
       <div className="mx-auto max-w-4xl">
         <motion.div {...fadeUp} className="mb-12 text-center">
-          <SectionLabel>Preguntas frecuentes</SectionLabel>
           <h2 className="text-4xl font-black leading-[0.98] tracking-[-0.03em] text-[#151820] sm:text-5xl">
-            Lo esencial antes de vaciar tu mente.
+            Preguntas frecuentes
           </h2>
         </motion.div>
 
@@ -750,6 +841,8 @@ function MobileStickyCTA() {
 export default function LandingPage() {
   const { user } = useAuth();
   const { profile } = useProfile();
+  const [searchParams] = useSearchParams();
+
   useEffect(() => {
     document.title = "Adonai | Sistema operativo mental para emprendedores LATAM";
     document.querySelector('meta[name="description"]')?.setAttribute(
@@ -758,27 +851,37 @@ export default function LandingPage() {
     );
   }, []);
 
+  useEffect(() => {
+    if (searchParams.get("show") === "precio") {
+      setTimeout(() => {
+        document.getElementById("precio")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 100);
+    }
+  }, [searchParams]);
+
   return (
     <div className="min-h-screen overflow-x-hidden bg-[#151820] text-[#151820] selection:bg-[#5B7CFA] selection:text-white">
       <IntroExperience />
       <div className="bg-white">
-      <PublicNav user={user} profile={profile} />
-      <main className="pt-16">
-        <Hero />
-        <IntegrationsStrip />
-        <PainMirror />
-        <NotebookInsight />
-        <ProductFlow />
-        <Differentiation />
-        <LatamUseCases />
-        <EmotionalDesign />
-        <Pricing />
-        <FAQPreview />
-        <SemanticBlock />
-        <FinalCTA />
-      </main>
-      <PublicFooter />
-      <MobileStickyCTA />
+        <PublicNav user={user} profile={profile} />
+        <main className="pt-16">
+          <Hero />
+          <VideoTutorial />
+          <IntegrationsStrip />
+          <CenteredPhrase />
+          <PainMirror />
+          <NotebookInsight />
+          <NotebookCTA />
+          <Differentiation />
+          <LatamUseCases />
+          <EmotionalDesign />
+          <FAQPreview />
+          <Pricing />
+          <SemanticBlock />
+          <FinalCTA />
+        </main>
+        <PublicFooter />
+        <MobileStickyCTA />
       </div>
     </div>
   );

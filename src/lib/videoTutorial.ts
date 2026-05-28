@@ -17,3 +17,9 @@ export const completePostOnboardingVideoTutorial = () => {
   localStorage.setItem(VIDEO_TUTORIAL_SEEN_KEY, 'true');
   localStorage.removeItem(POST_ONBOARDING_VIDEO_PENDING_KEY);
 };
+
+export const replayVideoTutorial = () => {
+  localStorage.removeItem(VIDEO_TUTORIAL_SEEN_KEY);
+  localStorage.setItem(POST_ONBOARDING_VIDEO_PENDING_KEY, 'true');
+  window.dispatchEvent(new CustomEvent('adonai:open-video-tutorial'));
+};

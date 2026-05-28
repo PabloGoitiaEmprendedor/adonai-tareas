@@ -2,7 +2,15 @@ import { createContext, useContext, useEffect, useState, useRef, ReactNode } fro
 import { Session, User } from '@supabase/supabase-js';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { ensureAnonymousSession, saveAnonymousUserId, getPreviousAnonymousUserId, migrateAnonymousData } from '@/lib/anonymousSession';
+import {
+  ensureAnonymousSession,
+  saveAnonymousUserId,
+  getPreviousAnonymousUserId,
+  migrateAnonymousData,
+  migrateStoredAnonymousDataToUser,
+  getPendingAnonymousEmailUpgradeUserId,
+  clearAnonymousEmailUpgrade,
+} from '@/lib/anonymousSession';
 
 interface AuthContextType {
   session: Session | null;
@@ -55,6 +63,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (!mounted) return;
       console.log(`[Auth] Event: ${event}`);
 
+      const previousUser = userRef.current;
       setSession(newSession);
       setUser(newSession?.user ?? null);
 
@@ -65,6 +74,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       if (event === 'SIGNED_IN') {
         saveSessionFlags(newSession);
+        if (newSession?.user && !newSession.user.is_anonymous) {
+          const pendingAnonymousUserId = getPendingAnonymousEmailUpgradeUserId();
+          const previousAnonymousUserId = previousUser?.is_anonymous ? previousUser.id : null;
+          const anonymousUserId = pendingAnonymousUserId || previousAnonymousUserId;
+          migrateStoredAnonymousDataToUser(newSession.user.id, anonymousUserId).then((ok) => {
+            if (ok) {
+              console.log('[Auth] Anonymous data linked to email account');
+              queryClient.invalidateQueries();
+              clearAnonymousEmailUpgrade();
+            }
+          });
+        }
         if (newSession?.provider_token) {
           console.log('[Auth] Google provider token detected, saving for calendar sync');
           const expiresAt = new Date(Date.now() + 3500 * 1000).toISOString();
@@ -97,7 +118,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         queryClient.clear();
         // Auto-recover anonymous sessions that expired (not manual sign out)
         const prevUser = userRef.current;
-        if (!manualSignOutRef.current && prevUser?.is_anonymous) {
+        const isEmailUpgrade = Boolean(getPendingAnonymousEmailUpgradeUserId());
+        if (!manualSignOutRef.current && prevUser?.is_anonymous && !isEmailUpgrade) {
           const oldUserId = prevUser.id;
           ensureAnonymousSession().then((session) => {
             if (session && mounted) {
