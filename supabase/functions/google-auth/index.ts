@@ -44,6 +44,7 @@ Deno.serve(async (req) => {
         "https://bpckgibqjrqdxzbvtiyn.supabase.co",
         "https://adonai-tasks.vercel.app",
         "https://adonai-tareas.vercel.app",
+        "https://webadonai.com",
       ];
       const origin = redirect_uri ? new URL(redirect_uri).origin : "";
       if (!allowedOrigins.includes(origin)) {

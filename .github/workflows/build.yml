@@ -33,32 +33,20 @@ jobs:
         run: npm run build
         timeout-minutes: 15
 
-      - name: Build Electron app (Win)
+      - name: Build & publish Electron app (Win)
         if: matrix.os == 'windows-latest'
-        run: npx electron-builder --win --publish never
+        run: npx electron-builder --win --publish always
         timeout-minutes: 30
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build Electron app (Mac)
+      - name: Build & publish Electron app (Mac)
         if: matrix.os == 'macos-latest'
-        run: npx electron-builder --mac --publish never
+        run: npx electron-builder --mac --publish always
         timeout-minutes: 30
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: List build output
         run: ls -R dist-electron || dir dist-electron
         if: always()
-
-      - name: Create Release and Upload
-        uses: softprops/action-gh-release@v2
-        if: success()
-        with:
-          files: |
-            dist-electron/Adonai-Setup.exe
-            dist-electron/Adonai-Mac.dmg
-            dist-electron/Adonai-Mac.zip
-            dist-electron/latest.yml
-            dist-electron/latest-mac.yml
-            dist-electron/*.blockmap
-          draft: false
-          prerelease: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
