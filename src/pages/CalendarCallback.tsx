@@ -12,26 +12,40 @@ const CalendarCallback = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
+  const [status, setStatus] = useState<'loading' | 'success' | 'error' | 'redirecting'>('loading');
   const [errorDetails, setErrorDetails] = useState<string>('');
 
   useEffect(() => {
     const handleCallback = async () => {
-      if (!user) return;
-
       const code = searchParams.get('code');
+      const state = searchParams.get('state');
+
       if (!code) {
         setStatus('error');
         toast.error('No se recibió el código de autorización');
         return;
       }
 
+      // If state is 'desktop', redirect to the desktop application custom protocol
+      if (state === 'desktop') {
+        setStatus('redirecting');
+        window.location.href = `adonai-tasks://calendar-callback?code=${code}&state=${state}`;
+        return;
+      }
+
+      if (!user) return;
+
       try {
+        const isElectron = !!window.electronAPI;
+        const redirect_uri = isElectron
+          ? 'https://adonai-tareas.vercel.app/calendar-callback'
+          : window.location.origin + '/calendar-callback';
+
         const { data, error } = await supabase.functions.invoke('google-auth', {
           body: {
             action: 'callback',
             code,
-            redirect_uri: window.location.origin + '/calendar-callback',
+            redirect_uri,
             user_id: user.id
           },
         });
@@ -68,7 +82,7 @@ const CalendarCallback = () => {
         className="w-full max-w-md p-10 bg-surface-container-low rounded-[48px] border border-outline-variant/10 shadow-2xl space-y-8"
       >
         <div className="w-24 h-24 mx-auto bg-primary/10 rounded-[32px] flex items-center justify-center relative">
-          {status === 'loading' && (
+          {(status === 'loading' || status === 'redirecting') && (
             <Loader2 className="w-10 h-10 text-primary animate-spin" />
           )}
           {status === 'success' && (
@@ -90,11 +104,13 @@ const CalendarCallback = () => {
         <div className="space-y-4">
           <h2 className="text-2xl font-black font-headline tracking-tight">
             {status === 'loading' && 'Conectando con Google...'}
+            {status === 'redirecting' && 'Redirigiendo a Adonai...'}
             {status === 'success' && '¡Conexión Exitosa!'}
             {status === 'error' && 'Algo salió mal'}
           </h2>
           <p className="text-on-surface-variant/60 font-medium">
             {status === 'loading' && 'Estamos sincronizando tus eventos de Google con Adonai.'}
+            {status === 'redirecting' && 'Abriendo la aplicación de escritorio. Si no se abre, por favor regresa a la aplicación.'}
             {status === 'success' && 'Tus calendarios están listos. Volviendo a Adonai...'}
             {status === 'error' && 'Hubo un problema al procesar la autorización. Intenta de nuevo.'}
           </p>

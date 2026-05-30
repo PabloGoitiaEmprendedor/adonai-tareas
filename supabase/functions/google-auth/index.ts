@@ -35,7 +35,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { action, code, redirect_uri, user_id, service } = await req.json();
+    const { action, code, redirect_uri, user_id, service, state } = await req.json();
 
     if (action === "get-url") {
       const allowedOrigins = [
@@ -61,6 +61,9 @@ Deno.serve(async (req) => {
         access_type: "offline",
         prompt: "consent",
       });
+      if (state) {
+        params.set("state", state);
+      }
       const url = `https://accounts.google.com/o/oauth2/v2/auth?${params}`;
       return new Response(JSON.stringify({ url }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },

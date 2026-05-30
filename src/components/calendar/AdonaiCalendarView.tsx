@@ -18,6 +18,7 @@ interface AdonaiCalendarViewProps {
   selectedDate: Date;
   onSelectDate: (date: Date) => void;
   viewMode?: 'day' | 'week' | 'month';
+  onViewModeChange?: (mode: 'day' | 'week' | 'month' | string) => void;
   dragDisabled?: boolean;
   className?: string;
   hideSidebar?: boolean;
@@ -133,7 +134,7 @@ const getCountBasedEndDate = (
   return null;
 };
 
-const AdonaiCalendarView: React.FC<AdonaiCalendarViewProps> = ({ selectedDate, onSelectDate, viewMode = 'day', dragDisabled = false, className, hideSidebar = false, fillHeight = false, googleEvents = [] }) => {
+const AdonaiCalendarView: React.FC<AdonaiCalendarViewProps> = ({ selectedDate, onSelectDate, viewMode = 'day', onViewModeChange, dragDisabled = false, className, hideSidebar = false, fillHeight = false, googleEvents = [] }) => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const dateStr = format(selectedDate, 'yyyy-MM-dd');
@@ -616,6 +617,26 @@ const AdonaiCalendarView: React.FC<AdonaiCalendarViewProps> = ({ selectedDate, o
     // ── Google Calendar event (bidirectional sync) ──────────────────────
     if (id.startsWith('google-')) {
       const googleId = id.replace('google-', '');
+
+      // ── Optimistic update: apply change to local cache immediately ──
+      queryClient.setQueryData(['calendar-events'], (old: any) => {
+        if (!old) return old;
+        const list = Array.isArray(old) ? old : (old.items ?? old);
+        const updated = list.map((ev: any) => {
+          const evId = ev.id?.replace('google-', '') ?? ev.id;
+          if (evId !== googleId) return ev;
+          return {
+            ...ev,
+            ...(updates.title ? { title: updates.title, summary: updates.title } : {}),
+            ...(updates.description !== undefined ? { description: updates.description } : {}),
+            ...(updates.startTime ? { start: updates.startTime.toISOString() } : {}),
+            ...(updates.endTime ? { end: updates.endTime.toISOString() } : {}),
+          };
+        });
+        return Array.isArray(old) ? updated : { ...old, items: updated };
+      });
+
+      // ── Background sync to Google (silent) ──
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
       if (!token) return;
@@ -639,15 +660,12 @@ const AdonaiCalendarView: React.FC<AdonaiCalendarViewProps> = ({ selectedDate, o
           body: JSON.stringify({ action: 'update', eventId: googleId, eventData }),
         });
         if (!response.ok) throw new Error('Failed to sync');
+        // Silently refresh in background after confirm
         queryClient.invalidateQueries({ queryKey: ['calendar-events'] });
-        window.dispatchEvent(new CustomEvent('adonai:notify', {
-          detail: { type: 'success', message: 'Sincronizado con Google Calendar' }
-        }));
       } catch (err) {
         console.error('[google-sync] Error:', err);
-        window.dispatchEvent(new CustomEvent('adonai:notify', {
-          detail: { type: 'error', message: 'Error al sincronizar con Google Calendar' }
-        }));
+        // On error, revert by invalidating to re-fetch real state
+        queryClient.invalidateQueries({ queryKey: ['calendar-events'] });
       }
       return;
     }
@@ -673,14 +691,8 @@ const AdonaiCalendarView: React.FC<AdonaiCalendarViewProps> = ({ selectedDate, o
             metadata: buildReminderMetadata((updates as any).metadata, 'task', !!updates.reminderEnabled, updates.reminderMinutesBefore ?? 15),
           });
           await deleteBlock.mutateAsync(blockId);
-          window.dispatchEvent(new CustomEvent('adonai:notify', {
-            detail: { type: 'success', message: 'Ahora aparece en tareas y calendario' }
-          }));
         } catch (err) {
           console.error('[calendar] Error converting block to task:', err);
-          window.dispatchEvent(new CustomEvent('adonai:notify', {
-            detail: { type: 'error', message: 'No se pudo cambiar la visibilidad' }
-          }));
         }
         return;
       }
@@ -731,14 +743,8 @@ const AdonaiCalendarView: React.FC<AdonaiCalendarViewProps> = ({ selectedDate, o
             metadata: buildReminderMetadata((updates as any).metadata || originalEvent?.metadata || task?.metadata, 'event', !!updates.reminderEnabled, updates.reminderMinutesBefore ?? (getReminderSettings(originalEvent?.metadata, 'event')?.minutes_before ?? 15)),
           });
           await deleteTask.mutateAsync(taskId);
-          window.dispatchEvent(new CustomEvent('adonai:notify', {
-            detail: { type: 'success', message: 'Ahora aparece solo en calendario' }
-          }));
         } catch (err) {
           console.error('[calendar] Error converting task to block:', err);
-          window.dispatchEvent(new CustomEvent('adonai:notify', {
-            detail: { type: 'error', message: 'No se pudo cambiar la visibilidad' }
-          }));
         }
         return;
       }
@@ -826,14 +832,8 @@ const AdonaiCalendarView: React.FC<AdonaiCalendarViewProps> = ({ selectedDate, o
 
         try {
           await updateRecurringTaskSeries(recurrenceId, updateData, updates, originalEvent);
-          window.dispatchEvent(new CustomEvent('adonai:notify', {
-            detail: { type: 'success', message: 'Todas las repeticiones fueron actualizadas' }
-          }));
         } catch (err) {
           console.error('[recurrence] Error updating linked series:', err);
-          window.dispatchEvent(new CustomEvent('adonai:notify', {
-            detail: { type: 'error', message: 'No se pudieron actualizar todas las repeticiones' }
-          }));
         }
         return;
       }
@@ -844,14 +844,8 @@ const AdonaiCalendarView: React.FC<AdonaiCalendarViewProps> = ({ selectedDate, o
           if (scope === 'all') {
             try {
               await updateRecurringTaskSeries(recurrenceId, updateData, updates, originalEvent);
-              window.dispatchEvent(new CustomEvent('adonai:notify', {
-                detail: { type: 'success', message: 'Todas las repeticiones fueron actualizadas' }
-              }));
             } catch (err) {
               console.error('[recurrence] Error updating linked series:', err);
-              window.dispatchEvent(new CustomEvent('adonai:notify', {
-                detail: { type: 'error', message: 'No se pudieron actualizar todas las repeticiones' }
-              }));
             }
             return;
           }
@@ -931,9 +925,6 @@ const AdonaiCalendarView: React.FC<AdonaiCalendarViewProps> = ({ selectedDate, o
               doUpdate();
             } catch (err) {
               console.error('[recurrence] Error creating rule:', err);
-              window.dispatchEvent(new CustomEvent('adonai:notify', {
-                detail: { type: 'error', message: 'Error al guardar recurrencia' }
-              }));
             }
           })();
         }
@@ -983,14 +974,8 @@ const AdonaiCalendarView: React.FC<AdonaiCalendarViewProps> = ({ selectedDate, o
           days_of_week: daysOfWeek,
           metadata: buildReminderMetadata(event.metadata, 'event', !!event.reminderEnabled, event.reminderMinutesBefore ?? 15),
         });
-        window.dispatchEvent(new CustomEvent('adonai:notify', {
-          detail: { type: 'success', message: 'Evento creado' }
-        }));
       } catch (err) {
         console.error('[calendar] Error creating calendar block:', err);
-        window.dispatchEvent(new CustomEvent('adonai:notify', {
-          detail: { type: 'error', message: 'Error al crear evento' }
-        }));
       }
       return;
     }
@@ -1051,9 +1036,6 @@ const AdonaiCalendarView: React.FC<AdonaiCalendarViewProps> = ({ selectedDate, o
         recurrenceId = rule.id;
       } catch (err) {
         console.error('[recurrence] Error creating rule:', err);
-        window.dispatchEvent(new CustomEvent('adonai:notify', {
-          detail: { type: 'error', message: 'Error al guardar repetición' }
-        }));
       }
     }
 
@@ -1069,18 +1051,7 @@ const AdonaiCalendarView: React.FC<AdonaiCalendarViewProps> = ({ selectedDate, o
         recurrence_id: recurrenceId,
         creation_source: isEvent ? 'event' : undefined,
       },
-      {
-        onSuccess: () => {
-          window.dispatchEvent(new CustomEvent('adonai:notify', {
-            detail: { type: 'success', message: isEvent ? 'Evento creado' : 'Tarea creada' }
-          }));
-        },
-        onError: () => {
-          window.dispatchEvent(new CustomEvent('adonai:notify', {
-            detail: { type: 'error', message: 'Error al crear' }
-          }));
-        }
-      }
+      {},
     );
   };
 
@@ -1115,19 +1086,27 @@ const AdonaiCalendarView: React.FC<AdonaiCalendarViewProps> = ({ selectedDate, o
         source_type: 'text',
       });
       if (!error || error.code === '23505') {
-        window.dispatchEvent(new CustomEvent('adonai:notify', {
-          detail: { type: 'success', message: `Ocurrencia del ${dueDate} eliminada` }
-        }));
         refetchMaterialized();
       } else {
-        window.dispatchEvent(new CustomEvent('adonai:notify', {
-          detail: { type: 'error', message: 'No se pudo eliminar la ocurrencia' }
-        }));
+        console.error('[recurrence] Could not delete occurrence');
       }
       return;
     }
     if (id.startsWith('google-')) {
       const googleId = id.replace('google-', '');
+
+      // ── Optimistic delete: remove from cache immediately ──
+      queryClient.setQueryData(['calendar-events'], (old: any) => {
+        if (!old) return old;
+        const list = Array.isArray(old) ? old : (old.items ?? old);
+        const filtered = list.filter((ev: any) => {
+          const evId = ev.id?.replace('google-', '') ?? ev.id;
+          return evId !== googleId;
+        });
+        return Array.isArray(old) ? filtered : { ...old, items: filtered };
+      });
+
+      // ── Background delete from Google (silent) ──
       (async () => {
         const { data: { session } } = await supabase.auth.getSession();
         const token = session?.access_token;
@@ -1140,11 +1119,9 @@ const AdonaiCalendarView: React.FC<AdonaiCalendarViewProps> = ({ selectedDate, o
           });
           if (!response.ok) throw new Error('Failed to delete from Google Calendar');
           queryClient.invalidateQueries({ queryKey: ['calendar-events'] });
-          window.dispatchEvent(new CustomEvent('adonai:notify', {
-            detail: { type: 'success', message: 'Eliminado de Google Calendar' }
-          }));
         } catch (err) {
           console.error('[google-sync] Error deleting:', err);
+          queryClient.invalidateQueries({ queryKey: ['calendar-events'] });
         }
       })();
       return;
@@ -1183,6 +1160,7 @@ const AdonaiCalendarView: React.FC<AdonaiCalendarViewProps> = ({ selectedDate, o
           defaultView={viewMode}
           focusedDate={selectedDate}
           onDateChange={onSelectDate}
+          onViewChange={onViewModeChange}
           className={fillHeight ? "h-full min-h-0" : "min-h-[800px] sm:min-h-[640px] lg:min-h-[720px]"}
           recurrenceExceptions={recurrenceExceptions}
           dragDisabled={dragDisabled}

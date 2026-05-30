@@ -13,65 +13,65 @@
 
 @layer base {
   :root {
-    /* Adonai task palette - Light */
-    --background: 220 17% 97%; /* #F7F8FA */
-    --foreground: 215 28% 17%; /* #1F2937 */
+    /* Adonai task palette - Light (Rediseñado 360° Premium) */
+    --background: 216 22% 87%; /* #D8DDE6 - Pizarra fría con profundidad real */
+    --foreground: 215 35% 14%; /* #18202E - Negro suave de tinta */
     
     --card: 0 0% 100%; /* #FFFFFF */
-    --card-foreground: 215 28% 17%;
+    --card-foreground: 215 35% 14%;
     
     --popover: 0 0% 100%;
-    --popover-foreground: 215 28% 17%;
+    --popover-foreground: 215 35% 14%;
     
-    --primary: 229 94% 67%; /* #5B7CFA */
+    --primary: 229 94% 62%; /* #4E6FF9 - Azul profundo premium */
     --primary-foreground: 0 0% 100%;
-    --primary-container: 228 77% 61%; /* #4F6EE8 */
+    --primary-container: 228 80% 55%; /* #3D5EE0 */
 
-    --brand: 229 94% 67%;
+    --brand: 229 94% 62%;
     --brand-foreground: 0 0% 100%;
     
-    --secondary: 220 13% 91%; /* #E5E7EB */
-    --secondary-foreground: 215 28% 17%;
+    --secondary: 218 18% 83%; /* #CDD2DB */
+    --secondary-foreground: 215 35% 14%;
     --secondary-container: 219 100% 95%; /* #E8F0FF */
     
-    --muted: 220 13% 91%;
-    --muted-foreground: 220 9% 46%; /* #6B7280 */
+    --muted: 218 18% 83%;
+    --muted-foreground: 218 12% 42%; /* #606875 */
     
     --accent: 219 100% 95%; /* #E8F0FF */
-    --accent-foreground: 229 94% 67%;
+    --accent-foreground: 229 94% 62%;
     
-    --destructive: 0 79% 63%; /* #EB5757 */
+    --destructive: 0 79% 60%;
     --destructive-foreground: 0 0% 100%;
     
-    --border: 220 13% 91%; /* #E5E7EB */
-    --input: 220 13% 91%;
-    --ring: 229 94% 67%;
+    --border: 218 16% 78%; /* #C0C8D4 - Bordes visibles pero elegantes */
+    --input: 218 16% 78%;
+    --ring: 229 94% 62%;
     
-    --radius: 0.35rem; 
+    --radius: 0.35rem;
 
-    --surface: 0 0% 100%;
-    --surface-dim: 220 13% 91%;
+    --surface: 216 20% 96%; /* #F0F2F6 - Superficie ligeramente azulada */
+    --surface-dim: 216 20% 90%; /* #E0E4EC */
     --surface-container-lowest: 0 0% 100%;
-    --surface-container-low: 220 17% 97%;
-    --surface-container: 220 13% 91%;
-    --surface-container-high: 220 13% 88%;
-    --surface-container-highest: 220 13% 84%;
+    --surface-container-low: 216 18% 92%; /* #E4E8F0 */
+    --surface-container: 216 18% 86%; /* #D5DAE4 */
+    --surface-container-high: 216 18% 80%; /* #C6CDD9 */
+    --surface-container-highest: 216 18% 74%; /* #B8C0CE */
 
-    --on-surface: 215 28% 17%;
-    --on-surface-variant: 220 9% 46%;
-    --outline: 220 13% 85%;
-    --outline-variant: 220 13% 91%;
+    --on-surface: 215 35% 14%;
+    --on-surface-variant: 218 14% 36%; /* #4E5666 - Alto contraste en textos */
+    --outline: 218 14% 70%; /* #AAB2C0 */
+    --outline-variant: 218 14% 80%; /* #C4CAD5 */
 
-    --error: 0 79% 63%; /* #EB5757 */
+    --error: 0 79% 60%;
     --error-container: 0 79% 96%;
     --on-error: 0 0% 100%;
 
-    --tertiary: 145 52% 62%; /* #6FCF97 */
+    --tertiary: 145 52% 55%;
     --tertiary-container: 145 52% 94%;
 
-    --success: 145 52% 62%; /* #6FCF97 */
-    --warning: 36 89% 62%; /* #F4B860 */
-    --info: 229 94% 67%; /* #5B7CFA */
+    --success: 145 52% 55%;
+    --warning: 36 89% 58%;
+    --info: 229 94% 62%;
   }
 
   .dark {
@@ -142,6 +142,14 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+  /* Dot-grid texture visible only in light mode */
+  body:not(.dark) {
+    background-image:
+      radial-gradient(circle, hsl(216 30% 60% / 0.28) 1px, transparent 1px),
+      radial-gradient(circle, hsl(216 30% 50% / 0.10) 1px, transparent 1px);
+    background-size: 28px 28px, 14px 14px;
+    background-position: 0 0, 7px 7px;
   }
   h1, h2, h3, h4, h5, h6 {
     font-family: 'Inter', sans-serif;
@@ -465,48 +473,82 @@
     @apply pl-10 lg:pl-0 text-xl sm:text-2xl lg:text-3xl font-black tracking-tight leading-none font-headline text-foreground;
   }
 
+  /* ─── Notebook cream paper — warm ivory with premium grain ── */
   .notebook-cream-bg {
-    background-color: #f5f0e1 !important;
-    color: #1f2937 !important;
+    background-color: #f7f3e9 !important; /* Marfil cálido premium */
+    background-image:
+      /* Grain texture */
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)' opacity='0.028'/%3E%3C/svg%3E"),
+      /* Warm highlight from top-left */
+      radial-gradient(ellipse 80% 50% at 12% 8%, rgba(255,252,240,0.70) 0%, transparent 65%),
+      /* Warm shadow bottom-right */
+      radial-gradient(ellipse 60% 40% at 88% 92%, rgba(210,195,165,0.22) 0%, transparent 60%);
+    background-size: 200px 200px, auto, auto;
+    color: #18202e !important;
+    box-shadow:
+      0 2px 0 0 rgba(255,255,255,0.90) inset,       /* top gloss */
+      0 -1px 0 0 rgba(180,165,140,0.25) inset,       /* bottom shadow */
+      0 24px 60px -8px rgba(60,60,80,0.18),           /* drop shadow */
+      0 6px 18px -4px rgba(60,60,80,0.10) !important; /* soft ambient */
   }
   .notebook-cream-bg * {
-    --notebook-text: #1f2937;
+    --notebook-text: #18202e;
   }
   .notebook-cream-bg .text-foreground {
-    color: #1f2937 !important;
+    color: #18202e !important;
   }
   .notebook-cream-bg .text-on-surface-variant {
-    color: #4b5563 !important;
+    color: #3d4655 !important;
   }
   .notebook-cream-bg .text-muted-foreground {
-    color: #6b7280 !important;
+    color: #5a6375 !important;
   }
   .notebook-cream-bg .notebook-handwriting {
-    color: #1f2937 !important;
+    color: #18202e !important;
   }
   .notebook-cream-bg .text-primary {
-    color: #5b7cfa !important;
+    color: #4e6ff9 !important;
   }
   .notebook-cream-bg .border-outline-variant {
-    border-color: rgba(30, 41, 59, 0.12) !important;
+    border-color: rgba(24, 32, 46, 0.10) !important;
   }
   .notebook-cream-bg .bg-surface-container-highest {
-    background-color: rgba(30, 41, 59, 0.05) !important;
+    background-color: rgba(24, 32, 46, 0.04) !important;
   }
   .notebook-cream-bg .bg-white\/40 {
-    background-color: rgba(255, 255, 255, 0.4) !important;
+    background-color: rgba(255, 255, 255, 0.50) !important;
   }
   .notebook-cream-bg .border-outline-variant\/40 {
-    border-color: rgba(30, 41, 59, 0.18) !important;
+    border-color: rgba(24, 32, 46, 0.14) !important;
   }
   .notebook-cream-bg .text-on-surface-variant\/35 {
-    color: rgba(75, 85, 99, 0.5) !important;
+    color: rgba(61, 70, 85, 0.55) !important;
   }
   .notebook-cream-bg .text-on-surface-variant\/25 {
-    color: rgba(75, 85, 99, 0.35) !important;
+    color: rgba(61, 70, 85, 0.38) !important;
   }
   .notebook-cream-bg .border-outline-variant\/20 {
-    border-color: rgba(75, 85, 99, 0.15) !important;
+    border-color: rgba(61, 70, 85, 0.13) !important;
+  }
+
+  /* ─── Metallic chrome ring — polished binder ring ─────────── */
+  .notebook-ring-metallic {
+    background: linear-gradient(
+      180deg,
+      #e8e8e8 0%,
+      #f6f6f6 18%,
+      #ffffff 32%,
+      #d0d0d0 50%,
+      #b0b0b0 66%,
+      #c8c8c8 82%,
+      #e0e0e0 100%
+    );
+    border: 1px solid rgba(120, 120, 130, 0.45);
+    box-shadow:
+      inset 0 1px 2px rgba(255,255,255,0.85),
+      inset 0 -1px 2px rgba(0,0,0,0.18),
+      0 1px 3px rgba(0,0,0,0.22),
+      0 0 0 0.5px rgba(100,100,110,0.25);
   }
 
   .notebook-task-list {

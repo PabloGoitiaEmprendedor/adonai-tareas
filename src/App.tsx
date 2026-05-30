@@ -305,6 +305,24 @@ const App = () => {
       window.electronAPI.onDeepLink(async (url: string) => {
         console.log("Received deep link:", url);
         
+        // Handle calendar callback deep links
+        if (url.includes('/calendar-callback')) {
+          const queryPart = url.split('?')[1];
+          if (queryPart) {
+            window.location.hash = `#/calendar-callback?${queryPart}`;
+          }
+          return;
+        }
+
+        // Handle sheets callback deep links
+        if (url.includes('/sheets-callback')) {
+          const queryPart = url.split('?')[1];
+          if (queryPart) {
+            window.location.hash = `#/sheets-callback?${queryPart}`;
+          }
+          return;
+        }
+
         let tokenString = '';
         
         // Try hash fragment first (adonai-tasks://#access_token=...)

@@ -689,14 +689,14 @@ const DailyPage = () => {
   <motion.div 
   initial={{ opacity: 0, y: 20 }}
   animate={{ opacity: 1, y: 0 }}
-  className="relative hidden min-h-[min(740px,calc(100vh-8rem))] w-full md:flex flex-col overflow-hidden rounded-[36px] notebook-cream-bg border border-outline-variant/12 pt-3 pb-3 pl-24 pr-10 shadow-[0_18px_45px_rgba(0,0,0,0.10)] backdrop-blur-xl"
+  className="relative hidden min-h-[min(740px,calc(100vh-8rem))] w-full md:flex flex-col overflow-hidden rounded-[36px] notebook-cream-bg border border-black/[0.07] pt-3 pb-3 pl-24 pr-10 backdrop-blur-xl"
  style={{
- backgroundImage: 'radial-gradient(circle at 18% 22%, rgba(255,255,255,0.09) 0 1px, transparent 1.6px), radial-gradient(circle at 73% 58%, rgba(0,0,0,0.05) 0 1px, transparent 1.7px), radial-gradient(circle at 42% 76%, rgba(255,255,255,0.045) 0 1px, transparent 1.8px), linear-gradient(90deg, transparent 0 70px, rgba(235,120,120,0.26) 70px 71px, transparent 71px calc(100% - 46px), rgba(235,120,120,0.18) calc(100% - 46px) calc(100% - 45px), transparent calc(100% - 45px))',
+ backgroundImage: 'radial-gradient(circle at 18% 22%, rgba(255,255,255,0.09) 0 1px, transparent 1.6px), radial-gradient(circle at 73% 58%, rgba(0,0,0,0.05) 0 1px, transparent 1.7px), radial-gradient(circle at 42% 76%, rgba(255,255,255,0.045) 0 1px, transparent 1.8px)',
  backgroundPosition: '0 18px',
  borderRadius: '36px 34px 38px 35px',
  }}
  >
- <div className="absolute inset-x-0 top-0 h-12 bg-gradient-to-b from-white/[0.035] to-transparent pointer-events-none" />
+ <div className="absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-white/[0.60] to-transparent pointer-events-none rounded-t-[36px]" />
  <div className="pointer-events-none absolute bottom-5 right-0 top-5 w-10">
  {[0, 1, 2, 3, 4, 5].map((page) => (
  <span
@@ -710,13 +710,13 @@ const DailyPage = () => {
  />
  ))}
  </div>
- <div className="absolute bottom-8 left-16 top-8 w-px bg-rose-300/18" />
- <div className="absolute bottom-8 right-14 top-8 w-px bg-rose-300/12" />
+ <div className="absolute bottom-8 left-16 top-8 w-px bg-rose-300/30" />
+ <div className="absolute bottom-8 right-14 top-8 w-px bg-rose-300/20" />
  <div className="absolute inset-y-3 left-5 flex flex-col justify-between">
  {Array.from({ length: 18 }).map((_, ring) => (
  <span
  key={ring}
-              className="h-3.5 w-12 rounded-full border-2 border-[#A8A29E]/40 bg-[#A8A29E]/15 shadow-[inset_0_1px_1px_rgba(255,255,255,0.25),0_1px_2px_rgba(0,0,0,0.12)]"
+ className="notebook-ring-metallic h-3.5 w-12 rounded-full"
  />
  ))}
  </div>
@@ -853,11 +853,11 @@ const DailyPage = () => {
   animate={{ opacity: 1, y: 0 }}
    className="fixed inset-0 z-30 md:hidden flex flex-col overflow-hidden notebook-cream-bg"
   style={{
-  backgroundImage: 'radial-gradient(circle at 20% 22%, rgba(255,255,255,0.09) 0 1px, transparent 1.6px), radial-gradient(circle at 78% 62%, rgba(0,0,0,0.05) 0 1px, transparent 1.7px), radial-gradient(circle at 44% 76%, rgba(255,255,255,0.045) 0 1px, transparent 1.8px), linear-gradient(90deg, transparent 0 38px, rgba(235,120,120,0.24) 38px 39px, transparent 39px calc(100% - 28px), rgba(235,120,120,0.16) calc(100% - 28px) calc(100% - 27px), transparent calc(100% - 27px))',
+  backgroundImage: 'radial-gradient(circle at 20% 22%, rgba(255,255,255,0.09) 0 1px, transparent 1.6px), radial-gradient(circle at 78% 62%, rgba(0,0,0,0.05) 0 1px, transparent 1.7px), radial-gradient(circle at 44% 76%, rgba(255,255,255,0.045) 0 1px, transparent 1.8px)',
   backgroundPosition: '0 17px',
   }}>
   {/* Top gradient */}
-  <div className="absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-white/[0.035] to-transparent pointer-events-none" />
+  <div className="absolute inset-x-0 top-0 h-12 bg-gradient-to-b from-white/[0.60] to-transparent pointer-events-none" />
   
   {/* Page stack effect (right side) */}
   <div className="pointer-events-none absolute bottom-4 right-0 top-4 w-7">
@@ -875,9 +875,8 @@ const DailyPage = () => {
   </div>
   
   {/* Vertical margin lines */}
-  <div className="absolute bottom-7 right-7 top-7 w-px bg-rose-300/12" />
-  
-  {/* Header: hamburger + title + page arrows */}
+  <div className="absolute bottom-7 right-7 top-7 w-px bg-rose-300/25" />
+  <div className="absolute bottom-7 left-9 top-7 w-px bg-rose-300/20" />
   <div className="relative z-20 flex items-center pt-3 pb-1" style={{ paddingLeft: '36px', paddingRight: '8px' }}>
     <button
       onClick={() => {

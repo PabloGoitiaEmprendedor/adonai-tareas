@@ -2,12 +2,13 @@ import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useTasks } from '@/hooks/useTasks';
 import { useFolders } from '@/hooks/useFolders';
-import { format, parseISO, addMinutes } from 'date-fns';
+import { format, parseISO, addMinutes, startOfMonth, endOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Check, Flame, X, Notebook, Link as LinkIcon, Paperclip, GripHorizontal, ChevronsUpDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { usePriorityColors } from '@/hooks/usePriorityColors';
 import AdonaiCalendarView from '@/components/calendar/AdonaiCalendarView';
+import { useCalendarEvents } from '@/hooks/useCalendarEvents';
 import { TaskCheckbox } from '@/components/TaskCheckbox';
 import { compareTasksWithinQuadrants, getTaskManualOrderGroupKey } from '@/lib/taskOrdering';
 
@@ -17,9 +18,22 @@ interface MiniTaskWidgetProps {
 }
 
 export const MiniTaskWidget = ({ isOpen, onClose }: MiniTaskWidgetProps) => {
- const [selectedDate, setSelectedDate] = useState(() => new Date());
+  const [selectedDate, setSelectedDate] = useState(() => {
+    const saved = typeof localStorage !== 'undefined' ? localStorage.getItem('adonai:selected-date') : null;
+    return saved ? new Date(saved) : new Date();
+  });
+  const [viewMode, setViewMode] = useState<'day' | 'week' | 'month'>(() => {
+    const saved = typeof localStorage !== 'undefined' ? localStorage.getItem('adonai:calendar-view-mode') : null;
+    return (saved as any) || 'day';
+  });
  const today = format(selectedDate, 'yyyy-MM-dd');
  const { tasks, updateTask } = useTasks({ date: today });
+  const rangeStart = startOfMonth(selectedDate);
+  const rangeEnd = endOfMonth(selectedDate);
+  const { events: googleCalendarEvents } = useCalendarEvents(
+    rangeStart.toISOString(),
+    rangeEnd.toISOString()
+  );
  const { folders } = useFolders();
  const { colors: priorityColors } = usePriorityColors();
  const [completingId, setCompletingId] = useState<string | null>(null);
@@ -90,6 +104,44 @@ export const MiniTaskWidget = ({ isOpen, onClose }: MiniTaskWidgetProps) => {
  useEffect(() => {
  setOrderedTasks(sortedTasks);
  }, [sortedTasks]);
+
+  // Bidirectional selectedDate and viewMode synchronization via localStorage and CustomEvents
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'adonai:selected-date' && e.newValue) {
+        const parsedDate = new Date(e.newValue);
+        if (!isNaN(parsedDate.getTime()) && parsedDate.getTime() !== selectedDate.getTime()) {
+          setSelectedDate(parsedDate);
+        }
+      }
+      if (e.key === 'adonai:calendar-view-mode' && e.newValue) {
+        if (e.newValue !== viewMode) {
+          setViewMode(e.newValue as any);
+        }
+      }
+    };
+    const handleCustomDateChange = (e: CustomEvent<{ date: Date | string }>) => {
+      const parsedDate = typeof e.detail.date === 'string' ? new Date(e.detail.date) : e.detail.date;
+      if (parsedDate && parsedDate.getTime() !== selectedDate.getTime()) {
+        setSelectedDate(parsedDate);
+      }
+    };
+    const handleCustomViewChange = (e: CustomEvent<{ viewMode: string }>) => {
+      if (e.detail.viewMode && e.detail.viewMode !== viewMode) {
+        setViewMode(e.detail.viewMode as any);
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('adonai:calendar-selected-date-change' as any, handleCustomDateChange as any);
+    window.addEventListener('adonai:calendar-view-mode-change' as any, handleCustomViewChange as any);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('adonai:calendar-selected-date-change' as any, handleCustomDateChange as any);
+      window.removeEventListener('adonai:calendar-view-mode-change' as any, handleCustomViewChange as any);
+    };
+  }, [selectedDate, viewMode]);
 
  const persistMiniWidgetOrder = useCallback((nextOrder: any[]) => {
  nextOrder.forEach((task, idx) => {
@@ -574,15 +626,20 @@ export const MiniTaskWidget = ({ isOpen, onClose }: MiniTaskWidgetProps) => {
  onMouseLeave={handleCalendarLeave}
  >
  <div className="w-[600px] h-full min-h-0 overflow-hidden">
- <AdonaiCalendarView
- selectedDate={selectedDate}
- onSelectDate={setSelectedDate}
- viewMode="day"
- dragDisabled={false}
- className="h-full min-h-0 overflow-hidden"
- hideSidebar
- fillHeight
- />
+  <AdonaiCalendarView
+    selectedDate={selectedDate}
+    onSelectDate={(date) => {
+      setSelectedDate(date);
+      localStorage.setItem('adonai:selected-date', date.toISOString());
+      window.dispatchEvent(new CustomEvent('adonai:calendar-selected-date-change', { detail: { date } }));
+    }}
+    viewMode={viewMode}
+    dragDisabled={false}
+    className="h-full min-h-0 overflow-hidden"
+    hideSidebar
+    fillHeight
+    googleEvents={googleCalendarEvents}
+  />
  </div>
  </motion.div>
  )}
