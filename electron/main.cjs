@@ -209,16 +209,24 @@ autoUpdater.autoDownload = true;
 autoUpdater.autoInstallOnAppQuit = true;
 autoUpdater.autoRunAppAfterInstall = true;
 
+// Explicit feed URL for GitHub
+autoUpdater.setFeedURL({
+  provider: 'github',
+  owner: 'PabloGoitiaEmprendedor',
+  repo: 'adonai-tareas',
+});
+
 function sendToAllWindows(channel, data) {
   if (mainWindow) mainWindow.webContents.send(channel, data);
   if (miniWindow) miniWindow.webContents.send(channel, data);
 }
 
 autoUpdater.on('checking-for-update', () => {
-  // silent
+  logToFile('Auto-updater: checking for update...');
 });
 
 autoUpdater.on('update-available', (info) => {
+  logToFile(`Auto-updater: update available (v${info?.version})`);
   sendToAllWindows('update-available', {
     version: info?.version || '',
     releaseNotes: info?.releaseNotes || '',
@@ -230,16 +238,17 @@ autoUpdater.on('download-progress', (progress) => {
 });
 
 autoUpdater.on('update-downloaded', () => {
+  logToFile('Auto-updater: update downloaded, will install on quit');
   sendToAllWindows('update-downloaded');
-  // silent – will install on next app quit (autoInstallOnAppQuit = true)
 });
 
 autoUpdater.on('update-not-available', () => {
-  // silent
+  logToFile('Auto-updater: no update available');
 });
 
 autoUpdater.on('error', (err) => {
-  logToFile(`Auto-updater error: ${err}`);
+  logToFile(`Auto-updater error: ${err?.message || err}`);
+  sendToAllWindows('update-error', err?.message || 'Error de conexión al buscar actualizaciones');
 });
 
 function createMainWindow() {
@@ -655,6 +664,11 @@ ipcMain.on('open-external', (event, url) => {
 
 ipcMain.on('restart-app', () => {
   autoUpdater.quitAndInstall(false, true);
+});
+
+ipcMain.on('check-for-updates', () => {
+  logToFile('Manual update check triggered by user');
+  autoUpdater.checkForUpdates();
 });
 
 ipcMain.on('log-message', (event, msg) => {

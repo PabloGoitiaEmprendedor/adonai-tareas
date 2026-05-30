@@ -22,7 +22,8 @@ import {
     ArrowRight,
     X,
     Calendar,
-    FileSpreadsheet
+    FileSpreadsheet,
+    Download
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
@@ -728,6 +729,33 @@ const SettingsPage = () => {
                 </a>
             </div>
         </section>
+
+        {/* Updates Section (Desktop only) */}
+        {!!window.electronAPI && (
+          <section className="space-y-3">
+            <h3 className="text-xs font-bold text-on-surface-variant/50 uppercase tracking-[0.2em]">Actualizaciones</h3>
+            <div className="bg-surface-container-low border border-outline-variant/10 rounded-2xl overflow-hidden">
+              <button
+                onClick={() => {
+                  window.electronAPI?.checkForUpdates?.();
+                  toast.info('Buscando actualizaciones...');
+                }}
+                className="w-full p-4 flex items-center justify-between hover:bg-surface-container-high transition-colors group"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                    <Download className="w-4 h-4 text-primary" />
+                  </div>
+                  <div className="text-left">
+                    <span className="block text-sm font-bold text-foreground group-hover:text-primary transition-colors">Buscar actualizaciones</span>
+                    <span className="text-xs text-on-surface-variant/40">Comprobar si hay una nueva versión disponible</span>
+                  </div>
+                </div>
+                <RefreshCw className="w-4 h-4 text-on-surface-variant/40" />
+              </button>
+            </div>
+          </section>
+        )}
 
         <div className="flex justify-center gap-3 pt-2 pb-4">
           <a href="/privacy" className="text-[10px] text-on-surface-variant/30 hover:text-on-surface-variant/60 transition-colors">Privacidad</a>

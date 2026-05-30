@@ -32,6 +32,8 @@ interface Window {
     onUpdateAvailable?: (callback: (data: { version: string; releaseNotes: string }) => void) => void;
     onUpdateDownloadProgress?: (callback: (percent: number) => void) => void;
     onUpdateDownloaded?: (callback: () => void) => void;
+    onUpdateError?: (callback: (msg: string) => void) => void;
+    checkForUpdates?: () => void;
     restartApp?: () => void;
     showNotification?: (title: string, body: string, type?: 'info' | 'warning' | 'success' | 'error') => void;
     authStorageGet?: (key: string) => Promise<string | null>;

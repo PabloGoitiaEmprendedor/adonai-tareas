@@ -1,17 +1,19 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Download, RefreshCw, X } from 'lucide-react';
+import { Download, RefreshCw, AlertTriangle, X } from 'lucide-react';
 
 const UpdateDialog = () => {
   const [updateInfo, setUpdateInfo] = useState<{ version: string; releaseNotes: string } | null>(null);
   const [downloading, setDownloading] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState(0);
   const [ready, setReady] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!window.electronAPI) return;
 
     window.electronAPI.onUpdateAvailable?.((info: any) => {
+      setError(null);
       setUpdateInfo({
         version: info.version,
         releaseNotes: info.releaseNotes || '',
@@ -28,6 +30,10 @@ const UpdateDialog = () => {
       setReady(true);
     });
 
+    window.electronAPI.onUpdateError?.((msg: string) => {
+      setError(msg);
+    });
+
     return () => {
       // Listeners are managed by Electron's IPC, we don't assign to them directly
     };
@@ -37,9 +43,15 @@ const UpdateDialog = () => {
     window.electronAPI?.restartApp?.();
   };
 
+  const handleCheckNow = () => {
+    setError(null);
+    window.electronAPI?.checkForUpdates?.();
+  };
+
   const handleDismiss = () => {
     setUpdateInfo(null);
     setReady(false);
+    setError(null);
   };
 
   const isMiniRoute = typeof window !== 'undefined' && (
@@ -75,7 +87,7 @@ const UpdateDialog = () => {
 
   return (
     <AnimatePresence>
-      {(updateInfo || ready) && (
+      {(updateInfo || ready || downloading || error) && (
         <>
           <motion.div
             initial={{ opacity: 0 }}
@@ -109,7 +121,39 @@ const UpdateDialog = () => {
               </button>
 
               <div className="p-6 pt-8 flex flex-col items-center gap-5">
-                {ready ? (
+                {error && !updateInfo && !ready ? (
+                  <>
+                    <motion.div
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      className="w-16 h-16 rounded-2xl flex items-center justify-center"
+                      style={{ background: 'hsl(var(--destructive) / 0.15)' }}
+                    >
+                      <AlertTriangle className="w-8 h-8" style={{ color: 'hsl(var(--destructive))' }} />
+                    </motion.div>
+
+                    <div className="text-center space-y-2">
+                      <h2 className="text-xl font-bold tracking-tight" style={{ color: 'hsl(var(--on-surface))' }}>
+                        Error de actualización
+                      </h2>
+                      <p className="text-sm font-medium" style={{ color: 'hsl(var(--on-surface-variant))' }}>
+                        {error}
+                      </p>
+                    </div>
+
+                    <button
+                      onClick={handleCheckNow}
+                      className="w-full h-14 rounded-[20px] font-black text-base flex items-center justify-center gap-2 shadow-xl transition-all hover:opacity-90 active:scale-[0.98]"
+                      style={{
+                        background: 'hsl(var(--primary))',
+                        color: 'hsl(var(--primary-foreground))',
+                      }}
+                    >
+                      <RefreshCw className="w-5 h-5" />
+                      Reintentar
+                    </button>
+                  </>
+                ) : ready ? (
                   <>
                     <motion.div
                       initial={{ scale: 0 }}
