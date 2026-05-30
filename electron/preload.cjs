@@ -32,4 +32,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   authStorageSet: (key, value) => ipcRenderer.invoke('auth-storage-set', key, value),
   authStorageRemove: (key) => ipcRenderer.invoke('auth-storage-remove', key),
   authStorageClear: () => ipcRenderer.invoke('auth-storage-clear'),
+  getAppVersion: () => ipcRenderer.invoke('get-app-version'),
+  openUrl: (url) => ipcRenderer.send('open-external', url),
 });

@@ -658,6 +658,10 @@ ipcMain.on('sync-data', () => {
   }, 200);
 });
 
+ipcMain.handle('get-app-version', () => {
+  return app.getVersion();
+});
+
 ipcMain.on('open-external', (event, url) => {
   shell.openExternal(url);
 });

@@ -1,8 +1,15 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Download, RefreshCw, AlertTriangle, X } from 'lucide-react';
+import { Download, RefreshCw, AlertTriangle, X, ExternalLink } from 'lucide-react';
 
-const UpdateDialog = () => {
+interface UpdateDialogProps {
+  forcedVersion?: string;
+  onDismiss?: () => void;
+}
+
+const REPO = 'PabloGoitiaEmprendedor/adonai-tareas';
+
+const UpdateDialog = ({ forcedVersion, onDismiss }: UpdateDialogProps) => {
   const [updateInfo, setUpdateInfo] = useState<{ version: string; releaseNotes: string } | null>(null);
   const [downloading, setDownloading] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState(0);
@@ -10,7 +17,7 @@ const UpdateDialog = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!window.electronAPI) return;
+    if (!window.electronAPI || forcedVersion) return;
 
     window.electronAPI.onUpdateAvailable?.((info: any) => {
       setError(null);
@@ -37,7 +44,7 @@ const UpdateDialog = () => {
     return () => {
       // Listeners are managed by Electron's IPC, we don't assign to them directly
     };
-  }, []);
+  }, [forcedVersion]);
 
   const handleRestart = () => {
     window.electronAPI?.restartApp?.();
@@ -48,16 +55,25 @@ const UpdateDialog = () => {
     window.electronAPI?.checkForUpdates?.();
   };
 
+  const handleDownload = () => {
+    const url = `https://github.com/${REPO}/releases/download/v${forcedVersion || updateInfo?.version}/Adonai-Setup.exe`;
+    window.electronAPI?.openUrl?.(url);
+    if (onDismiss) onDismiss();
+  };
+
   const handleDismiss = () => {
     setUpdateInfo(null);
     setReady(false);
     setError(null);
+    if (onDismiss) onDismiss();
   };
 
-  const isMiniRoute = typeof window !== 'undefined' && (
+  const isMiniRoute = typeof window !== 'undefined' && !forcedVersion && (
     window.location.hash.startsWith('#/mini') ||
     window.location.pathname.replace(/\/$/, '') === '/mini'
   );
+
+  const isForced = !!forcedVersion;
 
   if (isMiniRoute) {
     return (
@@ -81,6 +97,73 @@ const UpdateDialog = () => {
             </button>
           </motion.div>
         )}
+      </AnimatePresence>
+    );
+  }
+
+  if (isForced) {
+    return (
+      <AnimatePresence>
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[200]"
+        />
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.95, y: 20 }}
+          transition={{ type: 'spring', damping: 22, stiffness: 260 }}
+          className="fixed inset-0 z-[210] flex items-center justify-center p-4 pointer-events-none"
+        >
+          <div
+            className="relative w-full max-w-[420px] pointer-events-auto"
+            style={{
+              background: 'hsl(var(--surface))',
+              borderRadius: 24,
+              border: '1px solid hsl(var(--outline-variant))',
+              boxShadow: '0 24px 80px rgba(0,0,0,0.5)',
+            }}
+          >
+            <div className="p-6 pt-8 flex flex-col items-center gap-6">
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ type: 'spring', damping: 15, stiffness: 200 }}
+                className="w-16 h-16 rounded-2xl flex items-center justify-center"
+                style={{ background: 'hsl(var(--primary) / 0.15)' }}
+              >
+                <Download className="w-8 h-8" style={{ color: 'hsl(var(--primary))' }} />
+              </motion.div>
+
+              <div className="text-center space-y-2">
+                <h2 className="text-xl font-bold tracking-tight" style={{ color: 'hsl(var(--on-surface))' }}>
+                  Nueva versión disponible
+                </h2>
+                <p className="text-sm font-medium" style={{ color: 'hsl(var(--on-surface-variant))' }}>
+                  v{forcedVersion}
+                </p>
+                <p className="text-xs mt-3" style={{ color: 'hsl(var(--on-surface-variant) / 0.7)' }}>
+                  Descarga el instalador y ejecútalo para actualizar. Tus datos se conservarán.
+                </p>
+              </div>
+
+              <button
+                onClick={handleDownload}
+                className="w-full h-14 rounded-[20px] font-black text-base flex items-center justify-center gap-2 shadow-xl transition-all hover:opacity-90 active:scale-[0.98]"
+                style={{
+                  background: 'hsl(var(--primary))',
+                  color: 'hsl(var(--primary-foreground))',
+                  boxShadow: '0 8px 32px hsl(var(--primary) / 0.25)',
+                }}
+              >
+                <ExternalLink className="w-5 h-5" />
+                Descargar v{forcedVersion}
+              </button>
+            </div>
+          </div>
+        </motion.div>
       </AnimatePresence>
     );
   }

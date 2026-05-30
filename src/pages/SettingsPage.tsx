@@ -743,9 +743,29 @@ const SettingsPage = () => {
   );
 };
 
+function parseVersion(v: string): number[] {
+  return v.replace(/^v/, '').split('.').map(Number);
+}
+
+function isNewer(latest: string, current: string): boolean {
+  const l = parseVersion(latest);
+  const c = parseVersion(current);
+  for (let i = 0; i < Math.max(l.length, c.length); i++) {
+    const a = l[i] ?? 0;
+    const b = c[i] ?? 0;
+    if (a !== b) return a > b;
+  }
+  return false;
+}
+
 const UpdateSection = () => {
   const [latestVersion, setLatestVersion] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
+  const [currentVersion, setCurrentVersion] = useState('');
+
+  useEffect(() => {
+    window.electronAPI?.getAppVersion?.().then(v => setCurrentVersion(v));
+  }, []);
 
   const checkVersion = async () => {
     setChecking(true);
@@ -754,7 +774,7 @@ const UpdateSection = () => {
       const data = await res.json();
       const tag = data.tag_name?.replace(/^v/, '') || '';
       setLatestVersion(tag);
-      if (tag > '1.0.147') {
+      if (tag && currentVersion && isNewer(tag, currentVersion)) {
         toast.success(`Nueva versión v${tag} disponible`);
       }
     } catch {
@@ -762,6 +782,8 @@ const UpdateSection = () => {
     }
     setChecking(false);
   };
+
+  const hasNewer = latestVersion && currentVersion && isNewer(latestVersion, currentVersion);
 
   return (
     <section className="space-y-3">
@@ -775,19 +797,19 @@ const UpdateSection = () => {
               </div>
               <div className="text-left">
                 <span className="block text-sm font-bold text-foreground">Versión actual</span>
-                <span className="text-xs text-on-surface-variant/40">v1.0.147</span>
+                <span className="text-xs text-on-surface-variant/40">v{currentVersion || '...'}</span>
               </div>
             </div>
             <button
               onClick={checkVersion}
-              disabled={checking}
+              disabled={checking || !currentVersion}
               className="h-10 px-4 rounded-xl bg-primary/10 text-primary text-xs font-bold hover:bg-primary/20 transition-colors disabled:opacity-50 flex items-center gap-2"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${checking ? 'animate-spin' : ''}`} />
               {checking ? 'Buscando...' : 'Buscar'}
             </button>
           </div>
-          {latestVersion && latestVersion > '1.0.147' && (
+          {hasNewer && (
             <div className="flex gap-2">
               <a
                 href={`https://github.com/PabloGoitiaEmprendedor/adonai-tareas/releases/tag/v${latestVersion}`}
@@ -800,7 +822,7 @@ const UpdateSection = () => {
               </a>
             </div>
           )}
-          {latestVersion && latestVersion <= '1.0.147' && (
+          {latestVersion && !hasNewer && (
             <p className="text-xs text-on-surface-variant/40 text-center">Tienes la última versión</p>
           )}
           <a

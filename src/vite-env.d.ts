@@ -40,6 +40,8 @@ interface Window {
     authStorageSet?: (key: string, value: string) => Promise<void>;
     authStorageRemove?: (key: string) => Promise<void>;
     authStorageClear?: () => Promise<void>;
+    getAppVersion?: () => Promise<string>;
+    openUrl?: (url: string) => void;
   };
   process?: {
     versions?: {
