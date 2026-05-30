@@ -10,7 +10,7 @@ import type { CSSProperties } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTasks } from '@/hooks/useTasks';
 import { useFolders } from '@/hooks/useFolders';
-import { format, parseISO, addMinutes } from 'date-fns';
+import { format, parseISO, addMinutes, startOfMonth, endOfMonth } from 'date-fns';
 import { Check, CalendarDays, Plus, Repeat, Paperclip, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import TaskCaptureModal, { type TaskCaptureModalHandle } from '@/components/TaskCaptureModal';
@@ -25,6 +25,7 @@ import { useProfile } from '@/hooks/useProfile';
 import { usePriorityColors } from '@/hooks/usePriorityColors';
 import { useTheme } from '@/contexts/ThemeProvider';
 import AdonaiCalendarView from '@/components/calendar/AdonaiCalendarView';
+import { useCalendarEvents } from '@/hooks/useCalendarEvents';
 import { compareTasksWithinQuadrants, getTaskManualOrderGroupKey } from '@/lib/taskOrdering';
 import { trackAnalyticsEvent } from '@/lib/analytics';
 import '../index.css';
@@ -520,12 +521,25 @@ const MiniTaskList = () => {
  const isDarkMode = theme === 'dark' || (theme === 'system' && document.documentElement.classList.contains('dark'));
  const miniThemeVars = getMiniThemeVars(isDarkMode);
  const applePill = getApplePillStyles(false);
- const [viewDate, setViewDate] = useState(new Date());
- const { tasks, updateTask, createTask, isLoading } = useTasks({ 
- date: format(viewDate, 'yyyy-MM-dd'), 
- excludeEvents: true
- });
- const { folders, createFolder } = useFolders();
+  const [viewDate, setViewDate] = useState(() => {
+    const saved = typeof localStorage !== 'undefined' ? localStorage.getItem('adonai:selected-date') : null;
+    return saved ? new Date(saved) : new Date();
+  });
+  const [viewMode, setViewMode] = useState<'day' | 'week' | 'month'>(() => {
+    const saved = typeof localStorage !== 'undefined' ? localStorage.getItem('adonai:calendar-view-mode') : null;
+    return (saved as any) || 'day';
+  });
+  const { tasks, updateTask, createTask, isLoading } = useTasks({ 
+  date: format(viewDate, 'yyyy-MM-dd'), 
+  excludeEvents: true
+  });
+  const rangeStart = startOfMonth(viewDate);
+  const rangeEnd = endOfMonth(viewDate);
+  const { events: googleCalendarEvents } = useCalendarEvents(
+    rangeStart.toISOString(),
+    rangeEnd.toISOString()
+  );
+  const { folders, createFolder } = useFolders();
  const { checkAndUnlock } = useGamification();
  const { profile } = useProfile();
  const [completingId, setCompletingId] = useState<string | null>(null);
@@ -647,7 +661,7 @@ const MiniTaskList = () => {
  }
 
  if (!isExpanded) {
- // EXPANDING â€” save current pill position for later restore
+ // EXPANDING — save current pill position for later restore
  const pos = await api.getMiniPosition();
  if (!pos) { setIsExpanded(true); return; }
 
@@ -673,7 +687,7 @@ const MiniTaskList = () => {
  api.setMiniBounds({ x: Math.round(panelX), y: Math.round(panelY), w: WINDOW_W, h: PANEL_H });
  setIsExpanded(true);
  } else {
- // COLLAPSING â€” restore pill to original saved position
+ // COLLAPSING — restore pill to original saved position
  const pillW = activeTimerId? PILL_TIMER_W: PILL_W;
  const pos = await api.getMiniPosition();
  if (originalPosRef.current) {
@@ -795,6 +809,44 @@ const MiniTaskList = () => {
  document.head.appendChild(style);
  }
  }, []);
+
+  // Bidirectional selectedDate and viewMode synchronization via localStorage and CustomEvents
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'adonai:selected-date' && e.newValue) {
+        const parsedDate = new Date(e.newValue);
+        if (!isNaN(parsedDate.getTime()) && parsedDate.getTime() !== viewDate.getTime()) {
+          setViewDate(parsedDate);
+        }
+      }
+      if (e.key === 'adonai:calendar-view-mode' && e.newValue) {
+        if (e.newValue !== viewMode) {
+          setViewMode(e.newValue as any);
+        }
+      }
+    };
+    const handleCustomDateChange = (e: CustomEvent<{ date: Date | string }>) => {
+      const parsedDate = typeof e.detail.date === 'string' ? new Date(e.detail.date) : e.detail.date;
+      if (parsedDate && parsedDate.getTime() !== viewDate.getTime()) {
+        setViewDate(parsedDate);
+      }
+    };
+    const handleCustomViewChange = (e: CustomEvent<{ viewMode: string }>) => {
+      if (e.detail.viewMode && e.detail.viewMode !== viewMode) {
+        setViewMode(e.detail.viewMode as any);
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('adonai:calendar-selected-date-change' as any, handleCustomDateChange as any);
+    window.addEventListener('adonai:calendar-view-mode-change' as any, handleCustomViewChange as any);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('adonai:calendar-selected-date-change' as any, handleCustomDateChange as any);
+      window.removeEventListener('adonai:calendar-view-mode-change' as any, handleCustomViewChange as any);
+    };
+  }, [viewDate, viewMode]);
 
  // Hide window until session is ready and user is authenticated
  useEffect(() => {
@@ -1081,7 +1133,7 @@ const MiniTaskList = () => {
  }
  }, [updateTask, tasks, checkAndUnlock, profile?.name, activeTimerId]);
 
- // â”€â”€ COLLAPSED PILL â”€â”€
+ // ─── COLLAPSED PILL ───
  if (!isReady) {
  return <div style={{ width: '100%', height: '100%' }} />;
  }
@@ -1144,11 +1196,11 @@ const MiniTaskList = () => {
  // Detect if running in browser (not Electron) for preview mode
  const isElectron =!!(window as any).electronAPI;
 
- // â”€â”€ EXPANDED PANEL â”€â”€
+ // ─── EXPANDED PANEL ───
  // In browser: render inside a preview shell that simulates the floating window
  const panelContent = (
  <>
- {/* OUTER: position context â€” no overflow clip so the tab can protrude */}
+ {/* OUTER: position context — no overflow clip so the tab can protrude */}
  <div
  onMouseEnter={() => {
  handleMouseEnterUI();
@@ -1225,15 +1277,15 @@ const MiniTaskList = () => {
  {/* Left panel: tasks */}
  <div className="notebook-cream-bg" style={{ width: PANEL_W, display: 'flex', flexDirection: 'column', flexShrink: 0, position: 'relative', overflow: 'hidden' }}>
  <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', background: 'linear-gradient(180deg, rgba(255,255,255,0.035), transparent 54px)' }} />
- {/* Top bar â€” fully draggable */}
+ {/* Top bar — fully draggable */}
  <div onMouseDown={onDragMouseDown} style={{
  display: 'flex', alignItems: 'center', justifyContent: 'center',
  padding: '12px 16px 10px', flexShrink: 0, cursor: CURSOR_GRAB, userSelect: 'none',
  position: 'relative', zIndex: 2,
  }}>
- {/* LEFT: collapse pill (â€¦) + direct action buttons */}
+ {/* LEFT: collapse pill (…) + direct action buttons */}
  <div style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
- {/* Collapse / timer pill â€” same... design as collapsed state */}
+ {/* Collapse / timer pill — same... design as collapsed state */}
  <div onClick={handleToggleExpand} style={{
  height: 28, borderRadius: 999,
  padding: activeTimerId? '0 11px': '0',
@@ -1252,7 +1304,7 @@ const MiniTaskList = () => {
  )}
  </div>
 
- {/* 1. TEXT button â€” + icon */}
+ {/* 1. TEXT button — + icon */}
  <div
  onClick={(e) => { e.stopPropagation(); openTextCapture(); }}
  style={{
@@ -1268,7 +1320,7 @@ const MiniTaskList = () => {
  <Plus style={{ width: 16, height: 16, color: C.text }} />
  </div>
 
- {/* 2. RECURRENCE button â€” Repeat icon */}
+ {/* 2. RECURRENCE button — Repeat icon */}
  <div
  onClick={(e) => { 
  e.stopPropagation(); 
@@ -1289,7 +1341,7 @@ const MiniTaskList = () => {
  </div>
 
  </div>
- {/* Notebook bar â€” Toggleable */}
+ {/* Notebook bar — Toggleable */}
  <div style={{
  display: 'none',
  padding: '10px 12px 7px 38px',
@@ -1553,15 +1605,25 @@ const MiniTaskList = () => {
  }
  }}
  >
- <AdonaiCalendarView
- selectedDate={viewDate}
- onSelectDate={setViewDate}
- viewMode="day"
- dragDisabled={false}
- className="h-full"
- hideSidebar
- fillHeight
- />
+  <AdonaiCalendarView
+    selectedDate={viewDate}
+    onSelectDate={(date) => {
+      setViewDate(date);
+      localStorage.setItem('adonai:selected-date', date.toISOString());
+      window.dispatchEvent(new CustomEvent('adonai:calendar-selected-date-change', { detail: { date } }));
+    }}
+    onViewModeChange={(mode) => {
+      setViewMode(mode as 'day' | 'week' | 'month');
+      localStorage.setItem('adonai:calendar-view-mode', mode);
+      window.dispatchEvent(new CustomEvent('adonai:calendar-view-mode-change', { detail: { viewMode: mode } }));
+    }}
+    viewMode={viewMode}
+    dragDisabled={false}
+    className="h-full"
+    hideSidebar
+    fillHeight
+    googleEvents={googleCalendarEvents}
+  />
  </div>
  </motion.div>
  )}

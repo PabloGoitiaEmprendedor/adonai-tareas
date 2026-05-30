@@ -1,4 +1,4 @@
-// DailyPage ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â Dark mode, no time blocks, no calendar view
+// DailyPage - Dark mode, no time blocks, no calendar view
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useTasks } from '@/hooks/useTasks';
 import { useFolders } from '@/hooks/useFolders';
@@ -559,7 +559,7 @@ const DailyPage = () => {
  </div>
  <div className="flex flex-col">
  <span className="text-[9px] font-black uppercase tracking-widest text-cyan-400/70">Racha Congelada</span>
- <span className="text-base font-black text-cyan-400 leading-tight">{metrics?.streak_current || 0} dÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­as </span>
+ <span className="text-base font-black text-cyan-400 leading-tight">{metrics?.streak_current || 0} días </span>
  </div>
  </motion.div>
  ): (
@@ -630,7 +630,7 @@ const DailyPage = () => {
  
  <div className="flex flex-col">
  <span className="text-[10px] font-black uppercase tracking-[0.15em] text-[#E65100]/80">Racha</span>
- <span className="text-base font-black text-foreground tracking-tight leading-tight">{metrics?.streak_current || 0} dÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­as</span>
+ <span className="text-base font-black text-foreground tracking-tight leading-tight">{metrics?.streak_current || 0} días</span>
  </div>
  </div>
  )}
@@ -689,14 +689,14 @@ const DailyPage = () => {
   <motion.div 
   initial={{ opacity: 0, y: 20 }}
   animate={{ opacity: 1, y: 0 }}
-  className="relative hidden min-h-[min(740px,calc(100vh-8rem))] w-full md:flex flex-col overflow-hidden rounded-[36px] notebook-cream-bg border border-outline-variant/12 pt-3 pb-3 pl-24 pr-10 shadow-[0_18px_45px_rgba(0,0,0,0.10)] backdrop-blur-xl"
+  className="relative hidden min-h-[min(740px,calc(100vh-8rem))] w-full md:flex flex-col overflow-hidden rounded-[36px] notebook-cream-bg border border-black/[0.07] pt-3 pb-3 pl-24 pr-10 backdrop-blur-xl"
  style={{
- backgroundImage: 'radial-gradient(circle at 18% 22%, rgba(255,255,255,0.09) 0 1px, transparent 1.6px), radial-gradient(circle at 73% 58%, rgba(0,0,0,0.05) 0 1px, transparent 1.7px), radial-gradient(circle at 42% 76%, rgba(255,255,255,0.045) 0 1px, transparent 1.8px), linear-gradient(90deg, transparent 0 70px, rgba(235,120,120,0.26) 70px 71px, transparent 71px calc(100% - 46px), rgba(235,120,120,0.18) calc(100% - 46px) calc(100% - 45px), transparent calc(100% - 45px))',
+ backgroundImage: 'radial-gradient(circle at 18% 22%, rgba(255,255,255,0.09) 0 1px, transparent 1.6px), radial-gradient(circle at 73% 58%, rgba(0,0,0,0.05) 0 1px, transparent 1.7px), radial-gradient(circle at 42% 76%, rgba(255,255,255,0.045) 0 1px, transparent 1.8px)',
  backgroundPosition: '0 18px',
  borderRadius: '36px 34px 38px 35px',
  }}
  >
- <div className="absolute inset-x-0 top-0 h-12 bg-gradient-to-b from-white/[0.035] to-transparent pointer-events-none" />
+ <div className="absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-white/[0.60] to-transparent pointer-events-none rounded-t-[36px]" />
  <div className="pointer-events-none absolute bottom-5 right-0 top-5 w-10">
  {[0, 1, 2, 3, 4, 5].map((page) => (
  <span
@@ -710,13 +710,13 @@ const DailyPage = () => {
  />
  ))}
  </div>
- <div className="absolute bottom-8 left-16 top-8 w-px bg-rose-300/18" />
- <div className="absolute bottom-8 right-14 top-8 w-px bg-rose-300/12" />
+ <div className="absolute bottom-8 left-16 top-8 w-px bg-rose-300/30" />
+ <div className="absolute bottom-8 right-14 top-8 w-px bg-rose-300/20" />
  <div className="absolute inset-y-3 left-5 flex flex-col justify-between">
  {Array.from({ length: 18 }).map((_, ring) => (
  <span
  key={ring}
-              className="h-3.5 w-12 rounded-full border-2 border-[#A8A29E]/40 bg-[#A8A29E]/15 shadow-[inset_0_1px_1px_rgba(255,255,255,0.25),0_1px_2px_rgba(0,0,0,0.12)]"
+ className="notebook-ring-metallic h-3.5 w-12 rounded-full"
  />
  ))}
  </div>
@@ -737,7 +737,7 @@ const DailyPage = () => {
  >
  {shouldShowTaskPage? (
  <>
- {/* Cuadernos Bar ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â minimal pill tabs */}
+ {/* Cuadernos Bar - minimal pill tabs */}
   <div className="relative z-10 mb-1">
     <h2 className="text-lg font-bold font-headline tracking-tight notebook-handwriting text-foreground/70">
       Tareas de hoy
@@ -847,17 +847,17 @@ const DailyPage = () => {
     </button>
   </div>
 
-  {/* Mobile Task Island ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â fixed full-screen notebook */}
+  {/* Mobile Task Island - fixed full-screen notebook */}
   <motion.div 
   initial={{ opacity: 0, y: 15 }}
   animate={{ opacity: 1, y: 0 }}
    className="fixed inset-0 z-30 md:hidden flex flex-col overflow-hidden notebook-cream-bg"
   style={{
-  backgroundImage: 'radial-gradient(circle at 20% 22%, rgba(255,255,255,0.09) 0 1px, transparent 1.6px), radial-gradient(circle at 78% 62%, rgba(0,0,0,0.05) 0 1px, transparent 1.7px), radial-gradient(circle at 44% 76%, rgba(255,255,255,0.045) 0 1px, transparent 1.8px), linear-gradient(90deg, transparent 0 38px, rgba(235,120,120,0.24) 38px 39px, transparent 39px calc(100% - 28px), rgba(235,120,120,0.16) calc(100% - 28px) calc(100% - 27px), transparent calc(100% - 27px))',
+  backgroundImage: 'radial-gradient(circle at 20% 22%, rgba(255,255,255,0.09) 0 1px, transparent 1.6px), radial-gradient(circle at 78% 62%, rgba(0,0,0,0.05) 0 1px, transparent 1.7px), radial-gradient(circle at 44% 76%, rgba(255,255,255,0.045) 0 1px, transparent 1.8px)',
   backgroundPosition: '0 17px',
   }}>
   {/* Top gradient */}
-  <div className="absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-white/[0.035] to-transparent pointer-events-none" />
+  <div className="absolute inset-x-0 top-0 h-12 bg-gradient-to-b from-white/[0.60] to-transparent pointer-events-none" />
   
   {/* Page stack effect (right side) */}
   <div className="pointer-events-none absolute bottom-4 right-0 top-4 w-7">
@@ -875,9 +875,8 @@ const DailyPage = () => {
   </div>
   
   {/* Vertical margin lines */}
-  <div className="absolute bottom-7 right-7 top-7 w-px bg-rose-300/12" />
-  
-  {/* Header: hamburger + title + page arrows */}
+  <div className="absolute bottom-7 right-7 top-7 w-px bg-rose-300/25" />
+  <div className="absolute bottom-7 left-9 top-7 w-px bg-rose-300/20" />
   <div className="relative z-20 flex items-center pt-3 pb-1" style={{ paddingLeft: '36px', paddingRight: '8px' }}>
     <button
       onClick={() => {
@@ -885,7 +884,7 @@ const DailyPage = () => {
         if (trigger) trigger.click();
       }}
       className="w-5 h-5 flex items-center justify-center text-zinc-400/40 hover:text-zinc-400/70 transition-colors shrink-0"
-      aria-label="Abrir menÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Âº"
+      aria-label="Abrir menú"
       style={{ marginRight: '12px', marginLeft: '-18px', background: 'transparent' }}
     >
       <Menu className="w-3 h-3" strokeWidth={2} />
@@ -897,7 +896,7 @@ const DailyPage = () => {
       onClick={goToPrevPage}
       disabled={notebookPage === 1}
       className="w-8 h-8 flex items-center justify-center rounded-xl text-on-surface-variant/30 hover:text-foreground hover:bg-black/5 transition-all disabled:opacity-20 disabled:pointer-events-none"
-      aria-label="PÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡gina anterior"
+      aria-label="Página anterior"
     >
       <ChevronLeft className="w-4 h-4" strokeWidth={2.5} />
     </button>
@@ -908,13 +907,13 @@ const DailyPage = () => {
       onClick={goToNextPage}
       disabled={notebookPage >= NOTEBOOK_PAGE_COUNT}
       className="w-8 h-8 flex items-center justify-center rounded-xl text-on-surface-variant/30 hover:text-foreground hover:bg-black/5 transition-all disabled:opacity-20 disabled:pointer-events-none"
-      aria-label="PÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡gina siguiente"
+      aria-label="Página siguiente"
     >
       <ChevronRight className="w-4 h-4" strokeWidth={2.5} />
     </button>
   </div>
 
-  {/* Folder pills ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â scrollable row */}
+  {/* Folder pills - scrollable row */}
   <div className="relative z-20 flex items-center gap-2 overflow-x-auto no-scrollbar py-1 px-2" style={{ paddingLeft: '36px' }}>
      <button
        onClick={() => selectFolderWithSound(null)}
@@ -1074,7 +1073,7 @@ const DailyPage = () => {
  Mini cuaderno exclusivo de escritorio
  </h2>
  <p className="text-on-surface-variant text-sm font-medium leading-relaxed">
- El mini cuaderno solo estÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡ disponible en la app de escritorio. DescÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡rgala y ten Adonai siempre visible mientras trabajas.
+ El mini cuaderno solo está disponible en la app de escritorio. Descárgala y ten Adonai siempre visible mientras trabajas.
  </p>
  </div>
 

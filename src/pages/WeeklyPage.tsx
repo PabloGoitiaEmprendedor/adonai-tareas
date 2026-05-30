@@ -4,12 +4,13 @@ import { useProfile } from '@/hooks/useProfile';
 import { usePriorityColors, getPriorityKey } from '@/hooks/usePriorityColors';
 import { format, startOfWeek, addDays } from 'date-fns';
 
-
 import { triggerTaskCelebration, triggerDailyCelebration, triggerOnTimeCelebration } from '@/lib/celebrations';
 import TaskDetailModal from '@/components/TaskDetailModal';
 import FullscreenTimer from '@/components/FullscreenTimer';
 import { AISchedulerModal } from '@/components/AISchedulerModal';
 import AdonaiCalendarView from '@/components/calendar/AdonaiCalendarView';
+import { useCalendarEvents } from '@/hooks/useCalendarEvents';
+import { useCalendarIntegration } from '@/hooks/useCalendarIntegration';
 
 const WeeklyPage = () => {
   const [selectedDay, setSelectedDay] = useState<Date>(new Date());
@@ -27,6 +28,12 @@ const WeeklyPage = () => {
   const tasksFilter = useMemo(() => ({ startDate, endDate, excludeEvents: true }), [startDate, endDate]);
   const { tasks, updateTask } = useTasks(tasksFilter);
   const { profile } = useProfile();
+
+  const { connected: calendarConnected } = useCalendarIntegration();
+  const { events: googleCalendarEvents } = useCalendarEvents(
+    new Date(weekStart).toISOString(),
+    new Date(weekEnd).toISOString()
+  );
 
   const getTasksForDay = (date: Date) => {
     const dateStr = format(date, 'yyyy-MM-dd');
@@ -73,12 +80,12 @@ const WeeklyPage = () => {
   return (
       <div className="max-w-full mx-auto px-0 sm:px-4 pt-2 pb-10 space-y-4">
         <section id="weekly-calendar-main" className="space-y-4 pt-2 px-0">
-          {/* Adonai 360 Calendar — fully interactive, persists to Supabase */}
           <AdonaiCalendarView
             selectedDate={selectedDay}
             onSelectDate={setSelectedDay}
             dragDisabled={false}
             className="overflow-visible"
+            googleEvents={googleCalendarEvents}
           />
         </section>
 

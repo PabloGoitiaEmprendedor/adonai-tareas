@@ -12,7 +12,21 @@ const GOOGLE_CLIENT_SECRET = Deno.env.get("GOOGLE_CLIENT_SECRET")!;
 
 const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-async function fetchCalendarEvents(accessToken: string, calendarId: string, timeMin?: string, timeMax?: string) {
+const GOOGLE_EVENT_COLORS: Record<string, string> = {
+  "1": "#A4BDFC",
+  "2": "#7AE7BF",
+  "3": "#DBADFF",
+  "4": "#FF887C",
+  "5": "#FBD75B",
+  "6": "#FFB878",
+  "7": "#46D6DB",
+  "8": "#E1E1E1",
+  "9": "#5484ED",
+  "10": "#51B749",
+  "11": "#DC2127",
+};
+
+async function fetchCalendarEvents(accessToken: string, calendarId: string, calendarDefaultColor: string, timeMin?: string, timeMax?: string) {
   const items: any[] = [];
   let pageToken: string | undefined;
 
@@ -43,28 +57,85 @@ async function fetchCalendarEvents(accessToken: string, calendarId: string, time
     pageToken = data.nextPageToken;
   } while (pageToken);
 
-  return items;
+  return items.map((e: any) => {
+    const urls: string[] = [];
+    const desc = e.description || '';
+    const hrefRegex = /<a[^>]*href=["']([^"']+)["']/gi;
+    let match;
+    while ((match = hrefRegex.exec(desc)) !== null) {
+      const href = match[1];
+      if (!href.startsWith('https://www.google.com/url?')) {
+        urls.push(href);
+      }
+    }
+    const plainUrlRegex = /https?:\/\/[^\s<>"']+/g;
+    while ((match = plainUrlRegex.exec(desc)) !== null) {
+      const url = match[0];
+      if (!url.startsWith('https://www.google.com/url?') && !urls.includes(url)) {
+        urls.push(url);
+      }
+    }
+    if (e.attachments && Array.isArray(e.attachments)) {
+      e.attachments.forEach((att: any) => {
+        if (att.fileUrl) urls.push(att.fileUrl);
+      });
+    }
+    if (e.hangoutLink) {
+      urls.push(e.hangoutLink);
+    }
+    if (e.conferenceData?.entryPoints && Array.isArray(e.conferenceData.entryPoints)) {
+      e.conferenceData.entryPoints.forEach((ep: any) => {
+        if (ep.uri) urls.push(ep.uri);
+      });
+    }
+    if (e.location) {
+      const locUrlRegex = /https?:\/\/[^\s<>"']+/g;
+      while ((match = locUrlRegex.exec(e.location)) !== null) {
+        let url = match[0].replace(/[.,;:!?)]+$/, '');
+        if (!urls.includes(url)) {
+          urls.push(url);
+        }
+      }
+    }
+
+    return {
+      id: e.id,
+      title: e.summary || "(Sin título)",
+      description: desc,
+      start: e.start?.dateTime || e.start?.date,
+      end: e.end?.dateTime || e.end?.date,
+      location: e.location || "",
+      allDay: !!e.start?.date,
+      color: e.colorId ? (GOOGLE_EVENT_COLORS[e.colorId] || calendarDefaultColor) : calendarDefaultColor,
+      links: [...new Set(urls)],
+      recurrence: e.recurrence || [],
+      reminders: e.reminders || null,
+    };
+  });
 }
 
-async function fetchVisibleCalendarIds(accessToken: string, fallbackCalendarId: string) {
+async function fetchVisibleCalendarIds(accessToken: string, fallbackCalendarId: string): Promise<{ id: string; color: string }[]> {
   const response = await fetch("https://www.googleapis.com/calendar/v3/users/me/calendarList", {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
 
   if (!response.ok) {
-    return [fallbackCalendarId];
+    return [{ id: fallbackCalendarId, color: '#4285F4' }];
   }
 
   const data = await response.json();
-  const ids = (data.items || [])
+  const calendars = (data.items || [])
     .filter((calendar: any) => calendar?.selected !== false && calendar?.accessRole !== "freeBusyReader")
-    .map((calendar: any) => calendar.id)
-    .filter(Boolean);
+    .map((calendar: any) => ({
+      id: calendar.id,
+      color: calendar.backgroundColor || '#4285F4',
+    }))
+    .filter((c: any) => c.id);
 
-  return ids.length > 0 ? ids : [fallbackCalendarId];
+  return calendars.length > 0 ? calendars : [{ id: fallbackCalendarId, color: '#4285F4' }];
 }
 
-async function refreshAccessToken(refreshToken: string): Promise<string | null> {
+async function refreshAccessToken(refreshToken: string): Promise<{ access_token: string; expires_in?: number } | null> {
   const res = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -77,7 +148,7 @@ async function refreshAccessToken(refreshToken: string): Promise<string | null> 
   });
   const data = await res.json();
   if (!res.ok) return null;
-  return data.access_token;
+  return { access_token: data.access_token, expires_in: data.expires_in };
 }
 
 Deno.serve(async (req) => {
@@ -109,16 +180,17 @@ Deno.serve(async (req) => {
     const now = new Date();
 
     if (new Date(tokenData.expires_at) <= now && tokenData.refresh_token) {
-      const newToken = await refreshAccessToken(tokenData.refresh_token);
-      if (!newToken) {
+      const refreshResult = await refreshAccessToken(tokenData.refresh_token);
+      if (!refreshResult) {
         return new Response(JSON.stringify({ events: [], connected: false, error: "Token refresh failed" }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      accessToken = newToken;
+      accessToken = refreshResult.access_token;
+      const expiresIn = refreshResult.expires_in || 3600;
       await supabaseAdmin.from("google_calendar_tokens").update({
-        access_token: newToken,
-        expires_at: new Date(Date.now() + 3600 * 1000).toISOString(),
+        access_token: refreshResult.access_token,
+        expires_at: new Date(Date.now() + expiresIn * 1000).toISOString(),
       }).eq("user_id", user.id);
     }
 
@@ -128,30 +200,18 @@ Deno.serve(async (req) => {
 
     if (action === "fetch") {
       const { timeMin, timeMax } = payload;
-      const calendarIds = await fetchVisibleCalendarIds(accessToken, calendarId);
+      const calendars = await fetchVisibleCalendarIds(accessToken, calendarId);
       const calendarResults = await Promise.all(
-        calendarIds.map((cid: string) => fetchCalendarEvents(accessToken, cid, timeMin, timeMax).catch(() => []))
+        calendars.map((cal: any) => fetchCalendarEvents(accessToken, cal.id, cal.color, timeMin, timeMax).catch(() => []))
       );
 
-      const calendarItems = Array.from(
+      const events = Array.from(
         new Map(calendarResults.flat().map((event: any) => [event.id, event])).values()
       ).sort((a: any, b: any) => {
         const aStart = new Date(a.start?.dateTime || a.start?.date || 0).getTime();
         const bStart = new Date(b.start?.dateTime || b.start?.date || 0).getTime();
         return aStart - bStart;
       });
-
-      const events = calendarItems.map((e: any) => ({
-        id: e.id,
-        title: e.summary || "(Sin título)",
-        description: e.description || "",
-        start: e.start?.dateTime || e.start?.date,
-        end: e.end?.dateTime || e.end?.date,
-        location: e.location || "",
-        allDay: !!e.start?.date,
-        color: e.colorId || null,
-        htmlLink: e.htmlLink,
-      }));
 
       return new Response(JSON.stringify({ events, connected: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -165,7 +225,7 @@ Deno.serve(async (req) => {
         : `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${eventId}`;
 
       const res = await fetch(url, {
-        method: action === "create" ? "POST" : "PUT",
+        method: action === "create" ? "POST" : "PATCH",
         headers: {
           Authorization: `Bearer ${accessToken}`,
           "Content-Type": "application/json",

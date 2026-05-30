@@ -10,24 +10,40 @@ const SheetsCallback = () => {
  const [searchParams] = useSearchParams();
  const navigate = useNavigate();
  const { user } = useAuth();
- const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
+ const [status, setStatus] = useState<'loading' | 'success' | 'error' | 'redirecting'>('loading');
 
  useEffect(() => {
  const handleCallback = async () => {
  const code = searchParams.get('code');
+ const state = searchParams.get('state');
+
  if (!code) {
  setStatus('error');
  toast.error('No se recibió el código de autorización');
  return;
  }
 
+ // If state is 'desktop', redirect to the desktop application custom protocol
+ if (state === 'desktop') {
+ setStatus('redirecting');
+ window.location.href = `adonai-tasks://sheets-callback?code=${code}&state=${state}`;
+ return;
+ }
+
+ if (!user) return;
+
  try {
  console.log("Invoking google-auth callback for Google Sheets, user:", user?.id);
+ const isElectron = !!window.electronAPI;
+ const redirect_uri = isElectron
+   ? 'https://adonai-tareas.vercel.app/sheets-callback'
+   : window.location.origin + '/sheets-callback';
+
  const { data, error } = await supabase.functions.invoke('google-auth', {
  body: { 
  action: 'callback',
  code,
- redirect_uri: window.location.origin + '/sheets-callback',
+ redirect_uri,
  user_id: user?.id,
  service: 'sheets'
  },
@@ -51,9 +67,7 @@ const SheetsCallback = () => {
  }
  };
 
- if (user) {
  handleCallback();
- }
  }, [searchParams, navigate, user]);
 
  return (
@@ -64,7 +78,7 @@ const SheetsCallback = () => {
  className="w-full max-w-md p-10 bg-surface-container-low rounded-[48px] border border-outline-variant/10 shadow-2xl space-y-8"
  >
  <div className="w-24 h-24 mx-auto bg-primary/10 rounded-[32px] flex items-center justify-center relative">
- {status === 'loading' && (
+ {(status === 'loading' || status === 'redirecting') && (
  <Loader2 className="w-10 h-10 text-primary animate-spin" />
  )}
  {status === 'success' && (
@@ -78,7 +92,7 @@ const SheetsCallback = () => {
  )}
  {status === 'error' && (
  <div className="w-full h-full bg-destructive/10 rounded-[32px] flex items-center justify-center">
- <span className="text-4xl"></span>
+ <span className="text-4xl">!</span>
  </div>
  )}
  </div>
@@ -86,11 +100,13 @@ const SheetsCallback = () => {
  <div className="space-y-4">
  <h2 className="text-2xl font-black font-headline tracking-tight">
  {status === 'loading' && 'Conectando con Google Sheets...'}
+ {status === 'redirecting' && 'Redirigiendo a Adonai...'}
  {status === 'success' && '¡Conexión Exitosa!'}
  {status === 'error' && 'Algo salió mal'}
  </h2>
  <p className="text-on-surface-variant/60 font-medium">
  {status === 'loading' && 'Estamos vinculando tu cuenta de Google Sheets con Adonai.'}
+ {status === 'redirecting' && 'Abriendo la aplicación de escritorio. Si no se abre, por favor regresa a la aplicación.'}
  {status === 'success' && 'Tus hojas de cálculo están listas. Volviendo a Ajustes...'}
  {status === 'error' && 'Hubo un problema al procesar la autorización. Por favor, intenta de nuevo.'}
  </p>

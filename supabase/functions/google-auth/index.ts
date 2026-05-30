@@ -35,9 +35,25 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { action, code, redirect_uri, user_id, service } = await req.json();
+    const { action, code, redirect_uri, user_id, service, state } = await req.json();
 
     if (action === "get-url") {
+      const allowedOrigins = [
+        "http://localhost:5173",
+        "http://localhost:4173",
+        "https://bpckgibqjrqdxzbvtiyn.supabase.co",
+        "https://adonai-tasks.vercel.app",
+        "https://adonai-tareas.vercel.app",
+        "https://webadonai.com",
+      ];
+      const origin = redirect_uri ? new URL(redirect_uri).origin : "";
+      if (!allowedOrigins.includes(origin)) {
+        return new Response(JSON.stringify({ error: "redirect_uri no permitido" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
       const params = new URLSearchParams({
         client_id: GOOGLE_CLIENT_ID,
         redirect_uri,
@@ -46,6 +62,9 @@ Deno.serve(async (req) => {
         access_type: "offline",
         prompt: "consent",
       });
+      if (state) {
+        params.set("state", state);
+      }
       const url = `https://accounts.google.com/o/oauth2/v2/auth?${params}`;
       return new Response(JSON.stringify({ url }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -127,7 +146,6 @@ Deno.serve(async (req) => {
           access_token: tokens.access_token,
           refresh_token: refreshToken || "",
           expires_at: expiresAt,
-          email: userInfo.email,
         }, { onConflict: "user_id" });
 
       if (tokenError) {

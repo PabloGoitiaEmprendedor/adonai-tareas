@@ -92,18 +92,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (newSession?.provider_token) {
           console.log('[Auth] Google provider token detected, saving for calendar sync');
           const expiresAt = new Date(Date.now() + 3500 * 1000).toISOString();
-          supabase.from('google_calendar_tokens').upsert({
-            user_id: newSession.user.id,
-            access_token: newSession.provider_token,
-            refresh_token: newSession.provider_refresh_token || '',
-            expires_at: expiresAt,
-            email: newSession.user.email
-          }, { onConflict: 'user_id' }).then(({ error }) => {
-            if (error) console.error("Error saving calendar token:", error);
-            else {
-              console.log("Calendar token saved successfully");
-              supabase.from('settings').upsert({ user_id: newSession.user.id, calendar_connected: true }, { onConflict: 'user_id' }).then(()=>{});
+          supabase.from('google_calendar_tokens').select('id').eq('user_id', newSession.user.id).maybeSingle().then(({ data: existingToken }) => {
+            if (existingToken) {
+              console.log('User already has calendar tokens, NOT overwriting');
+              return;
             }
+            supabase.from('google_calendar_tokens').upsert({
+              user_id: newSession.user.id,
+              access_token: newSession.provider_token,
+              refresh_token: newSession.provider_refresh_token || '',
+              expires_at: expiresAt,
+              email: newSession.user.email
+            }, { onConflict: 'user_id' }).then(({ error }) => {
+              if (error) console.error("Error saving calendar token:", error);
+              else {
+                console.log("Calendar token saved successfully");
+                supabase.from('settings').upsert({ user_id: newSession.user.id, calendar_connected: true }, { onConflict: 'user_id' }).then(()=>{});
+              }
+            });
           });
         }
         if (newSession?.user && !sessionStorage.getItem('adonai_session_start')) {
@@ -244,8 +250,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const startStr = sessionStorage.getItem('adonai_session_start');
       if (startStr && currentUser) {
         const durationMinutes = Math.round((Date.now() - parseInt(startStr, 10)) / 60000);
-        const url = 'https://bpckgibqjrqdxzbvtiyn.supabase.co/rest/v1/usage_events';
-        const apikey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJwY2tnaWJxanJxZHh6YnZ0aXluIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc0OTMyNTAsImV4cCI6MjA5MzA2OTI1MH0.zitsCHcdKbw6fQ0Hbl5CTv-6AEJww72Hb5b3pqy6sKU';
+        const url = `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/usage_events`;
+        const apikey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
         fetch(url, {
           method: 'POST',
           headers: {

@@ -22,7 +22,8 @@ import {
     ArrowRight,
     X,
     Calendar,
-    FileSpreadsheet
+    FileSpreadsheet,
+    Download
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
@@ -729,6 +730,9 @@ const SettingsPage = () => {
             </div>
         </section>
 
+        {/* Updates Section (Desktop only) */}
+        {!!window.electronAPI && <UpdateSection />}
+
         <div className="flex justify-center gap-3 pt-2 pb-4">
           <a href="/privacy" className="text-[10px] text-on-surface-variant/30 hover:text-on-surface-variant/60 transition-colors">Privacidad</a>
           <span className="text-[10px] text-on-surface-variant/20">·</span>
@@ -736,6 +740,80 @@ const SettingsPage = () => {
         </div>
       </div>
     </div>
+  );
+};
+
+const UpdateSection = () => {
+  const [latestVersion, setLatestVersion] = useState<string | null>(null);
+  const [checking, setChecking] = useState(false);
+
+  const checkVersion = async () => {
+    setChecking(true);
+    try {
+      const res = await fetch('https://api.github.com/repos/PabloGoitiaEmprendedor/adonai-tareas/releases/latest');
+      const data = await res.json();
+      const tag = data.tag_name?.replace(/^v/, '') || '';
+      setLatestVersion(tag);
+      if (tag > '1.0.147') {
+        toast.success(`Nueva versión v${tag} disponible`);
+      }
+    } catch {
+      window.electronAPI?.checkForUpdates?.();
+    }
+    setChecking(false);
+  };
+
+  return (
+    <section className="space-y-3">
+      <h3 className="text-xs font-bold text-on-surface-variant/50 uppercase tracking-[0.2em]">Actualizaciones</h3>
+      <div className="bg-surface-container-low border border-outline-variant/10 rounded-2xl overflow-hidden">
+        <div className="p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                <Download className="w-4 h-4 text-primary" />
+              </div>
+              <div className="text-left">
+                <span className="block text-sm font-bold text-foreground">Versión actual</span>
+                <span className="text-xs text-on-surface-variant/40">v1.0.147</span>
+              </div>
+            </div>
+            <button
+              onClick={checkVersion}
+              disabled={checking}
+              className="h-10 px-4 rounded-xl bg-primary/10 text-primary text-xs font-bold hover:bg-primary/20 transition-colors disabled:opacity-50 flex items-center gap-2"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${checking ? 'animate-spin' : ''}`} />
+              {checking ? 'Buscando...' : 'Buscar'}
+            </button>
+          </div>
+          {latestVersion && latestVersion > '1.0.147' && (
+            <div className="flex gap-2">
+              <a
+                href={`https://github.com/PabloGoitiaEmprendedor/adonai-tareas/releases/tag/v${latestVersion}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 h-10 rounded-xl bg-primary text-primary-foreground text-xs font-bold flex items-center justify-center gap-2 hover:opacity-90 transition-colors"
+              >
+                <Download className="w-3.5 h-3.5" />
+                Descargar v{latestVersion}
+              </a>
+            </div>
+          )}
+          {latestVersion && latestVersion <= '1.0.147' && (
+            <p className="text-xs text-on-surface-variant/40 text-center">Tienes la última versión</p>
+          )}
+          <a
+            href="https://github.com/PabloGoitiaEmprendedor/adonai-tareas/releases"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block text-center text-xs text-primary/60 hover:text-primary transition-colors"
+          >
+            Ver todas las versiones en GitHub
+          </a>
+        </div>
+      </div>
+    </section>
   );
 };
 

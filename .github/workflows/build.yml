@@ -60,5 +60,7 @@ jobs:
             dist-electron/*.blockmap
           draft: false
           prerelease: false
+          generate_release_notes: false
+          fail_on_unmatched_files: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

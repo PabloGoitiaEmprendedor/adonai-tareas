@@ -1,4 +1,4 @@
-﻿"use client"
+"use client"
 import { format, addHours, addMinutes, addDays, isSameDay, startOfDay, endOfDay, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval } from "date-fns"
 import { es } from "date-fns/locale"
 
@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
 import { motion, AnimatePresence } from "framer-motion"
-import { Calendar, Clock, LayoutGrid, List, Plus, Search, Filter, X, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Check, MoreHorizontal, Link as LinkIcon, Trash2, Repeat, Zap, Menu, GripHorizontal, GripVertical, Bell, BellOff, Palette, Paperclip } from "lucide-react"
+import { Calendar, Clock, LayoutGrid, List, Plus, Minus, Search, Filter, X, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Check, MoreHorizontal, Link as LinkIcon, Trash2, Repeat, Zap, Menu, GripHorizontal, GripVertical, Bell, BellOff, Palette, Paperclip, Pencil, ExternalLink, Settings } from "lucide-react"
 import ScrollableTimePicker from "./scrollable-time-picker"
 import { usePriorityColors, getPriorityKey } from "@/hooks/usePriorityColors"
 import { cn } from "@/lib/utils"
@@ -86,6 +86,227 @@ const getEventLinks = (links?: string[]) => {
   return (links || []).flatMap((link) => link.split(/\s+/)).map((link) => link.trim()).filter(Boolean);
 };
 
+const hexToRgba = (hex: string, alpha: number): string => {
+  const clean = hex.replace('#', '');
+  const r = parseInt(clean.substring(0, 2), 16);
+  const g = parseInt(clean.substring(2, 4), 16);
+  const b = parseInt(clean.substring(4, 6), 16);
+  if (isNaN(r) || isNaN(g) || isNaN(b)) return hex;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+};
+
+const stripHtml = (html: string): string => {
+  if (!html) return '';
+  
+  // Use DOMParser for robust HTML parsing (handles all edge cases)
+  if (typeof window !== 'undefined' && window.DOMParser) {
+    try {
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+      
+      // Process ordered lists into numbered text
+      doc.querySelectorAll('ol').forEach(ol => {
+        const startNum = parseInt(ol.getAttribute('start') || '1', 10);
+        const items: string[] = [];
+        ol.querySelectorAll(':scope > li').forEach((li, idx) => {
+          items.push(`${startNum + idx}. ${li.textContent?.trim() || ''}`);
+        });
+        const textNode = doc.createTextNode('\n' + items.join('\n') + '\n');
+        ol.replaceWith(textNode);
+      });
+      
+      // Process unordered lists into bulleted text
+      doc.querySelectorAll('ul').forEach(ul => {
+        const items: string[] = [];
+        ul.querySelectorAll(':scope > li').forEach(li => {
+          items.push(`• ${li.textContent?.trim() || ''}`);
+        });
+        const textNode = doc.createTextNode('\n' + items.join('\n') + '\n');
+        ul.replaceWith(textNode);
+      });
+      
+      // Add newlines for block elements
+      doc.querySelectorAll('br').forEach(br => br.replaceWith('\n'));
+      doc.querySelectorAll('p, div, h1, h2, h3, h4, h5, h6').forEach(el => {
+        el.prepend('\n');
+        el.append('\n');
+      });
+      
+      return (doc.body.textContent || '')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+    } catch (e) {
+      // Fallback to regex
+    }
+  }
+  
+  // Regex fallback for SSR or DOMParser failure
+  let text = html;
+  text = text.replace(/<br\s*\/?>/gi, '\n');
+  text = text.replace(/<p[^>]*>/gi, '');
+  text = text.replace(/<\/p>/gi, '\n');
+  text = text.replace(/<li[^>]*>/gi, '• ');
+  text = text.replace(/<\/li>/gi, '\n');
+  return text.replace(/<[^>]*?>/g, '').trim();
+};
+
+const hue2rgb = (p: number, q: number, t: number) => {
+  if (t < 0) t += 1;
+  if (t > 1) t -= 1;
+  if (t < 1/6) return p + (q - p) * 6 * t;
+  if (t < 1/2) return q;
+  if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+  return p;
+};
+
+const lightenColor = (hex: string, amount: number): string => {
+  if (!hex || !hex.startsWith('#')) return hex;
+  const clean = hex.replace('#', '');
+  let r = parseInt(clean.substring(0, 2), 16);
+  let g = parseInt(clean.substring(2, 4), 16);
+  let b = parseInt(clean.substring(4, 6), 16);
+  if (isNaN(r) || isNaN(g) || isNaN(b)) return hex;
+  const lighten = (c: number) => Math.min(255, Math.round(c + (255 - c) * amount));
+  return `#${[r, g, b].map(c => lighten(c).toString(16).padStart(2, '0')).join('')}`;
+};
+
+const darkenColor = (hex: string): string => {
+  if (!hex || !hex.startsWith('#')) return '#FFFFFF';
+  const isDarkMode = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
+  if (isDarkMode) return '#FFFFFF';
+
+  const clean = hex.replace('#', '');
+  let r = parseInt(clean.substring(0, 2), 16);
+  let g = parseInt(clean.substring(2, 4), 16);
+  let b = parseInt(clean.substring(4, 6), 16);
+  if (isNaN(r) || isNaN(g) || isNaN(b)) return '#FFFFFF';
+
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  let amount: number;
+  if (luminance > 0.55) amount = 0.65;
+  else if (luminance > 0.3) amount = 0.5;
+  else amount = 0.35;
+
+  // Convert to HSL
+  r /= 255; g /= 255; b /= 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  let s = 0, h = 0;
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    switch (max) {
+      case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break;
+      case g: h = ((b - r) / d + 2) / 6; break;
+      case b: h = ((r - g) / d + 4) / 6; break;
+    }
+  }
+
+  // Increase saturation 50%
+  s = Math.min(1, s * 1.5);
+
+  const newL = l * (1 - amount);
+
+  // Convert back to RGB
+  let rr: number, gg: number, bb: number;
+  if (s === 0) {
+    rr = gg = bb = newL;
+  } else {
+    const qq = newL < 0.5 ? newL * (1 + s) : newL + s - newL * s;
+    const pp = 2 * newL - qq;
+    rr = hue2rgb(pp, qq, h + 1/3);
+    gg = hue2rgb(pp, qq, h);
+    bb = hue2rgb(pp, qq, h - 1/3);
+  }
+
+  return `#${[rr, gg, bb].map(c => Math.round(c * 255).toString(16).padStart(2, '0')).join('')}`;
+};
+
+const getTextColorForBg = (hex: string): string => {
+  if (!hex || !hex.startsWith('#')) return '#FFFFFF';
+  const clean = hex.replace('#', '');
+  const r = parseInt(clean.substring(0, 2), 16);
+  const g = parseInt(clean.substring(2, 4), 16);
+  const b = parseInt(clean.substring(4, 6), 16);
+  if (isNaN(r) || isNaN(g) || isNaN(b)) return '#FFFFFF';
+  
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  const isDarkMode = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
+  const threshold = isDarkMode ? 0.65 : 0.55;
+  
+  return luminance > threshold ? '#0F172A' : '#FFFFFF';
+};
+
+const getEventStyles = (hexColor?: string) => {
+  if (!hexColor) return {};
+  const isDarkMode = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
+  
+  const isHex = hexColor.startsWith('#');
+  if (!isHex) return {};
+  
+  if (isDarkMode) {
+    const bgColor = hexToRgba(hexColor, 0.3);
+    return {
+      backgroundColor: bgColor,
+      color: '#FFFFFF',
+      borderLeft: `4px solid ${hexColor}`,
+      borderRight: '1px solid rgba(255, 255, 255, 0.05)',
+      borderTop: '1px solid rgba(255, 255, 255, 0.05)',
+      borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
+    };
+  } else {
+    const bgColor = hexToRgba(hexColor, 0.15);
+    const textColor = darkenColor(hexColor);
+    return {
+      backgroundColor: bgColor,
+      color: textColor,
+      borderLeft: `4px solid ${hexColor}`,
+      borderRight: '1px solid rgba(0, 0, 0, 0.04)',
+      borderTop: '1px solid rgba(0, 0, 0, 0.04)',
+      borderBottom: '1px solid rgba(0, 0, 0, 0.04)',
+    };
+  }
+};
+
+const cleanDescription = (desc?: string): string => {
+  if (!desc) return '';
+  
+  const trimmed = desc.trim();
+  if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (parsed.description && typeof parsed.description === 'string') {
+        return cleanDescription(parsed.description);
+      }
+      if (parsed.notes && typeof parsed.notes === 'string') {
+        return cleanDescription(parsed.notes);
+      }
+      return '';
+    } catch (e) {
+    }
+  }
+
+  // Decode HTML entities FIRST so encoded tags like &lt;ol&gt; become <ol> before stripping
+  let text = desc
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&apos;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&middot;/g, '·')
+    .replace(/&bull;/g, '•');
+
+  // Now strip HTML tags (including the ones we just decoded)
+  text = stripHtml(text);
+
+  text = text.replace(/\[Adonai[^\]]*\]/gi, '');
+  text = text.replace(/adonai[-_]task[-_]id:\s*[a-z0-9-]+/gi, '');
+  text = text.replace(/google[-_]calendar[-_]event[-_]id:\s*[a-z0-9_]+/gi, '');
+
+  return text.trim();
+};
+
 const EventLinkClips = ({ links, color }: { links?: string[]; color?: string }) => {
   const urls = getEventLinks(links);
   if (urls.length === 0) return null;
@@ -135,6 +356,7 @@ export interface EventManagerProps {
   onDateChange?: (date: Date) => void
   hideSidebar?: boolean
   containedScroll?: boolean
+  onViewChange?: (view: "month" | "week" | "day" | "year" | "list" | "schedule" | "3day") => void
 }
 
 const defaultColors = [
@@ -202,13 +424,9 @@ const findTimedEventConflict = (
   candidate: Pick<Event, 'startTime' | 'endTime'> & { id?: string; isAllDay?: boolean },
   ignoreId?: string
 ) => {
-  if (candidate.isAllDay) return null
-  return events.find((event) => {
-    if (event.isAllDay) return false
-    if (event.id === candidate.id || event.id === ignoreId) return false
-    if (!isSameDay(event.startTime, candidate.startTime)) return false
-    return doTimedEventsOverlap(candidate.startTime, candidate.endTime, event.startTime, event.endTime)
-  }) || null
+  // Allow overlapping events to provide a fluid Google Calendar-like usability.
+  // The calendar UI already renders overlapping events side-by-side beautifully.
+  return null
 }
 
 const notifyCalendarConflict = () => {
@@ -238,6 +456,7 @@ export function EventManager({
   onDateChange,
   hideSidebar = false,
   containedScroll = false,
+  onViewChange,
 }: EventManagerProps) {
   const { colors: priorityColors, customColors, addCustomColor, removeCustomColor } = usePriorityColors()
   const [events, setEvents] = useState<Event[]>(initialEvents)
@@ -295,7 +514,21 @@ export function EventManager({
   }, [initialEvents, locallyDeletedEventIds])
 
   const [currentDate, setCurrentDate] = useState(() => focusedDate ? new Date(focusedDate) : new Date())
-  const [view, setView] = useState<"month" | "week" | "day" | "year" | "list" | "schedule" | "3day">(defaultView)
+  const [view, setView] = useState<"month" | "week" | "day" | "year" | "list" | "schedule" | "3day">(() => {
+    const saved = typeof localStorage !== 'undefined' ? localStorage.getItem('adonai:calendar-view-mode') : null;
+    return (saved as any) || defaultView;
+  });
+
+  // Propagate view changes to localStorage, custom event, and optional parent callback
+  const handleViewChange = useCallback((newView: "month" | "week" | "day" | "year" | "list" | "schedule" | "3day") => {
+    setView(newView);
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('adonai:calendar-view-mode', newView);
+    }
+    window.dispatchEvent(new CustomEvent('adonai:calendar-view-mode-change', { detail: { viewMode: newView } }));
+    onViewChange?.(newView);
+  }, [onViewChange]);
+  const [hourZoom, setHourZoom] = useState(160)
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null)
   const DURATION_OPTIONS = [
     { label: '1m', value: 1 },
@@ -316,6 +549,112 @@ export function EventManager({
     { label: '2:30h', value: 150 },
     { label: '3h', value: 180 },
   ]
+
+  const [isQuickPreviewOpen, setIsQuickPreviewOpen] = useState(false)
+  const [quickPreviewEvent, setQuickPreviewEvent] = useState<Event | null>(null)
+
+  // Local draft states for preview editing
+  const [previewTitle, setPreviewTitle] = useState('')
+  const [previewDescription, setPreviewDescription] = useState('')
+  const [previewIsEvent, setPreviewIsEvent] = useState(true)
+  const [previewColor, setPreviewColor] = useState('')
+  const [previewReminderEnabled, setPreviewReminderEnabled] = useState(false)
+  const [previewReminderMinutes, setPreviewReminderMinutes] = useState(15)
+  const [previewLinks, setPreviewLinks] = useState<string[]>([])
+
+  const handleEventClickInternal = useCallback((event: Event) => {
+    if (onEventClick) {
+      onEventClick(event)
+    } else {
+      setQuickPreviewEvent(event)
+      setPreviewTitle(event.title || '')
+      const rawDesc = event.description || '';
+      const cleanedDesc = cleanDescription(rawDesc);
+      console.log('[DEBUG DESC] raw:', JSON.stringify(rawDesc).substring(0, 200));
+      console.log('[DEBUG DESC] cleaned:', JSON.stringify(cleanedDesc).substring(0, 200));
+      setPreviewDescription(cleanedDesc)
+      setPreviewIsEvent(event.isEvent !== false)
+      setPreviewColor(event.color || priorityColors.p4)
+      setPreviewReminderEnabled(!!event.reminderEnabled)
+      setPreviewReminderMinutes(event.reminderMinutesBefore ?? 15)
+      setPreviewLinks(event.links || [])
+      setIsQuickPreviewOpen(true)
+    }
+  }, [onEventClick, priorityColors])
+
+  const openFullDialogFromPreview = () => {
+    if (!quickPreviewEvent) return
+    
+    const draftEvent: Event = {
+      ...quickPreviewEvent,
+      title: previewTitle,
+      description: previewDescription,
+      isEvent: previewIsEvent,
+      color: previewColor,
+      reminderEnabled: previewReminderEnabled,
+      reminderMinutesBefore: previewReminderMinutes,
+      links: previewLinks,
+    }
+    
+    setSelectedEvent(draftEvent)
+    setIsCreating(false)
+    setIsQuickPreviewOpen(false)
+    setIsDialogOpen(true)
+  }
+
+  const handleSaveQuickPreview = useCallback(() => {
+    if (!quickPreviewEvent) return
+    
+    const updates: Partial<Event> = {
+      title: previewTitle,
+      description: previewDescription,
+      isEvent: previewIsEvent,
+      color: previewColor,
+      reminderEnabled: previewReminderEnabled,
+      reminderMinutesBefore: previewReminderMinutes,
+      links: previewLinks.filter(l => l.trim() !== ''),
+    }
+    
+    onEventUpdate?.(quickPreviewEvent.id, updates)
+    setIsQuickPreviewOpen(false)
+    setQuickPreviewEvent(null)
+  }, [quickPreviewEvent, previewTitle, previewDescription, previewIsEvent, previewColor, previewReminderEnabled, previewReminderMinutes, previewLinks, onEventUpdate])
+
+
+  const hasChanges = useMemo(() => {
+    if (!quickPreviewEvent) return false
+    const origTitle = quickPreviewEvent.title || ''
+    const origDesc = quickPreviewEvent.description || ''
+    const origIsEvent = quickPreviewEvent.isEvent !== false
+    const origColor = quickPreviewEvent.color || priorityColors.p4
+    const origReminder = !!quickPreviewEvent.reminderEnabled
+    const origMins = quickPreviewEvent.reminderMinutesBefore ?? 15
+    const origLinks = quickPreviewEvent.links || []
+    
+    const cleanedLinks = previewLinks.filter(l => l.trim() !== '')
+    const cleanedOrigLinks = origLinks.filter(l => l.trim() !== '')
+
+    return (
+      previewTitle !== origTitle ||
+      previewDescription !== origDesc ||
+      previewIsEvent !== origIsEvent ||
+      previewColor.toLowerCase() !== origColor.toLowerCase() ||
+      previewReminderEnabled !== origReminder ||
+      (previewReminderEnabled && previewReminderMinutes !== origMins) ||
+      JSON.stringify(cleanedLinks) !== JSON.stringify(cleanedOrigLinks)
+    )
+  }, [
+    quickPreviewEvent,
+    previewTitle,
+    previewDescription,
+    previewIsEvent,
+    previewColor,
+    previewReminderEnabled,
+    previewReminderMinutes,
+    previewLinks,
+    priorityColors
+  ])
+
 
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [confirmCloseOpen, setConfirmCloseOpen] = useState(false)
@@ -500,6 +839,28 @@ export function EventManager({
       setView(defaultView)
     }
   }, [defaultView])
+
+  // Sync view state with localStorage for bidirectional multi-window calendar view syncing!
+  useEffect(() => {
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === 'adonai:calendar-view-mode' && e.newValue) {
+        setView(e.newValue as any);
+      }
+    };
+    const handleCustomEvent = (e: CustomEvent<{ viewMode: string }>) => {
+      if (e.detail.viewMode && e.detail.viewMode !== view) {
+        setView(e.detail.viewMode as any);
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+    window.addEventListener('adonai:calendar-view-mode-change' as any, handleCustomEvent as any);
+    return () => {
+      window.removeEventListener('storage', handleStorage);
+      window.removeEventListener('adonai:calendar-view-mode-change' as any, handleCustomEvent as any);
+    };
+  }, [view]);
+
+
 
   const filteredEvents = useMemo(() => {
     const baseEvents = events.filter((event) => {
@@ -1476,7 +1837,7 @@ export function EventManager({
           <div className="flex-1 min-w-0" />
 
           {/* View selector */}
-          <Select value={view} onValueChange={(value) => setView(value as typeof view)}>
+          <Select value={view} onValueChange={(value) => handleViewChange(value as typeof view)}>
             <SelectTrigger className="h-8 w-[92px] shrink-0 rounded-xl border-outline-variant/10 bg-surface-container-low/80 px-2 text-[10px] font-black uppercase tracking-widest text-foreground shadow-none focus:ring-1 focus:ring-primary/30 sm:w-[108px]">
               <SelectValue>{viewLabels[view]}</SelectValue>
             </SelectTrigger>
@@ -1487,6 +1848,29 @@ export function EventManager({
               <SelectItem value="year" className="rounded-xl text-xs font-bold">Año</SelectItem>
             </SelectContent>
           </Select>
+
+          {/* Zoom controls */}
+          {view !== "month" && view !== "year" && (
+            <div className="flex items-center gap-0.5 border border-outline-variant/10 rounded-xl overflow-hidden shrink-0">
+              <button
+                onClick={() => setHourZoom(h => Math.max(60, h - 40))}
+                className="h-7 w-7 flex items-center justify-center text-[10px] font-black hover:bg-surface-container/80 transition-all active:scale-90 text-muted-foreground/60 hover:text-foreground"
+                title="Alejar"
+              >
+                <Minus className="w-3.5 h-3.5" />
+              </button>
+              <span className="text-[8px] font-black px-1 text-muted-foreground/40 select-none min-w-[24px] text-center">
+                {hourZoom === 60 ? '1h' : hourZoom === 80 ? '45m' : hourZoom === 120 ? '30m' : hourZoom === 160 ? '15m' : '5m'}
+              </span>
+              <button
+                onClick={() => setHourZoom(h => Math.min(320, h + 40))}
+                className="h-7 w-7 flex items-center justify-center text-[10px] font-black hover:bg-surface-container/80 transition-all active:scale-90 text-muted-foreground/60 hover:text-foreground"
+                title="Acercar"
+              >
+                <Plus className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
 
           {/* Search toggle */}
           <button
@@ -1535,14 +1919,7 @@ export function EventManager({
               <MonthView
                 currentDate={currentDate}
                 events={calendarVisibleEvents}
-                onEventClick={(event) => {
-                  if (onEventClick) {
-                    onEventClick(event)
-                  } else {
-                    setSelectedEvent(event)
-                    setIsDialogOpen(true)
-                  }
-                }}
+                onEventClick={handleEventClickInternal}
                 onCellClick={(day) => {
                   setSelectedDayForSheet(day)
                   setIsSheetOpen(true)
@@ -1563,7 +1940,7 @@ export function EventManager({
                 events={calendarVisibleEvents}
                 onSelectMonth={(monthDate) => {
                   commitCurrentDate(monthDate)
-                  setView("month")
+                  handleViewChange("month")
                 }}
               />
             )}
@@ -1659,14 +2036,7 @@ export function EventManager({
                                 onDragStart={(e) => handleSidebarReorderStart(e, event)}
                                 onDragOver={(e) => handleSidebarReorderOver(e, event)}
                                 onDragEnd={handleSidebarReorderEnd}
-                                onClick={() => {
-                                  if (onEventClick) {
-                                    onEventClick(event)
-                                  } else {
-                                    setSelectedEvent(event)
-                                    setIsDialogOpen(true)
-                                  }
-                                }}
+                                onClick={() => handleEventClickInternal(event)}
                                 className={`group flex items-start gap-3 px-2 py-2 transition-colors cursor-grab active:cursor-grabbing hover:border-primary/18 touch-none ${
                                   sidebarReorderId === event.id || globalDragEvent?.id === event.id
                                     ? 'rounded-xl border border-primary/45 bg-primary/5 ring-2 ring-primary/45 shadow-[0_0_18px_rgba(99,102,241,0.24)]'
@@ -1695,14 +2065,7 @@ export function EventManager({
                     currentDate={currentDate}
                     events={filteredEvents.filter(e => !e.isAllDay)}
                     setEvents={setEvents}
-                    onEventClick={(event) => {
-                      if (onEventClick) {
-                        onEventClick(event)
-                      } else {
-                        setSelectedEvent(event)
-                        setIsDialogOpen(true)
-                      }
-                    }}
+                    onEventClick={handleEventClickInternal}
                     onCellClick={onCellClick}
                     onDrop={handleDrop}
                     getColorClasses={getColorClasses}
@@ -1718,6 +2081,7 @@ export function EventManager({
                     categories={categories}
                     openCreateDialog={openCreateDialog}
                     dragDisabled={dragDisabled}
+                    hourZoom={hourZoom}
                     draftEvent={draftEvent}
                     draftTitle={draftTitle}
                     setDraftTitle={setDraftTitle}
@@ -1738,14 +2102,7 @@ export function EventManager({
               <ScheduleView
                 events={calendarVisibleEvents}
                 currentDate={currentDate}
-                onEventClick={(event) => {
-                  if (onEventClick) {
-                    onEventClick(event)
-                  } else {
-                    setSelectedEvent(event)
-                    setIsDialogOpen(true)
-                  }
-                }}
+                onEventClick={handleEventClickInternal}
                 onToggleComplete={handleToggleComplete}
                 getColorClasses={getColorClasses}
               />
@@ -1755,12 +2112,12 @@ export function EventManager({
       </div>
 
 
-      {/* Event Dialog Ã¢â‚¬â€ pixel-match TaskDetailModal + time section */}
+      {/* Event Dialog — pixel-match TaskDetailModal + time section */}
       <AnimatePresence>
         {isDialogOpen && (() => {
           const hasTime = isCreating ? !newEvent.isAllDay : !selectedEvent?.isAllDay;
           const titleVal = isCreating ? (newEvent.title ?? '') : (selectedEvent?.title ?? '');
-          const descVal  = isCreating ? (newEvent.description ?? '') : (selectedEvent?.description ?? '');
+          const descVal  = isCreating ? (newEvent.description ?? '') : cleanDescription(selectedEvent?.description ?? '');
           const linksVal = (isCreating ? newEvent.links : selectedEvent?.links) || [];
           const importanceVal = isCreating ? !!newEvent.importance : !!selectedEvent?.importance;
           const urgencyVal    = isCreating ? !!newEvent.urgency    : !!selectedEvent?.urgency;
@@ -2574,6 +2931,249 @@ export function EventManager({
 
 
 
+      {/* Quick Preview Dialog */}
+      <div
+        onClick={(e) => e.stopPropagation()}
+        onMouseDown={(e) => e.stopPropagation()}
+        onMouseUp={(e) => e.stopPropagation()}
+      >
+        <Dialog open={isQuickPreviewOpen} onOpenChange={(open) => { if (!open) { setIsQuickPreviewOpen(false); setQuickPreviewEvent(null); } }}>
+          <DialogContent 
+            className="w-full max-w-sm max-h-[480px] bg-surface-container-high/95 backdrop-blur-3xl border border-outline-variant/10 rounded-[28px] shadow-2xl p-4 overflow-hidden outline-none flex flex-col"
+            onInteractOutside={(e) => e.preventDefault()}
+            onPointerDownOutside={(e) => e.preventDefault()}
+            onClick={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
+            onMouseUp={(e) => e.stopPropagation()}
+            hideCloseButton={true}
+          >
+            <DialogTitle className="sr-only">Vista rápida del evento</DialogTitle>
+            
+            {/* Controladores X | Basura en la esquina superior izquierda */}
+            <div className="absolute left-4 top-2 flex items-center gap-2 z-20">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsQuickPreviewOpen(false);
+                  setQuickPreviewEvent(null);
+                }}
+                onMouseDown={(e) => e.stopPropagation()}
+                onMouseUp={(e) => e.stopPropagation()}
+                className="w-7 h-7 rounded-2xl flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/5 text-muted-foreground hover:text-foreground transition-colors focus:outline-none focus-visible:outline-none focus-visible:ring-0"
+                title="Cerrar"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+              
+              {quickPreviewEvent && (
+                <>
+                  <span className="text-muted-foreground/30 font-light text-[10px]">|</span>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (quickPreviewEvent) {
+                        handleDeleteEvent(quickPreviewEvent.id);
+                        setIsQuickPreviewOpen(false);
+                        setQuickPreviewEvent(null);
+                      }
+                    }}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onMouseUp={(e) => e.stopPropagation()}
+                    className="w-7 h-7 rounded-2xl flex items-center justify-center hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+                    title="Eliminar evento"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </>
+              )}
+            </div>
+
+            {/* Contenedor del Formulario sin labels */}
+            <div className="space-y-3 pt-10 flex-1 overflow-y-auto min-h-0 pr-1">
+              {/* TÍTULO */}
+              <input
+                type="text"
+                value={previewTitle}
+                onChange={(e) => setPreviewTitle(e.target.value)}
+                className="w-full text-sm font-bold bg-surface/50 border border-outline-variant/30 rounded-2xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all placeholder:text-muted-foreground/20 text-foreground"
+                placeholder="Nombre del evento"
+              />
+
+              {/* DESCRIPCIÓN */}
+              <textarea
+                value={previewDescription}
+                onChange={(e) => setPreviewDescription(e.target.value)}
+                style={{ fieldSizing: 'content' } as React.CSSProperties}
+                className="w-full text-xs bg-surface/50 border border-outline-variant/30 rounded-2xl p-3 focus:outline-none focus:ring-2 focus:ring-primary/30 min-h-[56px] max-h-[150px] placeholder:text-muted-foreground/20 transition-all resize-none text-foreground leading-[1.5] overflow-y-auto block"
+                placeholder="Añadir descripción..."
+              />
+
+              {/* COLOR Y NOTIFICACIÓN EN LA MISMA LÍNEA */}
+              <div className="flex items-center gap-2">
+                {/* Selector de Colores */}
+                <div className="flex-1 flex flex-wrap gap-1 p-1 bg-surface/50 border border-outline-variant/30 rounded-2xl items-center justify-center min-h-[32px]">
+                  {[
+                    { value: priorityColors.p1, label: 'P1' },
+                    { value: priorityColors.p2, label: 'P2' },
+                    { value: priorityColors.p3, label: 'P3' },
+                    { value: priorityColors.p4, label: 'P4' },
+                    ...customColors.map((c, i) => ({ value: c.value, label: `${i + 1}` }))
+                  ].map((color, idx) => {
+                    const active = previewColor.toLowerCase() === color.value.toLowerCase();
+                    return (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => setPreviewColor(color.value)}
+                        className={cn(
+                          "h-5 w-5 rounded-full border transition-all flex items-center justify-center relative",
+                          active 
+                            ? "ring-2 ring-primary ring-offset-1 ring-offset-background scale-110 z-10 border-transparent" 
+                            : "border-outline-variant/20 hover:scale-105"
+                        )}
+                        style={{ backgroundColor: color.value }}
+                        aria-label={`Usar color ${color.label}`}
+                      />
+                    );
+                  })}
+                </div>
+
+                {/* Botón de Notificación (Cicla minutos) */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!previewReminderEnabled) {
+                      setPreviewReminderEnabled(true);
+                      setPreviewReminderMinutes(15);
+                    } else {
+                      if (previewReminderMinutes === 5) setPreviewReminderMinutes(15);
+                      else if (previewReminderMinutes === 15) setPreviewReminderMinutes(30);
+                      else if (previewReminderMinutes === 30) setPreviewReminderMinutes(60);
+                      else {
+                        setPreviewReminderEnabled(false);
+                      }
+                    }
+                  }}
+                  className={cn(
+                    "h-8 px-2.5 rounded-2xl border flex items-center gap-1.5 transition-all text-[9px] font-black uppercase tracking-wider whitespace-nowrap",
+                    previewReminderEnabled 
+                      ? "bg-primary/15 text-primary border-primary/25 shadow-sm" 
+                      : "bg-surface-container/30 text-muted-foreground border-outline-variant/15 hover:border-primary/30 hover:text-primary"
+                  )}
+                >
+                  {previewReminderEnabled ? <Bell className="w-3 h-3" /> : <BellOff className="w-3 h-3" />}
+                  <span>{previewReminderEnabled ? (previewReminderMinutes === 60 ? '1 hora' : `${previewReminderMinutes} min`) : 'Notificar'}</span>
+                </button>
+              </div>
+
+              {/* DÓNDE QUIERES VERLO (Solo si aplica) */}
+              {quickPreviewEvent && !quickPreviewEvent.id.startsWith('google-') && (
+                <div className="flex p-0.5 bg-surface-container/30 border border-outline-variant/10 rounded-2xl gap-1">
+                  {[
+                    { id: true, label: 'SOLO CALENDARIO' },
+                    { id: false, label: 'TAREA Y CALENDARIO' },
+                  ].map(opt => (
+                    <button
+                      key={opt.label}
+                      type="button"
+                      onClick={() => setPreviewIsEvent(opt.id)}
+                      className={cn(
+                        "flex-1 py-1.5 rounded-[14px] text-[9px] font-black uppercase tracking-tight transition-all",
+                        previewIsEvent === opt.id
+                          ? "bg-primary text-primary-foreground shadow-sm"
+                          : "text-muted-foreground hover:bg-black/5 dark:hover:bg-white/5"
+                      )}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* ENLACES (LINKS) */}
+              <div className="space-y-1.5">
+                {previewLinks.map((link, idx) => (
+                  <div key={idx} className="flex items-center gap-2">
+                    <div className="relative flex-1">
+                      <LinkIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground/30 pointer-events-none" />
+                      <input
+                        type="text"
+                        value={link}
+                        onChange={(e) => {
+                          const updated = [...previewLinks];
+                          updated[idx] = e.target.value;
+                          setPreviewLinks(updated);
+                        }}
+                        className="w-full text-[11px] bg-surface/50 border border-outline-variant/30 rounded-2xl pl-8 pr-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary/30 text-foreground transition-all"
+                        placeholder="https://..."
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setPreviewLinks(prev => prev.filter((_, i) => i !== idx))}
+                      className="w-7 h-7 rounded-2xl flex items-center justify-center hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors border border-outline-variant/10"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setPreviewLinks(prev => [...prev, ''])}
+                    className="py-1 px-2 rounded-2xl border border-dashed border-outline-variant/30 text-muted-foreground hover:text-primary hover:border-primary/40 transition-all flex items-center gap-1 text-[9px] font-black uppercase tracking-wider w-max bg-surface/30"
+                  >
+                    <LinkIcon className="w-3 h-3" />
+                    <span>+ Enlace</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* ACCIONES DEL FOOTER */}
+            <div className="flex items-center justify-between gap-3 pt-2.5 mt-3 border-t border-outline-variant/10 flex-shrink-0">
+              <button
+                type="button"
+                onClick={openFullDialogFromPreview}
+                className={cn(
+                  "h-9 px-4 rounded-2xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 border border-outline-variant/30 text-foreground hover:bg-black/5 dark:hover:bg-white/5",
+                  !hasChanges && "w-full bg-primary text-primary-foreground border-transparent hover:bg-primary/95"
+                )}
+              >
+                <Settings className="w-3.5 h-3.5" />
+                <span>Detalles</span>
+              </button>
+              
+              {hasChanges && (
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsQuickPreviewOpen(false);
+                      setQuickPreviewEvent(null);
+                    }}
+                    className="px-4 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-wider text-muted-foreground hover:text-foreground transition-all"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveQuickPreview}
+                    className="px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-wider bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all"
+                  >
+                    Guardar
+                  </button>
+                </div>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+
+
       <Dialog open={isSheetOpen} onOpenChange={setIsSheetOpen}>
         <DialogContent className="max-w-2xl bg-surface-container-high/95 backdrop-blur-3xl border border-outline-variant/10 rounded-[32px] shadow-2xl p-0 overflow-hidden outline-none">
           <div className="h-[70vh] flex flex-col relative">
@@ -2605,9 +3205,7 @@ export function EventManager({
                           <div 
                             key={event.id}
                             onClick={() => {
-                              setSelectedEvent(event);
-                              setIsCreating(false);
-                              setIsDialogOpen(true);
+                              handleEventClickInternal(event);
                               setIsSheetOpen(false);
                             }}
                             className="group flex items-start gap-4 p-5 rounded-[28px] cursor-pointer transition-all duration-300 hover:bg-primary/5 border border-outline-variant/5 hover:border-primary/20"
@@ -2720,6 +3318,8 @@ export function EventManager({
         </>
       )}
 
+
+
       {/* Global ghost for sidebar drag previews */}
       <div
         ref={globalGhostRef}
@@ -2780,6 +3380,7 @@ function TimeGridView({
   updateDraftTime,
   containedScroll = false,
   hideGridHeader = false,
+  hourZoom = 160,
 }: {
   view: "week" | "day" | "3day"
   currentDate: Date
@@ -2811,7 +3412,7 @@ function TimeGridView({
   containedScroll?: boolean
   hideGridHeader?: boolean
 }) {
-  const HOUR_HEIGHT = 160;
+  const HOUR_HEIGHT = hourZoom;
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const initialEventsRef = useRef<Event[]>([])
   
@@ -2936,7 +3537,11 @@ function TimeGridView({
   const [draftResizing, setDraftResizing] = useState(false);
   const [draftResizingTop, setDraftResizingTop] = useState(false);
   const [draftHintVisible, setDraftHintVisible] = useState(false);
-  
+  const [descDialogEvent, setDescDialogEvent] = useState<Event | null>(null);
+  const [editDescription, setEditDescription] = useState('');
+  const [mobileEditEvent, setMobileEditEvent] = useState<Event | null>(null);
+  const [mobileEditOriginalEvent, setMobileEditOriginalEvent] = useState<Event | null>(null);
+
   useEffect(() => {
     if (draftEvent) {
       setDraftHintVisible(true);
@@ -2946,6 +3551,43 @@ function TimeGridView({
       setDraftHintVisible(false);
     }
   }, [draftEvent])
+
+  // Cleanup mobile edit draft mode when view or currentDate changes
+  useEffect(() => {
+    if (mobileEditEvent) {
+      setMobileEditEvent(null);
+      setMobileEditOriginalEvent(null);
+      window.dispatchEvent(new CustomEvent('adonai:draft-state-change', { detail: { active: false } }));
+    }
+  }, [view, currentDate]);
+
+  const handleMobileSave = () => {
+    if (!mobileEditEvent) return;
+    const finalEvent = events.find(ev => ev.id === mobileEditEvent.id);
+    if (!finalEvent) return;
+    if (findTimedEventConflict(events, finalEvent, finalEvent.id)) {
+      notifyCalendarConflict();
+      return;
+    }
+    if (onEventUpdate) {
+      onEventUpdate(finalEvent.id, {
+        startTime: finalEvent.startTime,
+        endTime: finalEvent.endTime,
+      });
+    }
+    setMobileEditEvent(null);
+    setMobileEditOriginalEvent(null);
+    window.dispatchEvent(new CustomEvent('adonai:draft-state-change', { detail: { active: false } }));
+  };
+
+  const handleMobileCancel = () => {
+    if (mobileEditOriginalEvent) {
+      setEvents(prev => prev.map(ev => ev.id === mobileEditOriginalEvent.id ? mobileEditOriginalEvent : ev));
+    }
+    setMobileEditEvent(null);
+    setMobileEditOriginalEvent(null);
+    window.dispatchEvent(new CustomEvent('adonai:draft-state-change', { detail: { active: false } }));
+  };
 
   const ghostRef = useRef<HTMLDivElement>(null);
   const isHoveringSidebarRef = useRef<boolean>(false);
@@ -3031,11 +3673,17 @@ function TimeGridView({
 
         if (!isDraggingRef.current) return;
 
-        // Ghost logic Ã¢â‚¬â€ always visible while dragging calendar events
+        // Ghost logic — always visible while dragging calendar events
         if (isMoving && ghostRef.current) {
-          ghostRef.current.style.transform = `translate(${clientX - 70}px, ${clientY - 20}px)`;
-          ghostRef.current.style.display = 'flex';
-          ghostRef.current.style.opacity = '1';
+          const isMobile = window.matchMedia('(max-width: 767px)').matches;
+          if (isMobile) {
+            ghostRef.current.style.display = 'none';
+            ghostRef.current.style.opacity = '0';
+          } else {
+            ghostRef.current.style.transform = `translate(${clientX - 70}px, ${clientY - 20}px)`;
+            ghostRef.current.style.display = 'flex';
+            ghostRef.current.style.opacity = '1';
+          }
 
           // Detect if hovering the sidebar drop target
           const sidebarEl = document.querySelector('[data-sidebar-droptarget]') as HTMLElement;
@@ -3046,11 +3694,18 @@ function TimeGridView({
             isHoveringSidebarRef.current = clientX < 320;
           }
 
-          // Dim original event element while dragging
+          // Dim original event element while dragging (or style as draft on mobile)
           const originalCol = document.querySelector(`[data-event-id="${isMoving}"]`) as HTMLElement;
           if (originalCol) {
-            originalCol.style.opacity = isHoveringSidebarRef.current ? '0' : '0.3';
-            originalCol.style.transform = isHoveringSidebarRef.current ? 'scale(0.8)' : 'none';
+            if (isMobile) {
+              originalCol.style.opacity = '0.95';
+              originalCol.style.border = '2px dashed rgba(255, 255, 255, 0.7)';
+              originalCol.style.boxShadow = '0 10px 25px -5px rgba(0, 0, 0, 0.4)';
+              originalCol.style.transform = 'none';
+            } else {
+              originalCol.style.opacity = isHoveringSidebarRef.current ? '0' : '0.3';
+              originalCol.style.transform = isHoveringSidebarRef.current ? 'scale(0.8)' : 'none';
+            }
           }
         }
 
@@ -3108,18 +3763,26 @@ function TimeGridView({
             (initial.startTime.getTime() !== changedEvent.startTime.getTime() ||
               initial.endTime.getTime() !== changedEvent.endTime.getTime());
 
-          if (onEventUpdate && changedEvent && changed) {
-            if (findTimedEventConflict(currentEventsRef.current, changedEvent, changedEvent.id)) {
-              notifyCalendarConflict();
-              if (initial) {
-                setEvents(prev => prev.map(ev => ev.id === changedEvent.id ? initial : ev));
+          const isMobile = window.matchMedia('(max-width: 767px)').matches;
+          if (isMobile) {
+            if (changedEvent) {
+              setMobileEditEvent(changedEvent);
+              window.dispatchEvent(new CustomEvent('adonai:draft-state-change', { detail: { active: true } }));
+            }
+          } else {
+            if (onEventUpdate && changedEvent && changed) {
+              if (findTimedEventConflict(currentEventsRef.current, changedEvent, changedEvent.id)) {
+                notifyCalendarConflict();
+                if (initial) {
+                  setEvents(prev => prev.map(ev => ev.id === changedEvent.id ? initial : ev));
+                }
+              } else {
+                onRegisterPendingDrop?.(changedEvent);
+                onEventUpdate(changedEvent.id, {
+                  startTime: changedEvent.startTime,
+                  endTime: changedEvent.endTime,
+                });
               }
-            } else {
-            onRegisterPendingDrop?.(changedEvent);
-            onEventUpdate(changedEvent.id, {
-              startTime: changedEvent.startTime,
-              endTime: changedEvent.endTime,
-            });
             }
           }
         }
@@ -3131,7 +3794,12 @@ function TimeGridView({
         // Restore original event opacity in all cases (dragged within calendar)
         if (isMoving) {
           const originalEl = document.querySelector(`[data-event-id="${isMoving}"]`) as HTMLElement;
-          if (originalEl) { originalEl.style.opacity = '1'; originalEl.style.transform = 'none'; }
+          if (originalEl) { 
+            originalEl.style.opacity = '1'; 
+            originalEl.style.transform = 'none';
+            originalEl.style.border = '';
+            originalEl.style.boxShadow = '';
+          }
         }
         isHoveringSidebarRef.current = false;
         
@@ -3374,6 +4042,7 @@ function TimeGridView({
                            setTimeout(() => { isDraggingRef.current = false; }, 150);
                          }}
                            onClick={(e) => {
+                             if (mobileEditEvent) return;
                              if (isDraggingRef.current) return;
                              const d = new Date(day)
                              d.setHours(hour, mins, 0, 0)
@@ -3421,7 +4090,7 @@ function TimeGridView({
                     style={{
                       top: `${(previewTime.hour + (previewTime.minutes || 0) / 60) * HOUR_HEIGHT}px`,
                       height: `${(draggedEvent.isAllDay ? 10/60 : (draggedEvent.endTime.getTime() - draggedEvent.startTime.getTime()) / (1000 * 60 * 60)) * HOUR_HEIGHT}px`,
-                      backgroundColor: (draggedEvent.color && (draggedEvent.color.startsWith('#') || draggedEvent.color.startsWith('var'))) ? draggedEvent.color : undefined
+                      backgroundColor: (draggedEvent.color && (draggedEvent.color.startsWith('#') || draggedEvent.color.startsWith('var'))) ? hexToRgba(draggedEvent.color, 0.65) : undefined
                     }}
                   >
                     <p className="truncate font-semibold opacity-60 italic">{draggedEvent.title}</p>
@@ -3443,82 +4112,120 @@ function TimeGridView({
                         onClick={(e) => {
                           e.stopPropagation();
                           // If the user just finished dragging, don't open the dialog
+                          if (mobileEditEvent?.id === event.id) return;
                           if (isDraggingRef.current) return;
                           onEventClick(event);
                         }}
-                        className={cn(
-                          "absolute rounded-xl px-2.5 py-2 sm:p-2 text-[12px] sm:text-[10px] font-semibold text-white hover:brightness-110 z-10 overflow-hidden group select-none touch-pan-y",
-                          "transition-[opacity,transform] duration-200 ease-out", // No shadow transition - prevents shadow accumulation
-                          event.color && !event.color.startsWith('#') && !event.color.startsWith('var') && getColorClasses(event.color).bg,
-                          isResizing === event.id && "z-50 shadow-xl brightness-125 ring-2 ring-white/50 transition-none", // Disable transitions while resizing
-                          !dragDisabled && "cursor-grab active:cursor-grabbing",
-                          isMoving === event.id && "z-50 shadow-xl scale-[1.02] brightness-110 ring-2 ring-white/30 transition-none cursor-grabbing", // Premium feedback while moving
-                          isDraggingRef.current && "transition-none", // Disable transitions while dragging
-                          event.completed && "opacity-50 grayscale-[0.3]"
-                        )}
-                        style={{
-                          top: `${startHour * HOUR_HEIGHT + 2}px`, // 2px gap at top
-                          left: `${layout.left + 0.5}%`,
-                          width: `${layout.width}%`,
-                          height: `${duration * HOUR_HEIGHT - 4}px`, // 4px total gap (2px top, 2px bottom)
-                          backgroundColor: (event.color && (event.color.startsWith('#') || event.color.startsWith('var'))) ? event.color : undefined,
-                          userSelect: 'none',
-                        }}
-                        onMouseDown={(e) => {
-                          if (e.button !== 0) return;
-                          if (dragDisabled) return;
-                          e.stopPropagation();
-                          isDraggingRef.current = false;
-                          setIsMoving(event.id);
-                          setInitialMouseY(e.pageY);
-                          setInitialMouseX(e.pageX);
-                          setInitialStartTime(new Date(event.startTime));
-                          setInitialDuration((event.endTime.getTime() - event.startTime.getTime()) / 60000);
-                        }}
-                        onTouchStart={(e) => {
-                          if (dragDisabled) return;
-                          e.stopPropagation();
-                          const touch = e.touches[0];
-                          const startX = touch.pageX;
-                          const startY = touch.pageY;
-                          
-                          // Long press for mobile dragging
-                          longPressTimerRef.current = setTimeout(() => {
+                          className={cn(
+                            "absolute rounded-xl hover:brightness-110 overflow-hidden group select-none",
+                            "transition-[opacity,transform] duration-200 ease-out",
+                            duration < 0.35 ? "px-1.5 py-0.5" : "px-2 py-1.5",
+                            duration < 0.35 ? "font-semibold" : "font-bold",
+                            event.color && !event.color.startsWith('#') && !event.color.startsWith('var') && getColorClasses(event.color).bg,
+                            !dragDisabled && "cursor-grab active:cursor-grabbing",
+                            event.completed && "opacity-50 grayscale-[0.3]",
+                            !(isMoving === event.id || isResizing === event.id || mobileEditEvent?.id === event.id) && "z-10",
+                            isResizing === event.id && "z-50 shadow-xl brightness-125 ring-2 ring-white/50 transition-none",
+                            isMoving === event.id && "z-50 shadow-xl scale-[1.02] brightness-110 ring-2 ring-white/30 transition-none cursor-grabbing",
+                            isDraggingRef.current && "transition-none",
+                            mobileEditEvent?.id === event.id && "z-40 shadow-2xl border-2 border-dashed border-white/80 ring-2 ring-white/20 brightness-[1.05]"
+                          )}
+                          style={{
+                            top: `${startHour * HOUR_HEIGHT + 2}px`,
+                            left: `${layout.left + 0.5}%`,
+                            width: `${layout.width}%`,
+                            height: `${duration * HOUR_HEIGHT - 4}px`,
+                            userSelect: 'none',
+                            ...getEventStyles(event.color)
+                          }}
+                          onMouseDown={(e) => {
+                            if (e.button !== 0) return;
+                            if (dragDisabled) return;
+                            // On mobile, dragging is handled by onTouchStart with long-press timer
+                            if (window.matchMedia('(max-width: 767px)').matches) return;
+                            e.stopPropagation();
                             isDraggingRef.current = false;
                             setIsMoving(event.id);
-                            setInitialMouseY(startY);
-                            setInitialMouseX(startX);
+                            setInitialMouseY(e.pageY);
+                            setInitialMouseX(e.pageX);
                             setInitialStartTime(new Date(event.startTime));
                             setInitialDuration((event.endTime.getTime() - event.startTime.getTime()) / 60000);
+                          }}
+                          onTouchStart={(e) => {
+                            if (dragDisabled) return;
+                            e.stopPropagation();
+                            // Prevent browser context menu / text-select on long press
+                            e.preventDefault();
+                            const touch = e.touches[0];
+                            const startX = touch.pageX;
+                            const startY = touch.pageY;
                             
-                            // Vibrate if supported for haptic feedback
-                            if (window.navigator && window.navigator.vibrate) {
-                              window.navigator.vibrate(50);
+                            const isMobile = window.matchMedia('(max-width: 767px)').matches;
+                            
+                            if (isMobile && mobileEditEvent?.id === event.id) {
+                              isDraggingRef.current = false;
+                              setIsMoving(event.id);
+                              setInitialMouseY(startY);
+                              setInitialMouseX(startX);
+                              setInitialStartTime(new Date(event.startTime));
+                              setInitialDuration((event.endTime.getTime() - event.startTime.getTime()) / 60000);
+                            } else {
+                              // Store start coords in the ref for tolerance check in touchmove
+                              longPressTimerRef._startX = startX;
+                              longPressTimerRef._startY = startY;
+                              longPressTimerRef.current = setTimeout(() => {
+                                isDraggingRef.current = false;
+                                setIsMoving(event.id);
+                                setInitialMouseY(startY);
+                                setInitialMouseX(startX);
+                                setInitialStartTime(new Date(event.startTime));
+                                setInitialDuration((event.endTime.getTime() - event.startTime.getTime()) / 60000);
+                                
+                                if (isMobile) {
+                                  setMobileEditEvent(event);
+                                  setMobileEditOriginalEvent({ ...event });
+                                  window.dispatchEvent(new CustomEvent('adonai:draft-state-change', { detail: { active: true } }));
+                                }
+                                
+                                if (window.navigator && window.navigator.vibrate) {
+                                  window.navigator.vibrate(50);
+                                }
+                              }, 1000);
                             }
-                          }, 500); // 500ms for long press
-                        }}
-                        onTouchEnd={() => {
-                          if (longPressTimerRef.current) {
-                            clearTimeout(longPressTimerRef.current);
-                            longPressTimerRef.current = null;
-                          }
-                        }}
-                        onTouchMove={() => {
-                          // If moved too much before long press, cancel it
-                          if (!isMoving && longPressTimerRef.current) {
-                            clearTimeout(longPressTimerRef.current);
-                            longPressTimerRef.current = null;
-                          }
-                        }}
-                      >
+                          }}
+                          onTouchEnd={() => {
+                            if (longPressTimerRef.current) {
+                              clearTimeout(longPressTimerRef.current);
+                              longPressTimerRef.current = null;
+                            }
+                          }}
+                          onTouchMove={(e) => {
+                            if (!isMoving && longPressTimerRef.current) {
+                              const touch = e.touches[0];
+                              const dx = Math.abs(touch.pageX - (longPressTimerRef._startX ?? touch.pageX));
+                              const dy = Math.abs(touch.pageY - (longPressTimerRef._startY ?? touch.pageY));
+                              // Only cancel if finger moves more than 12px (ignore natural trembling)
+                              if (dx > 12 || dy > 12) {
+                                clearTimeout(longPressTimerRef.current);
+                                longPressTimerRef.current = null;
+                              }
+                            }
+                          }}
+                          onContextMenu={(e) => e.preventDefault()}
+                        >
                           {/* Top Resize Handle */}
                           <div 
                             className={cn(
-                              "absolute top-0 inset-x-0 cursor-ns-resize z-30 flex items-start justify-center opacity-80 md:opacity-0 md:group-hover:opacity-100 transition-opacity",
-                              "h-5"
+                              "absolute top-0 left-1/2 -translate-x-1/2 cursor-ns-resize z-30 flex items-start justify-center transition-opacity w-14",
+                              duration < 0.35 ? "h-3.5" : "h-5",
+                              (isMoving === event.id || isResizing === event.id || mobileEditEvent?.id === event.id)
+                                ? "opacity-100"
+                                : "opacity-0 md:opacity-0 md:group-hover:opacity-100 pointer-events-none md:pointer-events-auto"
                             )}
                             onMouseDown={(e) => {
                               e.stopPropagation();
+                              // On mobile, resizing is handled by onTouchStart
+                              if (window.matchMedia('(max-width: 767px)').matches) return;
                               isDraggingRef.current = false;
                               setIsResizing(event.id);
                               setIsResizingTop(true);
@@ -3537,27 +4244,116 @@ function TimeGridView({
                               setInitialEndTime(new Date(event.endTime));
                             }}
                           >
-                            <div className="mt-1 w-10 h-1.5 rounded-full bg-white/85 shadow-md" />
+                            <div className={cn(
+                              "rounded-full bg-white/85 shadow-md transition-all",
+                              duration < 0.35 ? "w-8 h-1 mt-0.5" : "w-10 h-1.5 mt-1"
+                            )} />
                           </div>
 
-                          <div className="flex flex-col h-full py-1 px-1">
-                            <p className={cn("truncate font-black text-[12px] sm:text-[10px] select-none leading-tight", event.completed && "line-through")}>{event.title}</p>
-                            {duration > 0.35 && <EventLinkClips links={event.links} color={event.color} />}
-                            {duration > 0.25 && (
-                              <p className="opacity-80 text-[10px] sm:text-[8px] font-bold mt-0.5 select-none leading-none">
-                                {format(event.startTime, "h:mm a", { locale: es })}{duration > 0.4 ? ` - ${format(event.endTime, "h:mm a", { locale: es })}` : ''}
+                          <div className={cn("flex items-start h-full gap-1.5 px-1", duration < 0.35 ? "flex-row items-center py-0" : "flex-row py-0.5")}>
+                            <div className="flex-1 min-w-0 leading-tight">
+                              <p className={cn("leading-tight drop-shadow-sm break-words", event.completed && "line-through")}
+                                style={{ 
+                                  fontSize: duration < 0.35 
+                                    ? `${Math.max(8, Math.min(13, Math.round(hourZoom * 0.065 + 2)))}px` 
+                                    : `${Math.max(10, Math.min(16, Math.round(hourZoom * 0.06 + 4)))}px` 
+                                }}>
+                                {event.title}
                               </p>
+                              {!event.isAllDay && duration > 0.3 && (
+                                <p className="opacity-85 mt-[1px] leading-tight drop-shadow-sm"
+                                  style={{ fontSize: `${Math.max(8, Math.min(13, Math.round(hourZoom * 0.05 + 3)))}px` }}>
+                                  {(() => {
+                                    const totalMin = Math.round(duration * 60);
+                                    if (totalMin < 60) return `${totalMin} min`;
+                                    const h = Math.floor(totalMin / 60);
+                                    const m = totalMin % 60;
+                                    return m === 0 ? `${h}h` : `${h}h ${m}min`;
+                                  })()}
+                                </p>
+                              )}
+                              {event.description && duration > 0.6 && cleanDescription(event.description) && (
+                                <>
+                                  <p
+                                    className="mt-0.5 leading-snug opacity-70 whitespace-pre-line line-clamp-3"
+                                    style={{ fontSize: `${Math.max(8, Math.min(13, Math.round(hourZoom * 0.05 + 3)))}px` }}
+                                  >
+                                    <span
+                                      className="cursor-pointer hover:opacity-100 hover:underline hover:decoration-dotted hover:decoration-1 hover:underline-offset-2 transition-all inline"
+                                      onMouseDown={(e) => e.stopPropagation()}
+                                      onMouseUp={(e) => e.stopPropagation()}
+                                      onTouchStart={(e) => e.stopPropagation()}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setEditDescription(cleanDescription(event.description || ''));
+                                        setDescDialogEvent(event);
+                                      }}
+                                    >
+                                      {cleanDescription(event.description)}
+                                    </span>
+                                  </p>
+                                  {/* Wrapper stops any portal click from bubbling to the event chip */}
+                                  <div
+                                    onClick={(e) => e.stopPropagation()}
+                                    onMouseDown={(e) => e.stopPropagation()}
+                                    onMouseUp={(e) => e.stopPropagation()}
+                                  >
+                                    <Dialog open={descDialogEvent?.id === event.id} onOpenChange={(open) => { if (!open) setDescDialogEvent(null); }}>
+                                      <DialogContent
+                                        className="w-full max-w-[430px] rounded-[20px] shadow-2xl p-0 outline-none overflow-hidden border-0"
+                                        onInteractOutside={(e) => e.preventDefault()}
+                                        onPointerDownOutside={(e) => e.preventDefault()}
+                                      >
+                                      <DialogTitle className="sr-only">Descripción del evento</DialogTitle>
+                                        {/* pt-10 deja espacio para la X integrada de Radix (top-4 right-4) */}
+                                        <div className="px-5 pt-10 pb-3">
+                                          <textarea
+                                            className="w-full text-[14.5px] text-foreground leading-[1.7] bg-transparent border-0 p-0 resize-none focus:outline-none font-sans min-h-[100px] max-h-[240px] overflow-y-auto block"
+                                            value={editDescription}
+                                            onChange={(e) => setEditDescription(e.target.value)}
+                                            autoFocus
+                                            style={{ fieldSizing: 'content' } as React.CSSProperties}
+                                          />
+                                        </div>
+                                        {editDescription !== (descDialogEvent?.description || '') && (
+                                          <div className="px-5 pb-4 flex justify-end">
+                                            <button
+                                              onClick={() => {
+                                                onEventUpdate?.(event.id, { description: editDescription });
+                                                setDescDialogEvent(null);
+                                              }}
+                                              className="px-5 h-9 rounded-xl bg-primary text-primary-foreground text-[11px] font-black uppercase tracking-wider transition-all hover:opacity-90 active:scale-95"
+                                            >
+                                              Guardar
+                                            </button>
+                                          </div>
+                                        )}
+                                      </DialogContent>
+                                    </Dialog>
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                            {event.links && getEventLinks(event.links).length > 0 && duration > 0 && (
+                              <div className="shrink-0 pt-0.5">
+                                <EventLinkClips links={event.links} color={event.color} />
+                              </div>
                             )}
                           </div>
 
                           {/* Bottom Resize Handle */}
                           <div 
                             className={cn(
-                              "absolute bottom-0 inset-x-0 cursor-ns-resize z-30 flex items-end justify-center opacity-80 md:opacity-0 md:group-hover:opacity-100 transition-opacity",
-                              "h-5"
+                              "absolute bottom-0 left-1/2 -translate-x-1/2 cursor-ns-resize z-30 flex items-end justify-center transition-opacity w-14",
+                              duration < 0.35 ? "h-3.5" : "h-5",
+                              (isMoving === event.id || isResizing === event.id || mobileEditEvent?.id === event.id)
+                                ? "opacity-100"
+                                : "opacity-0 md:opacity-0 md:group-hover:opacity-100 pointer-events-none md:pointer-events-auto"
                             )}
                             onMouseDown={(e) => {
                               e.stopPropagation();
+                              // On mobile, resizing is handled by onTouchStart
+                              if (window.matchMedia('(max-width: 767px)').matches) return;
                               isDraggingRef.current = false;
                               setIsResizing(event.id);
                               setIsResizingTop(false);
@@ -3576,7 +4372,10 @@ function TimeGridView({
                               setInitialEndTime(new Date(event.endTime));
                             }}
                           >
-                            <div className="mb-1 w-10 h-1.5 rounded-full bg-white/85 shadow-md" />
+                            <div className={cn(
+                              "rounded-full bg-white/85 shadow-md transition-all",
+                              duration < 0.35 ? "w-8 h-1 mb-0.5" : "w-10 h-1.5 mb-1"
+                            )} />
                           </div>
                       </div>
                     )
@@ -3730,6 +4529,26 @@ function TimeGridView({
           </>
         ) : null; })()}
       </div>
+
+      {/* Floating Save/Cancel bar for mobile event draft edit mode */}
+      {mobileEditEvent && (
+        <div className="lg:hidden fixed bottom-4 left-1/2 -translate-x-1/2 z-[100] w-full max-w-[calc(100vw-32px)] flex items-center justify-center pointer-events-none">
+          <div className="flex items-center gap-3 bg-surface-container-high border border-outline-variant/15 p-1.5 rounded-full shadow-2xl backdrop-blur-md w-full pointer-events-auto">
+            <button
+              onClick={handleMobileCancel}
+              className="flex-1 h-[38px] rounded-full text-muted-foreground hover:text-foreground font-black text-[10px] uppercase tracking-widest transition-all active:scale-95"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={handleMobileSave}
+              className="flex-[2] h-[38px] rounded-full bg-primary text-primary-foreground font-black text-[10px] uppercase tracking-widest shadow-lg transition-all active:scale-95 flex items-center justify-center gap-1.5"
+            >
+              Guardar
+            </button>
+          </div>
+        </div>
+      )}
     </Card>
   )
 }
@@ -3851,16 +4670,18 @@ function MonthView({
                       onEventClick(event)
                     }}
                     className={cn(
-                      "relative cursor-pointer rounded-md px-2 py-1 text-[9px] font-medium truncate transition-all duration-300",
+                      "relative cursor-pointer rounded-md px-2 py-1 text-[9px] font-medium truncate transition-all duration-300 flex items-center gap-1",
                       "hover:scale-110 hover:z-50 hover:shadow-xl hover:text-[10px] hover:py-1.5",
                       event.color && !event.color.startsWith('#') && !event.color.startsWith('var') && getColorClasses(event.color).bg,
-                      "text-white shadow-sm",
+                      "shadow-sm",
                       event.completed && "opacity-40 line-through grayscale-[0.5]"
                     )}
-                    style={{ backgroundColor: (event.color && (event.color.startsWith('#') || event.color.startsWith('var'))) ? event.color : undefined }}
+                    style={getEventStyles(event.color)}
                   >
-                    <span className="truncate">{event.title}</span>
-                    <EventLinkClips links={event.links} color={event.color} />
+                    {event.links && getEventLinks(event.links).length > 0 && (
+                      <span className="shrink-0 opacity-70 text-[7px] leading-none">&#x1F517;</span>
+                    )}
+                    <span className="whitespace-normal break-words">{event.title}</span>
                   </div>
                 ))}
                 {dayEvents.length > 3 && (
@@ -4011,44 +4832,43 @@ function ScheduleView({
                     key={event.id}
                     onClick={() => onEventClick(event)}
                     className={cn(
-                      "group flex items-center gap-4 p-4 rounded-2xl hover:bg-primary/10 border transition-all cursor-pointer active:scale-[0.98]",
+                      "group flex items-start gap-3 p-4 rounded-2xl hover:brightness-105 border transition-all cursor-pointer active:scale-[0.98]",
                       event.completed && "opacity-60"
                     )}
                     style={{ 
-                      backgroundColor: (() => { const pc = priorityColors[getPriorityKey(event.urgency || false, event.importance || false)]; return pc && pc !== 'transparent' ? `${pc}4D` : (event.color && (event.color.startsWith('#') || event.color.startsWith('var')) ? `color-mix(in srgb, ${event.color}, transparent 85%)` : 'transparent'); })(),
-                      borderColor: (event.color && (event.color.startsWith('#') || event.color.startsWith('var')))
-                        ? `color-mix(in srgb, ${event.color}, transparent 60%)`
-                        : 'rgba(var(--outline-variant), 0.08)'
+                      ...((event.color && (event.color.startsWith('#') || event.color.startsWith('var')))
+                        ? getEventStyles(event.color)
+                        : {
+                            backgroundColor: (() => { const pc = priorityColors[getPriorityKey(event.urgency || false, event.importance || false)]; return pc && pc !== 'transparent' ? `${pc}4D` : 'transparent'; })(),
+                            borderColor: 'rgba(var(--outline-variant), 0.08)',
+                            color: '#FFFFFF',
+                          })
                     }}
                   >
-                    <div
-                      className="w-2.5 h-2.5 rounded-full shrink-0"
-                      style={{ backgroundColor: (event.color && (event.color.startsWith('#') || event.color.startsWith('var'))) ? event.color : 'var(--primary)' }}
-                    />
+                    <div className="flex flex-col items-center gap-1 shrink-0 pt-0.5">
+                      <div
+                        className="w-2.5 h-2.5 rounded-full shrink-0"
+                        style={{ backgroundColor: (event.color && (event.color.startsWith('#') || event.color.startsWith('var'))) ? event.color : 'var(--primary)' }}
+                      />
+                      {event.links && getEventLinks(event.links).length > 0 && (
+                        <EventLinkClips links={event.links} color={event.color} />
+                      )}
+                    </div>
 
-                    <div className="flex flex-col items-center justify-center min-w-[60px] border-r border-outline-variant/10 pr-4">
-                      <span className="text-[11px] font-black text-foreground">{format(event.startTime, "h:mm a")}</span>
-                      <span className="text-[9px] font-bold opacity-30">{format(event.endTime, "h:mm a")}</span>
+                    <div className="flex flex-col items-center justify-center min-w-[60px] border-r border-white/20 pr-4">
+                      <span className="text-[13px]" style={{ color: 'inherit' }}>{format(event.startTime, "h:mm a")}</span>
+                      <span className="text-[11px] opacity-50" style={{ color: 'inherit' }}>{format(event.endTime, "h:mm a")}</span>
                     </div>
                     
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <div 
-                          className={cn("w-2 h-2 rounded-full", event.color && !event.color.startsWith('#') && !event.color.startsWith('var') && getColorClasses(event.color).bg)} 
-                          style={{ backgroundColor: (event.color && (event.color.startsWith('#') || event.color.startsWith('var'))) ? event.color : undefined }}
-                        />
-                      </div>
-                      <h3 className={cn("text-sm font-semibold text-foreground truncate group-hover:text-primary transition-colors", event.completed && "line-through")}>{event.title}</h3>
-                      <div className="mt-1">
-                        <EventLinkClips links={event.links} color={event.color} />
-                      </div>
+                      <h3 className={cn("text-[15px] break-words whitespace-normal transition-colors", event.completed && "line-through")} style={{ color: 'inherit' }}>{event.title}</h3>
                       {event.description && (
-                        <p className="text-[11px] font-medium text-on-surface-variant/40 line-clamp-1 mt-1">{event.description}</p>
+                        <p className="text-[11px] font-medium line-clamp-1 mt-1" style={{ color: 'inherit', opacity: 0.7 }}>{event.description}</p>
                       )}
                     </div>
                     
-                    <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                      <ChevronRight className="w-4 h-4 text-primary" />
+                    <div className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                      <ChevronRight className="w-4 h-4" style={{ color: 'inherit', opacity: 0.5 }} />
                     </div>
                   </div>
                 ))}

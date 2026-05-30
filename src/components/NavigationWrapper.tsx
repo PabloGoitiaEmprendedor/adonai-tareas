@@ -761,7 +761,6 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
                     due_date: evDate,
                     status: 'pending',
                   });
-                  toast.success('Evento creado');
                   setEventCreateOpen(false);
                 }}
                 className="flex-1 py-3 rounded-xl bg-primary text-primary-foreground text-xs font-bold shadow-lg shadow-primary/20 hover:opacity-90 transition-opacity"

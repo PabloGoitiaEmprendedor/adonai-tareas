@@ -34,7 +34,7 @@ export const useCalendarIntegration = () => {
       if (!user) return null;
       const { data, error } = await supabase
         .from("google_calendar_tokens")
-        .select("email")
+        .select("user_id")
         .eq("user_id", user.id)
         .maybeSingle();
 
@@ -45,14 +45,23 @@ export const useCalendarIntegration = () => {
 
   const connect = useMutation({
     mutationFn: async () => {
-      const redirectUri = `${window.location.origin}/calendar-callback`;
+      const isElectron = !!window.electronAPI;
+      const redirectUri = isElectron
+        ? "https://adonai-tareas.vercel.app/calendar-callback"
+        : `${window.location.origin}/calendar-callback`;
+      
       const data = await invokeFunction<{ url?: string }>("google-auth", {
         action: "get-url",
         redirect_uri: redirectUri,
+        state: isElectron ? "desktop" : undefined,
       });
       if (!data?.url) throw new Error("No se pudo iniciar la conexión con Google Calendar");
 
-      window.location.href = data.url;
+      if (isElectron && window.electronAPI?.openExternal) {
+        window.electronAPI.openExternal(data.url);
+      } else {
+        window.location.href = data.url;
+      }
     },
   });
 
@@ -94,7 +103,7 @@ export const useCalendarIntegration = () => {
 
   return {
     connected: !!settings?.calendar_connected,
-    email: connectionDetails.data?.email || null,
+    email: null,
     isLoading: connectionDetails.isLoading,
     connect,
     disconnect,

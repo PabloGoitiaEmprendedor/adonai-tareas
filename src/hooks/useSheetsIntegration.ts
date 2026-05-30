@@ -45,15 +45,24 @@ export const useSheetsIntegration = () => {
 
   const connect = useMutation({
     mutationFn: async () => {
-      const redirectUri = `${window.location.origin}/sheets-callback`;
+      const isElectron = !!window.electronAPI;
+      const redirectUri = isElectron
+        ? "https://adonai-tareas.vercel.app/sheets-callback"
+        : `${window.location.origin}/sheets-callback`;
+      
       const data = await invokeFunction<{ url?: string }>("google-auth", {
         action: "get-url",
         redirect_uri: redirectUri,
         service: "sheets",
+        state: isElectron ? "desktop" : undefined,
       });
       if (!data?.url) throw new Error("No se pudo iniciar la conexion con Google Sheets");
 
-      window.location.href = data.url;
+      if (isElectron && window.electronAPI?.openExternal) {
+        window.electronAPI.openExternal(data.url);
+      } else {
+        window.location.href = data.url;
+      }
     },
   });
 

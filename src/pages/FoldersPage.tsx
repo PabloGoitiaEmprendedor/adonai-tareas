@@ -836,14 +836,14 @@ const FoldersPage = () => {
               <motion.div 
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="relative min-h-[540px] w-full flex flex-col overflow-hidden rounded-[36px] notebook-cream-bg border border-outline-variant/12 py-6 pl-24 pr-10 shadow-[0_18px_45px_rgba(0,0,0,0.10)] backdrop-blur-xl"
+                className="relative min-h-[540px] w-full flex flex-col overflow-hidden rounded-[36px] notebook-cream-bg border border-black/[0.07] py-6 pl-24 pr-10 backdrop-blur-xl"
                 style={{
-                  backgroundImage: 'radial-gradient(circle at 18% 22%, rgba(255,255,255,0.09) 0 1px, transparent 1.6px), radial-gradient(circle at 73% 58%, rgba(0,0,0,0.05) 0 1px, transparent 1.7px), radial-gradient(circle at 42% 76%, rgba(255,255,255,0.045) 0 1px, transparent 1.8px), linear-gradient(90deg, transparent 0 70px, rgba(235,120,120,0.26) 70px 71px, transparent 71px calc(100% - 46px), rgba(235,120,120,0.18) calc(100% - 46px) calc(100% - 45px), transparent calc(100% - 45px))',
+                  backgroundImage: 'radial-gradient(circle at 18% 22%, rgba(255,255,255,0.09) 0 1px, transparent 1.6px), radial-gradient(circle at 73% 58%, rgba(0,0,0,0.05) 0 1px, transparent 1.7px), radial-gradient(circle at 42% 76%, rgba(255,255,255,0.045) 0 1px, transparent 1.8px)',
                   backgroundPosition: '0 18px',
                   borderRadius: '36px 34px 38px 35px',
                 }}
               >
-                <div className="absolute inset-x-0 top-0 h-12 bg-gradient-to-b from-white/[0.035] to-transparent pointer-events-none" />
+                <div className="absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-white/[0.60] to-transparent pointer-events-none rounded-t-[36px]" />
                 <div className="pointer-events-none absolute bottom-5 right-0 top-5 w-10">
                   {[0, 1, 2, 3].map((page) => (
                     <span
@@ -857,13 +857,13 @@ const FoldersPage = () => {
                     />
                   ))}
                 </div>
-                <div className="absolute bottom-8 left-16 top-8 w-px bg-rose-300/18" />
-                <div className="absolute bottom-8 right-14 top-8 w-px bg-rose-300/12" />
+                <div className="absolute bottom-8 left-16 top-8 w-px bg-rose-300/30" />
+                <div className="absolute bottom-8 right-14 top-8 w-px bg-rose-300/20" />
                 <div className="absolute inset-y-3 left-5 flex flex-col justify-between py-2">
                   {Array.from({ length: 14 }).map((_, ring) => (
                     <span
                       key={ring}
-                      className="h-3 w-10 rounded-full border-2 border-[#A8A29E]/40 bg-[#A8A29E]/15 shadow-[inset_0_1px_1px_rgba(255,255,255,0.25),0_1px_2px_rgba(0,0,0,0.12)]"
+                      className="notebook-ring-metallic h-3 w-10 rounded-full"
                     />
                   ))}
                 </div>
@@ -1007,14 +1007,14 @@ const FoldersPage = () => {
               <motion.div 
                 initial={{ opacity: 0, y: 15 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="relative min-h-[480px] w-full flex flex-col overflow-hidden rounded-[30px] notebook-cream-bg border border-outline-variant/12 py-4 pl-12 pr-4 shadow-xl shadow-black/10 backdrop-blur-xl"
+                className="relative min-h-[480px] w-full flex flex-col overflow-hidden rounded-[30px] notebook-cream-bg border border-black/[0.07] py-4 pl-12 pr-4 backdrop-blur-xl"
                 style={{
-                  backgroundImage: 'radial-gradient(circle at 20% 22%, rgba(255,255,255,0.09) 0 1px, transparent 1.6px), radial-gradient(circle at 78% 62%, rgba(0,0,0,0.05) 0 1px, transparent 1.7px), radial-gradient(circle at 44% 76%, rgba(255,255,255,0.045) 0 1px, transparent 1.8px), linear-gradient(90deg, transparent 0 38px, rgba(235,120,120,0.24) 38px 39px, transparent 39px calc(100% - 28px), rgba(235,120,120,0.16) calc(100% - 28px) calc(100% - 27px), transparent calc(100% - 27px))',
+                  backgroundImage: 'radial-gradient(circle at 20% 22%, rgba(255,255,255,0.09) 0 1px, transparent 1.6px), radial-gradient(circle at 78% 62%, rgba(0,0,0,0.05) 0 1px, transparent 1.7px), radial-gradient(circle at 44% 76%, rgba(255,255,255,0.045) 0 1px, transparent 1.8px)',
                   backgroundPosition: '0 17px',
                   borderRadius: '30px 28px 32px 29px',
                 }}
               >
-                <div className="absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-white/[0.035] to-transparent pointer-events-none" />
+                <div className="absolute inset-x-0 top-0 h-12 bg-gradient-to-b from-white/[0.60] to-transparent pointer-events-none" />
                 <div className="pointer-events-none absolute bottom-4 right-0 top-4 w-7">
                   {[0, 1, 2, 3].map((page) => (
                     <span
@@ -1028,13 +1028,13 @@ const FoldersPage = () => {
                     />
                   ))}
                 </div>
-                <div className="absolute bottom-7 left-8 top-7 w-px bg-rose-300/18" />
-                <div className="absolute bottom-7 right-7 top-7 w-px bg-rose-300/12" />
+                <div className="absolute bottom-7 left-8 top-7 w-px bg-rose-300/25" />
+                <div className="absolute bottom-7 right-7 top-7 w-px bg-rose-300/18" />
                 <div className="absolute inset-y-3 left-3 flex flex-col justify-between py-1">
                   {Array.from({ length: 12 }).map((_, ring) => (
                     <span
                       key={ring}
-                      className="h-2.5 w-8 rounded-full border border-[#A8A29E]/40 bg-[#A8A29E]/15 shadow-[inset_0_1px_1px_rgba(255,255,255,0.25),0_1px_2px_rgba(0,0,0,0.12)]"
+                      className="notebook-ring-metallic h-2.5 w-8 rounded-full"
                     />
                   ))}
                 </div>
