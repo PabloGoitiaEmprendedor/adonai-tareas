@@ -204,7 +204,7 @@ const AppRoutes = () => {
     // Primer uso en escritorio/local: mostrar la pantalla que pregunta si ya tiene cuenta.
     if (isElectron || isLocalHost) {
       // Respetar sesiones existentes para que una actualizacion no saque a nadie de su cuenta.
-      if (user) {
+      if (user && !user.is_anonymous) {
         return <Navigate to="/daily" replace />;
       }
 
