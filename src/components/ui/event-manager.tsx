@@ -1,4 +1,4 @@
-﻿"use client"
+"use client"
 import { format, addHours, addMinutes, addDays, isSameDay, startOfDay, endOfDay, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval } from "date-fns"
 import { es } from "date-fns/locale"
 
@@ -169,6 +169,88 @@ const darkenColor = (hex: string): string => {
   }
 
   return `#${[rr, gg, bb].map(c => Math.round(c * 255).toString(16).padStart(2, '0')).join('')}`;
+};
+
+const getTextColorForBg = (hex: string): string => {
+  if (!hex || !hex.startsWith('#')) return '#FFFFFF';
+  const clean = hex.replace('#', '');
+  const r = parseInt(clean.substring(0, 2), 16);
+  const g = parseInt(clean.substring(2, 4), 16);
+  const b = parseInt(clean.substring(4, 6), 16);
+  if (isNaN(r) || isNaN(g) || isNaN(b)) return '#FFFFFF';
+  
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  const isDarkMode = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
+  const threshold = isDarkMode ? 0.65 : 0.55;
+  
+  return luminance > threshold ? '#0F172A' : '#FFFFFF';
+};
+
+const getEventStyles = (hexColor?: string) => {
+  if (!hexColor) return {};
+  const isDarkMode = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
+  
+  const isHex = hexColor.startsWith('#');
+  if (!isHex) return {};
+  
+  if (isDarkMode) {
+    const bgColor = hexToRgba(hexColor, 0.9);
+    const textColor = getTextColorForBg(hexColor);
+    return {
+      backgroundColor: bgColor,
+      color: textColor,
+      border: `1px solid rgba(255, 255, 255, 0.1)`,
+    };
+  } else {
+    const bgColor = hexToRgba(hexColor, 0.15);
+    const textColor = darkenColor(hexColor);
+    return {
+      backgroundColor: bgColor,
+      color: textColor,
+      borderLeft: `4px solid ${hexColor}`,
+      borderRight: '1px solid rgba(0, 0, 0, 0.04)',
+      borderTop: '1px solid rgba(0, 0, 0, 0.04)',
+      borderBottom: '1px solid rgba(0, 0, 0, 0.04)',
+    };
+  }
+};
+
+const cleanDescription = (desc?: string): string => {
+  if (!desc) return '';
+  
+  const trimmed = desc.trim();
+  if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (parsed.description && typeof parsed.description === 'string') {
+        return cleanDescription(parsed.description);
+      }
+      if (parsed.notes && typeof parsed.notes === 'string') {
+        return cleanDescription(parsed.notes);
+      }
+      return '';
+    } catch (e) {
+    }
+  }
+
+  let text = stripHtml(desc);
+
+  text = text
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&apos;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&middot;/g, '·')
+    .replace(/&bull;/g, '•');
+
+  text = text.replace(/\[Adonai[^\]]*\]/gi, '');
+  text = text.replace(/adonai[-_]task[-_]id:\s*[a-z0-9-]+/gi, '');
+  text = text.replace(/google[-_]calendar[-_]event[-_]id:\s*[a-z0-9_]+/gi, '');
+
+  return text.trim();
 };
 
 const EventLinkClips = ({ links, color }: { links?: string[]; color?: string }) => {
@@ -402,6 +484,16 @@ export function EventManager({
     { label: '2:30h', value: 150 },
     { label: '3h', value: 180 },
   ]
+
+  const [quickViewEvent, setQuickViewEvent] = useState<Event | null>(null)
+
+  const handleEventClickInternal = useCallback((event: Event) => {
+    if (onEventClick) {
+      onEventClick(event)
+    } else {
+      setQuickViewEvent(event)
+    }
+  }, [onEventClick])
 
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [confirmCloseOpen, setConfirmCloseOpen] = useState(false)
@@ -1644,14 +1736,7 @@ export function EventManager({
               <MonthView
                 currentDate={currentDate}
                 events={calendarVisibleEvents}
-                onEventClick={(event) => {
-                  if (onEventClick) {
-                    onEventClick(event)
-                  } else {
-                    setSelectedEvent(event)
-                    setIsDialogOpen(true)
-                  }
-                }}
+                onEventClick={handleEventClickInternal}
                 onCellClick={(day) => {
                   setSelectedDayForSheet(day)
                   setIsSheetOpen(true)
@@ -1768,14 +1853,7 @@ export function EventManager({
                                 onDragStart={(e) => handleSidebarReorderStart(e, event)}
                                 onDragOver={(e) => handleSidebarReorderOver(e, event)}
                                 onDragEnd={handleSidebarReorderEnd}
-                                onClick={() => {
-                                  if (onEventClick) {
-                                    onEventClick(event)
-                                  } else {
-                                    setSelectedEvent(event)
-                                    setIsDialogOpen(true)
-                                  }
-                                }}
+                                onClick={() => handleEventClickInternal(event)}
                                 className={`group flex items-start gap-3 px-2 py-2 transition-colors cursor-grab active:cursor-grabbing hover:border-primary/18 touch-none ${
                                   sidebarReorderId === event.id || globalDragEvent?.id === event.id
                                     ? 'rounded-xl border border-primary/45 bg-primary/5 ring-2 ring-primary/45 shadow-[0_0_18px_rgba(99,102,241,0.24)]'
@@ -1804,14 +1882,7 @@ export function EventManager({
                     currentDate={currentDate}
                     events={filteredEvents.filter(e => !e.isAllDay)}
                     setEvents={setEvents}
-                    onEventClick={(event) => {
-                      if (onEventClick) {
-                        onEventClick(event)
-                      } else {
-                        setSelectedEvent(event)
-                        setIsDialogOpen(true)
-                      }
-                    }}
+                    onEventClick={handleEventClickInternal}
                     onCellClick={onCellClick}
                     onDrop={handleDrop}
                     getColorClasses={getColorClasses}
@@ -1848,14 +1919,7 @@ export function EventManager({
               <ScheduleView
                 events={calendarVisibleEvents}
                 currentDate={currentDate}
-                onEventClick={(event) => {
-                  if (onEventClick) {
-                    onEventClick(event)
-                  } else {
-                    setSelectedEvent(event)
-                    setIsDialogOpen(true)
-                  }
-                }}
+                onEventClick={handleEventClickInternal}
                 onToggleComplete={handleToggleComplete}
                 getColorClasses={getColorClasses}
               />
@@ -2715,9 +2779,7 @@ export function EventManager({
                           <div 
                             key={event.id}
                             onClick={() => {
-                              setSelectedEvent(event);
-                              setIsCreating(false);
-                              setIsDialogOpen(true);
+                              handleEventClickInternal(event);
                               setIsSheetOpen(false);
                             }}
                             className="group flex items-start gap-4 p-5 rounded-[28px] cursor-pointer transition-all duration-300 hover:bg-primary/5 border border-outline-variant/5 hover:border-primary/20"
@@ -3560,8 +3622,10 @@ function TimeGridView({
                           onEventClick(event);
                         }}
                           className={cn(
-                            "absolute rounded-xl px-2 py-1.5 text-[13px] font-bold hover:brightness-110 z-10 overflow-hidden group select-none",
+                            "absolute rounded-xl hover:brightness-110 z-10 overflow-hidden group select-none",
                             "transition-[opacity,transform] duration-200 ease-out",
+                            duration < 0.35 ? "px-1.5 py-0.5" : "px-2 py-1.5",
+                            duration < 0.35 ? "text-[10px] font-semibold" : "text-[13px] font-bold",
                             event.color && !event.color.startsWith('#') && !event.color.startsWith('var') && getColorClasses(event.color).bg,
                             isResizing === event.id && "z-50 shadow-xl brightness-125 ring-2 ring-white/50 transition-none",
                             !dragDisabled && "cursor-grab active:cursor-grabbing",
@@ -3574,9 +3638,8 @@ function TimeGridView({
                             left: `${layout.left + 0.5}%`,
                             width: `${layout.width}%`,
                             height: `${duration * HOUR_HEIGHT - 4}px`,
-                            backgroundColor: (event.color && (event.color.startsWith('#') || event.color.startsWith('var'))) ? hexToRgba(event.color, 0.65) : undefined,
-                            color: (event.color && (event.color.startsWith('#') || event.color.startsWith('var'))) ? darkenColor(event.color) : '#FFFFFF',
                             userSelect: 'none',
+                            ...getEventStyles(event.color)
                           }}
                           onMouseDown={(e) => {
                             if (e.button !== 0) return;
@@ -3646,13 +3709,17 @@ function TimeGridView({
                               setInitialEndTime(new Date(event.endTime));
                             }}
                           >
-                            <div className="mt-1 w-10 h-1.5 rounded-full bg-white/85 shadow-md" />
+                            {duration >= 0.4 && <div className="mt-1 w-10 h-1.5 rounded-full bg-white/85 shadow-md" />}
                           </div>
 
-                          <div className="flex flex-row items-start h-full gap-1.5 py-0.5 px-1">
+                          <div className={cn("flex items-start h-full gap-1.5 px-1", duration < 0.35 ? "flex-row items-center py-0" : "flex-row py-0.5")}>
                             <div className="flex-1 min-w-0 leading-tight">
                               <p className={cn("leading-tight drop-shadow-sm break-words", event.completed && "line-through")}
-                                style={{ fontSize: `${Math.floor(Math.min(hourZoom, 120) / 18) + 7}px` }}>
+                                style={{ 
+                                  fontSize: duration < 0.35 
+                                    ? `${Math.max(9, Math.floor(Math.min(hourZoom, 120) / 22) + 5)}px` 
+                                    : `${Math.floor(Math.min(hourZoom, 120) / 18) + 7}px` 
+                                }}>
                                 {event.title}
                               </p>
                               {!event.isAllDay && duration > 0.3 && (
@@ -3667,12 +3734,12 @@ function TimeGridView({
                                   })()}
                                 </p>
                               )}
-                              {event.description && duration > 0.6 && (
+                              {event.description && duration > 0.6 && cleanDescription(event.description) && (
                                 <>
                                   <p className="mt-1 leading-tight opacity-70 cursor-pointer hover:opacity-100 hover:underline hover:decoration-dotted hover:decoration-1 hover:underline-offset-2 transition-all line-clamp-3"
                                     style={{ fontSize: `${Math.max(7, Math.floor(Math.min(hourZoom, 120) / 20) + 5)}px` }}
                                     onClick={(e) => { e.stopPropagation(); setEditDescription(event.description); setDescDialogEvent(event); }}>
-                                    {stripHtml(event.description)}
+                                    {cleanDescription(event.description)}
                                   </p>
                                   <Dialog open={descDialogEvent?.id === event.id} onOpenChange={(open) => { if (!open) setDescDialogEvent(null); }}>
                                     <DialogContent
@@ -3734,7 +3801,7 @@ function TimeGridView({
                               setInitialEndTime(new Date(event.endTime));
                             }}
                           >
-                            <div className="mb-1 w-10 h-1.5 rounded-full bg-white/85 shadow-md" />
+                            {duration >= 0.4 && <div className="mb-1 w-10 h-1.5 rounded-full bg-white/85 shadow-md" />}
                           </div>
                       </div>
                     )
@@ -4015,10 +4082,7 @@ function MonthView({
                       "shadow-sm",
                       event.completed && "opacity-40 line-through grayscale-[0.5]"
                     )}
-                    style={{ 
-                      backgroundColor: (event.color && (event.color.startsWith('#') || event.color.startsWith('var'))) ? hexToRgba(event.color, 0.65) : undefined,
-                      color: (event.color && (event.color.startsWith('#') || event.color.startsWith('var'))) ? darkenColor(event.color) : 'white',
-                    }}
+                    style={getEventStyles(event.color)}
                   >
                     {event.links && getEventLinks(event.links).length > 0 && (
                       <span className="shrink-0 opacity-70 text-[7px] leading-none">&#x1F517;</span>
@@ -4178,13 +4242,13 @@ function ScheduleView({
                       event.completed && "opacity-60"
                     )}
                     style={{ 
-                      backgroundColor: (event.color && (event.color.startsWith('#') || event.color.startsWith('var')))
-                        ? hexToRgba(event.color, 0.65)
-                        : (() => { const pc = priorityColors[getPriorityKey(event.urgency || false, event.importance || false)]; return pc && pc !== 'transparent' ? `${pc}4D` : 'transparent'; })(),
-                      borderColor: (event.color && (event.color.startsWith('#') || event.color.startsWith('var')))
-                        ? `color-mix(in srgb, ${event.color}, transparent 60%)`
-                        : 'rgba(var(--outline-variant), 0.08)',
-                      color: (event.color && (event.color.startsWith('#') || event.color.startsWith('var'))) ? darkenColor(event.color) : '#FFFFFF',
+                      ...((event.color && (event.color.startsWith('#') || event.color.startsWith('var')))
+                        ? getEventStyles(event.color)
+                        : {
+                            backgroundColor: (() => { const pc = priorityColors[getPriorityKey(event.urgency || false, event.importance || false)]; return pc && pc !== 'transparent' ? `${pc}4D` : 'transparent'; })(),
+                            borderColor: 'rgba(var(--outline-variant), 0.08)',
+                            color: '#FFFFFF',
+                          })
                     }}
                   >
                     <div className="flex flex-col items-center gap-1 shrink-0 pt-0.5">
