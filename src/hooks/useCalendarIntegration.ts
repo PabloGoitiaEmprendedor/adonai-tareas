@@ -34,7 +34,7 @@ export const useCalendarIntegration = () => {
       if (!user) return null;
       const { data, error } = await supabase
         .from("google_calendar_tokens")
-        .select("email")
+        .select("user_id")
         .eq("user_id", user.id)
         .maybeSingle();
 
@@ -94,7 +94,7 @@ export const useCalendarIntegration = () => {
 
   return {
     connected: !!settings?.calendar_connected,
-    email: connectionDetails.data?.email || null,
+    email: null,
     isLoading: connectionDetails.isLoading,
     connect,
     disconnect,

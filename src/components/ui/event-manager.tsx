@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
 import { motion, AnimatePresence } from "framer-motion"
-import { Calendar, Clock, LayoutGrid, List, Plus, Search, Filter, X, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Check, MoreHorizontal, Link as LinkIcon, Trash2, Repeat, Zap, Menu, GripHorizontal, GripVertical, Bell, BellOff, Palette, Paperclip } from "lucide-react"
+import { Calendar, Clock, LayoutGrid, List, Plus, Minus, Search, Filter, X, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Check, MoreHorizontal, Link as LinkIcon, Trash2, Repeat, Zap, Menu, GripHorizontal, GripVertical, Bell, BellOff, Palette, Paperclip } from "lucide-react"
 import ScrollableTimePicker from "./scrollable-time-picker"
 import { usePriorityColors, getPriorityKey } from "@/hooks/usePriorityColors"
 import { cn } from "@/lib/utils"
@@ -84,6 +84,91 @@ export interface Event {
 }
 const getEventLinks = (links?: string[]) => {
   return (links || []).flatMap((link) => link.split(/\s+/)).map((link) => link.trim()).filter(Boolean);
+};
+
+const hexToRgba = (hex: string, alpha: number): string => {
+  const clean = hex.replace('#', '');
+  const r = parseInt(clean.substring(0, 2), 16);
+  const g = parseInt(clean.substring(2, 4), 16);
+  const b = parseInt(clean.substring(4, 6), 16);
+  if (isNaN(r) || isNaN(g) || isNaN(b)) return hex;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+};
+
+const stripHtml = (html: string): string => {
+  return html.replace(/<[^>]*>/g, '');
+};
+
+const hue2rgb = (p: number, q: number, t: number) => {
+  if (t < 0) t += 1;
+  if (t > 1) t -= 1;
+  if (t < 1/6) return p + (q - p) * 6 * t;
+  if (t < 1/2) return q;
+  if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+  return p;
+};
+
+const lightenColor = (hex: string, amount: number): string => {
+  if (!hex || !hex.startsWith('#')) return hex;
+  const clean = hex.replace('#', '');
+  let r = parseInt(clean.substring(0, 2), 16);
+  let g = parseInt(clean.substring(2, 4), 16);
+  let b = parseInt(clean.substring(4, 6), 16);
+  if (isNaN(r) || isNaN(g) || isNaN(b)) return hex;
+  const lighten = (c: number) => Math.min(255, Math.round(c + (255 - c) * amount));
+  return `#${[r, g, b].map(c => lighten(c).toString(16).padStart(2, '0')).join('')}`;
+};
+
+const darkenColor = (hex: string): string => {
+  if (!hex || !hex.startsWith('#')) return '#FFFFFF';
+  const isDarkMode = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
+  if (isDarkMode) return '#FFFFFF';
+
+  const clean = hex.replace('#', '');
+  let r = parseInt(clean.substring(0, 2), 16);
+  let g = parseInt(clean.substring(2, 4), 16);
+  let b = parseInt(clean.substring(4, 6), 16);
+  if (isNaN(r) || isNaN(g) || isNaN(b)) return '#FFFFFF';
+
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  let amount: number;
+  if (luminance > 0.55) amount = 0.65;
+  else if (luminance > 0.3) amount = 0.5;
+  else amount = 0.35;
+
+  // Convert to HSL
+  r /= 255; g /= 255; b /= 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  let s = 0, h = 0;
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    switch (max) {
+      case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break;
+      case g: h = ((b - r) / d + 2) / 6; break;
+      case b: h = ((r - g) / d + 4) / 6; break;
+    }
+  }
+
+  // Increase saturation 50%
+  s = Math.min(1, s * 1.5);
+
+  const newL = l * (1 - amount);
+
+  // Convert back to RGB
+  let rr: number, gg: number, bb: number;
+  if (s === 0) {
+    rr = gg = bb = newL;
+  } else {
+    const qq = newL < 0.5 ? newL * (1 + s) : newL + s - newL * s;
+    const pp = 2 * newL - qq;
+    rr = hue2rgb(pp, qq, h + 1/3);
+    gg = hue2rgb(pp, qq, h);
+    bb = hue2rgb(pp, qq, h - 1/3);
+  }
+
+  return `#${[rr, gg, bb].map(c => Math.round(c * 255).toString(16).padStart(2, '0')).join('')}`;
 };
 
 const EventLinkClips = ({ links, color }: { links?: string[]; color?: string }) => {
@@ -296,6 +381,7 @@ export function EventManager({
 
   const [currentDate, setCurrentDate] = useState(() => focusedDate ? new Date(focusedDate) : new Date())
   const [view, setView] = useState<"month" | "week" | "day" | "year" | "list" | "schedule" | "3day">(defaultView)
+  const [hourZoom, setHourZoom] = useState(160)
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null)
   const DURATION_OPTIONS = [
     { label: '1m', value: 1 },
@@ -1488,6 +1574,29 @@ export function EventManager({
             </SelectContent>
           </Select>
 
+          {/* Zoom controls */}
+          {view !== "month" && view !== "year" && (
+            <div className="flex items-center gap-0.5 border border-outline-variant/10 rounded-xl overflow-hidden shrink-0">
+              <button
+                onClick={() => setHourZoom(h => Math.max(60, h - 40))}
+                className="h-7 w-7 flex items-center justify-center text-[10px] font-black hover:bg-surface-container/80 transition-all active:scale-90 text-muted-foreground/60 hover:text-foreground"
+                title="Alejar"
+              >
+                <Minus className="w-3.5 h-3.5" />
+              </button>
+              <span className="text-[8px] font-black px-1 text-muted-foreground/40 select-none min-w-[24px] text-center">
+                {hourZoom === 60 ? '1h' : hourZoom === 80 ? '45m' : hourZoom === 120 ? '30m' : hourZoom === 160 ? '15m' : '5m'}
+              </span>
+              <button
+                onClick={() => setHourZoom(h => Math.min(320, h + 40))}
+                className="h-7 w-7 flex items-center justify-center text-[10px] font-black hover:bg-surface-container/80 transition-all active:scale-90 text-muted-foreground/60 hover:text-foreground"
+                title="Acercar"
+              >
+                <Plus className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+
           {/* Search toggle */}
           <button
             type="button"
@@ -1718,6 +1827,7 @@ export function EventManager({
                     categories={categories}
                     openCreateDialog={openCreateDialog}
                     dragDisabled={dragDisabled}
+                    hourZoom={hourZoom}
                     draftEvent={draftEvent}
                     draftTitle={draftTitle}
                     setDraftTitle={setDraftTitle}
@@ -2780,6 +2890,7 @@ function TimeGridView({
   updateDraftTime,
   containedScroll = false,
   hideGridHeader = false,
+  hourZoom = 160,
 }: {
   view: "week" | "day" | "3day"
   currentDate: Date
@@ -2811,7 +2922,7 @@ function TimeGridView({
   containedScroll?: boolean
   hideGridHeader?: boolean
 }) {
-  const HOUR_HEIGHT = 160;
+  const HOUR_HEIGHT = hourZoom;
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const initialEventsRef = useRef<Event[]>([])
   
@@ -2936,7 +3047,9 @@ function TimeGridView({
   const [draftResizing, setDraftResizing] = useState(false);
   const [draftResizingTop, setDraftResizingTop] = useState(false);
   const [draftHintVisible, setDraftHintVisible] = useState(false);
-  
+  const [descDialogEvent, setDescDialogEvent] = useState<Event | null>(null);
+  const [editDescription, setEditDescription] = useState('');
+
   useEffect(() => {
     if (draftEvent) {
       setDraftHintVisible(true);
@@ -3421,7 +3534,7 @@ function TimeGridView({
                     style={{
                       top: `${(previewTime.hour + (previewTime.minutes || 0) / 60) * HOUR_HEIGHT}px`,
                       height: `${(draggedEvent.isAllDay ? 10/60 : (draggedEvent.endTime.getTime() - draggedEvent.startTime.getTime()) / (1000 * 60 * 60)) * HOUR_HEIGHT}px`,
-                      backgroundColor: (draggedEvent.color && (draggedEvent.color.startsWith('#') || draggedEvent.color.startsWith('var'))) ? draggedEvent.color : undefined
+                      backgroundColor: (draggedEvent.color && (draggedEvent.color.startsWith('#') || draggedEvent.color.startsWith('var'))) ? hexToRgba(draggedEvent.color, 0.65) : undefined
                     }}
                   >
                     <p className="truncate font-semibold opacity-60 italic">{draggedEvent.title}</p>
@@ -3446,71 +3559,67 @@ function TimeGridView({
                           if (isDraggingRef.current) return;
                           onEventClick(event);
                         }}
-                        className={cn(
-                          "absolute rounded-xl px-2.5 py-2 sm:p-2 text-[12px] sm:text-[10px] font-semibold text-white hover:brightness-110 z-10 overflow-hidden group select-none touch-pan-y",
-                          "transition-[opacity,transform] duration-200 ease-out", // No shadow transition - prevents shadow accumulation
-                          event.color && !event.color.startsWith('#') && !event.color.startsWith('var') && getColorClasses(event.color).bg,
-                          isResizing === event.id && "z-50 shadow-xl brightness-125 ring-2 ring-white/50 transition-none", // Disable transitions while resizing
-                          !dragDisabled && "cursor-grab active:cursor-grabbing",
-                          isMoving === event.id && "z-50 shadow-xl scale-[1.02] brightness-110 ring-2 ring-white/30 transition-none cursor-grabbing", // Premium feedback while moving
-                          isDraggingRef.current && "transition-none", // Disable transitions while dragging
-                          event.completed && "opacity-50 grayscale-[0.3]"
-                        )}
-                        style={{
-                          top: `${startHour * HOUR_HEIGHT + 2}px`, // 2px gap at top
-                          left: `${layout.left + 0.5}%`,
-                          width: `${layout.width}%`,
-                          height: `${duration * HOUR_HEIGHT - 4}px`, // 4px total gap (2px top, 2px bottom)
-                          backgroundColor: (event.color && (event.color.startsWith('#') || event.color.startsWith('var'))) ? event.color : undefined,
-                          userSelect: 'none',
-                        }}
-                        onMouseDown={(e) => {
-                          if (e.button !== 0) return;
-                          if (dragDisabled) return;
-                          e.stopPropagation();
-                          isDraggingRef.current = false;
-                          setIsMoving(event.id);
-                          setInitialMouseY(e.pageY);
-                          setInitialMouseX(e.pageX);
-                          setInitialStartTime(new Date(event.startTime));
-                          setInitialDuration((event.endTime.getTime() - event.startTime.getTime()) / 60000);
-                        }}
-                        onTouchStart={(e) => {
-                          if (dragDisabled) return;
-                          e.stopPropagation();
-                          const touch = e.touches[0];
-                          const startX = touch.pageX;
-                          const startY = touch.pageY;
-                          
-                          // Long press for mobile dragging
-                          longPressTimerRef.current = setTimeout(() => {
+                          className={cn(
+                            "absolute rounded-xl px-2 py-1.5 text-[13px] font-bold hover:brightness-110 z-10 overflow-hidden group select-none",
+                            "transition-[opacity,transform] duration-200 ease-out",
+                            event.color && !event.color.startsWith('#') && !event.color.startsWith('var') && getColorClasses(event.color).bg,
+                            isResizing === event.id && "z-50 shadow-xl brightness-125 ring-2 ring-white/50 transition-none",
+                            !dragDisabled && "cursor-grab active:cursor-grabbing",
+                            isMoving === event.id && "z-50 shadow-xl scale-[1.02] brightness-110 ring-2 ring-white/30 transition-none cursor-grabbing",
+                            isDraggingRef.current && "transition-none",
+                            event.completed && "opacity-50 grayscale-[0.3]"
+                          )}
+                          style={{
+                            top: `${startHour * HOUR_HEIGHT + 2}px`,
+                            left: `${layout.left + 0.5}%`,
+                            width: `${layout.width}%`,
+                            height: `${duration * HOUR_HEIGHT - 4}px`,
+                            backgroundColor: (event.color && (event.color.startsWith('#') || event.color.startsWith('var'))) ? hexToRgba(event.color, 0.65) : undefined,
+                            color: (event.color && (event.color.startsWith('#') || event.color.startsWith('var'))) ? darkenColor(event.color) : '#FFFFFF',
+                            userSelect: 'none',
+                          }}
+                          onMouseDown={(e) => {
+                            if (e.button !== 0) return;
+                            if (dragDisabled) return;
+                            e.stopPropagation();
                             isDraggingRef.current = false;
                             setIsMoving(event.id);
-                            setInitialMouseY(startY);
-                            setInitialMouseX(startX);
+                            setInitialMouseY(e.pageY);
+                            setInitialMouseX(e.pageX);
                             setInitialStartTime(new Date(event.startTime));
                             setInitialDuration((event.endTime.getTime() - event.startTime.getTime()) / 60000);
-                            
-                            // Vibrate if supported for haptic feedback
-                            if (window.navigator && window.navigator.vibrate) {
-                              window.navigator.vibrate(50);
+                          }}
+                          onTouchStart={(e) => {
+                            if (dragDisabled) return;
+                            e.stopPropagation();
+                            const touch = e.touches[0];
+                            const startX = touch.pageX;
+                            const startY = touch.pageY;
+                            longPressTimerRef.current = setTimeout(() => {
+                              isDraggingRef.current = false;
+                              setIsMoving(event.id);
+                              setInitialMouseY(startY);
+                              setInitialMouseX(startX);
+                              setInitialStartTime(new Date(event.startTime));
+                              setInitialDuration((event.endTime.getTime() - event.startTime.getTime()) / 60000);
+                              if (window.navigator && window.navigator.vibrate) {
+                                window.navigator.vibrate(50);
+                              }
+                            }, 500);
+                          }}
+                          onTouchEnd={() => {
+                            if (longPressTimerRef.current) {
+                              clearTimeout(longPressTimerRef.current);
+                              longPressTimerRef.current = null;
                             }
-                          }, 500); // 500ms for long press
-                        }}
-                        onTouchEnd={() => {
-                          if (longPressTimerRef.current) {
-                            clearTimeout(longPressTimerRef.current);
-                            longPressTimerRef.current = null;
-                          }
-                        }}
-                        onTouchMove={() => {
-                          // If moved too much before long press, cancel it
-                          if (!isMoving && longPressTimerRef.current) {
-                            clearTimeout(longPressTimerRef.current);
-                            longPressTimerRef.current = null;
-                          }
-                        }}
-                      >
+                          }}
+                          onTouchMove={() => {
+                            if (!isMoving && longPressTimerRef.current) {
+                              clearTimeout(longPressTimerRef.current);
+                              longPressTimerRef.current = null;
+                            }
+                          }}
+                        >
                           {/* Top Resize Handle */}
                           <div 
                             className={cn(
@@ -3540,13 +3649,62 @@ function TimeGridView({
                             <div className="mt-1 w-10 h-1.5 rounded-full bg-white/85 shadow-md" />
                           </div>
 
-                          <div className="flex flex-col h-full py-1 px-1">
-                            <p className={cn("truncate font-black text-[12px] sm:text-[10px] select-none leading-tight", event.completed && "line-through")}>{event.title}</p>
-                            {duration > 0.35 && <EventLinkClips links={event.links} color={event.color} />}
-                            {duration > 0.25 && (
-                              <p className="opacity-80 text-[10px] sm:text-[8px] font-bold mt-0.5 select-none leading-none">
-                                {format(event.startTime, "h:mm a", { locale: es })}{duration > 0.4 ? ` - ${format(event.endTime, "h:mm a", { locale: es })}` : ''}
+                          <div className="flex flex-row items-start h-full gap-1.5 py-0.5 px-1">
+                            <div className="flex-1 min-w-0 leading-tight">
+                              <p className={cn("leading-tight drop-shadow-sm break-words", event.completed && "line-through")}
+                                style={{ fontSize: `${Math.floor(Math.min(hourZoom, 120) / 18) + 7}px` }}>
+                                {event.title}
                               </p>
+                              {!event.isAllDay && duration > 0.3 && (
+                                <p className="opacity-85 mt-[1px] leading-tight drop-shadow-sm"
+                                  style={{ fontSize: `${Math.max(8, Math.floor(Math.min(hourZoom, 120) / 18) + 4)}px` }}>
+                                  {(() => {
+                                    const totalMin = Math.round(duration * 60);
+                                    if (totalMin < 60) return `${totalMin} min`;
+                                    const h = Math.floor(totalMin / 60);
+                                    const m = totalMin % 60;
+                                    return m === 0 ? `${h}h` : `${h}h ${m}min`;
+                                  })()}
+                                </p>
+                              )}
+                              {event.description && duration > 0.6 && (
+                                <>
+                                  <p className="mt-1 leading-tight opacity-70 cursor-pointer hover:opacity-100 hover:underline hover:decoration-dotted hover:decoration-1 hover:underline-offset-2 transition-all line-clamp-3"
+                                    style={{ fontSize: `${Math.max(7, Math.floor(Math.min(hourZoom, 120) / 20) + 5)}px` }}
+                                    onClick={(e) => { e.stopPropagation(); setEditDescription(event.description); setDescDialogEvent(event); }}>
+                                    {stripHtml(event.description)}
+                                  </p>
+                                  <Dialog open={descDialogEvent?.id === event.id} onOpenChange={(open) => { if (!open) setDescDialogEvent(null); }}>
+                                    <DialogContent
+                                      style={{ position: 'fixed', left: 'max(320px, 35vw)', top: '50%', transform: 'translateY(-50%)' }}
+                                      className="w-full max-w-md bg-surface-container-high/95 backdrop-blur-3xl border border-outline-variant/10 rounded-[28px] shadow-2xl p-5 outline-none"
+                                      onInteractOutside={(e) => e.preventDefault()}>
+                                      <div className="flex items-start justify-between mb-3">
+                                        <span className="text-[11px] font-bold text-foreground/40 uppercase tracking-[0.15em]">Descripción</span>
+                                        <button
+                                          className="flex h-7 w-7 items-center justify-center rounded-full bg-surface/80 text-on-surface-variant/60 hover:bg-surface-container hover:text-foreground transition-colors -mr-1 -mt-1"
+                                          onClick={() => setDescDialogEvent(null)}>
+                                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                        </button>
+                                      </div>
+                                      <textarea
+                                        className="w-full text-sm whitespace-pre-wrap break-words leading-relaxed bg-transparent border-0 p-0 text-foreground resize-none focus:outline-none font-sans min-h-[40px]"
+                                        value={editDescription}
+                                        onChange={(e) => {
+                                          setEditDescription(e.target.value);
+                                          onEventUpdate?.(event.id, { description: e.target.value });
+                                        }}
+                                        autoFocus
+                                      />
+                                    </DialogContent>
+                                  </Dialog>
+                                </>
+                              )}
+                            </div>
+                            {event.links && getEventLinks(event.links).length > 0 && duration > 0.5 && (
+                              <div className="shrink-0 pt-0.5">
+                                <EventLinkClips links={event.links} color={event.color} />
+                              </div>
                             )}
                           </div>
 
@@ -3851,16 +4009,21 @@ function MonthView({
                       onEventClick(event)
                     }}
                     className={cn(
-                      "relative cursor-pointer rounded-md px-2 py-1 text-[9px] font-medium truncate transition-all duration-300",
+                      "relative cursor-pointer rounded-md px-2 py-1 text-[9px] font-medium truncate transition-all duration-300 flex items-center gap-1",
                       "hover:scale-110 hover:z-50 hover:shadow-xl hover:text-[10px] hover:py-1.5",
                       event.color && !event.color.startsWith('#') && !event.color.startsWith('var') && getColorClasses(event.color).bg,
-                      "text-white shadow-sm",
+                      "shadow-sm",
                       event.completed && "opacity-40 line-through grayscale-[0.5]"
                     )}
-                    style={{ backgroundColor: (event.color && (event.color.startsWith('#') || event.color.startsWith('var'))) ? event.color : undefined }}
+                    style={{ 
+                      backgroundColor: (event.color && (event.color.startsWith('#') || event.color.startsWith('var'))) ? hexToRgba(event.color, 0.65) : undefined,
+                      color: (event.color && (event.color.startsWith('#') || event.color.startsWith('var'))) ? darkenColor(event.color) : 'white',
+                    }}
                   >
-                    <span className="truncate">{event.title}</span>
-                    <EventLinkClips links={event.links} color={event.color} />
+                    {event.links && getEventLinks(event.links).length > 0 && (
+                      <span className="shrink-0 opacity-70 text-[7px] leading-none">&#x1F517;</span>
+                    )}
+                    <span className="whitespace-normal break-words">{event.title}</span>
                   </div>
                 ))}
                 {dayEvents.length > 3 && (
@@ -4011,44 +4174,43 @@ function ScheduleView({
                     key={event.id}
                     onClick={() => onEventClick(event)}
                     className={cn(
-                      "group flex items-center gap-4 p-4 rounded-2xl hover:bg-primary/10 border transition-all cursor-pointer active:scale-[0.98]",
+                      "group flex items-start gap-3 p-4 rounded-2xl hover:brightness-105 border transition-all cursor-pointer active:scale-[0.98]",
                       event.completed && "opacity-60"
                     )}
                     style={{ 
-                      backgroundColor: (() => { const pc = priorityColors[getPriorityKey(event.urgency || false, event.importance || false)]; return pc && pc !== 'transparent' ? `${pc}4D` : (event.color && (event.color.startsWith('#') || event.color.startsWith('var')) ? `color-mix(in srgb, ${event.color}, transparent 85%)` : 'transparent'); })(),
+                      backgroundColor: (event.color && (event.color.startsWith('#') || event.color.startsWith('var')))
+                        ? hexToRgba(event.color, 0.65)
+                        : (() => { const pc = priorityColors[getPriorityKey(event.urgency || false, event.importance || false)]; return pc && pc !== 'transparent' ? `${pc}4D` : 'transparent'; })(),
                       borderColor: (event.color && (event.color.startsWith('#') || event.color.startsWith('var')))
                         ? `color-mix(in srgb, ${event.color}, transparent 60%)`
-                        : 'rgba(var(--outline-variant), 0.08)'
+                        : 'rgba(var(--outline-variant), 0.08)',
+                      color: (event.color && (event.color.startsWith('#') || event.color.startsWith('var'))) ? darkenColor(event.color) : '#FFFFFF',
                     }}
                   >
-                    <div
-                      className="w-2.5 h-2.5 rounded-full shrink-0"
-                      style={{ backgroundColor: (event.color && (event.color.startsWith('#') || event.color.startsWith('var'))) ? event.color : 'var(--primary)' }}
-                    />
+                    <div className="flex flex-col items-center gap-1 shrink-0 pt-0.5">
+                      <div
+                        className="w-2.5 h-2.5 rounded-full shrink-0"
+                        style={{ backgroundColor: (event.color && (event.color.startsWith('#') || event.color.startsWith('var'))) ? event.color : 'var(--primary)' }}
+                      />
+                      {event.links && getEventLinks(event.links).length > 0 && (
+                        <EventLinkClips links={event.links} color={event.color} />
+                      )}
+                    </div>
 
-                    <div className="flex flex-col items-center justify-center min-w-[60px] border-r border-outline-variant/10 pr-4">
-                      <span className="text-[11px] font-black text-foreground">{format(event.startTime, "h:mm a")}</span>
-                      <span className="text-[9px] font-bold opacity-30">{format(event.endTime, "h:mm a")}</span>
+                    <div className="flex flex-col items-center justify-center min-w-[60px] border-r border-white/20 pr-4">
+                      <span className="text-[13px]" style={{ color: 'inherit' }}>{format(event.startTime, "h:mm a")}</span>
+                      <span className="text-[11px] opacity-50" style={{ color: 'inherit' }}>{format(event.endTime, "h:mm a")}</span>
                     </div>
                     
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <div 
-                          className={cn("w-2 h-2 rounded-full", event.color && !event.color.startsWith('#') && !event.color.startsWith('var') && getColorClasses(event.color).bg)} 
-                          style={{ backgroundColor: (event.color && (event.color.startsWith('#') || event.color.startsWith('var'))) ? event.color : undefined }}
-                        />
-                      </div>
-                      <h3 className={cn("text-sm font-semibold text-foreground truncate group-hover:text-primary transition-colors", event.completed && "line-through")}>{event.title}</h3>
-                      <div className="mt-1">
-                        <EventLinkClips links={event.links} color={event.color} />
-                      </div>
+                      <h3 className={cn("text-[15px] break-words whitespace-normal transition-colors", event.completed && "line-through")} style={{ color: 'inherit' }}>{event.title}</h3>
                       {event.description && (
-                        <p className="text-[11px] font-medium text-on-surface-variant/40 line-clamp-1 mt-1">{event.description}</p>
+                        <p className="text-[11px] font-medium line-clamp-1 mt-1" style={{ color: 'inherit', opacity: 0.7 }}>{event.description}</p>
                       )}
                     </div>
                     
-                    <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                      <ChevronRight className="w-4 h-4 text-primary" />
+                    <div className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                      <ChevronRight className="w-4 h-4" style={{ color: 'inherit', opacity: 0.5 }} />
                     </div>
                   </div>
                 ))}

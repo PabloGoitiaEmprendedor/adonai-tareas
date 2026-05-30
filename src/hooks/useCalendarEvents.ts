@@ -11,7 +11,9 @@ export interface CalendarEvent {
   location: string;
   allDay: boolean;
   color: string | null;
-  htmlLink: string;
+  links: string[];
+  recurrence?: string[];
+  reminders?: { useDefault?: boolean; overrides?: { method: string; minutes: number }[] } | null;
 }
 
 export const useCalendarEvents = (timeMin?: string, timeMax?: string) => {
@@ -40,7 +42,8 @@ export const useCalendarEvents = (timeMin?: string, timeMax?: string) => {
       return await response.json();
     },
     enabled: !!user,
-    staleTime: 5 * 60 * 1000,
+    staleTime: 30 * 1000,
+    refetchOnWindowFocus: true,
   });
 
   const getSession = async () => {
@@ -93,7 +96,7 @@ export const useCalendarEvents = (timeMin?: string, timeMax?: string) => {
 
   return {
     events: (data?.events || []) as CalendarEvent[],
-    connected: data?.connected || false,
+    connected: (data?.connected as boolean) ?? false,
     isLoading,
     refetch,
     createEvent,

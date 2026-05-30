@@ -1,4 +1,4 @@
-// DailyPage ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â Dark mode, no time blocks, no calendar view
+// DailyPage - Dark mode, no time blocks, no calendar view
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useTasks } from '@/hooks/useTasks';
 import { useFolders } from '@/hooks/useFolders';
@@ -559,7 +559,7 @@ const DailyPage = () => {
  </div>
  <div className="flex flex-col">
  <span className="text-[9px] font-black uppercase tracking-widest text-cyan-400/70">Racha Congelada</span>
- <span className="text-base font-black text-cyan-400 leading-tight">{metrics?.streak_current || 0} dÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­as </span>
+ <span className="text-base font-black text-cyan-400 leading-tight">{metrics?.streak_current || 0} días </span>
  </div>
  </motion.div>
  ): (
@@ -630,7 +630,7 @@ const DailyPage = () => {
  
  <div className="flex flex-col">
  <span className="text-[10px] font-black uppercase tracking-[0.15em] text-[#E65100]/80">Racha</span>
- <span className="text-base font-black text-foreground tracking-tight leading-tight">{metrics?.streak_current || 0} dÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­as</span>
+ <span className="text-base font-black text-foreground tracking-tight leading-tight">{metrics?.streak_current || 0} días</span>
  </div>
  </div>
  )}
@@ -737,7 +737,7 @@ const DailyPage = () => {
  >
  {shouldShowTaskPage? (
  <>
- {/* Cuadernos Bar ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â minimal pill tabs */}
+ {/* Cuadernos Bar - minimal pill tabs */}
   <div className="relative z-10 mb-1">
     <h2 className="text-lg font-bold font-headline tracking-tight notebook-handwriting text-foreground/70">
       Tareas de hoy
@@ -847,7 +847,7 @@ const DailyPage = () => {
     </button>
   </div>
 
-  {/* Mobile Task Island ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â fixed full-screen notebook */}
+  {/* Mobile Task Island - fixed full-screen notebook */}
   <motion.div 
   initial={{ opacity: 0, y: 15 }}
   animate={{ opacity: 1, y: 0 }}
@@ -885,7 +885,7 @@ const DailyPage = () => {
         if (trigger) trigger.click();
       }}
       className="w-5 h-5 flex items-center justify-center text-zinc-400/40 hover:text-zinc-400/70 transition-colors shrink-0"
-      aria-label="Abrir menÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Âº"
+      aria-label="Abrir menú"
       style={{ marginRight: '12px', marginLeft: '-18px', background: 'transparent' }}
     >
       <Menu className="w-3 h-3" strokeWidth={2} />
@@ -897,7 +897,7 @@ const DailyPage = () => {
       onClick={goToPrevPage}
       disabled={notebookPage === 1}
       className="w-8 h-8 flex items-center justify-center rounded-xl text-on-surface-variant/30 hover:text-foreground hover:bg-black/5 transition-all disabled:opacity-20 disabled:pointer-events-none"
-      aria-label="PÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡gina anterior"
+      aria-label="Página anterior"
     >
       <ChevronLeft className="w-4 h-4" strokeWidth={2.5} />
     </button>
@@ -908,13 +908,13 @@ const DailyPage = () => {
       onClick={goToNextPage}
       disabled={notebookPage >= NOTEBOOK_PAGE_COUNT}
       className="w-8 h-8 flex items-center justify-center rounded-xl text-on-surface-variant/30 hover:text-foreground hover:bg-black/5 transition-all disabled:opacity-20 disabled:pointer-events-none"
-      aria-label="PÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡gina siguiente"
+      aria-label="Página siguiente"
     >
       <ChevronRight className="w-4 h-4" strokeWidth={2.5} />
     </button>
   </div>
 
-  {/* Folder pills ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â scrollable row */}
+  {/* Folder pills - scrollable row */}
   <div className="relative z-20 flex items-center gap-2 overflow-x-auto no-scrollbar py-1 px-2" style={{ paddingLeft: '36px' }}>
      <button
        onClick={() => selectFolderWithSound(null)}
@@ -1074,7 +1074,7 @@ const DailyPage = () => {
  Mini cuaderno exclusivo de escritorio
  </h2>
  <p className="text-on-surface-variant text-sm font-medium leading-relaxed">
- El mini cuaderno solo estÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡ disponible en la app de escritorio. DescÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡rgala y ten Adonai siempre visible mientras trabajas.
+ El mini cuaderno solo está disponible en la app de escritorio. Descárgala y ten Adonai siempre visible mientras trabajas.
  </p>
  </div>
 

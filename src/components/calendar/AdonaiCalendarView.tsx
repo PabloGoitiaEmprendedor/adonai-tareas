@@ -22,6 +22,7 @@ interface AdonaiCalendarViewProps {
   className?: string;
   hideSidebar?: boolean;
   fillHeight?: boolean;
+  googleEvents?: Array<{ id: string; title: string; start: string; end: string; description?: string; color?: string | null; allDay?: boolean; location?: string; htmlLink?: string }>;
 }
 
 const TIME_PREFIX_REGEX = /^\[T:(\d{2}:\d{2})-(\d{2}:\d{2})\]/;
@@ -64,6 +65,27 @@ const rebuildDescription = (startTime: Date | null, endTime: Date | null, color:
   }
   return parts.join(' ').trim();
 };
+
+function buildGoogleRRule(rec: Event['recurrence'], days?: number[], interval?: number, unit?: Event['recurrenceUnit'], endType?: string, endDate?: string, endCount?: number): string | null {
+  if (!rec || rec === 'none') return null;
+  const freqMap: Record<string, string> = { daily:'DAILY', weekly:'WEEKLY', biweekly:'WEEKLY', weekdays:'WEEKLY', monthly:'MONTHLY', yearly:'YEARLY' };
+  const freq = freqMap[rec];
+  if (!freq) return null;
+  let rrule = `RRULE:FREQ=${freq}`;
+  const revMap: Record<number, string> = { 0:'SU', 1:'MO', 2:'TU', 3:'WE', 4:'TH', 5:'FR', 6:'SA' };
+  if (days && days.length > 0 && (rec === 'weekly' || rec === 'biweekly' || rec === 'weekdays')) {
+    const byday = days.map(d => revMap[d]).filter(Boolean).join(',');
+    if (byday) rrule += `;BYDAY=${byday}`;
+  }
+  const useInterval = interval || (rec === 'biweekly' ? 2 : 1);
+  if (useInterval > 1) rrule += `;INTERVAL=${useInterval}`;
+  if (endType === 'date' && endDate) {
+    rrule += `;UNTIL=${endDate.replace(/-/g, '')}T235959Z`;
+  } else if (endType === 'count' && endCount) {
+    rrule += `;COUNT=${endCount}`;
+  }
+  return rrule;
+}
 
 const getCountBasedEndDate = (
   startDate: string,
@@ -111,7 +133,7 @@ const getCountBasedEndDate = (
   return null;
 };
 
-const AdonaiCalendarView: React.FC<AdonaiCalendarViewProps> = ({ selectedDate, onSelectDate, viewMode = 'day', dragDisabled = false, className, hideSidebar = false, fillHeight = false }) => {
+const AdonaiCalendarView: React.FC<AdonaiCalendarViewProps> = ({ selectedDate, onSelectDate, viewMode = 'day', dragDisabled = false, className, hideSidebar = false, fillHeight = false, googleEvents = [] }) => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const dateStr = format(selectedDate, 'yyyy-MM-dd');
@@ -296,7 +318,97 @@ const AdonaiCalendarView: React.FC<AdonaiCalendarViewProps> = ({ selectedDate, o
       });
     });
 
-tasks?.forEach((task) => {
+// Map Google Calendar Events
+    googleEvents?.forEach((ge) => {
+      const start = parseISO(ge.start);
+      const end = parseISO(ge.end);
+      if (isNaN(start.getTime()) || isNaN(end.getTime())) return;
+
+      // Map Google reminders to App reminder format
+      let reminderEnabled = false;
+      let reminderMinutesBefore = 15;
+      if (ge.reminders) {
+        if (ge.reminders.overrides && ge.reminders.overrides.length > 0) {
+          const popup = ge.reminders.overrides.find(r => r.method === 'popup');
+          if (popup) {
+            reminderEnabled = true;
+            reminderMinutesBefore = popup.minutes;
+          }
+        } else if (ge.reminders.useDefault) {
+          reminderEnabled = true;
+        }
+      }
+
+      // ── Parse Google RRULE into app recurrence fields ────────
+      let recurrence: Event['recurrence'] = 'none';
+      let recurrenceDays: number[] = [];
+      let recurrenceInterval = 1;
+      let recurrenceUnit: Event['recurrenceUnit'] = 'weeks';
+      let recurrenceEndType: Event['recurrenceEndType'] = 'never';
+      let recurrenceEndDate: string | undefined;
+      let recurrenceEndCount: number | undefined;
+
+      if (ge.recurrence && ge.recurrence.length > 0) {
+        const rrule = ge.recurrence[0].replace(/^RRULE:/i, '');
+        const parts = rrule.split(';');
+        for (const part of parts) {
+          const [key, val] = part.split('=');
+          if (!val) continue;
+          switch (key) {
+            case 'FREQ':
+              if (val === 'DAILY') { recurrence = 'daily'; recurrenceUnit = 'days'; }
+              else if (val === 'WEEKLY') { recurrence = 'weekly'; recurrenceUnit = 'weeks'; }
+              else if (val === 'MONTHLY') { recurrence = 'monthly'; recurrenceUnit = 'months'; }
+              else if (val === 'YEARLY') { recurrence = 'yearly'; recurrenceUnit = 'years'; }
+              else recurrence = 'custom';
+              break;
+            case 'BYDAY': {
+              const dayMap: Record<string, number> = { MO:1, TU:2, WE:3, TH:4, FR:5, SA:6, SU:0 };
+              recurrenceDays = val.split(',').map((d: string) => dayMap[d.trim()]).filter((d: number | undefined): d is number => d !== undefined);
+              break;
+            }
+            case 'INTERVAL': recurrenceInterval = parseInt(val, 10); break;
+            case 'COUNT': recurrenceEndType = 'count'; recurrenceEndCount = parseInt(val, 10); break;
+            case 'UNTIL': {
+              recurrenceEndType = 'date';
+              const ds = val.replace('T', ' ').split(' ')[0];
+              if (ds && ds.length === 8) recurrenceEndDate = `${ds.slice(0,4)}-${ds.slice(4,6)}-${ds.slice(6,8)}`;
+              break;
+            }
+          }
+        }
+      }
+
+      events.push({
+        id: `google-${ge.id}`,
+        title: ge.title,
+        startTime: start,
+        endTime: end,
+        color: ge.color || '#4285F4',
+        category: 'Google Calendar',
+        description: ge.description || '',
+        links: [...new Set([
+          ...(ge.links || []),
+          ...(ge.location && ge.location.includes('http')
+            ? ge.location.split(/\s+/).filter(w => w.startsWith('http://') || w.startsWith('https://')).map(w => w.replace(/[.,;:!?)]+$/, ''))
+            : [])
+        ])],
+        isAllDay: ge.allDay || false,
+        isEvent: true,
+        location: ge.location || '',
+        recurrence,
+        recurrenceDays,
+        recurrenceInterval,
+        recurrenceUnit,
+        recurrenceEndType,
+        recurrenceEndDate,
+        recurrenceEndCount,
+        reminderEnabled,
+        reminderMinutesBefore,
+      });
+    });
+
+    tasks?.forEach((task) => {
        if (task.status !== 'done' && task.status !== 'deleted') {
          const taskDateStr = task.due_date || dateStr;
          const scheduledTime = parseTimeFromDescription(task.description);
@@ -388,7 +500,7 @@ tasks?.forEach((task) => {
      });
 
     return events;
-  }, [tasks, timeBlocks, dateStr, folders, priorityColors, rangeStart, rangeEnd, recurrenceRules]);
+  }, [tasks, timeBlocks, dateStr, folders, priorityColors, rangeStart, rangeEnd, recurrenceRules, googleEvents]);
 
   const getTaskEventParts = (id: string) => {
     const generatedMatch = id.match(/^task-(.+)-rec-(\d{4}-\d{2}-\d{2})$/);
@@ -497,6 +609,45 @@ tasks?.forEach((task) => {
         } else {
           refetchMaterialized();
         }
+      }
+      return;
+    }
+
+    // ── Google Calendar event (bidirectional sync) ──────────────────────
+    if (id.startsWith('google-')) {
+      const googleId = id.replace('google-', '');
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) return;
+
+      const eventData: any = {};
+      if (updates.title) eventData.summary = updates.title;
+      if (updates.description !== undefined) eventData.description = updates.description;
+      if (updates.startTime) eventData.start = { dateTime: updates.startTime.toISOString() };
+      if (updates.endTime) eventData.end = { dateTime: updates.endTime.toISOString() };
+      if (updates.location !== undefined) eventData.location = updates.location;
+      if (updates.recurrence !== undefined) {
+        const rrule = buildGoogleRRule(updates.recurrence, updates.recurrenceDays, updates.recurrenceInterval, updates.recurrenceUnit, updates.recurrenceEndType, updates.recurrenceEndDate, updates.recurrenceEndCount);
+        if (rrule) eventData.recurrence = [rrule];
+        else eventData.recurrence = [];
+      }
+
+      try {
+        const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-calendar`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ action: 'update', eventId: googleId, eventData }),
+        });
+        if (!response.ok) throw new Error('Failed to sync');
+        queryClient.invalidateQueries({ queryKey: ['calendar-events'] });
+        window.dispatchEvent(new CustomEvent('adonai:notify', {
+          detail: { type: 'success', message: 'Sincronizado con Google Calendar' }
+        }));
+      } catch (err) {
+        console.error('[google-sync] Error:', err);
+        window.dispatchEvent(new CustomEvent('adonai:notify', {
+          detail: { type: 'error', message: 'Error al sincronizar con Google Calendar' }
+        }));
       }
       return;
     }
@@ -973,6 +1124,29 @@ tasks?.forEach((task) => {
           detail: { type: 'error', message: 'No se pudo eliminar la ocurrencia' }
         }));
       }
+      return;
+    }
+    if (id.startsWith('google-')) {
+      const googleId = id.replace('google-', '');
+      (async () => {
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+        if (!token) return;
+        try {
+          const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-calendar`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ action: 'delete', eventId: googleId }),
+          });
+          if (!response.ok) throw new Error('Failed to delete from Google Calendar');
+          queryClient.invalidateQueries({ queryKey: ['calendar-events'] });
+          window.dispatchEvent(new CustomEvent('adonai:notify', {
+            detail: { type: 'success', message: 'Eliminado de Google Calendar' }
+          }));
+        } catch (err) {
+          console.error('[google-sync] Error deleting:', err);
+        }
+      })();
       return;
     }
     if (id.startsWith('block-')) {

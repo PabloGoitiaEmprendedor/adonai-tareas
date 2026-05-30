@@ -276,6 +276,11 @@ const App = () => {
       return;
     }
 
+    if (!window.location.hash && browserPath === '/calendar-callback') {
+      window.location.replace(`${window.location.origin}/#${browserPath}${window.location.search}`);
+      return;
+    }
+
     const isMiniRoute =
       window.location.hash.startsWith('#/mini') ||
       browserPath === '/mini';
