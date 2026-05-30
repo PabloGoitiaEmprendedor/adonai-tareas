@@ -21,6 +21,8 @@ const UpdateDialog = ({ forcedVersion, onDismiss }: UpdateDialogProps) => {
 
     window.electronAPI.onUpdateAvailable?.((info: any) => {
       setError(null);
+      setDownloading(true);
+      setDownloadProgress(0);
       setUpdateInfo({
         version: info.version,
         releaseNotes: info.releaseNotes || '',
@@ -37,6 +39,14 @@ const UpdateDialog = ({ forcedVersion, onDismiss }: UpdateDialogProps) => {
       setReady(true);
     });
 
+    window.electronAPI.onUpdateReady?.((data: any) => {
+      setDownloading(false);
+      setReady(true);
+      if (data?.version) {
+        setUpdateInfo(prev => prev ? { ...prev, version: data.version } : { version: data.version, releaseNotes: '' });
+      }
+    });
+
     window.electronAPI.onUpdateError?.((msg: string) => {
       setError(msg);
     });
@@ -47,7 +57,7 @@ const UpdateDialog = ({ forcedVersion, onDismiss }: UpdateDialogProps) => {
   }, [forcedVersion]);
 
   const handleRestart = () => {
-    window.electronAPI?.restartApp?.();
+    window.electronAPI?.installUpdate?.();
   };
 
   const handleCheckNow = () => {
@@ -127,40 +137,90 @@ const UpdateDialog = ({ forcedVersion, onDismiss }: UpdateDialogProps) => {
             }}
           >
             <div className="p-6 pt-8 flex flex-col items-center gap-6">
-              <motion.div
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                transition={{ type: 'spring', damping: 15, stiffness: 200 }}
-                className="w-16 h-16 rounded-2xl flex items-center justify-center"
-                style={{ background: 'hsl(var(--primary) / 0.15)' }}
-              >
-                <Download className="w-8 h-8" style={{ color: 'hsl(var(--primary))' }} />
-              </motion.div>
-
-              <div className="text-center space-y-2">
-                <h2 className="text-xl font-bold tracking-tight" style={{ color: 'hsl(var(--on-surface))' }}>
-                  Nueva versión disponible
-                </h2>
-                <p className="text-sm font-medium" style={{ color: 'hsl(var(--on-surface-variant))' }}>
-                  v{forcedVersion}
-                </p>
-                <p className="text-xs mt-3" style={{ color: 'hsl(var(--on-surface-variant) / 0.7)' }}>
-                  Descarga el instalador y ejecútalo para actualizar. Tus datos se conservarán.
-                </p>
-              </div>
-
-              <button
-                onClick={handleDownload}
-                className="w-full h-14 rounded-[20px] font-black text-base flex items-center justify-center gap-2 shadow-xl transition-all hover:opacity-90 active:scale-[0.98]"
-                style={{
-                  background: 'hsl(var(--primary))',
-                  color: 'hsl(var(--primary-foreground))',
-                  boxShadow: '0 8px 32px hsl(var(--primary) / 0.25)',
-                }}
-              >
-                <ExternalLink className="w-5 h-5" />
-                Descargar v{forcedVersion}
-              </button>
+              {ready ? (
+                <>
+                  <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ type: 'spring', damping: 15, stiffness: 200 }}
+                    className="w-16 h-16 rounded-2xl flex items-center justify-center"
+                    style={{ background: 'hsl(var(--primary) / 0.15)' }}
+                  >
+                    <RefreshCw className="w-8 h-8" style={{ color: 'hsl(var(--primary))' }} />
+                  </motion.div>
+                  <div className="text-center space-y-2">
+                    <h2 className="text-xl font-bold tracking-tight" style={{ color: 'hsl(var(--on-surface))' }}>
+                      Actualización lista
+                    </h2>
+                    <p className="text-sm font-medium" style={{ color: 'hsl(var(--on-surface-variant))' }}>
+                      v{forcedVersion} descargada. Reinicia para aplicar los cambios.
+                    </p>
+                  </div>
+                  <button
+                    onClick={handleRestart}
+                    className="w-full h-14 rounded-[20px] font-black text-base flex items-center justify-center gap-2 shadow-xl transition-all hover:opacity-90 active:scale-[0.98]"
+                    style={{
+                      background: 'hsl(var(--primary))',
+                      color: 'hsl(var(--primary-foreground))',
+                      boxShadow: '0 8px 32px hsl(var(--primary) / 0.25)',
+                    }}
+                  >
+                    <RefreshCw className="w-5 h-5" />
+                    Reiniciar ahora
+                  </button>
+                </>
+              ) : downloading ? (
+                <>
+                  <motion.div
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 1.5, repeat: Infinity, ease: 'linear' }}
+                    className="w-16 h-16 rounded-2xl flex items-center justify-center"
+                    style={{ background: 'hsl(var(--primary) / 0.15)' }}
+                  >
+                    <Download className="w-8 h-8" style={{ color: 'hsl(var(--primary))' }} />
+                  </motion.div>
+                  <div className="text-center space-y-3 w-full">
+                    <h2 className="text-xl font-bold tracking-tight" style={{ color: 'hsl(var(--on-surface))' }}>
+                      Descargando actualización
+                    </h2>
+                    <div className="w-full space-y-1">
+                      <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: 'hsl(var(--surface-container-highest))' }}>
+                        <motion.div
+                          className="h-full rounded-full"
+                          style={{ background: 'hsl(var(--primary))' }}
+                          animate={{ width: `${downloadProgress}%` }}
+                        />
+                      </div>
+                      <p className="text-xs font-bold text-center" style={{ color: 'hsl(var(--on-surface-variant))' }}>
+                        {downloadProgress}%
+                      </p>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ type: 'spring', damping: 15, stiffness: 200 }}
+                    className="w-16 h-16 rounded-2xl flex items-center justify-center"
+                    style={{ background: 'hsl(var(--primary) / 0.15)' }}
+                  >
+                    <Download className="w-8 h-8" style={{ color: 'hsl(var(--primary))' }} />
+                  </motion.div>
+                  <div className="text-center space-y-2">
+                    <h2 className="text-xl font-bold tracking-tight" style={{ color: 'hsl(var(--on-surface))' }}>
+                      Nueva versión disponible
+                    </h2>
+                    <p className="text-sm font-medium" style={{ color: 'hsl(var(--on-surface-variant))' }}>
+                      v{forcedVersion}
+                    </p>
+                    <p className="text-xs mt-3" style={{ color: 'hsl(var(--on-surface-variant) / 0.7)' }}>
+                      Descargando en segundo plano...
+                    </p>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </motion.div>
