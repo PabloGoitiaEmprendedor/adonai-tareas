@@ -208,6 +208,11 @@ const AppRoutes = () => {
         return <Navigate to="/daily" replace />;
       }
 
+      // Si el usuario ya completó onboarding (aunque sea anónimo), ir directo a la app
+      if (user && localStorage.getItem('adonai_onboarding_done') === 'true') {
+        return <Navigate to="/daily" replace />;
+      }
+
       return <Navigate to="/welcome" replace />;
     }
 
