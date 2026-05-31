@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Target, Sparkles, Menu } from "lucide-react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -163,6 +163,10 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const localOnboardingDone = localStorage.getItem('adonai_onboarding_done') === 'true';
   
   if (profile && !profile.onboarding_completed && !localOnboardingDone) {
+    // Si el usuario ya tiene nombre en su perfil, ya usó la app → saltar onboarding
+    if (profile.name) {
+      return <>{children}</>;
+    }
     return <Navigate to="/onboarding" replace />;
   }
 
@@ -204,7 +208,12 @@ const AppRoutes = () => {
     // Primer uso en escritorio/local: mostrar la pantalla que pregunta si ya tiene cuenta.
     if (isElectron || isLocalHost) {
       // Respetar sesiones existentes para que una actualizacion no saque a nadie de su cuenta.
-      if (user) {
+      if (user && !user.is_anonymous) {
+        return <Navigate to="/daily" replace />;
+      }
+
+      // Si el usuario ya completó onboarding (aunque sea anónimo), ir directo a la app
+      if (user && localStorage.getItem('adonai_onboarding_done') === 'true') {
         return <Navigate to="/daily" replace />;
       }
 
@@ -268,7 +277,45 @@ const AppRoutes = () => {
   );
 };
 
+function parseVersion(v: string): number[] {
+  return v.replace(/^v/, '').split('.').map(Number);
+}
+
+function isNewer(latest: string, current: string): boolean {
+  const l = parseVersion(latest);
+  const c = parseVersion(current);
+  for (let i = 0; i < Math.max(l.length, c.length); i++) {
+    const a = l[i] ?? 0;
+    const b = c[i] ?? 0;
+    if (a !== b) return a > b;
+  }
+  return false;
+}
+
 const App = () => {
+  const [forcedUpdate, setForcedUpdate] = useState<{ version: string } | null>(null);
+
+  useEffect(() => {
+    const checkForcedUpdate = async () => {
+      try {
+        const res = await fetch('https://api.github.com/repos/PabloGoitiaEmprendedor/adonai-tareas/releases/latest');
+        if (!res.ok) return;
+        const data = await res.json();
+        const latestTag = data.tag_name || '';
+        const currentVersion = await window.electronAPI?.getAppVersion?.() || '';
+        if (latestTag && currentVersion && isNewer(latestTag, currentVersion)) {
+          setForcedUpdate({ version: latestTag.replace(/^v/, '') });
+        }
+      } catch {
+        // Silently fail – auto-updater will try anyway
+      }
+    };
+
+    if (window.electronAPI) {
+      checkForcedUpdate();
+    }
+  }, []);
+
   useEffect(() => {
     const browserPath = window.location.pathname.replace(/\/$/, '');
     if (!window.location.hash && (browserPath.startsWith('/invite/') || browserPath.startsWith('/group-invite/'))) {
@@ -381,6 +428,9 @@ const App = () => {
               <DownloadGateModal />
             </AuthProvider>
           </HashRouter>
+          {forcedUpdate && (
+            <UpdateDialog forcedVersion={forcedUpdate.version} onDismiss={() => setForcedUpdate(null)} />
+          )}
         </TooltipProvider>
       </ThemeProvider>
     </QueryClientProvider>

@@ -33,13 +33,17 @@ interface Window {
     onUpdateDownloadProgress?: (callback: (percent: number) => void) => void;
     onUpdateDownloaded?: (callback: () => void) => void;
     onUpdateError?: (callback: (msg: string) => void) => void;
+    onUpdateReady?: (callback: (data: { version: string }) => void) => void;
     checkForUpdates?: () => void;
+    installUpdate?: () => void;
     restartApp?: () => void;
     showNotification?: (title: string, body: string, type?: 'info' | 'warning' | 'success' | 'error') => void;
     authStorageGet?: (key: string) => Promise<string | null>;
     authStorageSet?: (key: string, value: string) => Promise<void>;
     authStorageRemove?: (key: string) => Promise<void>;
     authStorageClear?: () => Promise<void>;
+    getAppVersion?: () => Promise<string>;
+    openUrl?: (url: string) => void;
   };
   process?: {
     versions?: {

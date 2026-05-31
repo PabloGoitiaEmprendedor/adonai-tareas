@@ -18,7 +18,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onUpdateDownloadProgress: (callback) => ipcRenderer.on('update-download-progress', (_event, pct) => callback(pct)),
   onUpdateDownloaded: (callback) => ipcRenderer.on('update-downloaded', () => callback()),
   onUpdateError: (callback) => ipcRenderer.on('update-error', (_event, msg) => callback(msg)),
+  onUpdateReady: (callback) => ipcRenderer.on('update-ready', (_event, data) => callback(data)),
   checkForUpdates: () => ipcRenderer.send('check-for-updates'),
+  installUpdate: () => ipcRenderer.send('install-update'),
   restartApp: () => ipcRenderer.send('restart-app'),
   minimize: () => ipcRenderer.send('window-minimize'),
   maximize: () => ipcRenderer.send('window-maximize'),
@@ -32,4 +34,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   authStorageSet: (key, value) => ipcRenderer.invoke('auth-storage-set', key, value),
   authStorageRemove: (key) => ipcRenderer.invoke('auth-storage-remove', key),
   authStorageClear: () => ipcRenderer.invoke('auth-storage-clear'),
+  getAppVersion: () => ipcRenderer.invoke('get-app-version'),
+  openUrl: (url) => ipcRenderer.send('open-external', url),
 });
