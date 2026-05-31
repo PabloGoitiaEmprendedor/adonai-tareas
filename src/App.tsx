@@ -163,6 +163,10 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const localOnboardingDone = localStorage.getItem('adonai_onboarding_done') === 'true';
   
   if (profile && !profile.onboarding_completed && !localOnboardingDone) {
+    // Si el usuario ya tiene nombre en su perfil, ya usó la app → saltar onboarding
+    if (profile.name) {
+      return <>{children}</>;
+    }
     return <Navigate to="/onboarding" replace />;
   }
 
