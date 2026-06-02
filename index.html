@@ -281,7 +281,7 @@
     <!-- ═══════════════════════════════════════
          ONESIGNAL PUSH NOTIFICATIONS
     ═══════════════════════════════════════ -->
-    <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+    <script src="/OneSignalSDK.page.js" defer></script>
     <script>
       window.OneSignalDeferred = window.OneSignalDeferred || [];
       window.OneSignalDeferred.push(async function(OneSignal) {
@@ -292,6 +292,7 @@
             enable: false,
           },
           allowLocalhostAsSecureOrigin: true,
+          serviceWorkerPath: "/OneSignalSDK.sw.js",
         });
       });
     </script>
