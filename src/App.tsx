@@ -48,8 +48,11 @@ import DownloadGuideOverlay from '@/components/DownloadGuideOverlay';
 import DownloadGateModal from '@/components/DownloadGateModal';
 import { getAnalyticsExperience, setAnalyticsUser, trackAnalyticsEvent, trackPageView } from "@/lib/analytics";
 import CalendarCallback from "./pages/CalendarCallback";
+import CalendarSetupGuide from "./pages/CalendarSetupGuide";
 import SheetsCallback from "./pages/SheetsCallback";
 import { WeeklySummaryCollector } from "@/components/WeeklySummaryCollector";
+import { subscribeElectronEvent } from "@/lib/electronEvents";
+import OneSignalInitializer from '@/components/OneSignalInitializer';
 
 
 const queryClient = new QueryClient({
@@ -87,7 +90,7 @@ const AnalyticsRouteTracking = () => {
     trackAnalyticsEvent("app_surface_loaded", {
       app_experience: getAnalyticsExperience(location.pathname),
     });
-  }, []);
+  }, [location.pathname]);
 
   useEffect(() => {
     trackPageView(location.pathname + location.search);
@@ -194,6 +197,9 @@ const AppRoutes = () => {
     if (browserPath === '/mini') {
       return <MiniTasksPage />;
     }
+    if (browserPath === '/onboarding' || browserPath.startsWith('/onboarding?')) {
+      return <OnboardingPage />;
+    }
 
     if (loading) {
       return <LoadingScreen message="Sincronizando Adonai" />;
@@ -239,6 +245,7 @@ const AppRoutes = () => {
         <Route path="/group-invite/:groupId" element={<GroupInvitePage />} />
         <Route path="/onboarding" element={<OnboardingPage />} />
         <Route path="/calendar-callback" element={appRouteElement(<CalendarCallback />)} />
+        <Route path="/calendar-setup" element={appRouteElement(<CalendarSetupGuide />)} />
         <Route path="/sheets-callback" element={appRouteElement(<SheetsCallback />)} />
         
         <Route 
@@ -348,8 +355,7 @@ const App = () => {
       }
     }
 
-    if (window.electronAPI?.onDeepLink) {
-      window.electronAPI.onDeepLink(async (url: string) => {
+    const unsubscribeDeepLink = subscribeElectronEvent(window.electronAPI?.onDeepLink, async (url: string) => {
         console.log("Received deep link:", url);
         
         // Handle calendar callback deep links
@@ -398,15 +404,17 @@ const App = () => {
           }
         }
       });
-    }
 
-    if (window.electronAPI?.onInvalidateQueries) {
-      window.electronAPI.onInvalidateQueries(() => {
+    const unsubscribeInvalidateQueries = subscribeElectronEvent(window.electronAPI?.onInvalidateQueries, () => {
         console.log("Global sync: Invalidate queries");
         queryClient.invalidateQueries({ queryKey: ['tasks'] });
         queryClient.invalidateQueries({ queryKey: ['profile'] });
       });
-    }
+
+    return () => {
+      unsubscribeDeepLink();
+      unsubscribeInvalidateQueries();
+    };
   }, []);
 
   return (
@@ -419,6 +427,7 @@ const App = () => {
             <AuthProvider>
               <AnalyticsRouteTracking />
               <AnalyticsIdentity />
+              <OneSignalInitializer />
               <NotificationManager />
               <WeeklySummaryCollector />
               <NavigationWrapper>

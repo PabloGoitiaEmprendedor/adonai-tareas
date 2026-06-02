@@ -10,6 +10,8 @@ import {
 import { cn } from '@/lib/utils';
 import { format, isToday } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { TaskCard } from '@/components/TaskCard';
+import { useTasks } from '@/hooks/useTasks';
 
 interface MobileDynamicIslandProps {
   tasks: any[];
@@ -34,9 +36,11 @@ export const MobileDynamicIsland = ({
   getPriorityKey,
   folders = []
 }: MobileDynamicIslandProps) => {
+  const { updateTask } = useTasks();
   const [isOpen, setIsOpen] = useState(false);
   const [selectedFolderId, setSelectedFolderId] = useState<string | 'all' | 'shared'>('all');
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
+  const [completingTaskId, setCompletingTaskId] = useState<string | null>(null);
 
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
   const [draggedTask, setDraggedTask] = useState<any>(null);
@@ -179,6 +183,30 @@ export const MobileDynamicIsland = ({
 
   const titleLabel = isToday(currentDate) ? 'Tareas de hoy' : `Tareas del ${format(currentDate, 'd MMM', { locale: es })}`;
 
+  const handleComplete = useCallback((task: any, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setCompletingTaskId(task.id);
+    updateTask.mutate(
+      { id: task.id, status: 'done', completed_at: new Date().toISOString() },
+      { onSettled: () => setCompletingTaskId(null) }
+    );
+  }, [updateTask]);
+
+  const handleUncomplete = useCallback((task: any, e: React.MouseEvent) => {
+    e.stopPropagation();
+    updateTask.mutate({ id: task.id, status: 'pending', completed_at: null });
+  }, [updateTask]);
+
+  const handleStartTimer = useCallback((_task: any, e: React.MouseEvent) => {
+    e.stopPropagation();
+  }, []);
+
+  const handleCardTouchStart = useCallback((e: React.TouchEvent, task: any) => {
+    const target = e.target as HTMLElement;
+    if (target.closest('[data-no-drag]') || target.closest('button, a, input, textarea, select')) return;
+    handleTouchStart(e, task);
+  }, []);
+
   return (
     <div className="lg:hidden fixed bottom-4 left-1/2 -translate-x-1/2 z-[100] w-full max-w-[calc(100vw-32px)] flex flex-col items-center pointer-events-none">
       <AnimatePresence>
@@ -249,31 +277,33 @@ export const MobileDynamicIsland = ({
 
               {/* Task List */}
               <div className="flex-1 overflow-y-auto no-scrollbar pb-2">
-                <div className="notebook-task-list">
+                <div className="notebook-task-list" style={{ ['--notebook-rule-color' as string]: 'rgba(30, 41, 59, 0.02)' }}>
                     {sortedTasks.length > 0 ? (
                       sortedTasks
-                        .map((task) => {
-                          const priorityKey = getPriorityKey(task.urgency || false, task.importance || false);
-                          const evColor = (task.color?.startsWith('#') || task.color?.startsWith('var')) ? task.color : undefined;
-                          return (
-                            <motion.div
-                              key={task.id}
-                              onMouseDown={onDragStart ? (e) => onDragStart(e, task) : undefined}
-                              onTouchStart={(e) => handleTouchStart(e, task)}
-                              onTouchMove={handleTouchMove}
-                              onTouchEnd={handleTouchEnd}
-                              onTouchCancel={handleTouchEnd}
-                              onClick={() => !dragStarted.current && onTaskClick(task)}
-                              className="group flex items-start gap-2 px-2 py-1.5 transition-colors cursor-grab active:cursor-grabbing touch-none"
-                            >
-                              <div className="flex-1 min-w-0">
-                                  <span className="block text-[14px] font-semibold leading-snug tracking-normal break-words whitespace-normal" style={{ color: task.status === 'done' ? '#6b7280' : '#1f2937' }}>
-                                  <span className="select-none mr-1.5 text-[16px]" style={{ color: evColor || priorityColors?.[priorityKey] || 'var(--outline)' }}>*</span>{task.title}
-                                </span>
-                              </div>
-                            </motion.div>
-                          );
-                        })
+                        .map((task, idx) => (
+                          <div
+                            key={task.id}
+                            onMouseDown={onDragStart ? (e) => onDragStart(e, task) : undefined}
+                            onTouchStart={(e) => handleCardTouchStart(e, task)}
+                            onTouchMove={handleTouchMove}
+                            onTouchEnd={handleTouchEnd}
+                            onTouchCancel={handleTouchEnd}
+                            className="touch-none"
+                          >
+                            <TaskCard
+                              task={task}
+                              taskIdx={idx}
+                              isDone={task.status === 'done'}
+                              completingTaskId={completingTaskId}
+                              setSelectedTask={onTaskClick}
+                              handleComplete={handleComplete}
+                              handleUncomplete={handleUncomplete}
+                              handleStartTimer={handleStartTimer}
+                              view="daily"
+                              notebookView
+                            />
+                          </div>
+                        ))
                     ) : (
                       <div className="flex flex-col items-center justify-center py-12 text-center px-4">
                         <div className="w-8 h-8 rounded-full flex items-center justify-center mb-2" style={{ backgroundColor: 'rgba(30,41,59,0.05)' }}>

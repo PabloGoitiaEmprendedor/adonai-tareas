@@ -2,6 +2,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSettings } from "./useSettings";
+import { useEffect, useMemo } from "react";
+
+const CALENDAR_CONNECTED_ONCE_KEY = "adonai_calendar_connected_once";
 
 const readableFunctionError = async (error: unknown) => {
   const fallback = error instanceof Error ? error.message : "No se pudo completar la operación";
@@ -25,7 +28,20 @@ const invokeFunction = async <T>(name: string, body: Record<string, unknown>) =>
 export const useCalendarIntegration = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const { settings } = useSettings();
+  const { settings, isLoading: settingsLoading } = useSettings();
+
+  const hasConnectedOnceLocally = useMemo(() => {
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem(CALENDAR_CONNECTED_ONCE_KEY) === "true";
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    if (settings?.calendar_connected) {
+      window.localStorage.setItem(CALENDAR_CONNECTED_ONCE_KEY, "true");
+    }
+  }, [settings?.calendar_connected]);
 
   const connectionDetails = useQuery({
     queryKey: ["calendar-connection-details", user?.id],
@@ -103,8 +119,9 @@ export const useCalendarIntegration = () => {
 
   return {
     connected: !!settings?.calendar_connected,
+    hasConnectedBefore: !!settings?.calendar_connected || hasConnectedOnceLocally,
     email: null,
-    isLoading: connectionDetails.isLoading,
+    isLoading: settingsLoading || connectionDetails.isLoading,
     connect,
     disconnect,
     sync,

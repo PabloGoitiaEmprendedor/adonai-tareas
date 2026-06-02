@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type CSSProperties } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Download, RefreshCw, AlertTriangle, X, ExternalLink } from 'lucide-react';
+import { subscribeElectronEvent } from '@/lib/electronEvents';
 
 interface UpdateDialogProps {
   forcedVersion?: string;
@@ -8,6 +9,9 @@ interface UpdateDialogProps {
 }
 
 const REPO = 'PabloGoitiaEmprendedor/adonai-tareas';
+type UpdateAvailablePayload = { version: string; releaseNotes?: string };
+type UpdateReadyPayload = { version?: string };
+const noDragStyle: CSSProperties = { WebkitAppRegion: 'no-drag' };
 
 const UpdateDialog = ({ forcedVersion, onDismiss }: UpdateDialogProps) => {
   const [updateInfo, setUpdateInfo] = useState<{ version: string; releaseNotes: string } | null>(null);
@@ -19,7 +23,7 @@ const UpdateDialog = ({ forcedVersion, onDismiss }: UpdateDialogProps) => {
   useEffect(() => {
     if (!window.electronAPI || forcedVersion) return;
 
-    window.electronAPI.onUpdateAvailable?.((info: any) => {
+    const unsubscribeAvailable = subscribeElectronEvent(window.electronAPI.onUpdateAvailable, (info: UpdateAvailablePayload) => {
       setError(null);
       setDownloading(true);
       setDownloadProgress(0);
@@ -29,17 +33,17 @@ const UpdateDialog = ({ forcedVersion, onDismiss }: UpdateDialogProps) => {
       });
     });
 
-    window.electronAPI.onUpdateDownloadProgress?.((progress: number) => {
+    const unsubscribeProgress = subscribeElectronEvent(window.electronAPI.onUpdateDownloadProgress, (progress: number) => {
       setDownloading(true);
       setDownloadProgress(Math.round(progress));
     });
 
-    window.electronAPI.onUpdateDownloaded?.(() => {
+    const unsubscribeDownloaded = subscribeElectronEvent(window.electronAPI.onUpdateDownloaded, () => {
       setDownloading(false);
       setReady(true);
     });
 
-    window.electronAPI.onUpdateReady?.((data: any) => {
+    const unsubscribeReady = subscribeElectronEvent(window.electronAPI.onUpdateReady, (data: UpdateReadyPayload) => {
       setDownloading(false);
       setReady(true);
       if (data?.version) {
@@ -47,12 +51,16 @@ const UpdateDialog = ({ forcedVersion, onDismiss }: UpdateDialogProps) => {
       }
     });
 
-    window.electronAPI.onUpdateError?.((msg: string) => {
+    const unsubscribeError = subscribeElectronEvent(window.electronAPI.onUpdateError, (msg: string) => {
       setError(msg);
     });
 
     return () => {
-      // Listeners are managed by Electron's IPC, we don't assign to them directly
+      unsubscribeAvailable();
+      unsubscribeProgress();
+      unsubscribeDownloaded();
+      unsubscribeReady();
+      unsubscribeError();
     };
   }, [forcedVersion]);
 
@@ -94,7 +102,7 @@ const UpdateDialog = ({ forcedVersion, onDismiss }: UpdateDialogProps) => {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -8, scale: 0.96 }}
             className="fixed right-2 top-2 z-[100000] flex items-center gap-1.5 rounded-full border border-black/10 bg-white/95 py-1 pl-2.5 pr-1 text-[10px] font-black text-slate-900 shadow-lg"
-            style={{ WebkitAppRegion: 'no-drag' } as any}
+            style={noDragStyle}
           >
             <span>{ready ? 'Lista' : 'Actualizando'}</span>
             <button

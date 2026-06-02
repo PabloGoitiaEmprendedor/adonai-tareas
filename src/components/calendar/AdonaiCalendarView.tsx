@@ -13,6 +13,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { buildReminderMetadata, getReminderSettings } from '@/lib/reminders';
+import { ensureOneSignalSubscribed } from '@/lib/onesignal';
 
 interface AdonaiCalendarViewProps {
   selectedDate: Date;
@@ -583,6 +584,10 @@ const AdonaiCalendarView: React.FC<AdonaiCalendarViewProps> = ({ selectedDate, o
   };
 
   const handleEventUpdate = async (id: string, updates: Partial<Event>) => {
+    if (updates.reminderEnabled) {
+      ensureOneSignalSubscribed();
+    }
+
     // Handle completion of recurring instances (skip for calendar-only events)
     const recMatch = id.match(/^task-(.+)-rec-(\d{4}-\d{2}-\d{2})$/);
     if (recMatch && updates.completed === true) {
@@ -651,6 +656,11 @@ const AdonaiCalendarView: React.FC<AdonaiCalendarViewProps> = ({ selectedDate, o
         const rrule = buildGoogleRRule(updates.recurrence, updates.recurrenceDays, updates.recurrenceInterval, updates.recurrenceUnit, updates.recurrenceEndType, updates.recurrenceEndDate, updates.recurrenceEndCount);
         if (rrule) eventData.recurrence = [rrule];
         else eventData.recurrence = [];
+      }
+      if (updates.reminderEnabled !== undefined) {
+        eventData.reminders = updates.reminderEnabled
+          ? { useDefault: false, overrides: [{ method: 'popup', minutes: updates.reminderMinutesBefore ?? 15 }] }
+          : { useDefault: false, overrides: [] };
       }
 
       try {

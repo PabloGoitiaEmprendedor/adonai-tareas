@@ -18,6 +18,7 @@ import { ChaosBuddiesTrigger } from '@/components/ChaosBuddiesTrigger';
 import { compareTasksWithinQuadrants, getTaskManualOrderGroupKey } from '@/lib/taskOrdering';
 import { playPageTurnSound } from '@/lib/soundEffects';
 import { QuickNotebookTaskAdd } from '@/components/QuickNotebookTaskAdd';
+import type { TaskLike } from '@/lib/taskTypes';
 
 const NOTEBOOK_PAGE_COUNT = 30;
 const TASKS_PER_NOTEBOOK_PAGE = 10;
@@ -31,6 +32,7 @@ const DailyPage = () => {
  const getInitialNotebookPage = () => {
    return 1;
  };
+ const showStats = false;
 
  const { tasks, updateTask, isLoading } = useTasks(tasksFilter);
  const { createTask } = useTasks();
@@ -48,12 +50,12 @@ const DailyPage = () => {
  lastActive.setHours(0, 0, 0, 0);
  return differenceInDays(todayDate, lastActive) >= 2;
  }, [metrics?.last_active_date]);
- const [selectedTask, setSelectedTask] = useState<any>(null);
- const [timerTask, setTimerTask] = useState<any>(null);
+ const [selectedTask, setSelectedTask] = useState<TaskLike | null>(null);
+ const [timerTask, setTimerTask] = useState<TaskLike | null>(null);
  const [dragIdx, setDragIdx] = useState<number | null>(null);
  const dragIdxRef = useRef<number | null>(null);
- const [orderedTasks, setOrderedTasks] = useState<any[]>([]);
- const orderedTasksRef = useRef<any[]>([]);
+ const [orderedTasks, setOrderedTasks] = useState<TaskLike[]>([]);
+ const orderedTasksRef = useRef<TaskLike[]>([]);
  const suppressOrderSyncRef = useRef(false);
  const suppressOrderSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
  const [notebookPage, setNotebookPage] = useState(getInitialNotebookPage);
@@ -105,9 +107,9 @@ const DailyPage = () => {
   }, []);
 
  const sortedTasks = useMemo(() => {
- let filtered = tasks.filter((t: any) => t.due_date === today || (t.due_date < today && t.status!== 'done'));
+ let filtered = tasks.filter((t: TaskLike) => t.due_date === today || (t.due_date && t.due_date < today && t.status !== 'done'));
  if (selectedFolderId!== 'all') {
- filtered =!selectedFolderId? filtered.filter((t: any) =>!t.folder_id): filtered.filter((t: any) => t.folder_id === selectedFolderId);
+ filtered =!selectedFolderId? filtered.filter((t: TaskLike) =>!t.folder_id): filtered.filter((t: TaskLike) => t.folder_id === selectedFolderId);
  }
  
  return [...filtered].sort(compareTasksWithinQuadrants);
@@ -143,7 +145,7 @@ const DailyPage = () => {
  localStorage.setItem(NOTEBOOK_PAGE_STORAGE_KEY, JSON.stringify({ date: today, page: notebookPage }));
  }, [notebookPage, today]);
 
- const persistVisibleOrder = useCallback((nextOrder: any[]) => {
+ const persistVisibleOrder = useCallback((nextOrder: TaskLike[]) => {
  nextOrder.forEach((task, idx) => {
  if ((task.sort_order?? 0)!== idx) {
  updateTask.mutate({ id: task.id, sort_order: idx });
@@ -246,7 +248,7 @@ const DailyPage = () => {
  const handleDragStart = useCallback((idx: number) => {
  dragIdxRef.current = idx;
  setDragIdx(idx);
- }, [orderedTasks]);
+ }, []);
 
  const handleDragOver = useCallback((e: React.DragEvent, idx: number) => {
  e.preventDefault();
@@ -275,7 +277,7 @@ const DailyPage = () => {
    e.stopPropagation();
    dragIdxRef.current = idx;
    setDragIdx(idx);
- }, [orderedTasks]);
+ }, []);
 
  const handleTouchMove = useCallback((e: React.TouchEvent) => {
    const currentDragIdx = dragIdxRef.current ?? dragIdx;
@@ -326,11 +328,11 @@ const DailyPage = () => {
 
   const currentFolderName = useMemo(() => {
     if (selectedFolderId === null) return 'Hoy';
-    const folder = folders.find((f: any) => f.id === selectedFolderId);
+    const folder = folders.find((f) => f.id === selectedFolderId);
     return folder?.name || 'Hoy';
   }, [selectedFolderId, folders]);
 
- const handleComplete = useCallback(async (task: any, e: React.MouseEvent) => {
+ const handleComplete = useCallback(async (task: TaskLike, e: React.MouseEvent) => {
  e.stopPropagation();
  setCompletingTaskId(task.id);
 
@@ -342,7 +344,7 @@ const DailyPage = () => {
  }
 
  const currentTasks = tasksRef.current;
- const remainingTasks = currentTasks.filter((t: any) => t.status !== 'done' && t.id !== task.id);
+ const remainingTasks = currentTasks.filter((t: TaskLike) => t.status !== 'done' && t.id !== task.id);
  const isLastTask = currentTasks.length > 0 && remainingTasks.length === 0;
 
  updateTask.mutate({ 
@@ -381,12 +383,12 @@ const DailyPage = () => {
  });
  }, [timerTask, updateTask, checkAndUnlock, profileName]);
 
- const handleUncomplete = useCallback((task: any, e: React.MouseEvent) => {
+ const handleUncomplete = useCallback((task: TaskLike, e: React.MouseEvent) => {
  e.stopPropagation();
  updateTask.mutate({ id: task.id, status: 'pending', completed_at: null });
  }, [updateTask]);
 
- const handleStartTimer = useCallback((task: any, e: React.MouseEvent) => {
+ const handleStartTimer = useCallback((task: TaskLike, e: React.MouseEvent) => {
  e.stopPropagation();
  setTimerTask(task);
  }, []);
@@ -540,7 +542,7 @@ const DailyPage = () => {
   <div className="min-h-screen text-foreground selection:bg-primary/20 md:bg-background">
     <div data-daily-swipe className="mx-auto w-full max-w-full px-0 pt-0 pb-0 md:max-w-[980px] md:px-6 md:pt-6 md:pb-8 relative">
 
- {false && (
+ {showStats && (
  <motion.div 
  initial={{ opacity: 0, y: 10 }}
  animate={{ opacity: 1, y: 0 }}
@@ -755,7 +757,7 @@ const DailyPage = () => {
      >
        Hoy
      </button>
-    {folders.map((folder: any) => {
+    {folders.map((folder) => {
       const isSelected = selectedFolderId === folder.id;
       return (
         <button
@@ -925,7 +927,7 @@ const DailyPage = () => {
      >
        Hoy
      </button>
-    {folders.map((folder: any) => {
+    {folders.map((folder) => {
       const isSelected = selectedFolderId === folder.id;
       return (
         <button

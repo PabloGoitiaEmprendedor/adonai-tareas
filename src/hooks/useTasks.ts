@@ -2,25 +2,14 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { format, parseISO, eachDayOfInterval } from 'date-fns';
+import { eachDayOfInterval, format, parseISO } from 'date-fns';
 import { toast } from 'sonner';
 import { trackAnalyticsEvent } from '@/lib/analytics';
+import { parseVirtualTaskId } from '@/lib/taskRecurrence';
 
 import type { Database } from '@/integrations/supabase/types';
 
 type TaskUpdate = Database['public']['Tables']['tasks']['Update'] & { metadata?: Record<string, unknown> | null };
-
-const VIRTUAL_TASK_ID_REGEX = /^virtual-(.+)-(\d{4}-\d{2}-\d{2})$/;
-
-const parseVirtualTaskId = (id: string) => {
-  const match = id.match(VIRTUAL_TASK_ID_REGEX);
-  if (!match) return null;
-
-  return {
-    recurrenceId: match[1],
-    dueDate: match[2],
-  };
-};
 
 export const useTasks = (filters?: { date?: string; startDate?: string; endDate?: string; status?: string; excludeEvents?: boolean }) => {
   const { user } = useAuth();

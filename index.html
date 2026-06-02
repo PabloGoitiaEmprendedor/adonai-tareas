@@ -108,7 +108,7 @@
         "Disponible para Windows, Mac, Web y movil"
       ],
       "screenshot": "https://webadonai.com/og-image.png",
-      "softwareVersion": "1.0.125",
+      "softwareVersion": "1.0.154",
       "aggregateRating": {
         "@type": "AggregateRating",
         "ratingValue": "4.9",
@@ -276,6 +276,24 @@
         }
       ]
     }
+    </script>
+
+    <!-- ═══════════════════════════════════════
+         ONESIGNAL PUSH NOTIFICATIONS
+    ═══════════════════════════════════════ -->
+    <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+    <script>
+      window.OneSignalDeferred = window.OneSignalDeferred || [];
+      window.OneSignalDeferred.push(async function(OneSignal) {
+        await OneSignal.init({
+          appId: "%VITE_ONESIGNAL_APP_ID%",
+          safari_web_id: "%VITE_ONESIGNAL_SAFARI_WEB_ID%",
+          notifyButton: {
+            enable: false,
+          },
+          allowLocalhostAsSecureOrigin: true,
+        });
+      });
     </script>
 
     <!-- ═══════════════════════════════════════

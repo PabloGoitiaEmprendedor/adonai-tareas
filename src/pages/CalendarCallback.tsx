@@ -1,138 +1,130 @@
-import { useEffect, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import { useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
-import { motion } from 'framer-motion';
-import { Check, Loader2 } from 'lucide-react';
-import { toast } from 'sonner';
+import { useEffect, useState } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
+import { motion } from 'framer-motion'
+import { Check, Loader2 } from 'lucide-react'
+import { toast } from 'sonner'
+
+import { supabase } from '@/integrations/supabase/client'
+import { useAuth } from '@/contexts/AuthContext'
 
 const CalendarCallback = () => {
-  const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
-  const { user } = useAuth();
-  const queryClient = useQueryClient();
-  const [status, setStatus] = useState<'loading' | 'success' | 'error' | 'redirecting'>('loading');
-  const [errorDetails, setErrorDetails] = useState<string>('');
+  const [searchParams] = useSearchParams()
+  const navigate = useNavigate()
+  const { user } = useAuth()
+  const queryClient = useQueryClient()
+  const [status, setStatus] = useState<'loading' | 'success' | 'error' | 'redirecting'>('loading')
+  const [errorDetails, setErrorDetails] = useState('')
 
   useEffect(() => {
     const handleCallback = async () => {
-      const code = searchParams.get('code');
-      const state = searchParams.get('state');
+      const code = searchParams.get('code')
+      const state = searchParams.get('state')
 
       if (!code) {
-        setStatus('error');
-        toast.error('No se recibió el código de autorización');
-        return;
+        setStatus('error')
+        toast.error('No se recibio el codigo de autorizacion')
+        return
       }
 
-      // If state is 'desktop', redirect to the desktop application custom protocol
       if (state === 'desktop') {
-        setStatus('redirecting');
-        window.location.href = `adonai-tasks://calendar-callback?code=${code}&state=${state}`;
-        return;
+        setStatus('redirecting')
+        window.location.href = `adonai-tasks://calendar-callback?code=${code}&state=${state}`
+        return
       }
 
-      if (!user) return;
+      if (!user) return
 
       try {
-        const isElectron = !!window.electronAPI;
+        const isElectron = !!window.electronAPI
         const redirect_uri = isElectron
           ? 'https://adonai-tareas.vercel.app/calendar-callback'
-          : window.location.origin + '/calendar-callback';
+          : `${window.location.origin}/calendar-callback`
 
         const { data, error } = await supabase.functions.invoke('google-auth', {
           body: {
             action: 'callback',
             code,
             redirect_uri,
-            user_id: user.id
+            user_id: user.id,
           },
-        });
+        })
 
-        if (data?.success) {
-          setStatus('success');
-          queryClient.invalidateQueries({ queryKey: ['calendar-events'] });
-          queryClient.invalidateQueries({ queryKey: ['settings'] });
-          toast.success('¡Google Calendar conectado con éxito!');
-          setTimeout(() => {
-            navigate('/week');
-          }, 2000);
-          return;
-        }
+        if (error) throw error
+        if (!data?.success) throw new Error(data?.error || 'No se pudo conectar Google Calendar')
 
-        if (error) throw error;
-        throw new Error(data?.error || 'Error desconocido');
-      } catch (error) {
-        console.error('Error en el callback de Google:', error);
-        setStatus('error');
-        setErrorDetails(error instanceof Error ? error.message : String(error));
-        toast.error('Error al sincronizar con Google Calendar');
+        setStatus('success')
+        queryClient.invalidateQueries({ queryKey: ['calendar-events'] })
+        queryClient.invalidateQueries({ queryKey: ['settings'] })
+        localStorage.setItem('adonai_calendar_connected_once', 'true')
+        toast.success('Google Calendar conectado')
+
+        const isOnboardingFlow = localStorage.getItem('adonai_onboarding_calendar_pending') === 'true'
+        localStorage.removeItem('adonai_onboarding_calendar_pending')
+
+        setTimeout(() => {
+          navigate(isOnboardingFlow ? '/onboarding?calendar_setup=1' : '/calendar-setup', { replace: true })
+        }, 1600)
+      } catch (err) {
+        console.error('Error en el callback de Google:', err)
+        setStatus('error')
+        setErrorDetails(err instanceof Error ? err.message : String(err))
+        toast.error('No se pudo conectar Google Calendar')
       }
-    };
+    }
 
-    handleCallback();
-  }, [searchParams, navigate, user]);
+    handleCallback()
+  }, [navigate, queryClient, searchParams, user])
 
   return (
-    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 text-center">
+    <div className="min-h-screen bg-background flex items-center justify-center px-4 py-8">
       <motion.div
-        initial={{ opacity: 0, scale: 0.9 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="w-full max-w-md p-10 bg-surface-container-low rounded-[48px] border border-outline-variant/10 shadow-2xl space-y-8"
+        initial={{ opacity: 0, scale: 0.96, y: 14 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        className="w-full max-w-md rounded-[36px] border border-outline-variant/10 bg-surface-container-low p-8 text-center shadow-2xl space-y-8"
       >
-        <div className="w-24 h-24 mx-auto bg-primary/10 rounded-[32px] flex items-center justify-center relative">
-          {(status === 'loading' || status === 'redirecting') && (
-            <Loader2 className="w-10 h-10 text-primary animate-spin" />
-          )}
+        <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-[28px] bg-primary/10">
+          {(status === 'loading' || status === 'redirecting') && <Loader2 className="h-9 w-9 animate-spin text-primary" />}
           {status === 'success' && (
-            <motion.div
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              className="absolute inset-0 bg-primary rounded-[32px] flex items-center justify-center"
-            >
-              <Check className="w-12 h-12 text-primary-foreground" />
-            </motion.div>
-          )}
-          {status === 'error' && (
-            <div className="w-full h-full bg-destructive/10 rounded-[32px] flex items-center justify-center">
-              <span className="text-4xl">!</span>
+            <div className="flex h-full w-full items-center justify-center rounded-[28px] bg-primary">
+              <Check className="h-10 w-10 text-primary-foreground" />
             </div>
           )}
+          {status === 'error' && <span className="text-4xl font-black text-destructive">!</span>}
         </div>
 
-        <div className="space-y-4">
-          <h2 className="text-2xl font-black font-headline tracking-tight">
-            {status === 'loading' && 'Conectando con Google...'}
-            {status === 'redirecting' && 'Redirigiendo a Adonai...'}
-            {status === 'success' && '¡Conexión Exitosa!'}
-            {status === 'error' && 'Algo salió mal'}
-          </h2>
-          <p className="text-on-surface-variant/60 font-medium">
-            {status === 'loading' && 'Estamos sincronizando tus eventos de Google con Adonai.'}
-            {status === 'redirecting' && 'Abriendo la aplicación de escritorio. Si no se abre, por favor regresa a la aplicación.'}
-            {status === 'success' && 'Tus calendarios están listos. Volviendo a Adonai...'}
-            {status === 'error' && 'Hubo un problema al procesar la autorización. Intenta de nuevo.'}
+        <div className="space-y-3">
+          <h1 className="text-2xl font-black tracking-tight text-foreground">
+            {status === 'loading' && 'Conectando Google Calendar'}
+            {status === 'redirecting' && 'Abriendo Adonai'}
+            {status === 'success' && 'Listo'}
+            {status === 'error' && 'Algo salio mal'}
+          </h1>
+          <p className="text-sm leading-relaxed text-on-surface-variant/65">
+            {status === 'loading' && 'Estamos terminando la conexion.'}
+            {status === 'redirecting' && 'Te estamos enviando a la app de escritorio.'}
+            {status === 'success' && 'Ya puedes volver a Adonai.'}
+            {status === 'error' && 'Puedes volver a la guia e intentar otra vez.'}
           </p>
         </div>
 
         {status === 'error' && errorDetails && (
-          <div className="p-4 bg-destructive/10 rounded-2xl border border-destructive/20">
-            <p className="text-xs font-mono text-destructive break-words whitespace-pre-wrap">{errorDetails}</p>
+          <div className="rounded-2xl border border-destructive/20 bg-destructive/10 p-4 text-left">
+            <p className="break-words whitespace-pre-wrap text-xs text-destructive">{errorDetails}</p>
           </div>
         )}
 
         {status === 'error' && (
           <button
-            onClick={() => navigate('/week')}
-            className="w-full py-4 bg-primary text-primary-foreground rounded-[24px] font-black uppercase tracking-widest text-xs hover:scale-105 active:scale-95 transition-all"
+            onClick={() => navigate('/calendar-setup', { replace: true })}
+            className="flex h-14 w-full items-center justify-center rounded-[22px] bg-primary font-black text-primary-foreground transition hover:scale-[1.01] active:scale-95"
           >
-            Volver al Calendario
+            Volver a la guia
           </button>
         )}
       </motion.div>
     </div>
-  );
-};
+  )
+}
 
-export default CalendarCallback;
+export default CalendarCallback

@@ -101,7 +101,7 @@ export const AISchedulerModal = ({ open, onClose, selectedDate }: AISchedulerMod
  if (!open) return null;
 
  return (
- <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6">
+ <div className="fixed inset-0 z-[100] flex items-end justify-center p-0 sm:items-center sm:p-6">
  <motion.div 
  initial={{ opacity: 0 }}
  animate={{ opacity: 1 }}
@@ -115,9 +115,9 @@ export const AISchedulerModal = ({ open, onClose, selectedDate }: AISchedulerMod
  initial={{ opacity: 0, scale: 0.9, y: 20 }}
  animate={{ opacity: 1, scale: 1, y: 0 }}
  exit={{ opacity: 0, scale: 0.9, y: 20 }}
- className="relative w-full max-w-[440px] bg-surface-container-low border border-outline-variant/20 rounded-[32px] overflow-hidden shadow-2xl"
- >
- <div className="p-8">
+ className="relative w-full max-w-[460px] bg-surface-container-low border border-outline-variant/20 rounded-t-[30px] rounded-b-none overflow-hidden shadow-2xl sm:rounded-[32px]"
+  >
+ <div className="p-4 pb-6 sm:p-8">
  <AnimatePresence mode="wait">
  {step === 'intro' && (
  <motion.div 
@@ -127,12 +127,12 @@ export const AISchedulerModal = ({ open, onClose, selectedDate }: AISchedulerMod
  exit={{ opacity: 0, x: -20 }}
  className="space-y-6"
  >
- <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center border border-primary/20 mx-auto">
+ <div className="w-14 h-14 sm:w-16 sm:h-16 bg-primary/10 rounded-2xl flex items-center justify-center border border-primary/20 mx-auto">
  <Sparkles className="w-8 h-8 text-primary animate-pulse" />
  </div>
  <div className="text-center space-y-2">
- <h2 className="text-2xl font-black tracking-tight">Calendario Inteligente</h2>
- <p className="text-on-surface-variant text-sm leading-relaxed px-4">
+ <h2 className="text-xl sm:text-2xl font-black tracking-tight">Calendario Inteligente</h2>
+ <p className="text-on-surface-variant text-sm leading-relaxed px-2 sm:px-4">
  Deja que la IA diseñe tu estructura de trabajo óptima basándose en tus objetivos y nivel de energía.
  </p>
  </div>
@@ -163,7 +163,7 @@ export const AISchedulerModal = ({ open, onClose, selectedDate }: AISchedulerMod
  </div>
  </div>
  
- <div className="grid grid-cols-2 gap-4">
+ <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
  <div className="space-y-2">
  <label className="text-[10px] uppercase font-black tracking-widest opacity-40 px-1">INICIO</label>
  <input 

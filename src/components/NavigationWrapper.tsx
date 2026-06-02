@@ -145,7 +145,7 @@ const SidebarContent = ({ user, profile, metrics, menuItems, location, handleNav
           <button 
             onClick={toggleSidebar}
             className="w-9 h-9 rounded-xl hover:bg-surface-container flex items-center justify-center text-on-surface-variant transition-colors flex-shrink-0"
-            aria-label="Cerrar menú"
+            aria-label={"Cerrar men\u00fa"}
           >
             <Menu className="w-4 h-4" />
           </button>
@@ -191,7 +191,7 @@ const SidebarContent = ({ user, profile, metrics, menuItems, location, handleNav
           })()
         ))}
 
-        {/* Admin panel Ã¢â‚¬â€ CEO only */}
+        {/* Admin panel - CEO only */}
         {user?.email === 'pablogoitiaemprendedor@gmail.com' && (
           <Button
             variant="ghost"
@@ -218,7 +218,7 @@ const SidebarContent = ({ user, profile, metrics, menuItems, location, handleNav
           className="w-full justify-start gap-4 h-12 bg-primary text-black hover:bg-primary/90 rounded-xl font-bold shadow-lg shadow-primary/20 transition-all active:scale-95"
         >
           <User className="w-5 h-5" />
-          <span>Iniciar sesión</span>
+          <span>{"Iniciar sesi\u00f3n"}</span>
         </Button>
       </div>
     )}
@@ -538,7 +538,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
                           <Icon className="h-5 w-5" />
                         </div>
                         <div>
-                          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-primary/60">Sección</p>
+                          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-primary/60">{"Secci\u00f3n"}</p>
                           <h3 className="text-xl font-black tracking-tight">{cleanItem.label}</h3>
                           <p className="hidden text-xs font-medium text-on-surface-variant/60 sm:block">{cleanItem.description}</p>
                         </div>
@@ -561,7 +561,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
           <button
             id="global-menu-trigger"
             onClick={() => setOpen(true)}
-            aria-label="Mostrar menú"
+            aria-label={"Mostrar men\u00fa"}
             className="relative w-9 h-9 rounded-xl bg-transparent text-on-surface-variant/70 backdrop-blur-xl border border-outline-variant/10 hover:bg-surface-container/40 hover:text-foreground transition-all active:scale-90 flex items-center justify-center"
           >
             <Menu className="w-4 h-4" />
@@ -576,13 +576,13 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
               onClick={() => navigate('/auth')}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-[11px] font-bold hover:bg-primary/20 transition-all active:scale-95"
             >
-              Invitado · Iniciar sesión
+              {"Invitado \u00b7 Iniciar sesi\u00f3n"}
             </button>
           )}
         </div>
       )}
 
-      {/* Navigation Pilot Ã¢â‚¬â€ floating hover menu (desktop only) */}
+      {/* Navigation Pilot - floating hover menu (desktop only) */}
       <NavigationPilot
         menuItems={menuItems}
         showAdmin={user?.email === 'pablogoitiaemprendedor@gmail.com'}
@@ -685,7 +685,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
             <input
               value={evTitle}
               onChange={(e) => setEvTitle(e.target.value)}
-              placeholder="Título del evento"
+              placeholder={"T\u00edtulo del evento"}
               className="w-full text-sm font-bold bg-surface-container/30 border border-outline-variant/20 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary/30"
               autoFocus
             />
@@ -709,7 +709,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
             </div>
 
             <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-muted-foreground/60">Duración:</span>
+              <span className="text-xs font-bold text-muted-foreground/60">{"Duraci\u00f3n:"}</span>
               <select
                 value={evDuration}
                 onChange={(e) => setEvDuration(Number(e.target.value))}

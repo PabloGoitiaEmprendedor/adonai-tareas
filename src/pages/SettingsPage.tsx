@@ -33,6 +33,7 @@ import { useCalendarIntegration } from '@/hooks/useCalendarIntegration';
 import { useSheetsIntegration } from '@/hooks/useSheetsIntegration';
 import { usePriorityColors } from '@/hooks/usePriorityColors';
 import { replayVideoTutorial } from '@/lib/videoTutorial';
+import { ensureOneSignalSubscribed } from '@/lib/onesignal';
 
 const SettingsPage = () => {
   const { user: currentUser } = useAuth();
@@ -573,7 +574,6 @@ const SettingsPage = () => {
                     </div>
 
                     <div className="self-stretch md:self-auto md:shrink-0">
-                      {isAdmin ? (
                         <div className="flex flex-wrap gap-2">
                           {!calendar.connected ? (
                             <button onClick={() => { toast.loading('Iniciando conexión...'); calendar.connect.mutate(); }} disabled={calendar.connect.isPending} className="h-10 px-4 rounded-xl bg-primary text-primary-foreground text-xs font-bold disabled:opacity-60">
@@ -592,9 +592,6 @@ const SettingsPage = () => {
                             </>
                           )}
                         </div>
-                      ) : (
-                        <span className="text-xs text-on-surface-variant/40">Pronto</span>
-                      )}
                     </div>
                 </div>
             </div>
@@ -662,7 +659,7 @@ const SettingsPage = () => {
                             <span className="text-xs text-on-surface-variant/40">Avisos del sistema y navegador</span>
                         </div>
                     </div>
-                    <button onClick={async () => { const next = !notificationsEnabled; if (next && 'Notification' in window && Notification.permission === 'default') { await Notification.requestPermission(); } localStorage.setItem('adonai_notifications_enabled', String(next)); setNotificationsEnabled(next); toast.success(next ? 'Notificaciones activadas' : 'Notificaciones desactivadas'); }} className={`w-12 h-6 rounded-full relative transition-colors ${notificationsEnabled ? 'bg-primary' : 'bg-surface-container-highest'}`}>
+                    <button onClick={async () => { const next = !notificationsEnabled; if (next) { if ('Notification' in window && Notification.permission === 'default') { await Notification.requestPermission(); } ensureOneSignalSubscribed(); } localStorage.setItem('adonai_notifications_enabled', String(next)); setNotificationsEnabled(next); toast.success(next ? 'Notificaciones activadas' : 'Notificaciones desactivadas'); }} className={`w-12 h-6 rounded-full relative transition-colors ${notificationsEnabled ? 'bg-primary' : 'bg-surface-container-highest'}`}>
                         <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${notificationsEnabled ? 'translate-x-6' : ''}`} />
                     </button>
                 </div>

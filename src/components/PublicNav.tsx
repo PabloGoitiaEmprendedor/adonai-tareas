@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Apple, HelpCircle, Mail, Menu, Monitor, X, LogIn, User, MessageCircle } from "lucide-react";
+import { HelpCircle, Mail, Menu, X, LogIn, User, MessageCircle } from "lucide-react";
 import { BrandLogo } from "@/components/BrandLogo";
-import { startGuidedDownload } from "@/lib/downloadGuide";
 
 const NAV_LINKS = [
   { label: "Inicio", section: "inicio" },
@@ -12,43 +11,10 @@ const NAV_LINKS = [
   { label: "Soporte", href: "https://wa.me/message/KIUXTXD5QBPEJ1" },
 ];
 
-function NavPlatformChoice({ onClose }: { onClose: () => void }) {
-  const chooseDownload = (platform: "win" | "mac") => {
-    startGuidedDownload(platform);
-    onClose();
-  };
-
-  return (
-    <div className="fixed inset-0 z-[90] flex items-end justify-center bg-[#151820]/62 p-3 backdrop-blur-sm sm:items-start sm:pt-20">
-      <div className="w-full max-w-sm overflow-hidden rounded-[24px] border border-white/15 bg-white shadow-[0_28px_90px_rgba(21,24,32,0.3)]">
-        <div className="flex items-center gap-3 bg-[#151820] p-5 text-white">
-          <img src="/logo.png" alt="" className="h-10 w-10 rounded-xl object-contain" />
-          <div>
-            <p className="text-base font-black leading-none">Descargar ahora</p>
-            <p className="mt-1 text-xs font-semibold text-white/52">Elige como quieres empezar.</p>
-          </div>
-        </div>
-        <div className="space-y-2 p-3">
-          <button onClick={() => chooseDownload("win")} className="flex w-full items-center justify-between rounded-2xl bg-[#F7F6F1] p-4 text-sm font-black text-[#151820] transition hover:bg-[#EEF3FF]">
-            Windows <Monitor className="h-4 w-4 text-[#5B7CFA]" />
-          </button>
-          <button onClick={() => chooseDownload("mac")} className="flex w-full items-center justify-between rounded-2xl bg-[#F7F6F1] p-4 text-sm font-black text-[#151820] transition hover:bg-[#EEF3FF]">
-            Mac <Apple className="h-4 w-4 text-[#5B7CFA]" />
-          </button>
-          <button onClick={onClose} className="w-full rounded-full px-4 py-3 text-xs font-black text-[#151820]/45 transition hover:text-[#151820]">
-            Volver
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export function PublicNav({ user, profile }: { user?: any; profile?: any }) {
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [choiceOpen, setChoiceOpen] = useState(false);
 
   const scrollToLandingSection = (section: string) => {
     if (section === "precio") {
@@ -147,16 +113,12 @@ export function PublicNav({ user, profile }: { user?: any; profile?: any }) {
               </Link>
             </>
           ) : (
-            <>
-              <button
-                onClick={() => setChoiceOpen(true)}
-                id="nav-download-win"
-                className="inline-flex items-center gap-1.5 rounded-full bg-white px-4 py-2 text-xs font-black text-[#151820] transition hover:bg-white/88"
-              >
-                <Monitor className="h-3.5 w-3.5 text-[#5B7CFA]" />
-                Descargar ahora
-              </button>
-            </>
+            <Link
+              to="/welcome"
+              className="inline-flex items-center gap-1.5 rounded-full bg-white px-4 py-2 text-xs font-black text-[#151820] transition hover:bg-white/88"
+            >
+              Comenzar Gratis
+            </Link>
           )}
         </div>
 
@@ -198,30 +160,17 @@ export function PublicNav({ user, profile }: { user?: any; profile?: any }) {
                 Entrar
               </Link>
             ) : (
-              <>
-                <button
-                  onClick={() => {
-                    setChoiceOpen(true);
-                    setMobileOpen(false);
-                  }}
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-black text-[#151820] transition hover:bg-white/90"
-                >
-                  <Monitor className="h-4 w-4 text-[#5B7CFA]" />
-                  Descargar ahora
-                </button>
-                <Link
-                  to="/welcome"
-                  onClick={() => setMobileOpen(false)}
-                  className="inline-flex w-full items-center justify-center rounded-full border border-[#151820]/16 px-5 py-3 text-sm font-bold text-[#151820] transition hover:bg-white/18"
-                >
-                  Entrar a la app web
-                </Link>
-              </>
+              <Link
+                to="/welcome"
+                onClick={() => setMobileOpen(false)}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-black text-[#151820] transition hover:bg-white/90"
+              >
+                Comenzar Gratis
+              </Link>
             )}
           </div>
         </div>
       )}
-      {choiceOpen && <NavPlatformChoice onClose={() => setChoiceOpen(false)} />}
     </header>
   );
 }
