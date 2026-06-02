@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -94,6 +94,9 @@ export const TimeBlockModal: React.FC<TimeBlockModalProps> = ({ open, onClose, s
       <DialogContent className="sm:max-w-md max-w-[90%] rounded-[32px] p-6 glass-sheet shadow-2xl">
         <DialogHeader>
           <DialogTitle className="text-xl font-bold">{block ? 'Editar Bloque' : 'Crear Bloque de Tiempo'}</DialogTitle>
+          <DialogDescription className="sr-only">
+            Configura el nombre, horario y repeticion del bloque de tiempo.
+          </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4 mt-4">

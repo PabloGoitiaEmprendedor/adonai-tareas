@@ -39,6 +39,15 @@ const getErrorMessage = (error: unknown, fallback: string) => {
   return fallback;
 };
 
+type RecurringTaskItem = { title: string; time: string; duration: number; daysOfWeek: number[] };
+const defaultRecurringTask = (): RecurringTaskItem => ({ title: '', time: '08:00', duration: 30, daysOfWeek: [] });
+const normalizeRecurringTask = (task: Partial<RecurringTaskItem>): RecurringTaskItem => ({
+  title: task.title || '',
+  time: task.time || '08:00',
+  duration: task.duration || 30,
+  daysOfWeek: task.daysOfWeek || [],
+});
+
 const OnboardingPage = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -73,11 +82,9 @@ const OnboardingPage = () => {
     typeof window !== 'undefined' ? localStorage.getItem('adonai_onboarding_prefill_name') || '' : ''
   ));
   const [urgentTasks, setUrgentTasks] = useState<UrgentTask[]>([defaultUrgentTask(), defaultUrgentTask(), defaultUrgentTask()]);
-  type RecurringTaskItem = { title: string; time: string; duration: number; daysOfWeek?: number[] };
-  const defaultRecurringTask = (): RecurringTaskItem => ({ title: '', time: '08:00', duration: 30, daysOfWeek: [] });
   const [recurringTasks, setRecurringTasks] = useState<RecurringTaskItem[]>([defaultRecurringTask(), defaultRecurringTask()]);
   const isMobile = typeof navigator !== 'undefined' && /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-  const isElectron = typeof window !== 'undefined' && !!(window as any).electronAPI;
+  const isElectron = typeof window !== 'undefined' && !!window.electronAPI;
   const hasUrgentTask = urgentTasks.some(t => t.title.trim());
   const hasRecurringTask = recurringTasks.some(t => t.title.trim());
   const preferredDownloadPlatform = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/i.test(navigator.platform) ? 'mac' : 'win';
@@ -151,13 +158,6 @@ const OnboardingPage = () => {
       return next;
     });
   };
-
-  const normalizeRecurringTask = (task: Partial<RecurringTaskItem>): RecurringTaskItem => ({
-    title: task.title || '',
-    time: task.time || '08:00',
-    duration: task.duration || 30,
-    daysOfWeek: task.daysOfWeek || [],
-  });
 
   const saveOnboardingState = () => {
     localStorage.setItem('adonai_onboarding_state', JSON.stringify({
@@ -577,6 +577,16 @@ const OnboardingPage = () => {
     { label: '30m', value: 30 },
     { label: '45m', value: 45 },
     { label: '1h', value: 60 },
+  ];
+
+  const weekdayOptions = [
+    { label: 'Lun', value: 1 },
+    { label: 'Mar', value: 2 },
+    { label: 'Mie', value: 3 },
+    { label: 'Jue', value: 4 },
+    { label: 'Vie', value: 5 },
+    { label: 'Sab', value: 6 },
+    { label: 'Dom', value: 0 },
   ];
 
   const removeUrgentTask = (index: number) => {

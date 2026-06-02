@@ -284,45 +284,7 @@ const AppRoutes = () => {
   );
 };
 
-function parseVersion(v: string): number[] {
-  return v.replace(/^v/, '').split('.').map(Number);
-}
-
-function isNewer(latest: string, current: string): boolean {
-  const l = parseVersion(latest);
-  const c = parseVersion(current);
-  for (let i = 0; i < Math.max(l.length, c.length); i++) {
-    const a = l[i] ?? 0;
-    const b = c[i] ?? 0;
-    if (a !== b) return a > b;
-  }
-  return false;
-}
-
 const App = () => {
-  const [forcedUpdate, setForcedUpdate] = useState<{ version: string } | null>(null);
-
-  useEffect(() => {
-    const checkForcedUpdate = async () => {
-      try {
-        const res = await fetch('https://api.github.com/repos/PabloGoitiaEmprendedor/adonai-tareas/releases/latest');
-        if (!res.ok) return;
-        const data = await res.json();
-        const latestTag = data.tag_name || '';
-        const currentVersion = await window.electronAPI?.getAppVersion?.() || '';
-        if (latestTag && currentVersion && isNewer(latestTag, currentVersion)) {
-          setForcedUpdate({ version: latestTag.replace(/^v/, '') });
-        }
-      } catch {
-        // Silently fail – auto-updater will try anyway
-      }
-    };
-
-    if (window.electronAPI) {
-      checkForcedUpdate();
-    }
-  }, []);
-
   useEffect(() => {
     const browserPath = window.location.pathname.replace(/\/$/, '');
     if (!window.location.hash && (browserPath.startsWith('/invite/') || browserPath.startsWith('/group-invite/'))) {
@@ -330,7 +292,7 @@ const App = () => {
       return;
     }
 
-    if (!window.location.hash && browserPath === '/calendar-callback') {
+    if (!window.location.hash && (browserPath === '/calendar-callback' || browserPath === '/sheets-callback')) {
       window.location.replace(`${window.location.origin}/#${browserPath}${window.location.search}`);
       return;
     }
@@ -423,7 +385,7 @@ const App = () => {
         <TooltipProvider>
           <Sonner position="bottom-right" duration={4000} />
           <AdonaiNotifier />
-          <HashRouter>
+          <HashRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
             <AuthProvider>
               <AnalyticsRouteTracking />
               <AnalyticsIdentity />
@@ -437,9 +399,6 @@ const App = () => {
               <DownloadGateModal />
             </AuthProvider>
           </HashRouter>
-          {forcedUpdate && (
-            <UpdateDialog forcedVersion={forcedUpdate.version} onDismiss={() => setForcedUpdate(null)} />
-          )}
         </TooltipProvider>
       </ThemeProvider>
     </QueryClientProvider>

@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 
 
 import { Sheet, SheetContent } from "@/components/ui/sheet";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import AppTutorial from './AppTutorial';
@@ -497,6 +497,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
         <DialogContent className="h-[min(92dvh,780px)] w-[calc(100vw-1rem)] max-w-[1120px] rounded-[26px] border border-outline-variant/25 bg-surface/94 p-0 shadow-2xl shadow-black/35 backdrop-blur-xl overflow-hidden sm:w-[calc(100vw-1.5rem)] sm:rounded-[28px]">
           <DialogHeader>
             <DialogTitle className="sr-only">Ajustes</DialogTitle>
+            <DialogDescription className="sr-only">Configura las preferencias de la aplicacion.</DialogDescription>
           </DialogHeader>
 
           <div className="grid h-full min-h-0 grid-rows-[auto_1fr] sm:grid-cols-[240px_1fr] sm:grid-rows-1">
@@ -674,6 +675,8 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
 
       <Dialog open={eventCreateOpen} onOpenChange={(open) => { if (!open) setEventCreateOpen(false) }}>
         <DialogContent className="sm:max-w-md p-0 gap-0 overflow-hidden rounded-2xl">
+          <DialogTitle className="sr-only">Nuevo evento</DialogTitle>
+          <DialogDescription className="sr-only">Crea un evento con fecha, hora, duracion y color.</DialogDescription>
           <div className="p-5 space-y-5">
             <div className="flex items-center justify-between">
               <h2 className="text-base font-black">Nuevo Evento</h2>

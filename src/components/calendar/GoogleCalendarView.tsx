@@ -321,6 +321,9 @@ const GoogleCalendarView: React.FC<GoogleCalendarViewProps> = ({
             <DialogTitle className="text-3xl font-black tracking-tight">
               {isCreating ? 'Nuevo Evento' : 'Editar Evento'}
             </DialogTitle>
+            <DialogDescription className="sr-only">
+              Configura el titulo y el horario del evento.
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-6">
             <div className="space-y-2">

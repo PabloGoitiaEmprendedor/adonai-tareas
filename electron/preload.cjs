@@ -27,10 +27,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   setIgnoreMouseEvents: (ignore, options) => ipcRenderer.send('set-ignore-mouse-events', ignore, options),
   getMiniPosition: () => ipcRenderer.invoke('get-mini-position'),
   setMiniBounds: (bounds) => ipcRenderer.send('set-mini-bounds', bounds),
-  onUpdateAvailable: (callback) => subscribe('update-available', callback, (data) => [data]),
-  onUpdateDownloadProgress: (callback) => subscribe('update-download-progress', callback, (pct) => [pct]),
-  onUpdateDownloaded: (callback) => subscribe('update-downloaded', callback, () => []),
-  onUpdateError: (callback) => subscribe('update-error', callback, (msg) => [msg]),
   onUpdateReady: (callback) => subscribe('update-ready', callback, (data) => [data]),
   checkForUpdates: () => ipcRenderer.send('check-for-updates'),
   installUpdate: () => ipcRenderer.send('install-update'),
@@ -48,5 +44,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   authStorageRemove: (key) => ipcRenderer.invoke('auth-storage-remove', key),
   authStorageClear: () => ipcRenderer.invoke('auth-storage-clear'),
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
+  getReadyUpdate: () => ipcRenderer.invoke('get-ready-update'),
   openUrl: (url) => ipcRenderer.send('open-external', url),
 });

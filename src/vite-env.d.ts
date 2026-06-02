@@ -29,10 +29,6 @@ interface Window {
     setIgnoreMouseEvents?: (ignore: boolean, options?: { forward?: boolean }) => void;
     getMiniPosition?: () => Promise<{ x: number; y: number } | null>;
     setMiniBounds?: (bounds: { x: number; y: number; w: number; h: number }) => void;
-    onUpdateAvailable?: (callback: (data: { version: string; releaseNotes: string }) => void) => () => void;
-    onUpdateDownloadProgress?: (callback: (percent: number) => void) => () => void;
-    onUpdateDownloaded?: (callback: () => void) => () => void;
-    onUpdateError?: (callback: (msg: string) => void) => () => void;
     onUpdateReady?: (callback: (data: { version: string }) => void) => () => void;
     onUpdateStatus?: (callback: (data: {
       status: 'checking' | 'available' | 'downloading' | 'ready' | 'up-to-date' | 'error';
@@ -52,6 +48,7 @@ interface Window {
     authStorageRemove?: (key: string) => Promise<void>;
     authStorageClear?: () => Promise<void>;
     getAppVersion?: () => Promise<string>;
+    getReadyUpdate?: () => Promise<{ version?: string } | null>;
     openUrl?: (url: string) => void;
   };
   process?: {

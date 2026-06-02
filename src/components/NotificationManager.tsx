@@ -18,6 +18,11 @@ const parseTaskStart = (description: string | null, dueDate: string | null) => {
 
 const canNotify = () => localStorage.getItem('adonai_notifications_enabled') !== 'false';
 
+const isMissingAdminNotificationsTable = (error: { code?: string; message?: string } | null) =>
+  error?.code === 'PGRST205'
+  || error?.code === '42P01'
+  || Boolean(error?.message?.includes('admin_notifications') && error.message.includes('schema cache'));
+
 const sendExternalNotification = async (title: string, body: string, type: 'info' | 'warning' | 'success' = 'info') => {
   if (!canNotify()) return false;
 
@@ -56,22 +61,30 @@ const NotificationManager = () => {
   const lastMinuteRef = useRef<string | null>(null);
   const firedRemindersRef = useRef<Set<string>>(new Set());
   const permissionRequestedRef = useRef(false);
+  const adminNotificationsUnavailableRef = useRef(false);
 
   const { data: adminNotifications = [] } = useQuery({
     queryKey: ['admin-notifications-feed', user?.id],
     queryFn: async () => {
-      if (!user) return [];
+      if (!user || adminNotificationsUnavailableRef.current) return [];
       const { data, error } = await supabase
         .from('admin_notifications')
         .select('*')
         .or(`target_type.eq.all,target_user_id.eq.${user.id}`)
         .order('created_at', { ascending: false })
         .limit(20);
+      if (isMissingAdminNotificationsTable(error)) {
+        adminNotificationsUnavailableRef.current = true;
+        console.warn('[notifications] Admin notifications are disabled until the Supabase migration is applied.');
+        return [];
+      }
       if (error) throw error;
       return data || [];
     },
     enabled: !!user,
-    refetchInterval: 60000,
+    refetchInterval: () => adminNotificationsUnavailableRef.current ? false : 60000,
+    refetchOnWindowFocus: false,
+    retry: false,
   });
 
   const scheduledReminders = useMemo(() => {

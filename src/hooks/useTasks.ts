@@ -96,8 +96,6 @@ export const useTasks = (filters?: { date?: string; startDate?: string; endDate?
         console.error("[useTasks] Error fetching tasks:", tasksError);
         throw tasksError;
       }
-      console.log(`[useTasks] Fetched ${realTasks?.length || 0} tasks for date ${filters?.date}`);
-
       // 2. Fetch recurrence rules
       const { data: rules, error: rulesError } = await supabase
         .from('recurrence_rules')

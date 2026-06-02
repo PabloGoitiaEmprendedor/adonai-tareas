@@ -65,8 +65,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // ── 1. Auth state listener (set up BEFORE getSession) ────────────
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, newSession) => {
       if (!mounted) return;
-      console.log(`[Auth] Event: ${event}`);
-
       const previousUser = userRef.current;
       setSession(newSession);
       setUser(newSession?.user ?? null);
@@ -275,7 +273,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // ── 5. Failsafe timeout ──────────────────────────────────────────
     const timeout = setTimeout(() => {
       if (mounted) {
-        console.log('[Auth] Timeout safety — forcing loading=false');
         setLoading(false);
       }
     }, 5000);

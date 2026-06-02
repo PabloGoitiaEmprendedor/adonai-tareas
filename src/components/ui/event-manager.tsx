@@ -581,8 +581,6 @@ export function EventManager({
       setPreviewTitle(event.title || '')
       const rawDesc = event.description || '';
       const cleanedDesc = cleanDescription(rawDesc);
-      console.log('[DEBUG DESC] raw:', JSON.stringify(rawDesc).substring(0, 200));
-      console.log('[DEBUG DESC] cleaned:', JSON.stringify(cleanedDesc).substring(0, 200));
       setPreviewDescription(cleanedDesc)
       setPreviewIsEvent(event.isEvent !== false)
       setPreviewColor(event.color || priorityColors.p4)
@@ -3218,6 +3216,7 @@ export function EventManager({
             hideCloseButton={true}
           >
             <DialogTitle className="sr-only">{"Vista r\u00e1pida del evento"}</DialogTitle>
+            <DialogDescription className="sr-only">Edita los datos principales del evento seleccionado.</DialogDescription>
             
             {/* Controladores X | Basura en la esquina superior izquierda */}
             <div className="absolute left-4 top-2 flex items-center gap-2 z-20">
@@ -3446,6 +3445,8 @@ export function EventManager({
 
       <Dialog open={isSheetOpen} onOpenChange={setIsSheetOpen}>
         <DialogContent className="max-w-2xl bg-surface-container-high/95 backdrop-blur-3xl border border-outline-variant/10 rounded-[32px] shadow-2xl p-0 overflow-hidden outline-none">
+          <DialogTitle className="sr-only">{"Agenda del d\u00eda"}</DialogTitle>
+          <DialogDescription className="sr-only">Revisa los eventos del dia seleccionado.</DialogDescription>
           <div className="h-[70vh] flex flex-col relative">
             <button 
               onClick={() => setIsSheetOpen(false)}
@@ -4596,6 +4597,7 @@ function TimeGridView({
                                         onPointerDownOutside={(e) => e.preventDefault()}
                                       >
                                       <DialogTitle className="sr-only">{"Descripci\u00f3n del evento"}</DialogTitle>
+                                        <DialogDescription className="sr-only">Edita la descripcion del evento seleccionado.</DialogDescription>
                                         {/* pt-10 deja espacio para la X integrada de Radix (top-4 right-4) */}
                                         <div className="px-5 pt-10 pb-3">
                                           <textarea

@@ -207,7 +207,7 @@ if (!savedState || savedState.autoStartSet === undefined) {
 
 // ── Auto-updater config ─────────────────────────────────────────────────────
 autoUpdater.autoDownload = true;
-autoUpdater.autoInstallOnAppQuit = true;
+autoUpdater.autoInstallOnAppQuit = false;
 autoUpdater.autoRunAppAfterInstall = true;
 
 // Explicit feed URL for GitHub
@@ -217,9 +217,10 @@ autoUpdater.setFeedURL({
   repo: 'adonai-tareas',
 });
 
-function sendToAllWindows(channel, data) {
-  if (mainWindow) mainWindow.webContents.send(channel, data);
-  if (miniWindow) miniWindow.webContents.send(channel, data);
+function sendUpdateReady(data) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('update-ready', data);
+  }
 }
 
 autoUpdater.on('checking-for-update', () => {
@@ -228,19 +229,18 @@ autoUpdater.on('checking-for-update', () => {
 
 autoUpdater.on('update-available', (info) => {
   logToFile(`Auto-updater: update available (v${info?.version})`);
-  sendToAllWindows('update-available', {
-    version: info?.version || '',
-    releaseNotes: info?.releaseNotes || '',
-  });
 });
 
 autoUpdater.on('download-progress', (progress) => {
-  sendToAllWindows('update-download-progress', progress?.percent || 0);
+  logToFile(`Auto-updater: download progress ${Math.round(progress?.percent || 0)}%`);
 });
 
-autoUpdater.on('update-downloaded', () => {
-  logToFile('Auto-updater: update downloaded, will install on quit');
-  sendToAllWindows('update-downloaded');
+let downloadedUpdateVersion = null;
+
+autoUpdater.on('update-downloaded', (info) => {
+  downloadedUpdateVersion = info?.version || null;
+  logToFile('Auto-updater: update downloaded, waiting for user restart');
+  sendUpdateReady({ version: downloadedUpdateVersion });
 });
 
 autoUpdater.on('update-not-available', () => {
@@ -249,12 +249,12 @@ autoUpdater.on('update-not-available', () => {
 
 autoUpdater.on('error', (err) => {
   logToFile(`Auto-updater error: ${err?.message || err}`);
-  sendToAllWindows('update-error', err?.message || 'Error de conexión al buscar actualizaciones');
 });
 
 // ── Custom silent update mechanism ────────────────────────────────────────────
 const GITHUB_REPO = 'PabloGoitiaEmprendedor/adonai-tareas';
 let downloadedUpdatePath = null;
+let updateDownloadPromise = null;
 
 function fetchJSON(url) {
   return new Promise((resolve, reject) => {
@@ -276,30 +276,55 @@ function fetchJSON(url) {
 
 function downloadFile(url, destPath) {
   return new Promise((resolve, reject) => {
-    const mod = url.startsWith('https') ? https : require('http');
-    const file = fs.createWriteStream(destPath);
-    mod.get(url, (res) => {
-      if (res.statusCode === 302 || res.statusCode === 301) {
-        file.close();
-        fs.unlink(destPath, () => {});
-        downloadFile(res.headers.location, destPath).then(resolve).catch(reject);
-        return;
-      }
-      const total = parseInt(res.headers['content-length'] || '0', 10);
-      let downloaded = 0;
-      res.on('data', (chunk) => {
-        downloaded += chunk.length;
-        if (total > 0) {
-          sendToAllWindows('update-download-progress', Math.round((downloaded / total) * 100));
+    const partialPath = `${destPath}.download`;
+    const cleanupPartial = () => {
+      try {
+        if (fs.existsSync(partialPath)) fs.rmSync(partialPath, { force: true });
+      } catch (_) {}
+    };
+
+    const requestDownload = (downloadUrl) => {
+      const mod = downloadUrl.startsWith('https') ? https : require('http');
+      mod.get(downloadUrl, (res) => {
+        if ([301, 302, 303, 307, 308].includes(res.statusCode)) {
+          res.resume();
+          requestDownload(new URL(res.headers.location, downloadUrl).toString());
+          return;
         }
+
+        if (res.statusCode !== 200) {
+          res.resume();
+          cleanupPartial();
+          reject(new Error(`Installer download failed with HTTP ${res.statusCode}`));
+          return;
+        }
+
+        const file = fs.createWriteStream(partialPath);
+        res.pipe(file);
+        file.on('finish', () => {
+          file.close(() => {
+            try {
+              if (fs.existsSync(destPath)) fs.rmSync(destPath, { force: true });
+              fs.renameSync(partialPath, destPath);
+              resolve(destPath);
+            } catch (error) {
+              cleanupPartial();
+              reject(error);
+            }
+          });
+        });
+        file.on('error', (error) => {
+          cleanupPartial();
+          reject(error);
+        });
+      }).on('error', (error) => {
+        cleanupPartial();
+        reject(error);
       });
-      res.pipe(file);
-      file.on('finish', () => { file.close(); resolve(destPath); });
-    }).on('error', (err) => {
-      file.close();
-      fs.unlink(destPath, () => {});
-      reject(err);
-    });
+    };
+
+    cleanupPartial();
+    requestDownload(url);
   });
 }
 
@@ -315,42 +340,75 @@ function isNewerVersion(latest, current) {
 }
 
 async function checkAndDownloadUpdate() {
-  if (!app.isPackaged) return;
-  try {
-    const currentVersion = app.getVersion();
-    const data = await fetchJSON(`https://api.github.com/repos/${GITHUB_REPO}/releases/latest`);
-    const latestTag = data.tag_name?.replace(/^v/, '') || '';
-    if (!latestTag || latestTag === currentVersion) return;
-    if (!isNewerVersion(latestTag, currentVersion)) return;
+  if (!app.isPackaged || process.platform !== 'win32') return;
+  if (updateDownloadPromise) return updateDownloadPromise;
 
-    logToFile(`[CustomUpdate] New version found: v${currentVersion} -> v${latestTag}`);
-    sendToAllWindows('update-available', { version: latestTag, releaseNotes: data.body || '' });
+  updateDownloadPromise = (async () => {
+    try {
+      const currentVersion = app.getVersion();
+      const data = await fetchJSON(`https://api.github.com/repos/${GITHUB_REPO}/releases/latest`);
+      const latestTag = data.tag_name?.replace(/^v/, '') || '';
+      if (!latestTag || latestTag === currentVersion) return;
+      if (!isNewerVersion(latestTag, currentVersion)) return;
 
-    const asset = data.assets?.find(a => a.name === 'Adonai-Setup.exe');
-    if (!asset) {
-      logToFile('[CustomUpdate] No installer asset found');
-      return;
+      logToFile(`[CustomUpdate] New version found: v${currentVersion} -> v${latestTag}`);
+      const asset = data.assets?.find(a => a.name === 'Adonai-Setup.exe');
+      if (!asset) {
+        logToFile('[CustomUpdate] No installer asset found');
+        return;
+      }
+
+      const tempPath = path.join(app.getPath('temp'), `Adonai-Setup-${latestTag}.exe`);
+      const completeMarkerPath = `${tempPath}.complete`;
+      const hasCompleteInstaller =
+        fs.existsSync(tempPath)
+        && fs.existsSync(completeMarkerPath)
+        && fs.statSync(tempPath).size > 0;
+
+      if (!hasCompleteInstaller) {
+        logToFile(`[CustomUpdate] Downloading silently from: ${asset.browser_download_url}`);
+        await downloadFile(asset.browser_download_url, tempPath);
+        fs.writeFileSync(completeMarkerPath, latestTag, 'utf8');
+      }
+
+      downloadedUpdatePath = tempPath;
+      downloadedUpdateVersion = latestTag;
+      logToFile(`[CustomUpdate] Download complete: ${tempPath}`);
+      sendUpdateReady({ version: latestTag });
+    } catch (err) {
+      logToFile(`[CustomUpdate] Error: ${err.message}`);
+    } finally {
+      updateDownloadPromise = null;
     }
+  })();
 
-    logToFile(`[CustomUpdate] Downloading from: ${asset.browser_download_url}`);
-    const tempPath = path.join(app.getPath('temp'), `Adonai-Setup-${latestTag}.exe`);
-    await downloadFile(asset.browser_download_url, tempPath);
-    downloadedUpdatePath = tempPath;
-    logToFile(`[CustomUpdate] Download complete: ${tempPath}`);
-    sendToAllWindows('update-ready', { version: latestTag });
-  } catch (err) {
-    logToFile(`[CustomUpdate] Error: ${err.message}`);
-  }
+  return updateDownloadPromise;
 }
 
 function installUpdate() {
-  if (!downloadedUpdatePath) return;
+  if (process.platform !== 'win32') {
+    autoUpdater.quitAndInstall(true, true);
+    return;
+  }
+
+  if (!downloadedUpdatePath || !fs.existsSync(downloadedUpdatePath)) return;
   logToFile(`[CustomUpdate] Launching installer: ${downloadedUpdatePath}`);
-  const cmd = process.platform === 'win32' ? `"${downloadedUpdatePath}" /S` : `open "${downloadedUpdatePath}"`;
-  exec(cmd, (err) => {
-    if (err) logToFile(`[CustomUpdate] Installer launch error: ${err.message}`);
+  const child = spawn(downloadedUpdatePath, ['--updated', '/S', '--force-run'], {
+    detached: true,
+    stdio: 'ignore',
+    windowsHide: true,
   });
+  child.unref();
   app.quit();
+}
+
+function checkForUpdatesSilently() {
+  if (!app.isPackaged) return;
+  if (process.platform === 'win32') {
+    checkAndDownloadUpdate();
+    return;
+  }
+  autoUpdater.checkForUpdates();
 }
 
 function createMainWindow() {
@@ -384,7 +442,6 @@ function createMainWindow() {
       logToFile(`Failed to load index.html: ${err}`);
       console.error('Failed to load index.html:', err);
     });
-    autoUpdater.checkForUpdates();
   }
 
   mainWindow.once('ready-to-show', () => {
@@ -405,16 +462,6 @@ function createMainWindow() {
     shell.openExternal(url);
     return { action: 'deny' };
   });
-}
-
-// ── Silent auto-updater (no UI notifications) ───────────────────────────────
-// Note: The UI-facing update events are handled above via sendToAllWindows().
-// The fallback auto-install is triggered by the first set of listeners.
-// These are kept for logging only.
-
-function broadcastToAll(channel, data) {
-  if (mainWindow) mainWindow.webContents.send(channel, data);
-  if (miniWindow) miniWindow.webContents.send(channel, data);
 }
 
 // Validate position is within any display; return centered fallback if not
@@ -605,8 +652,8 @@ app.whenReady().then(() => {
 
   // Check for updates immediately on startup, then every 30 minutes
   if (app.isPackaged) {
-    checkAndDownloadUpdate();
-    setInterval(checkAndDownloadUpdate, 1000 * 60 * 30);
+    checkForUpdatesSilently();
+    setInterval(checkForUpdatesSilently, 1000 * 60 * 30);
   }
 });
 
@@ -766,12 +813,17 @@ ipcMain.handle('get-app-version', () => {
   return app.getVersion();
 });
 
+ipcMain.handle('get-ready-update', () => {
+  if (!downloadedUpdateVersion) return null;
+  return { version: downloadedUpdateVersion };
+});
+
 ipcMain.on('open-external', (event, url) => {
   shell.openExternal(url);
 });
 
 ipcMain.on('restart-app', () => {
-  autoUpdater.quitAndInstall(false, true);
+  installUpdate();
 });
 
 ipcMain.on('install-update', () => {
@@ -781,8 +833,7 @@ ipcMain.on('install-update', () => {
 
 ipcMain.on('check-for-updates', () => {
   logToFile('Manual update check triggered by user');
-  checkAndDownloadUpdate();
-  autoUpdater.checkForUpdates();
+  checkForUpdatesSilently();
 });
 
 ipcMain.on('log-message', (event, msg) => {
