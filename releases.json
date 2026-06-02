@@ -1,3 +1,7 @@
 [
-
+  {
+    "version": "1.0.154",
+    "notes": "OneSignal push notifications, calendar refactor, landing page cleanup, onboarding fixes",
+    "pub_date": "2026-06-01T12:00:00Z"
+  }
 ]

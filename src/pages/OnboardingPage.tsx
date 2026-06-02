@@ -2,10 +2,17 @@ import { useEffect, useRef, useState, type ClipboardEvent, type Dispatch, type K
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowRight, Clipboard, Clock, Download, Link2, Lock, Mail, Monitor, ShieldCheck, Smartphone, Sparkles, Trash2, User, UserPlus } from 'lucide-react';
+import { ArrowRight, Bell, Calendar, Check, Clipboard, Clock, Download, ExternalLink, Link2, Loader2, Lock, Mail, Monitor, ShieldCheck, Smartphone, Sparkles, Trash2, User, UserPlus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useCalendarIntegration } from '@/hooks/useCalendarIntegration';
 import { toast } from 'sonner';
+
+const getUrlParam = (key: string): string | null => {
+  const search = window.location.search || window.location.hash.split('?')[1] || '';
+  const params = new URLSearchParams(search);
+  return params.get(key);
+};
 import {
   ensureAnonymousSession,
   saveAnonymousUserId,
@@ -21,7 +28,16 @@ import { trackAnalyticsEvent } from '@/lib/analytics';
 import { queuePostOnboardingVideoTutorial } from '@/lib/videoTutorial';
 import { format } from 'date-fns';
 
-type StepType = 'name' | 'brain_dump' | 'recurring_tasks' | 'commitment' | 'security_register' | 'ready';
+type StepType = 'name' | 'brain_dump' | 'calendar_choice' | 'recurring_tasks' | 'commitment' | 'ready';
+const ONBOARDING_STEPS: StepType[] = ['name', 'brain_dump', 'calendar_choice', 'recurring_tasks', 'commitment', 'ready'];
+
+const getErrorMessage = (error: unknown, fallback: string) => {
+  if (error instanceof Error && error.message) return error.message;
+  if (typeof error === 'object' && error !== null && 'message' in error && typeof error.message === 'string') {
+    return error.message;
+  }
+  return fallback;
+};
 
 const OnboardingPage = () => {
   const navigate = useNavigate();
@@ -35,6 +51,9 @@ const OnboardingPage = () => {
   const [pendingFriendInvite, setPendingFriendInvite] = useState<{ inviterId: string; inviterName: string; userId: string } | null>(null);
   const [isSendingFriendRequest, setIsSendingFriendRequest] = useState(false);
   const [navigateToDaily, setNavigateToDaily] = useState(false);
+  const [calendarChoice, setCalendarChoice] = useState<'sync' | 'manual' | null>(null);
+  const [showCalendarSetupHelp, setShowCalendarSetupHelp] = useState(false);
+  const [floatingActivated, setFloatingActivated] = useState(false);
 
   useEffect(() => {
     if (navigateToDaily && user) {
@@ -43,7 +62,7 @@ const OnboardingPage = () => {
   }, [navigateToDaily, user, navigate]);
 
   // Steps definition
-  const steps: StepType[] = ['name', 'brain_dump', 'recurring_tasks', 'commitment', 'ready'];
+  const steps: StepType[] = ['name', 'brain_dump', 'calendar_choice', 'recurring_tasks', 'commitment', 'ready'];
   const currentStep = steps[currentStepIndex];
 
   type UrgentTask = { title: string; link: string; importance: boolean; urgency: boolean };
@@ -54,15 +73,69 @@ const OnboardingPage = () => {
     typeof window !== 'undefined' ? localStorage.getItem('adonai_onboarding_prefill_name') || '' : ''
   ));
   const [urgentTasks, setUrgentTasks] = useState<UrgentTask[]>([defaultUrgentTask(), defaultUrgentTask(), defaultUrgentTask()]);
-  type RecurringTaskItem = { title: string; time: string; duration: number };
-  const defaultRecurringTask = (): RecurringTaskItem => ({ title: '', time: '08:00', duration: 30 });
+  type RecurringTaskItem = { title: string; time: string; duration: number; daysOfWeek?: number[] };
+  const defaultRecurringTask = (): RecurringTaskItem => ({ title: '', time: '08:00', duration: 30, daysOfWeek: [] });
   const [recurringTasks, setRecurringTasks] = useState<RecurringTaskItem[]>([defaultRecurringTask(), defaultRecurringTask()]);
-  const [floatingActivated, setFloatingActivated] = useState(false);
   const isMobile = typeof navigator !== 'undefined' && /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
   const isElectron = typeof window !== 'undefined' && !!(window as any).electronAPI;
   const hasUrgentTask = urgentTasks.some(t => t.title.trim());
   const hasRecurringTask = recurringTasks.some(t => t.title.trim());
   const preferredDownloadPlatform = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/i.test(navigator.platform) ? 'mac' : 'win';
+  const calendarIntegration = useCalendarIntegration();
+
+  const [email, setEmail] = useState('');
+  const [otpCode, setOtpCode] = useState(['', '', '', '', '', '']);
+  const [authSubStep, setAuthSubStep] = useState<'email' | 'code'>('email');
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
+  const otpInputRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const urgentTaskTitleRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const recurringTaskTitleRefs = useRef<(HTMLInputElement | null)[]>([]);
+
+  useEffect(() => {
+    trackAnalyticsEvent('onboarding_step_viewed', {
+      step: currentStep,
+      step_index: currentStepIndex,
+      surface: isElectron ? 'desktop' : isMobile ? 'mobile_web' : 'web',
+    });
+  }, [currentStep, currentStepIndex, isElectron, isMobile]);
+
+  useEffect(() => {
+    const focusTarget = () => {
+      if (currentStep === 'brain_dump') {
+        urgentTaskTitleRefs.current[0]?.focus();
+        return;
+      }
+
+      if (currentStep === 'recurring_tasks') {
+        recurringTaskTitleRefs.current[0]?.focus();
+      }
+    };
+
+    const frame = window.requestAnimationFrame(focusTarget);
+    return () => window.cancelAnimationFrame(frame);
+  }, [currentStep]);
+
+  // Restore state after Google Calendar OAuth redirect
+  useEffect(() => {
+    if (getUrlParam('calendar_setup') === '1') {
+      const saved = localStorage.getItem('adonai_onboarding_state');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (parsed.name) setName(parsed.name);
+          if (parsed.urgentTasks) setUrgentTasks(parsed.urgentTasks);
+          if (parsed.recurringTasks) setRecurringTasks(parsed.recurringTasks.map((task: Partial<RecurringTaskItem>) => normalizeRecurringTask(task)));
+        } catch (e) { console.error('Failed to restore onboarding state', e); }
+      }
+      localStorage.removeItem('adonai_onboarding_state');
+      localStorage.removeItem('adonai_onboarding_calendar_pending');
+      setCalendarChoice('sync');
+      setShowCalendarSetupHelp(true);
+      const calendarStepIndex = ONBOARDING_STEPS.indexOf('calendar_choice');
+      if (calendarStepIndex >= 0) setCurrentStepIndex(calendarStepIndex);
+      window.history.replaceState({}, '', '/onboarding');
+    }
+  }, []);
 
   const handleLinkPaste = <T extends { link: string }>(
     event: ClipboardEvent<HTMLInputElement>,
@@ -79,20 +152,22 @@ const OnboardingPage = () => {
     });
   };
 
-  // Auth state
-  const [email, setEmail] = useState('');
-  const [otpCode, setOtpCode] = useState(['', '', '', '', '', '']);
-  const [authSubStep, setAuthSubStep] = useState<'email' | 'code'>('email');
-  const [isAuthenticating, setIsAuthenticating] = useState(false);
-  const otpInputRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const normalizeRecurringTask = (task: Partial<RecurringTaskItem>): RecurringTaskItem => ({
+    title: task.title || '',
+    time: task.time || '08:00',
+    duration: task.duration || 30,
+    daysOfWeek: task.daysOfWeek || [],
+  });
 
-  useEffect(() => {
-    trackAnalyticsEvent('onboarding_step_viewed', {
-      step: currentStep,
-      step_index: currentStepIndex,
-      surface: isElectron ? 'desktop' : isMobile ? 'mobile_web' : 'web',
-    });
-  }, [currentStep, currentStepIndex, isElectron, isMobile]);
+  const saveOnboardingState = () => {
+    localStorage.setItem('adonai_onboarding_state', JSON.stringify({
+      name,
+      urgentTasks,
+      recurringTasks,
+      currentStepIndex,
+    }));
+    localStorage.setItem('adonai_onboarding_calendar_pending', 'true');
+  };
 
   const ensureAnonymousUser = async (): Promise<string> => {
     if (user) {
@@ -120,7 +195,7 @@ const OnboardingPage = () => {
     if (currentStep === 'commitment' || (isMobile && currentStep === 'recurring_tasks')) {
       try {
         await ensureAnonymousUser();
-      } catch (e: any) {
+      } catch (e: unknown) {
         console.error('[onboarding] next ensureAnonymousUser error:', e);
       }
       setCurrentStepIndex(steps.indexOf('ready'));
@@ -138,6 +213,11 @@ const OnboardingPage = () => {
     if (currentStepIndex > 0) {
       let prev = currentStepIndex - 1;
       if (isMobile && steps[prev] === 'commitment') prev--;
+      const prevStep = steps[prev];
+      if (prevStep === 'calendar_choice') {
+        setCalendarChoice(null);
+        setShowCalendarSetupHelp(false);
+      }
       setCurrentStepIndex(prev);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
@@ -149,8 +229,8 @@ const OnboardingPage = () => {
     let userId: string;
     try {
       userId = resolvedUserId || await ensureAnonymousUser();
-    } catch (e: any) {
-      toast.error(`Error: ${e.message || 'No se pudo iniciar sesión anónima'}`);
+    } catch (e: unknown) {
+      toast.error(`Error: ${getErrorMessage(e, 'No se pudo iniciar sesion anonima')}`);
       return;
     }
     setIsFinishing(true);
@@ -208,7 +288,7 @@ const OnboardingPage = () => {
           block_date: null,
           color: 'blue',
           is_recurring: true,
-          days_of_week: [0, 1, 2, 3, 4, 5, 6],
+          days_of_week: task.daysOfWeek.length > 0 ? task.daysOfWeek : [1, 2, 3, 4, 5],
         };
       });
 
@@ -243,12 +323,12 @@ const OnboardingPage = () => {
         return;
       }
       setNavigateToDaily(true);
-    } catch (e) {
+    } catch (e: unknown) {
       console.error('[onboarding] handleFinish error:', e);
       trackAnalyticsEvent('onboarding_completion_failed', {
         surface: isElectron ? 'desktop' : isMobile ? 'mobile_web' : 'web',
       });
-      const msg = typeof e === 'object' && e !== null ? (e as any).message || JSON.stringify(e) : String(e);
+      const msg = getErrorMessage(e, 'No se pudo completar el onboarding');
       toast.error(`Error: ${msg}`);
     } finally {
       setIsFinishing(false);
@@ -259,7 +339,7 @@ const OnboardingPage = () => {
   const handleAfterActivities = async () => {
     try {
       await ensureAnonymousUser();
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error('[onboarding] handleAfterActivities ensureAnonymousUser error:', e);
     }
     // If user already has a linked email account, skip the email prompt
@@ -269,6 +349,15 @@ const OnboardingPage = () => {
     }
     setAuthSubStep('email');
     setShowEmailAuthModal(true);
+  };
+
+  const skipAfterActivities = async () => {
+    try {
+      await ensureAnonymousUser();
+    } catch (e: unknown) {
+      console.error('[onboarding] skipAfterActivities ensureAnonymousUser error:', e);
+    }
+    void handleFinish();
   };
 
   const sendPendingFriendRequest = async () => {
@@ -295,8 +384,8 @@ const OnboardingPage = () => {
       toast.success(`Solicitud enviada a ${pendingFriendInvite.inviterName}`);
       setPendingFriendInvite(null);
       navigate('/daily');
-    } catch (error: any) {
-      toast.error(error?.message || 'No se pudo enviar la solicitud');
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, 'No se pudo enviar la solicitud'));
     } finally {
       setIsSendingFriendRequest(false);
     }
@@ -311,7 +400,7 @@ const OnboardingPage = () => {
 
   const handleSendOtp = async () => {
     if (!email.trim() || !email.includes('@')) {
-        toast.error('Ingresa un email válido');
+        toast.error("Ingresa un email v\u00e1lido");
         return;
     }
     setIsAuthenticating(true);
@@ -322,9 +411,9 @@ const OnboardingPage = () => {
         });
         if (error) throw error;
         setAuthSubStep('code');
-        toast.success('Código de seguridad enviado');
-    } catch (err: any) {
-        toast.error(err.message || 'Error al enviar código');
+        toast.success("C\u00f3digo de seguridad enviado");
+    } catch (err: unknown) {
+        toast.error(getErrorMessage(err, 'Error al enviar codigo'));
     } finally {
         setIsAuthenticating(false);
     }
@@ -339,7 +428,7 @@ const OnboardingPage = () => {
       getCurrentAnonymousUserId() ||
       getPreviousAnonymousUserId();
 
-    console.log('[onboarding] OTP verify — anonymous user to migrate:', anonymousUserId);
+    console.log("[onboarding] OTP verify - anonymous user to migrate:", anonymousUserId);
 
     setIsAuthenticating(true);
     try {
@@ -353,9 +442,9 @@ const OnboardingPage = () => {
         });
         if (error) throw error;
 
-        toast.success('¡Acceso verificado!');
+        toast.success("\u00a1Acceso verificado!");
         const emailUserId = data.session?.user?.id;
-        console.log('[onboarding] OTP verified — email user:', emailUserId);
+        console.log("[onboarding] OTP verified - email user:", emailUserId);
 
         // Migrate data from anonymous account to email account
         if (anonymousUserId && emailUserId && !data.session?.user?.is_anonymous) {
@@ -380,9 +469,9 @@ const OnboardingPage = () => {
 
         clearAnonymousEmailUpgrade();
         await handleFinish(emailUserId);
-    } catch (err: any) {
+    } catch (err: unknown) {
         clearAnonymousEmailUpgrade();
-        toast.error(err.message || 'Código incorrecto');
+        toast.error(getErrorMessage(err, 'Codigo incorrecto'));
         setOtpCode(['', '', '', '', '', '']);
     } finally {
         setIsAuthenticating(false);
@@ -417,14 +506,16 @@ const OnboardingPage = () => {
       } else if (digits.length > 0) {
         otpInputRefs.current[digits.length]?.focus();
       }
-    } catch {}
+    } catch (error: unknown) {
+      console.debug('[onboarding] clipboard read failed', error);
+    }
   };
 
   const activateFloatingWindow = () => {
     if (window.electronAPI?.toggleMiniWindow) {
       window.electronAPI.toggleMiniWindow();
       setFloatingActivated(true);
-      toast.success('Pestaña flotante activada.');
+      toast.success("Pesta\u00f1a flotante activada.");
     } else {
       setFloatingActivated(true);
       toast.info('Modo escritorio simulado.');
@@ -460,6 +551,25 @@ const OnboardingPage = () => {
 
   const addDailyActivity = () => {
     setRecurringTasks((current) => [...current, defaultRecurringTask()]);
+  };
+
+  const toggleRecurringTaskDay = (index: number, day: number) => {
+    setRecurringTasks((current) => current.map((task, taskIndex) => {
+      if (taskIndex !== index) return task;
+
+      const isSelected = task.daysOfWeek.includes(day);
+      if (isSelected && task.daysOfWeek.length === 1) return task;
+
+      return {
+        ...task,
+        daysOfWeek: isSelected
+          ? task.daysOfWeek.filter((value) => value !== day)
+          : [...task.daysOfWeek, day].sort((a, b) => {
+              const order = [1, 2, 3, 4, 5, 6, 0];
+              return order.indexOf(a) - order.indexOf(b);
+            }),
+      };
+    }));
   };
 
   const quickDurations = [
@@ -499,9 +609,9 @@ const OnboardingPage = () => {
             </div>
             <div className="space-y-2">
               <p className="text-[10px] font-black uppercase tracking-[0.22em] text-on-surface-variant/45">Tu acceso en la web</p>
-              <h3 className="text-2xl font-black tracking-tight text-foreground">¿Quieres tener tus tareas siempre contigo?</h3>
+              <h3 className="text-2xl font-black tracking-tight text-foreground">{"\u00bfQuieres tener tus tareas siempre contigo?"}</h3>
               <p className="mx-auto max-w-sm text-sm leading-relaxed text-on-surface-variant/70">
-                Inicia sesión y llévalas a cualquier equipo. O entra como invitado — tus tareas se quedan en este navegador.
+                Entra con correo para tenerlas en cualquier equipo. O sigue sin correo y usalas solo en este navegador.
               </p>
             </div>
           </div>
@@ -516,8 +626,8 @@ const OnboardingPage = () => {
             }}
             className="w-full rounded-[22px] border border-primary/20 bg-primary/10 px-4 py-4 text-left transition-colors hover:bg-primary/15"
           >
-            <span className="block text-sm font-black text-primary">Iniciar sesión <span className="text-[9px] font-black uppercase tracking-widest text-primary/60 ml-2">Recomendado</span></span>
-            <span className="mt-1 block text-xs font-semibold text-on-surface-variant/65">Tus tareas en cualquier equipo.</span>
+            <span className="block text-sm font-black text-primary">Entrar con correo <span className="text-[9px] font-black uppercase tracking-widest text-primary/60 ml-2">Recomendado</span></span>
+            <span className="mt-1 block text-xs font-semibold text-on-surface-variant/65">Tus tareas te siguen a cualquier equipo.</span>
           </button>
           <button
             type="button"
@@ -527,8 +637,8 @@ const OnboardingPage = () => {
             }}
             className="w-full rounded-[22px] border border-outline-variant/20 bg-surface-container-high px-4 py-4 text-left transition-colors hover:bg-surface-container-highest"
           >
-            <span className="block text-sm font-black text-foreground">Entrar como invitado</span>
-            <span className="mt-1 block text-xs font-semibold text-on-surface-variant/60">Empieza sin correo y decide después.</span>
+            <span className="block text-sm font-black text-foreground">Seguir sin correo</span>
+            <span className="mt-1 block text-xs font-semibold text-on-surface-variant/60">{"Empieza sin correo y decide despu\u00e9s."}</span>
           </button>
           <button
             type="button"
@@ -555,8 +665,8 @@ const OnboardingPage = () => {
               <ShieldCheck className="w-7 h-7 text-primary" />
             </div>
             <div className="space-y-1">
-              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-on-surface-variant/45">Un paso más</p>
-              <h3 className="text-2xl font-black tracking-tight text-foreground">¿A dónde guardamos tus tareas?</h3>
+              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-on-surface-variant/45">{"Un paso m\u00e1s"}</p>
+              <h3 className="text-2xl font-black tracking-tight text-foreground">{"\u00bfA d\u00f3nde guardamos tus tareas?"}</h3>
               <p className="mx-auto max-w-sm text-sm leading-relaxed text-on-surface-variant/70">
                 Ya tienes tus tareas listas. Ingresa tu correo para que no las pierdas si cierras el navegador o cambias de equipo.
               </p>
@@ -580,12 +690,12 @@ const OnboardingPage = () => {
                 disabled={isAuthenticating || !email.includes('@')}
                 className="w-full h-16 primary-gradient text-primary-foreground rounded-[24px] font-black text-base flex items-center justify-center gap-3 shadow-2xl shadow-primary/30 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {isAuthenticating ? 'Enviando…' : 'Proteger mis tareas'} <Mail className="w-5 h-5" />
+                {isAuthenticating ? "Enviando..." : "Proteger mis tareas"} <Mail className="w-5 h-5" />
               </button>
             </div>
           ) : (
             <div className="space-y-4">
-              <p className="text-center text-sm font-bold text-on-surface-variant/80">Ingresa el código enviado a <br /><span className="text-primary">{email}</span></p>
+              <p className="text-center text-sm font-bold text-on-surface-variant/80">{"Ingresa el c\u00f3digo enviado a "}<br /><span className="text-primary">{email}</span></p>
               <div className="flex gap-2 justify-center">
                 {otpCode.map((digit, i) => (
                   <input
@@ -602,7 +712,7 @@ const OnboardingPage = () => {
                 <button
                   onClick={handlePasteCode}
                   className="w-12 h-16 flex items-center justify-center rounded-2xl border-2 border-dashed border-outline-variant/30 text-on-surface-variant/50 hover:text-primary hover:border-primary/40 transition-all"
-                  title="Pegar código"
+                  title={"Pegar c\u00f3digo"}
                 >
                   <Clipboard className="w-5 h-5" />
                 </button>
@@ -646,7 +756,7 @@ const OnboardingPage = () => {
             <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-[22px] border border-primary/20 bg-primary/10">
               <UserPlus className="h-7 w-7 text-primary" />
             </div>
-            <p className="text-[10px] font-black uppercase tracking-[0.22em] text-on-surface-variant/45">Invitacion guardada</p>
+            <p className="text-[10px] font-black uppercase tracking-[0.22em] text-on-surface-variant/45">Invitacion pendiente</p>
             <h3 className="mt-2 text-2xl font-black tracking-tight text-foreground">
               Enviar solicitud a {pendingFriendInvite.inviterName}
             </h3>
@@ -739,10 +849,10 @@ const OnboardingPage = () => {
                   </div>
                   <h1 className="page-title mx-auto w-full text-center leading-tight text-foreground">
                     Hola. <br />
-                    <span className="text-foreground/70">¿Cómo te llamas?</span>
+                    <span className="text-foreground/70">{"\u00bfC\u00f3mo te llamas?"}</span>
                   </h1>
                   <p className="text-on-surface-variant/70 text-base font-semibold leading-relaxed max-w-lg mx-auto">
-                    En dos minutos sacas lo pendiente de tu cabeza y entras con tu primer dia armado.
+                    En dos minutos dejas todo listo para empezar.
                   </p>
                 </div>
                 
@@ -752,7 +862,7 @@ const OnboardingPage = () => {
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     onKeyDown={handleEnterContinue}
-                    placeholder="Tu nombre aquí…"
+                    placeholder={"Tu nombre aqu\u00ed..."}
                     className="w-full bg-surface-container-lowest border-2 border-outline-variant/40 focus:border-primary/70 rounded-[28px] px-8 h-20 outline-none transition-all text-2xl font-black placeholder:text-foreground/55"
                   />
                   
@@ -782,10 +892,10 @@ const OnboardingPage = () => {
                     Bienvenido, {name}.
                   </h2>
                   <p className="text-primary text-xl font-black leading-tight max-w-lg mx-auto">
-                    Vacia tu cabeza sin presion.
+                    Escribe 3 cosas que tienes pendientes.
                   </p>
                   <p className="text-on-surface-variant text-lg leading-relaxed max-w-xl mx-auto">
-                    Anota 3 pendientes y toca el boton correspondiente para priorizarlo.
+                    Marca cada pendiente como importante o urgente.
                   </p>
                 </div>
 
@@ -807,6 +917,9 @@ const OnboardingPage = () => {
                           {i + 1}
                         </span>
                         <input
+                          ref={(element) => {
+                            urgentTaskTitleRefs.current[i] = element;
+                          }}
                           value={task.title}
                           onChange={(e) => {
                             const newTasks = [...urgentTasks];
@@ -923,111 +1036,274 @@ const OnboardingPage = () => {
                 </button>
               </div>
             )}
-            {/* STEP: RECURRING TASKS */}
-            {currentStep === 'recurring_tasks' && (
-              <div className="space-y-8 text-center">
-                <div className="space-y-4">
-                  <div className="w-16 h-16 rounded-[24px] bg-primary/10 flex items-center justify-center mx-auto">
-                    <Clock className="w-8 h-8 text-primary" />
-                  </div>
-                  <h2 className="text-3xl font-black tracking-tight leading-tight">
-                    Actividades diarias
-                  </h2>
-                  <p className="text-on-surface-variant text-lg leading-relaxed max-w-xl mx-auto">
-                    {`¿Qué actividades haces cada día?`}
-                    <span className="text-on-surface-variant/70 block mt-1">(Ej: Revisar correo, Leer, Planificar)</span>
-                  </p>
-                  <div className="rounded-[22px] border border-primary/20 bg-primary/10 p-4 text-sm font-bold leading-relaxed text-primary max-w-xl mx-auto">
-                    Todo lo que agregues aqui se pone en tu calendario diario con nombre, hora y duracion.
-                  </div>
-                </div>
-
-                <div className="space-y-4 text-left">
-                  {recurringTasks.map((task, i) => (
-                    <div key={i} className="bg-surface-container-lowest border-2 border-outline-variant/30 focus-within:border-primary/50 rounded-[24px] p-4 space-y-5 transition-all">
-                      <div className="flex items-center gap-3">
-                        <span className="w-8 h-8 rounded-full bg-surface-container-highest flex items-center justify-center text-xs font-black text-on-surface-variant/70 flex-shrink-0">
-                          {i + 1}
-                        </span>
-                        <input
-                          value={task.title}
-                          onKeyDown={handleEnterContinue}
-                          onChange={(e) => updateRecurringTask(i, { title: e.target.value })}
-                          placeholder={`Actividad diaria ${i + 1}...`}
-                          className="flex-1 bg-transparent h-12 outline-none font-bold text-lg text-foreground placeholder:text-on-surface-variant/50"
-                        />
+            {/* STEP: CALENDAR CHOICE */}
+            {currentStep === 'calendar_choice' && (
+              <div className="space-y-10 text-center">
+                {calendarChoice === null ? (
+                  <>
+                    <div className="space-y-4 max-w-xl mx-auto">
+                      <div className="w-16 h-16 rounded-[24px] bg-primary/10 flex items-center justify-center mx-auto">
+                        <Calendar className="w-8 h-8 text-primary" />
                       </div>
-                      <p className="px-1 text-[10px] font-black uppercase tracking-[0.18em] text-on-surface-variant/45">
-                        Nombre del evento que verás en tu calendario
+                      <h2 className="text-3xl font-black tracking-tight leading-tight">
+                        {"\u00bfUsas Google Calendar?"}
+                      </h2>
+                      <p className="text-on-surface-variant text-lg leading-relaxed max-w-lg mx-auto">
+                        Si ya usas Google Calendar, lo conectamos en segundos. Si no lo tienes, puedes seguir igual y luego decidir.
                       </p>
-
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between gap-3">
-                          <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/60">Hora</p>
-                          <input
-                            type="time"
-                            onKeyDown={handleEnterContinue}
-                            value={task.time}
-                            onChange={(e) => updateRecurringTask(i, { time: e.target.value })}
-                            className="h-11 rounded-2xl border border-outline-variant/20 bg-surface-container px-4 text-sm font-black text-foreground outline-none focus:border-primary/50"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between gap-3">
-                          <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/60">Duracion</p>
-                          <div className="grid grid-cols-4 gap-2">
-                          {quickDurations.map((option) => (
-                            <button
-                              key={option.value}
-                              onClick={() => updateRecurringTask(i, { duration: option.value })}
-                              className={`h-11 rounded-2xl border px-3 text-[11px] font-black transition-all ${
-                                task.duration === option.value
-                                  ? 'border-primary bg-primary text-primary-foreground shadow-lg shadow-primary/20'
-                                  : 'border-outline-variant/20 bg-surface-container text-on-surface-variant hover:border-primary/40 hover:text-foreground'
-                              }`}
-                            >
-                              {option.label}
-                            </button>
-                          ))}
-                          </div>
-                        </div>
-                      </div>
                     </div>
-                  ))}
-                </div>
 
-                <button
-                  type="button"
-                  onClick={addDailyActivity}
-                  className="w-full h-14 rounded-[22px] border border-dashed border-primary/35 bg-primary/5 text-primary font-black text-sm hover:bg-primary/10 transition-colors"
-                >
-                  + Agregar otra actividad diaria
-                </button>
+                    <div className="space-y-4 max-w-md mx-auto">
+                      <button
+                        onClick={() => {
+                          setCalendarChoice('sync');
+                          saveOnboardingState();
+                          toast.loading('Conectando con Google Calendar...');
+                          calendarIntegration.connect.mutate();
+                        }}
+                        disabled={calendarIntegration.connect.isPending}
+                        className="w-full h-20 primary-gradient text-primary-foreground rounded-[28px] font-black text-xl flex items-center justify-center gap-3 shadow-2xl shadow-primary/30 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {calendarIntegration.connect.isPending ? (
+                          <Loader2 className="w-6 h-6 animate-spin" />
+                        ) : (
+                          <Calendar className="w-6 h-6" />
+                        )}
+                        {calendarIntegration.connect.isPending ? 'Conectando...' : 'Usar Google Calendar'}
+                      </button>
+                      <button
+                        onClick={() => {
+                          setCalendarChoice('manual');
+                          next();
+                        }}
+                        className="w-full h-16 rounded-[22px] border border-outline-variant/20 bg-surface-container-high text-foreground font-black text-base hover:bg-surface-container-higher transition-all flex items-center justify-center gap-3"
+                      >
+                        <Clock className="w-5 h-5" />
+                        {"No lo tengo"}
+                      </button>
+                    </div>
+                  </>
+                ) : showCalendarSetupHelp ? (
+                  <>
+                    <div className="space-y-4 max-w-xl mx-auto">
+                      <div className="w-16 h-16 rounded-[24px] bg-primary/10 flex items-center justify-center mx-auto">
+                        <Bell className="w-8 h-8 text-primary" />
+                      </div>
+                      <h2 className="text-3xl font-black tracking-tight leading-tight">
+                        Activa los avisos
+                      </h2>
+                      <p className="text-on-surface-variant text-lg leading-relaxed max-w-lg mx-auto">
+                        Ya conectaste Google Calendar. Solo falta encender las notificaciones para que Adonai te avise.
+                      </p>
+                    </div>
 
-                <div className="space-y-3">
-                  <button
-                    onClick={handleAfterActivities}
-                    disabled={isFinishing}
-                    className="w-full h-20 primary-gradient text-primary-foreground rounded-[28px] font-black text-xl flex items-center justify-center gap-3 shadow-2xl shadow-primary/30 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {isFinishing ? (
-                      <div className="w-6 h-6 border-3 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
-                    ) : (
-                      <>Soltar carga</>
-                    )}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleAfterActivities}
-                    className="mx-auto block px-4 py-2 text-[10px] font-black uppercase tracking-[0.22em] text-on-surface-variant/35 hover:text-on-surface-variant/70 transition-colors"
-                  >
-                    Saltar
-                  </button>
-                </div>
+                    <div className="space-y-4 text-left max-w-xl mx-auto">
+                      {isMobile ? (
+                        <>
+                          <div className="flex gap-3 p-4 rounded-2xl bg-surface/50 border border-outline-variant/10">
+                            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                              <Smartphone className="w-5 h-5 text-primary" />
+                            </div>
+                            <div className="space-y-2 min-w-0">
+                              <span className="block text-sm font-bold text-foreground">Abre la app de Google Calendar</span>
+                              <p className="text-xs text-on-surface-variant/60 leading-relaxed">Instala la app si todavia no la tienes.</p>
+                              <div className="flex gap-2">
+                                <a href="https://play.google.com/store/apps/details?id=com.google.android.calendar" target="_blank" rel="noopener noreferrer" className="flex-1 h-10 px-4 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:scale-[1.02] active:scale-95 transition-all inline-flex items-center justify-center gap-2">
+                                  <ExternalLink className="w-3.5 h-3.5" />
+                                  Google Play
+                                </a>
+                                <a href="https://apps.apple.com/app/google-calendar/id909319292" target="_blank" rel="noopener noreferrer" className="flex-1 h-10 px-4 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:scale-[1.02] active:scale-95 transition-all inline-flex items-center justify-center gap-2">
+                                  <ExternalLink className="w-3.5 h-3.5" />
+                                  App Store
+                                </a>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex gap-3 p-4 rounded-2xl bg-surface/50 border border-outline-variant/10">
+                            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                              <Bell className="w-5 h-5 text-primary" />
+                            </div>
+                            <div className="space-y-1 min-w-0">
+                              <span className="block text-sm font-bold text-foreground">Activa las notificaciones</span>
+                              <p className="text-xs text-on-surface-variant/60 leading-relaxed">En Google Calendar, entra a Ajustes y activa las notificaciones.</p>
+                            </div>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="flex gap-3 p-4 rounded-2xl bg-surface/50 border border-outline-variant/10">
+                            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                              <Monitor className="w-5 h-5 text-primary" />
+                            </div>
+                            <div className="space-y-1 min-w-0">
+                              <span className="block text-sm font-bold text-foreground">Activa las notificaciones en tu navegador</span>
+                              <p className="text-xs text-on-surface-variant/60 leading-relaxed">Permite que Google Calendar te avise en Chrome, Edge o Firefox.</p>
+                            </div>
+                          </div>
+                          <div className="flex gap-3 p-4 rounded-2xl bg-surface/50 border border-outline-variant/10">
+                            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                              <Bell className="w-5 h-5 text-primary" />
+                            </div>
+                            <div className="space-y-1 min-w-0">
+                              <span className="block text-sm font-bold text-foreground">Activa avisos en Google Calendar</span>
+                              <p className="text-xs text-on-surface-variant/60 leading-relaxed">Entra a calendar.google.com, abre Ajustes y activa los avisos de escritorio.</p>
+                              <a href="https://calendar.google.com" target="_blank" rel="noopener noreferrer" className="mt-2 inline-flex h-9 px-4 rounded-xl bg-primary/10 text-primary text-xs font-bold hover:bg-primary/20 transition-all items-center gap-2">
+                                <ExternalLink className="w-3.5 h-3.5" />
+                                Abrir Google Calendar
+                              </a>
+                            </div>
+                          </div>
+                  </>
+                )}
+                    </div>
+
+                    <div className="space-y-3 max-w-md mx-auto">
+                      <button
+                        onClick={handleAfterActivities}
+                        disabled={isFinishing}
+                        className="w-full h-20 primary-gradient text-primary-foreground rounded-[28px] font-black text-xl flex items-center justify-center gap-3 shadow-2xl shadow-primary/30 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {isFinishing ? (
+                          <div className="w-6 h-6 border-3 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+                        ) : (
+                          <>Ya lo hice</>
+                        )}
+                      </button>
+                    </div>
+                  </>
+                ) : null}
               </div>
             )}
+            {currentStep === 'recurring_tasks' && (
+                  <>
+                    <div className="space-y-5 text-center">
+                      <div className="w-16 h-16 rounded-[24px] bg-primary/10 flex items-center justify-center mx-auto">
+                        <Clock className="w-8 h-8 text-primary" />
+                      </div>
+                      <h2 className="text-3xl font-black tracking-tight leading-tight">
+                        Rutinas de tu semana
+                      </h2>
+                      <p className="text-on-surface-variant text-lg leading-relaxed max-w-xl mx-auto">
+                        {"Agrega lo que sueles repetir y marca los d\u00edas en que pasa."}
+                      </p>
+                      <div className="max-w-xl mx-auto rounded-[26px] border border-primary/20 bg-primary/10 px-5 py-4 text-center text-sm font-bold leading-relaxed text-primary shadow-[0_16px_48px_rgba(104,131,255,0.12)]">
+                        {"Pon nombre, hora, duraci\u00f3n y los d\u00edas que quieras."}
+                      </div>
+                    </div>
+
+                    <div className="space-y-4 text-left max-w-xl mx-auto">
+                      {recurringTasks.map((task, i) => (
+                        <div key={i} className="bg-surface-container-lowest/90 border-2 border-outline-variant/30 focus-within:border-primary/50 rounded-[28px] p-5 space-y-5 shadow-[0_18px_50px_rgba(0,0,0,0.18)] transition-all">
+                          <div className="flex items-center gap-3">
+                            <span className="w-9 h-9 rounded-full bg-surface-container-highest flex items-center justify-center text-xs font-black text-on-surface-variant/70 flex-shrink-0">
+                              {i + 1}
+                            </span>
+                            <input
+                              ref={(element) => {
+                                recurringTaskTitleRefs.current[i] = element;
+                              }}
+                              value={task.title}
+                              onKeyDown={handleEnterContinue}
+                              onChange={(e) => updateRecurringTask(i, { title: e.target.value })}
+                              placeholder={`Rutina ${i + 1}`}
+                              className="flex-1 bg-transparent h-12 outline-none font-bold text-lg text-foreground placeholder:text-on-surface-variant/50"
+                            />
+                          </div>
+                          <p className="px-1 text-[10px] font-black uppercase tracking-[0.18em] text-on-surface-variant/45">
+                            {"As\u00ed aparecer\u00e1 en tu calendario"}
+                          </p>
+
+                          <div className="space-y-3">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/60">{"Días"}</p>
+                            <div className="grid grid-cols-4 gap-2 sm:grid-cols-7">
+                              {weekdayOptions.map((day) => {
+                                const isSelected = task.daysOfWeek.includes(day.value);
+                                return (
+                                  <button
+                                    key={day.value}
+                                    type="button"
+                                    onClick={() => toggleRecurringTaskDay(i, day.value)}
+                                    className={`h-11 rounded-2xl border px-3 text-[11px] font-black transition-all ${
+                                      isSelected
+                                        ? 'border-primary bg-primary text-primary-foreground shadow-lg shadow-primary/20'
+                                        : 'border-outline-variant/20 bg-surface-container text-on-surface-variant hover:border-primary/40 hover:text-foreground'
+                                    }`}
+                                  >
+                                    {day.label}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between gap-3">
+                              <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/60">Hora</p>
+                              <input
+                                type="time"
+                                onKeyDown={handleEnterContinue}
+                                value={task.time}
+                                onChange={(e) => updateRecurringTask(i, { time: e.target.value })}
+                                className="h-11 rounded-2xl border border-outline-variant/20 bg-surface-container px-4 text-sm font-black text-foreground outline-none focus:border-primary/50"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between gap-3">
+                              <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/60">{"Duración"}</p>
+                              <div className="grid grid-cols-4 gap-2">
+                              {quickDurations.map((option) => (
+                                <button
+                                  key={option.value}
+                                  onClick={() => updateRecurringTask(i, { duration: option.value })}
+                                  className={`h-11 rounded-2xl border px-3 text-[11px] font-black transition-all ${
+                                    task.duration === option.value
+                                      ? 'border-primary bg-primary text-primary-foreground shadow-lg shadow-primary/20'
+                                      : 'border-outline-variant/20 bg-surface-container text-on-surface-variant hover:border-primary/40 hover:text-foreground'
+                                  }`}
+                                >
+                                  {option.label}
+                                </button>
+                              ))}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="max-w-xl mx-auto space-y-4 pt-3">
+                      <button
+                        type="button"
+                        onClick={addDailyActivity}
+                        className="w-full h-14 rounded-[22px] border border-dashed border-primary/35 bg-primary/5 text-primary font-black text-sm hover:bg-primary/10 transition-colors"
+                      >
+                        + Agregar otra rutina
+                      </button>
+
+                      <button
+                        onClick={handleAfterActivities}
+                        disabled={isFinishing}
+                        className="w-full h-20 primary-gradient text-primary-foreground rounded-[28px] font-black text-xl flex items-center justify-center gap-3 shadow-2xl shadow-primary/30 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {isFinishing ? (
+                          <div className="w-6 h-6 border-3 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+                        ) : (
+                          <>Soltar carga</>
+                        )}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={skipAfterActivities}
+                        className="mx-auto block px-4 py-2 text-[10px] font-black uppercase tracking-[0.22em] text-on-surface-variant/35 hover:text-on-surface-variant/70 transition-colors"
+                      >
+                        Saltar
+                      </button>
+                    </div>
+                  </>
+                )}
             {/* STEP: COMMITMENT */}
             {currentStep === 'commitment' && (
               <div className="space-y-10 text-center">
@@ -1036,10 +1312,10 @@ const OnboardingPage = () => {
                     <Lock className="w-8 h-8 text-primary" />
                   </div>
                   <h2 className="text-3xl font-black tracking-tight leading-tight sm:text-4xl">
-                    Felicidades, {name.split(' ')[0]}. Todo está listo.
+                    Listo, {name.split(' ')[0]}. Ya puedes empezar.
                   </h2>
                   <p className="text-lg font-medium text-on-surface-variant leading-relaxed max-w-2xl mx-auto sm:text-2xl">
-                    En la web puedes usar la app (móvil y PC). Sin embargo, solo en la app de escritorio tienes habilitado el mini cuaderno con tus tareas y calendario siempre visibles.
+                    {"En la web puedes usar la app (m\u00f3vil y PC). Sin embargo, solo en la app de escritorio tienes habilitado el mini cuaderno con tus tareas y calendario siempre visibles."}
                   </p>
                 </div>
 
@@ -1091,70 +1367,6 @@ const OnboardingPage = () => {
                 </div>
               </div>
             )}
-            {/* STEP: SECURITY REGISTER */}
-            {currentStep === 'security_register' && (
-              <div className="space-y-10">
-                <div className="space-y-4">
-                  <div className="w-16 h-16 rounded-[24px] bg-primary/10 flex items-center justify-center">
-                    <ShieldCheck className="w-8 h-8 text-primary" />
-                  </div>
-                  <h2 className="text-3xl font-black tracking-tight leading-tight">
-                    El Registro "Por Seguridad".
-                  </h2>
-                  <p className="text-on-surface-variant text-lg leading-relaxed">
-                    Para que no pierdas tus tareas si cierras el ordenador o cambias de equipo, ¿dónde te enviamos tu acceso único?
-                  </p>
-                </div>
-
-                <div className="space-y-6">
-                  {authSubStep === 'email' ? (
-                    <div className="space-y-6">
-                      <input 
-                        autoFocus
-                        type="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && handleSendOtp()}
-                        placeholder="tu@email.com"
-                        className="w-full bg-surface-container-lowest border-2 border-outline-variant/40 focus:border-primary/70 rounded-[24px] px-8 h-20 outline-none transition-all text-xl font-bold placeholder:text-on-surface-variant/50"
-                      />
-                      <button 
-                        onClick={handleSendOtp}
-                        disabled={isAuthenticating || !email.includes('@')}
-                        className="w-full h-20 primary-gradient text-primary-foreground rounded-[28px] font-black text-xl flex items-center justify-center gap-3 shadow-2xl shadow-primary/30 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {isAuthenticating ? 'Enviando…' : 'Proteger mis tareas'} <Mail className="w-6 h-6" />
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="space-y-8">
-                        <p className="text-center text-sm font-bold text-on-surface-variant/80">Ingresa el código enviado a <br/><span className="text-primary">{email}</span></p>
-                        <div className="flex gap-2 justify-center">
-                            {otpCode.map((digit, i) => (
-                                <input
-                                    key={i}
-                                    ref={(el) => { otpInputRefs.current[i] = el; }}
-                                    type="text"
-                                    inputMode="numeric"
-                                    maxLength={1}
-                                    value={digit}
-                                    onChange={(e) => handleOtpChange(i, e.target.value)}
-                                    className="w-12 h-16 text-center text-2xl font-black bg-surface-container-lowest border-2 border-outline-variant/30 rounded-2xl text-foreground focus:outline-none focus:border-primary transition-all"
-                                />
-                            ))}
-                        </div>
-                        <button 
-                            onClick={() => setAuthSubStep('email')}
-                            className="w-full text-[10px] font-black uppercase tracking-widest text-on-surface-variant/70 hover:text-primary transition-colors"
-                        >
-                            Cambiar email
-                        </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
             {/* STEP: READY */}
             {currentStep === 'ready' && (
               <div className="space-y-10 text-center py-6">
@@ -1163,12 +1375,12 @@ const OnboardingPage = () => {
                     <Sparkles className="w-8 h-8 text-primary" />
                   </div>
                   <h2 className="text-4xl font-black tracking-tight leading-tight">
-                    Elige cómo usarlo, {name.split(' ')[0]}.
+                    {"Elige c\u00f3mo usarlo, "}{name.split(" ")[0]}.
                   </h2>
                   <p className="text-lg font-medium text-on-surface-variant leading-relaxed max-w-xl mx-auto">
                     {isMobile
-                      ? "Agrega Adonai a tu pantalla de inicio para acceder siempre con 1 toque."
-                      : "Descarga la app de escritorio y desbloquea la mini ventana. O empieza ya en la web — puedes descargarla después cuando quieras."}
+                      ? "Agrega Adonai a tu pantalla de inicio para abrirlo con un toque."
+                      : "Descarga la app de escritorio y desbloquea la mini ventana. O empieza ya en la web - puedes descargarla despu\u00e9s cuando quieras."}
                   </p>
                 </div>
 
@@ -1216,7 +1428,7 @@ const OnboardingPage = () => {
                         Descargar para {preferredDownloadPlatform === 'mac' ? 'Mac' : 'Windows'}
                       </button>
                       <p className="text-xs font-semibold text-on-surface-variant/50 leading-relaxed">
-                        La mini ventana está disponible <span className="text-primary">solo en la app de escritorio</span>. Tendrás Adonai siempre visible mientras trabajas.
+                        {"La mini ventana est\u00e1 disponible "}<span className="text-primary">solo en la app de escritorio</span>{". Tendr\u00e1s Adonai siempre visible mientras trabajas."}
                       </p>
                     </div>
                   )}

@@ -1,7 +1,8 @@
 const { app, BrowserWindow, ipcMain, shell, dialog, session, Menu, MenuItem, globalShortcut, screen, clipboard, Notification } = require('electron');
-const { exec } = require('child_process');
+const { exec, spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
+const https = require('https');
 const { autoUpdater } = require('electron-updater');
 
 // ── Logging System ──────────────────────────────────────────────────────────
@@ -250,6 +251,107 @@ autoUpdater.on('error', (err) => {
   logToFile(`Auto-updater error: ${err?.message || err}`);
   sendToAllWindows('update-error', err?.message || 'Error de conexión al buscar actualizaciones');
 });
+
+// ── Custom silent update mechanism ────────────────────────────────────────────
+const GITHUB_REPO = 'PabloGoitiaEmprendedor/adonai-tareas';
+let downloadedUpdatePath = null;
+
+function fetchJSON(url) {
+  return new Promise((resolve, reject) => {
+    const mod = url.startsWith('https') ? https : require('http');
+    mod.get(url, { headers: { 'Accept': 'application/vnd.github.v3+json', 'User-Agent': 'Adonai-App' } }, (res) => {
+      if (res.statusCode === 302 || res.statusCode === 301) {
+        fetchJSON(res.headers.location).then(resolve).catch(reject);
+        return;
+      }
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        try { resolve(JSON.parse(data)); }
+        catch (e) { reject(new Error(`Failed to parse JSON: ${e.message}`)); }
+      });
+    }).on('error', reject);
+  });
+}
+
+function downloadFile(url, destPath) {
+  return new Promise((resolve, reject) => {
+    const mod = url.startsWith('https') ? https : require('http');
+    const file = fs.createWriteStream(destPath);
+    mod.get(url, (res) => {
+      if (res.statusCode === 302 || res.statusCode === 301) {
+        file.close();
+        fs.unlink(destPath, () => {});
+        downloadFile(res.headers.location, destPath).then(resolve).catch(reject);
+        return;
+      }
+      const total = parseInt(res.headers['content-length'] || '0', 10);
+      let downloaded = 0;
+      res.on('data', (chunk) => {
+        downloaded += chunk.length;
+        if (total > 0) {
+          sendToAllWindows('update-download-progress', Math.round((downloaded / total) * 100));
+        }
+      });
+      res.pipe(file);
+      file.on('finish', () => { file.close(); resolve(destPath); });
+    }).on('error', (err) => {
+      file.close();
+      fs.unlink(destPath, () => {});
+      reject(err);
+    });
+  });
+}
+
+function isNewerVersion(latest, current) {
+  const l = latest.split('.').map(Number);
+  const c = current.split('.').map(Number);
+  for (let i = 0; i < Math.max(l.length, c.length); i++) {
+    const a = l[i] ?? 0;
+    const b = c[i] ?? 0;
+    if (a !== b) return a > b;
+  }
+  return false;
+}
+
+async function checkAndDownloadUpdate() {
+  if (!app.isPackaged) return;
+  try {
+    const currentVersion = app.getVersion();
+    const data = await fetchJSON(`https://api.github.com/repos/${GITHUB_REPO}/releases/latest`);
+    const latestTag = data.tag_name?.replace(/^v/, '') || '';
+    if (!latestTag || latestTag === currentVersion) return;
+    if (!isNewerVersion(latestTag, currentVersion)) return;
+
+    logToFile(`[CustomUpdate] New version found: v${currentVersion} -> v${latestTag}`);
+    sendToAllWindows('update-available', { version: latestTag, releaseNotes: data.body || '' });
+
+    const asset = data.assets?.find(a => a.name === 'Adonai-Setup.exe');
+    if (!asset) {
+      logToFile('[CustomUpdate] No installer asset found');
+      return;
+    }
+
+    logToFile(`[CustomUpdate] Downloading from: ${asset.browser_download_url}`);
+    const tempPath = path.join(app.getPath('temp'), `Adonai-Setup-${latestTag}.exe`);
+    await downloadFile(asset.browser_download_url, tempPath);
+    downloadedUpdatePath = tempPath;
+    logToFile(`[CustomUpdate] Download complete: ${tempPath}`);
+    sendToAllWindows('update-ready', { version: latestTag });
+  } catch (err) {
+    logToFile(`[CustomUpdate] Error: ${err.message}`);
+  }
+}
+
+function installUpdate() {
+  if (!downloadedUpdatePath) return;
+  logToFile(`[CustomUpdate] Launching installer: ${downloadedUpdatePath}`);
+  const cmd = process.platform === 'win32' ? `"${downloadedUpdatePath}" /S` : `open "${downloadedUpdatePath}"`;
+  exec(cmd, (err) => {
+    if (err) logToFile(`[CustomUpdate] Installer launch error: ${err.message}`);
+  });
+  app.quit();
+}
 
 function createMainWindow() {
   mainWindow = new BrowserWindow({
@@ -501,9 +603,11 @@ app.whenReady().then(() => {
     }
   }
 
-  setInterval(() => {
-    if (app.isPackaged) autoUpdater.checkForUpdates();
-  }, 1000 * 60 * 60 * 2);
+  // Check for updates immediately on startup, then every 30 minutes
+  if (app.isPackaged) {
+    checkAndDownloadUpdate();
+    setInterval(checkAndDownloadUpdate, 1000 * 60 * 30);
+  }
 });
 
 app.on('window-all-closed', () => {
@@ -658,6 +762,10 @@ ipcMain.on('sync-data', () => {
   }, 200);
 });
 
+ipcMain.handle('get-app-version', () => {
+  return app.getVersion();
+});
+
 ipcMain.on('open-external', (event, url) => {
   shell.openExternal(url);
 });
@@ -666,8 +774,14 @@ ipcMain.on('restart-app', () => {
   autoUpdater.quitAndInstall(false, true);
 });
 
+ipcMain.on('install-update', () => {
+  logToFile('[CustomUpdate] Install triggered by user');
+  installUpdate();
+});
+
 ipcMain.on('check-for-updates', () => {
   logToFile('Manual update check triggered by user');
+  checkAndDownloadUpdate();
   autoUpdater.checkForUpdates();
 });
 

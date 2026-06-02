@@ -28,7 +28,33 @@ import AdonaiCalendarView from '@/components/calendar/AdonaiCalendarView';
 import { useCalendarEvents } from '@/hooks/useCalendarEvents';
 import { compareTasksWithinQuadrants, getTaskManualOrderGroupKey } from '@/lib/taskOrdering';
 import { trackAnalyticsEvent } from '@/lib/analytics';
+import {
+  readStoredCalendarDate,
+  readStoredCalendarViewMode,
+  subscribeCalendarState,
+  writeCalendarDate,
+  writeCalendarViewMode,
+} from '@/lib/calendarStateSync';
 import '../index.css';
+
+type MiniTask = {
+ id: string;
+ title: string;
+ status?: string | null;
+ link?: string | null;
+ description?: string | null;
+ due_date?: string | null;
+ folder_id?: string | null;
+ urgency?: boolean | null;
+ importance?: boolean | null;
+ estimated_minutes?: number | null;
+ actual_duration_seconds?: number | null;
+ recurrence_id?: string | null;
+};
+
+type MiniTaskMutation = {
+ mutate: (payload: { id: string } & Record<string, unknown>) => void;
+};
 
 const FOLDER_COLORS = ['#5B7CFA', '#4F6EE8', '#6FCF97', '#F4B860', '#EB5757', '#7C97FF', '#9CA3AF', '#E5E7EB'];
 
@@ -120,12 +146,21 @@ function formatTimer(seconds: number): string {
  return `${isNegative? '-': ''}${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
 }
 
+const TIME_PREFIX_REGEX = /^\[T:(\d{2}:\d{2})-(\d{2}:\d{2})\]/;
+
+const parseTimeFromDescription = (desc: string | null) => {
+ if (!desc) return null;
+ const match = desc.match(TIME_PREFIX_REGEX);
+ if (!match) return null;
+ return { start: match[1], end: match[2] };
+};
+
 
 // â”€â”€â”€ Task Row â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const TaskRowRaw = ({ task, taskIdx, onToggle, onDetail, activeTimerId, onTimerToggle, updateTask, folders, currentDate, ensureCalendarOpen, onReorderPointerStart }: {
- task: any; onToggle: (task: any) => void; onDetail: (task: any) => void;
+ task: MiniTask; onToggle: (task: MiniTask) => void; onDetail: (task: MiniTask) => void;
  activeTimerId: string | null; onTimerToggle: (taskId: string, estimatedMinutes?: number) => void;
- updateTask: any; folders: any[]; currentDate: Date; ensureCalendarOpen?: () => void;
+ updateTask: MiniTaskMutation; folders: Array<{ id: string; name?: string }>; currentDate: Date; ensureCalendarOpen?: () => void;
  taskIdx?: number; onReorderPointerStart?: (idx: number, clientX: number, clientY: number) => void;
 }) => {
  const isDone = task.status === 'done';
@@ -167,14 +202,6 @@ const TaskRowRaw = ({ task, taskIdx, onToggle, onDetail, activeTimerId, onTimerT
  const priorityColor = getTaskPriorityColor();
  const timerHoverColor = priorityColor === 'transparent'? 'rgba(31,41,55,0.075)': `${priorityColor}26`;
  const actualSeconds = task.actual_duration_seconds || 0;
-
- const TIME_PREFIX_REGEX = /^\[T:(\d{2}:\d{2})-(\d{2}:\d{2})\]/;
- const parseTimeFromDescription = (desc: string | null) => {
- if (!desc) return null;
- const match = desc.match(TIME_PREFIX_REGEX);
- if (!match) return null;
- return { start: match[1], end: match[2] };
- };
 
  const buildCalendarEvent = useCallback(() => {
  const parsed = parseTimeFromDescription(task.description);
@@ -445,8 +472,8 @@ const TaskRowRaw = ({ task, taskIdx, onToggle, onDetail, activeTimerId, onTimerT
  key={i}
  onClick={(e) => { 
  e.stopPropagation(); 
- if ((window as any).electronAPI?.openExternal) {
- (window as any).electronAPI.openExternal(href);
+ if (window.electronAPI?.openExternal) {
+ window.electronAPI.openExternal(href);
  } else {
  window.open(href, '_blank');
  }
@@ -493,7 +520,7 @@ function useDragWindow() {
  const onUp = () => { 
  if (isDraggingRef.current) {
  isDraggingRef.current = false;
- (window as any).electronAPI?.stopDrag?.();
+ window.electronAPI?.stopDrag?.();
  }
  };
  window.addEventListener('mouseup', onUp);
@@ -508,7 +535,7 @@ function useDragWindow() {
  if (e.button!== 0) return;
  isDraggingRef.current = true;
  hasMovedRef.current = false;
- (window as any).electronAPI?.startDrag?.();
+ window.electronAPI?.startDrag?.();
  }, []);
 
  return { onMouseDown, hasMovedRef, isDraggingRef };
@@ -519,15 +546,13 @@ const MiniTaskList = () => {
  const { user, loading } = useAuth();
  const { theme } = useTheme();
  const isDarkMode = theme === 'dark' || (theme === 'system' && document.documentElement.classList.contains('dark'));
- const miniThemeVars = getMiniThemeVars(isDarkMode);
- const applePill = getApplePillStyles(false);
+  const miniThemeVars = getMiniThemeVars(isDarkMode);
+  const applePill = getApplePillStyles(false);
   const [viewDate, setViewDate] = useState(() => {
-    const saved = typeof localStorage !== 'undefined' ? localStorage.getItem('adonai:selected-date') : null;
-    return saved ? new Date(saved) : new Date();
+    return readStoredCalendarDate();
   });
   const [viewMode, setViewMode] = useState<'day' | 'week' | 'month'>(() => {
-    const saved = typeof localStorage !== 'undefined' ? localStorage.getItem('adonai:calendar-view-mode') : null;
-    return (saved as any) || 'day';
+    return readStoredCalendarViewMode('day');
   });
   const { tasks, updateTask, createTask, isLoading } = useTasks({ 
   date: format(viewDate, 'yyyy-MM-dd'), 
@@ -546,7 +571,7 @@ const MiniTaskList = () => {
 
  useEffect(() => {
  trackAnalyticsEvent('mini_window_viewed', {
- is_electron: Boolean((window as any).electronAPI),
+ is_electron: Boolean(window.electronAPI),
  });
  }, []);
  const [isExpanded, setIsExpanded] = useState(false);
@@ -562,10 +587,10 @@ const MiniTaskList = () => {
  const [captureOpen, setCaptureOpen] = useState(false);
  const [captureMode, setCaptureMode] = useState<'text' | 'voice' | 'recurrence' | null>(null);
  const [captureCreationSource, setCaptureCreationSource] = useState<'mini_plus' | 'mini_voice'>('mini_plus');
- const [selectedTask, setSelectedTask] = useState<any>(null);
+ const [selectedTask, setSelectedTask] = useState<MiniTask | null>(null);
  const [detailOpen, setDetailOpen] = useState(false);
  const [recurrenceFlowOpen, setRecurrenceFlowOpen] = useState(false);
- const handleDetail = useCallback((t: any) => { setSelectedTask(t); setDetailOpen(true); }, []);
+ const handleDetail = useCallback((t: MiniTask) => { setSelectedTask(t); setDetailOpen(true); }, []);
  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
  const sessionStartRef = useRef<number>(0);
  const captureModalRef = useRef<TaskCaptureModalHandle>(null);
@@ -587,10 +612,10 @@ const MiniTaskList = () => {
  const hasInteractedRef = useRef(false);
 
  const [calendarOpen, setCalendarOpen] = useState(false);
- const [orderedTasks, setOrderedTasks] = useState<any[]>([]);
+ const [orderedTasks, setOrderedTasks] = useState<MiniTask[]>([]);
  const [reorderIdx, setReorderIdx] = useState<number | null>(null);
  const reorderIdxRef = useRef<number | null>(null);
- const orderedTasksRef = useRef<any[]>([]);
+ const orderedTasksRef = useRef<MiniTask[]>([]);
  const suppressOrderSyncRef = useRef(false);
  const suppressOrderSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
  const calendarTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -604,7 +629,7 @@ const MiniTaskList = () => {
  if (timerRef.current) clearInterval(timerRef.current);
  timerRef.current = null;
 
- const activeTask = tasks.find((t: any) => t.id === activeTimerId);
+ const activeTask = tasks.find((t: MiniTask) => t.id === activeTimerId);
  if (activeTask) {
  const sessionElapsed = Math.floor((Date.now() - sessionStartRef.current) / 1000);
  const newTotal = (activeTask.actual_duration_seconds || 0) + sessionElapsed;
@@ -619,7 +644,7 @@ const MiniTaskList = () => {
  }
 
  // 2. Start the new timer
- const targetTask = tasks.find((t: any) => t.id === taskId);
+ const targetTask = tasks.find((t: MiniTask) => t.id === taskId);
  if (!targetTask) return;
 
  setActiveTimerId(taskId);
@@ -639,11 +664,11 @@ const MiniTaskList = () => {
  }, []);
 
  // Resize pill when timer starts/stops (wider to show time)
- useEffect(() => {
- if (!isExpanded) {
- const api = (window as any).electronAPI;
+useEffect(() => {
+if (!isExpanded) {
+ const api = window.electronAPI;
  if (!api?.getMiniPosition ||!api?.setMiniBounds) return;
- api.getMiniPosition().then((pos: any) => {
+ api.getMiniPosition().then((pos) => {
  if (!pos) return;
  const newW = activeTimerId? PILL_TIMER_W: PILL_W;
  const dx = (pos.w - newW) / 2;
@@ -654,7 +679,7 @@ const MiniTaskList = () => {
 
  const handleToggleExpand = useCallback(async () => {
  if (hasMovedRef.current) return;
- const api = (window as any).electronAPI;
+ const api = window.electronAPI;
  if (!api?.getMiniPosition ||!api?.setMiniBounds) {
  setIsExpanded(prev =>!prev);
  return;
@@ -711,7 +736,7 @@ const MiniTaskList = () => {
  setCalendarOpen(false);
  calendarTimerRef.current = null;
 
- const api = (window as any).electronAPI;
+ const api = window.electronAPI;
  if (api?.getMiniPosition && api?.setMiniBounds) {
  const pos = await api.getMiniPosition();
  if (pos && pos.w >= 700) {
@@ -727,7 +752,7 @@ const MiniTaskList = () => {
  }
  setCalendarOpen(true);
  
- const api = (window as any).electronAPI;
+ const api = window.electronAPI;
  if (api?.getMiniPosition && api?.setMiniBounds) {
  const pos = await api.getMiniPosition();
  // Only expand if not already wide enough
@@ -808,44 +833,11 @@ const MiniTaskList = () => {
  `;
  document.head.appendChild(style);
  }
- }, []);
+  }, []);
 
   // Bidirectional selectedDate and viewMode synchronization via localStorage and CustomEvents
   useEffect(() => {
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'adonai:selected-date' && e.newValue) {
-        const parsedDate = new Date(e.newValue);
-        if (!isNaN(parsedDate.getTime()) && parsedDate.getTime() !== viewDate.getTime()) {
-          setViewDate(parsedDate);
-        }
-      }
-      if (e.key === 'adonai:calendar-view-mode' && e.newValue) {
-        if (e.newValue !== viewMode) {
-          setViewMode(e.newValue as any);
-        }
-      }
-    };
-    const handleCustomDateChange = (e: CustomEvent<{ date: Date | string }>) => {
-      const parsedDate = typeof e.detail.date === 'string' ? new Date(e.detail.date) : e.detail.date;
-      if (parsedDate && parsedDate.getTime() !== viewDate.getTime()) {
-        setViewDate(parsedDate);
-      }
-    };
-    const handleCustomViewChange = (e: CustomEvent<{ viewMode: string }>) => {
-      if (e.detail.viewMode && e.detail.viewMode !== viewMode) {
-        setViewMode(e.detail.viewMode as any);
-      }
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-    window.addEventListener('adonai:calendar-selected-date-change' as any, handleCustomDateChange as any);
-    window.addEventListener('adonai:calendar-view-mode-change' as any, handleCustomViewChange as any);
-
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-      window.removeEventListener('adonai:calendar-selected-date-change' as any, handleCustomDateChange as any);
-      window.removeEventListener('adonai:calendar-view-mode-change' as any, handleCustomViewChange as any);
-    };
+    return subscribeCalendarState(viewDate, viewMode, setViewDate, setViewMode);
   }, [viewDate, viewMode]);
 
  // Hide window until session is ready and user is authenticated
@@ -856,12 +848,12 @@ const MiniTaskList = () => {
  
  // Initial state: ignore mouse events if collapsed so background is clickable
  if (ready &&!isExpanded) {
- (window as any).electronAPI?.setIgnoreMouseEvents?.(true, { forward: true });
+ window.electronAPI?.setIgnoreMouseEvents?.(true, { forward: true });
  } else if (ready && isExpanded) {
- (window as any).electronAPI?.setIgnoreMouseEvents?.(false);
+ window.electronAPI?.setIgnoreMouseEvents?.(false);
  }
  
- (window as any).electronAPI?.miniReady?.({ hasSession: ready });
+ window.electronAPI?.miniReady?.({ hasSession: ready });
 
  if (ready &&!hasInteractedRef.current) {
  setShowLedGlow(true);
@@ -870,22 +862,22 @@ const MiniTaskList = () => {
  }, [loading, user, isExpanded]);
 
  const handleMouseEnterUI = useCallback(() => {
- if (user) (window as any).electronAPI?.setIgnoreMouseEvents?.(false);
+ if (user) window.electronAPI?.setIgnoreMouseEvents?.(false);
  }, [user]);
  const handleMouseLeaveUI = useCallback(() => {
  // Only ignore mouse events when collapsed (pill mode) and NOT dragging
  if (user &&!isExpanded &&!isDraggingWindowRef.current) {
- (window as any).electronAPI?.setIgnoreMouseEvents?.(true, { forward: true });
+ window.electronAPI?.setIgnoreMouseEvents?.(true, { forward: true });
  }
- }, [user, isExpanded]);
+ }, [user, isExpanded, isDraggingWindowRef]);
 
- const quadrantRank = useCallback((t: any) =>
+ const quadrantRank = useCallback((t: MiniTask) =>
  t.urgency && t.importance? 0: t.urgency? 1: t.importance? 2: 3, []);
 
  // Stop timer if the task is completed in another window
  useEffect(() => {
  if (activeTimerId) {
- const activeTask = tasks.find((t: any) => t.id === activeTimerId);
+ const activeTask = tasks.find((t: MiniTask) => t.id === activeTimerId);
  if (activeTask && activeTask.status === 'done') {
  // Save current session progress before stopping
  const sessionElapsed = Math.floor((Date.now() - sessionStartRef.current) / 1000);
@@ -902,9 +894,9 @@ const MiniTaskList = () => {
 
  const filteredTasks = useMemo(() => {
  if (!selectedFolderId) {
- return tasks.filter((t: any) => !t.folder_id);
+ return tasks.filter((t: MiniTask) => !t.folder_id);
  }
- return tasks.filter((t: any) => t.folder_id === selectedFolderId);
+ return tasks.filter((t: MiniTask) => t.folder_id === selectedFolderId);
  }, [tasks, selectedFolderId]);
 
  const sortedTasks = useMemo(() => {
@@ -924,7 +916,7 @@ const MiniTaskList = () => {
  if (suppressOrderSyncTimerRef.current) clearTimeout(suppressOrderSyncTimerRef.current);
  }, []);
 
- const persistMiniOrder = useCallback((nextOrder: any[]) => {
+ const persistMiniOrder = useCallback((nextOrder: MiniTask[]) => {
  nextOrder.forEach((task, idx) => {
  if (task.status!== 'done' && (task.sort_order?? 0)!== idx) {
  updateTask.mutate({ id: task.id, sort_order: idx });
@@ -933,10 +925,10 @@ const MiniTaskList = () => {
  }, [updateTask]);
 
  const handleMiniReorderStart = useCallback((idx: number) => {
- if (orderedTasks[idx]?.status === 'done') return;
+ if (orderedTasksRef.current[idx]?.status === 'done') return;
  reorderIdxRef.current = idx;
  setReorderIdx(idx);
- }, [orderedTasks]);
+ }, []);
 
  const handleMiniReorderOver = useCallback((event: React.DragEvent, idx: number) => {
  event.preventDefault();
@@ -971,7 +963,7 @@ const MiniTaskList = () => {
  }
  reorderIdxRef.current = null;
  setReorderIdx(null);
- }, [orderedTasks, persistMiniOrder, reorderIdx]);
+ }, [persistMiniOrder, reorderIdx]);
 
  const moveMiniReorderToPoint = useCallback((clientX: number, clientY: number) => {
  const currentIdx = reorderIdxRef.current;
@@ -1057,10 +1049,10 @@ const MiniTaskList = () => {
  window.addEventListener('touchcancel', finish);
  }, [moveMiniReorderToPoint, persistMiniOrder]);
 
- const completedCount = filteredTasks.filter((t: any) => t.status === 'done').length;
+ const completedCount = filteredTasks.filter((t: MiniTask) => t.status === 'done').length;
  const totalCount = filteredTasks.length;
 
- const handleToggle = useCallback((task: any, e?: React.MouseEvent) => {
+ const handleToggle = useCallback((task: MiniTask, e?: React.MouseEvent) => {
  if (e) e.stopPropagation();
  if (!task) return;
 
@@ -1091,7 +1083,7 @@ const MiniTaskList = () => {
 
  setTimeout(() => {
  const currentTasks = tasks || [];
- const remainingTasks = currentTasks.filter((t: any) => t.status!== 'done' && t.id!== task.id);
+ const remainingTasks = currentTasks.filter((t: MiniTask) => t.status!== 'done' && t.id!== task.id);
  const isLastTask = currentTasks.length > 0 && remainingTasks.length === 0;
 
  console.log("Mutating task update with:", { 
@@ -1123,7 +1115,7 @@ const MiniTaskList = () => {
  triggerTaskCelebration(task.title, userName);
  }
  },
- onError: (err: any) => {
+ onError: (err: unknown) => {
  console.error("Mutation error in handleToggle:", err);
  setCompletingId(null);
  }
@@ -1194,7 +1186,7 @@ const MiniTaskList = () => {
  }
 
  // Detect if running in browser (not Electron) for preview mode
- const isElectron =!!(window as any).electronAPI;
+ const isElectron =!!window.electronAPI;
 
  // ─── EXPANDED PANEL ───
  // In browser: render inside a preview shell that simulates the floating window
@@ -1210,7 +1202,7 @@ const MiniTaskList = () => {
  hasInteractedRef.current = true;
  setShowLedGlow(false);
  }
- handleMouseLeaveUI(e as any);
+ handleMouseLeaveUI();
  }}
  style={{...miniThemeVars,
  position: isElectron? 'fixed': 'relative',
@@ -1362,7 +1354,7 @@ const MiniTaskList = () => {
  </h2>
  </div>
  <AnimatePresence>
- {true && (
+ {(
  <motion.div 
  initial={{ height: 0, opacity: 0 }}
  animate={{ height: 'auto', opacity: 1 }}
@@ -1532,7 +1524,7 @@ const MiniTaskList = () => {
  ): (
   <div key="task-list-items" className="notebook-task-list">
  <AnimatePresence mode="popLayout">
- {orderedTasks.map((task: any, idx: number) => (
+ {orderedTasks.map((task: MiniTask, idx: number) => (
  <div
  key={task.id}
  data-mini-task-idx={idx}
@@ -1609,13 +1601,12 @@ const MiniTaskList = () => {
     selectedDate={viewDate}
     onSelectDate={(date) => {
       setViewDate(date);
-      localStorage.setItem('adonai:selected-date', date.toISOString());
-      window.dispatchEvent(new CustomEvent('adonai:calendar-selected-date-change', { detail: { date } }));
+      writeCalendarDate(date);
     }}
     onViewModeChange={(mode) => {
-      setViewMode(mode as 'day' | 'week' | 'month');
-      localStorage.setItem('adonai:calendar-view-mode', mode);
-      window.dispatchEvent(new CustomEvent('adonai:calendar-view-mode-change', { detail: { viewMode: mode } }));
+      const nextMode = mode === 'week' || mode === 'month' ? mode : 'day';
+      setViewMode(nextMode);
+      writeCalendarViewMode(nextMode);
     }}
     viewMode={viewMode}
     dragDisabled={false}

@@ -1,8 +1,19 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type CSSProperties } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Download, RefreshCw, AlertTriangle, X } from 'lucide-react';
+import { Download, RefreshCw, AlertTriangle, X, ExternalLink } from 'lucide-react';
+import { subscribeElectronEvent } from '@/lib/electronEvents';
 
-const UpdateDialog = () => {
+interface UpdateDialogProps {
+  forcedVersion?: string;
+  onDismiss?: () => void;
+}
+
+const REPO = 'PabloGoitiaEmprendedor/adonai-tareas';
+type UpdateAvailablePayload = { version: string; releaseNotes?: string };
+type UpdateReadyPayload = { version?: string };
+const noDragStyle: CSSProperties = { WebkitAppRegion: 'no-drag' };
+
+const UpdateDialog = ({ forcedVersion, onDismiss }: UpdateDialogProps) => {
   const [updateInfo, setUpdateInfo] = useState<{ version: string; releaseNotes: string } | null>(null);
   const [downloading, setDownloading] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState(0);
@@ -10,37 +21,51 @@ const UpdateDialog = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!window.electronAPI) return;
+    if (!window.electronAPI || forcedVersion) return;
 
-    window.electronAPI.onUpdateAvailable?.((info: any) => {
+    const unsubscribeAvailable = subscribeElectronEvent(window.electronAPI.onUpdateAvailable, (info: UpdateAvailablePayload) => {
       setError(null);
+      setDownloading(true);
+      setDownloadProgress(0);
       setUpdateInfo({
         version: info.version,
         releaseNotes: info.releaseNotes || '',
       });
     });
 
-    window.electronAPI.onUpdateDownloadProgress?.((progress: number) => {
+    const unsubscribeProgress = subscribeElectronEvent(window.electronAPI.onUpdateDownloadProgress, (progress: number) => {
       setDownloading(true);
       setDownloadProgress(Math.round(progress));
     });
 
-    window.electronAPI.onUpdateDownloaded?.(() => {
+    const unsubscribeDownloaded = subscribeElectronEvent(window.electronAPI.onUpdateDownloaded, () => {
       setDownloading(false);
       setReady(true);
     });
 
-    window.electronAPI.onUpdateError?.((msg: string) => {
+    const unsubscribeReady = subscribeElectronEvent(window.electronAPI.onUpdateReady, (data: UpdateReadyPayload) => {
+      setDownloading(false);
+      setReady(true);
+      if (data?.version) {
+        setUpdateInfo(prev => prev ? { ...prev, version: data.version } : { version: data.version, releaseNotes: '' });
+      }
+    });
+
+    const unsubscribeError = subscribeElectronEvent(window.electronAPI.onUpdateError, (msg: string) => {
       setError(msg);
     });
 
     return () => {
-      // Listeners are managed by Electron's IPC, we don't assign to them directly
+      unsubscribeAvailable();
+      unsubscribeProgress();
+      unsubscribeDownloaded();
+      unsubscribeReady();
+      unsubscribeError();
     };
-  }, []);
+  }, [forcedVersion]);
 
   const handleRestart = () => {
-    window.electronAPI?.restartApp?.();
+    window.electronAPI?.installUpdate?.();
   };
 
   const handleCheckNow = () => {
@@ -48,16 +73,25 @@ const UpdateDialog = () => {
     window.electronAPI?.checkForUpdates?.();
   };
 
+  const handleDownload = () => {
+    const url = `https://github.com/${REPO}/releases/download/v${forcedVersion || updateInfo?.version}/Adonai-Setup.exe`;
+    window.electronAPI?.openUrl?.(url);
+    if (onDismiss) onDismiss();
+  };
+
   const handleDismiss = () => {
     setUpdateInfo(null);
     setReady(false);
     setError(null);
+    if (onDismiss) onDismiss();
   };
 
-  const isMiniRoute = typeof window !== 'undefined' && (
+  const isMiniRoute = typeof window !== 'undefined' && !forcedVersion && (
     window.location.hash.startsWith('#/mini') ||
     window.location.pathname.replace(/\/$/, '') === '/mini'
   );
+
+  const isForced = !!forcedVersion;
 
   if (isMiniRoute) {
     return (
@@ -68,7 +102,7 @@ const UpdateDialog = () => {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -8, scale: 0.96 }}
             className="fixed right-2 top-2 z-[100000] flex items-center gap-1.5 rounded-full border border-black/10 bg-white/95 py-1 pl-2.5 pr-1 text-[10px] font-black text-slate-900 shadow-lg"
-            style={{ WebkitAppRegion: 'no-drag' } as any}
+            style={noDragStyle}
           >
             <span>{ready ? 'Lista' : 'Actualizando'}</span>
             <button
@@ -81,6 +115,123 @@ const UpdateDialog = () => {
             </button>
           </motion.div>
         )}
+      </AnimatePresence>
+    );
+  }
+
+  if (isForced) {
+    return (
+      <AnimatePresence>
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[200]"
+        />
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.95, y: 20 }}
+          transition={{ type: 'spring', damping: 22, stiffness: 260 }}
+          className="fixed inset-0 z-[210] flex items-center justify-center p-4 pointer-events-none"
+        >
+          <div
+            className="relative w-full max-w-[420px] pointer-events-auto"
+            style={{
+              background: 'hsl(var(--surface))',
+              borderRadius: 24,
+              border: '1px solid hsl(var(--outline-variant))',
+              boxShadow: '0 24px 80px rgba(0,0,0,0.5)',
+            }}
+          >
+            <div className="p-6 pt-8 flex flex-col items-center gap-6">
+              {ready ? (
+                <>
+                  <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ type: 'spring', damping: 15, stiffness: 200 }}
+                    className="w-16 h-16 rounded-2xl flex items-center justify-center"
+                    style={{ background: 'hsl(var(--primary) / 0.15)' }}
+                  >
+                    <RefreshCw className="w-8 h-8" style={{ color: 'hsl(var(--primary))' }} />
+                  </motion.div>
+                  <div className="text-center space-y-2">
+                    <h2 className="text-xl font-bold tracking-tight" style={{ color: 'hsl(var(--on-surface))' }}>
+                      Actualización lista
+                    </h2>
+                    <p className="text-sm font-medium" style={{ color: 'hsl(var(--on-surface-variant))' }}>
+                      v{forcedVersion} descargada. Reinicia para aplicar los cambios.
+                    </p>
+                  </div>
+                  <button
+                    onClick={handleRestart}
+                    className="w-full h-14 rounded-[20px] font-black text-base flex items-center justify-center gap-2 shadow-xl transition-all hover:opacity-90 active:scale-[0.98]"
+                    style={{
+                      background: 'hsl(var(--primary))',
+                      color: 'hsl(var(--primary-foreground))',
+                      boxShadow: '0 8px 32px hsl(var(--primary) / 0.25)',
+                    }}
+                  >
+                    <RefreshCw className="w-5 h-5" />
+                    Reiniciar ahora
+                  </button>
+                </>
+              ) : downloading ? (
+                <>
+                  <motion.div
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 1.5, repeat: Infinity, ease: 'linear' }}
+                    className="w-16 h-16 rounded-2xl flex items-center justify-center"
+                    style={{ background: 'hsl(var(--primary) / 0.15)' }}
+                  >
+                    <Download className="w-8 h-8" style={{ color: 'hsl(var(--primary))' }} />
+                  </motion.div>
+                  <div className="text-center space-y-3 w-full">
+                    <h2 className="text-xl font-bold tracking-tight" style={{ color: 'hsl(var(--on-surface))' }}>
+                      Descargando actualización
+                    </h2>
+                    <div className="w-full space-y-1">
+                      <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: 'hsl(var(--surface-container-highest))' }}>
+                        <motion.div
+                          className="h-full rounded-full"
+                          style={{ background: 'hsl(var(--primary))' }}
+                          animate={{ width: `${downloadProgress}%` }}
+                        />
+                      </div>
+                      <p className="text-xs font-bold text-center" style={{ color: 'hsl(var(--on-surface-variant))' }}>
+                        {downloadProgress}%
+                      </p>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ type: 'spring', damping: 15, stiffness: 200 }}
+                    className="w-16 h-16 rounded-2xl flex items-center justify-center"
+                    style={{ background: 'hsl(var(--primary) / 0.15)' }}
+                  >
+                    <Download className="w-8 h-8" style={{ color: 'hsl(var(--primary))' }} />
+                  </motion.div>
+                  <div className="text-center space-y-2">
+                    <h2 className="text-xl font-bold tracking-tight" style={{ color: 'hsl(var(--on-surface))' }}>
+                      Nueva versión disponible
+                    </h2>
+                    <p className="text-sm font-medium" style={{ color: 'hsl(var(--on-surface-variant))' }}>
+                      v{forcedVersion}
+                    </p>
+                    <p className="text-xs mt-3" style={{ color: 'hsl(var(--on-surface-variant) / 0.7)' }}>
+                      Descargando en segundo plano...
+                    </p>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </motion.div>
       </AnimatePresence>
     );
   }

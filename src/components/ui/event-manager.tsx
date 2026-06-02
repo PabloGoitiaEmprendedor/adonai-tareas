@@ -1,5 +1,5 @@
 "use client"
-import { format, addHours, addMinutes, addDays, isSameDay, startOfDay, endOfDay, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval } from "date-fns"
+import { format, addHours, addMinutes, addDays, isSameDay, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns"
 import { es } from "date-fns/locale"
 
 import { useState, useCallback, useMemo, useEffect, useRef } from "react"
@@ -20,11 +20,12 @@ import {
 } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
 import { motion, AnimatePresence } from "framer-motion"
-import { Calendar, Clock, LayoutGrid, List, Plus, Minus, Search, Filter, X, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Check, MoreHorizontal, Link as LinkIcon, Trash2, Repeat, Zap, Menu, GripHorizontal, GripVertical, Bell, BellOff, Palette, Paperclip, Pencil, ExternalLink, Settings } from "lucide-react"
+import { Calendar, Clock, LayoutGrid, List, Plus, Minus, Filter, X, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Check, MoreHorizontal, Link as LinkIcon, Trash2, Repeat, Zap, Menu, GripHorizontal, GripVertical, Bell, BellOff, Palette, Pencil, ExternalLink, Settings, Paperclip } from "lucide-react"
 import ScrollableTimePicker from "./scrollable-time-picker"
 import { usePriorityColors, getPriorityKey } from "@/hooks/usePriorityColors"
 import { cn } from "@/lib/utils"
 import { REMINDER_OPTIONS } from "@/lib/reminders"
+import { TaskCard } from "@/components/TaskCard"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -48,6 +49,10 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Calendar as CalendarPicker } from "@/components/ui/calendar"
 import { Checkbox } from "@/components/ui/checkbox"
+import { MonthView as SecondaryMonthView, ScheduleView as SecondaryScheduleView, YearView as SecondaryYearView } from "./event-manager-secondary-views"
+import { DEFAULT_EVENT_COLORS as SHARED_DEFAULT_EVENT_COLORS } from "./event-manager-types"
+
+const DESKTOP_SIDEBAR_COLLAPSED_KEY = 'adonai:calendar-desktop-sidebar-collapsed'
 
 export interface Event {
   id: string
@@ -82,6 +87,9 @@ export interface Event {
   recurrenceId?: string
   sortOrder?: number | null
 }
+type CalendarViewMode = "month" | "week" | "day" | "year" | "list" | "schedule" | "3day";
+type ExternalDragDetail = { task: Event; x: number; y: number };
+type ExternalDragMoveDetail = { x: number; y: number };
 const getEventLinks = (links?: string[]) => {
   return (links || []).flatMap((link) => link.split(/\s+/)).map((link) => link.trim()).filter(Boolean);
 };
@@ -118,7 +126,7 @@ const stripHtml = (html: string): string => {
       doc.querySelectorAll('ul').forEach(ul => {
         const items: string[] = [];
         ul.querySelectorAll(':scope > li').forEach(li => {
-          items.push(`• ${li.textContent?.trim() || ''}`);
+          items.push(`\u2022 ${li.textContent?.trim() || ""}`);
         });
         const textNode = doc.createTextNode('\n' + items.join('\n') + '\n');
         ul.replaceWith(textNode);
@@ -144,7 +152,7 @@ const stripHtml = (html: string): string => {
   text = text.replace(/<br\s*\/?>/gi, '\n');
   text = text.replace(/<p[^>]*>/gi, '');
   text = text.replace(/<\/p>/gi, '\n');
-  text = text.replace(/<li[^>]*>/gi, '• ');
+  text = text.replace(/<li[^>]*>/gi, "\u2022 ");
   text = text.replace(/<\/li>/gi, '\n');
   return text.replace(/<[^>]*?>/g, '').trim();
 };
@@ -161,9 +169,9 @@ const hue2rgb = (p: number, q: number, t: number) => {
 const lightenColor = (hex: string, amount: number): string => {
   if (!hex || !hex.startsWith('#')) return hex;
   const clean = hex.replace('#', '');
-  let r = parseInt(clean.substring(0, 2), 16);
-  let g = parseInt(clean.substring(2, 4), 16);
-  let b = parseInt(clean.substring(4, 6), 16);
+  const r = parseInt(clean.substring(0, 2), 16);
+  const g = parseInt(clean.substring(2, 4), 16);
+  const b = parseInt(clean.substring(4, 6), 16);
   if (isNaN(r) || isNaN(g) || isNaN(b)) return hex;
   const lighten = (c: number) => Math.min(255, Math.round(c + (255 - c) * amount));
   return `#${[r, g, b].map(c => lighten(c).toString(16).padStart(2, '0')).join('')}`;
@@ -281,7 +289,8 @@ const cleanDescription = (desc?: string): string => {
         return cleanDescription(parsed.notes);
       }
       return '';
-    } catch (e) {
+    } catch {
+      return '';
     }
   }
 
@@ -294,8 +303,8 @@ const cleanDescription = (desc?: string): string => {
     .replace(/&apos;/g, "'")
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
-    .replace(/&middot;/g, '·')
-    .replace(/&bull;/g, '•');
+    .replace(/&middot;/g, "\u00b7")
+    .replace(/&bull;/g, "\u2022")
 
   // Now strip HTML tags (including the ones we just decoded)
   text = stripHtml(text);
@@ -358,15 +367,6 @@ export interface EventManagerProps {
   containedScroll?: boolean
   onViewChange?: (view: "month" | "week" | "day" | "year" | "list" | "schedule" | "3day") => void
 }
-
-const defaultColors = [
-  { name: "Blue", value: "blue", bg: "bg-blue-500", text: "text-blue-700" },
-  { name: "Green", value: "green", bg: "bg-green-500", text: "text-green-700" },
-  { name: "Purple", value: "purple", bg: "bg-purple-500", text: "text-purple-700" },
-  { name: "Orange", value: "orange", bg: "bg-orange-500", text: "text-orange-700" },
-  { name: "Pink", value: "pink", bg: "bg-pink-500", text: "text-pink-700" },
-  { name: "Red", value: "red", bg: "bg-red-500", text: "text-red-700" },
-]
 
 const MIN_EVENT_DURATION_MINUTES = 5
 const DEFAULT_EVENT_DURATION_MINUTES = 30
@@ -446,7 +446,7 @@ export function EventManager({
   onEventClick,
   onCellClick,
   categories = ["Meeting", "Task", "Reminder", "Personal"],
-  colors = defaultColors,
+  colors = SHARED_DEFAULT_EVENT_COLORS,
   defaultView = "month",
   className,
   availableTags = ["Important", "Urgent", "Work", "Personal", "Team", "Client"],
@@ -514,21 +514,32 @@ export function EventManager({
   }, [initialEvents, locallyDeletedEventIds])
 
   const [currentDate, setCurrentDate] = useState(() => focusedDate ? new Date(focusedDate) : new Date())
-  const [view, setView] = useState<"month" | "week" | "day" | "year" | "list" | "schedule" | "3day">(() => {
+  const [view, setView] = useState<CalendarViewMode>(() => {
     const saved = typeof localStorage !== 'undefined' ? localStorage.getItem('adonai:calendar-view-mode') : null;
-    return (saved as any) || defaultView;
+    const allowedViews: CalendarViewMode[] = ["month", "week", "day", "year", "list", "schedule", "3day"];
+    return saved && allowedViews.includes(saved as CalendarViewMode) ? (saved as CalendarViewMode) : defaultView;
   });
+  const [hoveredDay, setHoveredDay] = useState<Date | null>(null)
 
   // Propagate view changes to localStorage, custom event, and optional parent callback
   const handleViewChange = useCallback((newView: "month" | "week" | "day" | "year" | "list" | "schedule" | "3day") => {
-    setView(newView);
+    setView((previous) => previous === newView ? previous : newView);
     if (typeof localStorage !== 'undefined') {
       localStorage.setItem('adonai:calendar-view-mode', newView);
     }
     window.dispatchEvent(new CustomEvent('adonai:calendar-view-mode-change', { detail: { viewMode: newView } }));
     onViewChange?.(newView);
   }, [onViewChange]);
+  const handleHoveredDayChange = useCallback((nextDay: Date | null) => {
+    setHoveredDay((previous) => {
+      if (!previous && !nextDay) return previous
+      if (previous && nextDay && isSameDay(previous, nextDay)) return previous
+      return nextDay
+    })
+  }, [])
   const [hourZoom, setHourZoom] = useState(160)
+  const calendarRootRef = useRef<HTMLDivElement | null>(null)
+  const pinchDistanceRef = useRef<number | null>(null)
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null)
   const DURATION_OPTIONS = [
     { label: '1m', value: 1 },
@@ -692,13 +703,18 @@ export function EventManager({
   const [selectedColors, setSelectedColors] = useState<string[]>([])
   const [selectedTags, setSelectedTags] = useState<string[]>([])
   const [selectedCategories, setSelectedCategories] = useState<string[]>([])
-  const [hoveredDay, setHoveredDay] = useState<Date | null>(null)
   const [selectedDayForSheet, setSelectedDayForSheet] = useState<Date | null>(null)
   const [isSheetOpen, setIsSheetOpen] = useState(false)
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [isDesktopSidebarCollapsed, setIsDesktopSidebarCollapsed] = useState(() => {
+    if (typeof localStorage === 'undefined') return false
+    return localStorage.getItem(DESKTOP_SIDEBAR_COLLAPSED_KEY) === 'true'
+  });
   const [sidebarView, setSidebarView] = useState<'list' | 'folders'>('folders');
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set(['Hoy']));
   const [sidebarReorderId, setSidebarReorderId] = useState<string | null>(null);
+  const [sidebarDragIdx, setSidebarDragIdx] = useState<number | null>(null);
+  const sidebarDragIdxRef = useRef<number | null>(null);
   const [recurrenceEditorOpen, setRecurrenceEditorOpen] = useState(true)
   const [pendingCustomColor, setPendingCustomColor] = useState('#5B7CFA')
   const [draftEvent, setDraftEvent] = useState<Event | null>(null)
@@ -750,6 +766,11 @@ export function EventManager({
   }, [draftEvent])
 
   useEffect(() => {
+    if (typeof localStorage === 'undefined') return
+    localStorage.setItem(DESKTOP_SIDEBAR_COLLAPSED_KEY, String(isDesktopSidebarCollapsed))
+  }, [isDesktopSidebarCollapsed])
+
+  useEffect(() => {
     window.dispatchEvent(new CustomEvent('adonai:dialog-state-change', { detail: { active: isDialogOpen } }))
     if (isDialogOpen) setRecurrenceEditorOpen(false)
   }, [isDialogOpen])
@@ -787,7 +808,7 @@ export function EventManager({
       return
     }
     setDialogInitialSnapshot(getDialogSnapshot(isCreating ? newEvent : selectedEvent))
-  }, [isDialogOpen, isCreating, selectedEvent?.id, getDialogSnapshot])
+  }, [isDialogOpen, isCreating, newEvent, selectedEvent, getDialogSnapshot])
 
   useEffect(() => {
     if (!focusedDate) return
@@ -822,21 +843,21 @@ export function EventManager({
     if (days && days.length > 0) {
       const dayLabels = ['D', 'L', 'M', 'X', 'J', 'V', 'S'];
       const selectedLabels = [...days].sort().map(d => dayLabels[d]).join(', ');
-      const interval = (event as any)?.recurrenceInterval || 1;
-      const unit = (event as any)?.recurrenceUnit || 'weeks';
-      const unitMap: Record<string, string> = { days: interval === 1 ? 'día' : 'días', weeks: interval === 1 ? 'semana' : 'semanas', months: interval === 1 ? 'mes' : 'meses', years: interval === 1 ? 'año' : 'años' };
+      const interval = event?.recurrenceInterval || 1;
+      const unit = event?.recurrenceUnit || 'weeks';
+      const unitMap: Record<string, string> = { days: interval === 1 ? "d\u00eda" : "d\u00edas", weeks: interval === 1 ? "semana" : "semanas", months: interval === 1 ? "mes" : "meses", years: interval === 1 ? "a\u00f1o" : "a\u00f1os" };
       let text = `Cada ${interval} ${unitMap[unit] || unit}`;
       if (unit === 'weeks') text += ` en ${selectedLabels}`;
       void text;
     } else {
       return;
     }
-  }, [isDialogOpen, isCreating, selectedEvent, newEvent.recurrenceDays])
+  }, [isDialogOpen, isCreating, selectedEvent, newEvent])
 
   // Sync view state with defaultView prop
   useEffect(() => {
     if (defaultView) {
-      setView(defaultView)
+      setView((previous) => previous === defaultView ? previous : defaultView)
     }
   }, [defaultView])
 
@@ -844,19 +865,19 @@ export function EventManager({
   useEffect(() => {
     const handleStorage = (e: StorageEvent) => {
       if (e.key === 'adonai:calendar-view-mode' && e.newValue) {
-        setView(e.newValue as any);
+        setView((previous) => previous === e.newValue ? previous : (e.newValue as CalendarViewMode));
       }
     };
-    const handleCustomEvent = (e: CustomEvent<{ viewMode: string }>) => {
+    const handleCustomEvent = (e: CustomEvent<{ viewMode: CalendarViewMode }>) => {
       if (e.detail.viewMode && e.detail.viewMode !== view) {
-        setView(e.detail.viewMode as any);
+        setView((previous) => previous === e.detail.viewMode ? previous : e.detail.viewMode);
       }
     };
     window.addEventListener('storage', handleStorage);
-    window.addEventListener('adonai:calendar-view-mode-change' as any, handleCustomEvent as any);
+    window.addEventListener('adonai:calendar-view-mode-change', handleCustomEvent as EventListener);
     return () => {
       window.removeEventListener('storage', handleStorage);
-      window.removeEventListener('adonai:calendar-view-mode-change' as any, handleCustomEvent as any);
+      window.removeEventListener('adonai:calendar-view-mode-change', handleCustomEvent as EventListener);
     };
   }, [view]);
 
@@ -995,8 +1016,8 @@ export function EventManager({
             break
           case 'custom': {
             // Custom recurrence with interval and unit
-            const interval = (event as any)?.recurrenceInterval || 1;
-            const unit = (event as any)?.recurrenceUnit || 'weeks';
+            const interval = event?.recurrenceInterval || 1;
+            const unit = event?.recurrenceUnit || 'weeks';
             if (unit === 'days') {
               const daysSinceAnchor = Math.floor((dayStart.getTime() - anchorDayStart.getTime()) / (24 * 60 * 60 * 1000));
               matches = daysSinceAnchor % interval === 0;
@@ -1165,6 +1186,156 @@ export function EventManager({
 
     return grouped;
   }, [compareSidebarTasks, filteredEvents, currentDate, selectedCategory]);
+
+  const sidebarVisibleTasks = useMemo(() => Object.values(tasksByFolder).flat(), [tasksByFolder]);
+
+  const handleSidebarCardDragStart = useCallback((idx: number) => {
+    const task = sidebarVisibleTasks[idx];
+    if (!task || !canReorderSidebarTask(task)) return;
+    sidebarDragIdxRef.current = idx;
+    setSidebarDragIdx(idx);
+    setSidebarReorderId(task.id);
+  }, [canReorderSidebarTask, sidebarVisibleTasks]);
+
+  const moveSidebarReorderToPoint = useCallback((clientX: number, clientY: number) => {
+    const currentDragIdx = sidebarDragIdxRef.current;
+    if (currentDragIdx === null) return;
+
+    const dragged = sidebarVisibleTasks[currentDragIdx];
+    if (!dragged || !canReorderSidebarTask(dragged)) return;
+
+    const rows = Array.from(document.querySelectorAll<HTMLElement>('[data-sidebar-task-idx]'));
+    if (rows.length === 0) return;
+
+    let targetIdx: number | null = null;
+    for (const row of rows) {
+      const rect = row.getBoundingClientRect();
+      if (clientY >= rect.top && clientY <= rect.bottom && clientX >= rect.left - 48 && clientX <= rect.right + 48) {
+        targetIdx = Number(row.dataset.sidebarTaskIdx);
+        const midpoint = rect.top + rect.height / 2;
+        if (clientY > midpoint && targetIdx < rows.length - 1) targetIdx += 1;
+        break;
+      }
+    }
+
+    if (targetIdx === null || Number.isNaN(targetIdx) || targetIdx === currentDragIdx) return;
+
+    const target = sidebarVisibleTasks[targetIdx];
+    if (!target || !canReorderSidebarTask(target)) return;
+    if (getSidebarTaskGroupKey(dragged) !== getSidebarTaskGroupKey(target)) return;
+
+    setEvents((prev) => {
+      const group = prev
+        .filter((event) => canReorderSidebarTask(event) && getSidebarTaskGroupKey(event) === getSidebarTaskGroupKey(target))
+        .sort(compareSidebarTasks);
+
+      const from = group.findIndex((event) => event.id === dragged.id);
+      const to = group.findIndex((event) => event.id === target.id);
+      if (from < 0 || to < 0 || from === to) return prev;
+
+      const nextGroup = [...group];
+      const [moved] = nextGroup.splice(from, 1);
+      nextGroup.splice(to, 0, moved);
+      const nextSort = new Map(nextGroup.map((event, index) => [event.id, index]));
+
+      sidebarDragIdxRef.current = targetIdx;
+      setSidebarDragIdx(targetIdx);
+
+      return prev.map((event) => (
+        nextSort.has(event.id)
+          ? { ...event, sortOrder: nextSort.get(event.id) ?? event.sortOrder }
+          : event
+      ));
+    });
+  }, [canReorderSidebarTask, compareSidebarTasks, getSidebarTaskGroupKey, setEvents, sidebarVisibleTasks]);
+
+  const handleSidebarCardDragOver = useCallback((e: React.DragEvent, idx: number) => {
+    e.preventDefault();
+    const currentDragIdx = sidebarDragIdxRef.current ?? sidebarDragIdx;
+    if (currentDragIdx === null || currentDragIdx === idx) return;
+
+    const dragged = sidebarVisibleTasks[currentDragIdx];
+    const target = sidebarVisibleTasks[idx];
+    if (!dragged || !target) return;
+    if (!canReorderSidebarTask(dragged) || !canReorderSidebarTask(target)) return;
+    if (getSidebarTaskGroupKey(dragged) !== getSidebarTaskGroupKey(target)) return;
+
+    setEvents((prev) => {
+      const group = prev
+        .filter((event) => canReorderSidebarTask(event) && getSidebarTaskGroupKey(event) === getSidebarTaskGroupKey(target))
+        .sort(compareSidebarTasks);
+
+      const from = group.findIndex((event) => event.id === dragged.id);
+      const to = group.findIndex((event) => event.id === target.id);
+      if (from < 0 || to < 0 || from === to) return prev;
+
+      const nextGroup = [...group];
+      const [moved] = nextGroup.splice(from, 1);
+      nextGroup.splice(to, 0, moved);
+      const nextSort = new Map(nextGroup.map((event, index) => [event.id, index]));
+
+      sidebarDragIdxRef.current = idx;
+      setSidebarDragIdx(idx);
+
+      return prev.map((event) => (
+        nextSort.has(event.id)
+          ? { ...event, sortOrder: nextSort.get(event.id) ?? event.sortOrder }
+          : event
+      ));
+    });
+  }, [canReorderSidebarTask, compareSidebarTasks, getSidebarTaskGroupKey, setEvents, sidebarDragIdx, sidebarVisibleTasks]);
+
+  const handleSidebarCardDragEnd = useCallback(() => {
+    const activeId = sidebarReorderId;
+    if (activeId) {
+      const dragged = events.find((event) => event.id === activeId);
+      if (dragged) {
+        const group = events
+          .filter((event) => canReorderSidebarTask(event) && getSidebarTaskGroupKey(event) === getSidebarTaskGroupKey(dragged))
+          .sort(compareSidebarTasks);
+
+        group.forEach((event, index) => {
+          if ((event.sortOrder ?? 0) !== index) {
+            onEventUpdate?.(event.id, { sortOrder: index });
+          }
+        });
+      }
+    }
+
+    sidebarDragIdxRef.current = null;
+    setSidebarDragIdx(null);
+    setSidebarReorderId(null);
+  }, [canReorderSidebarTask, compareSidebarTasks, events, getSidebarTaskGroupKey, onEventUpdate, sidebarReorderId]);
+
+  const handleSidebarPointerReorderStart = useCallback((idx: number, clientX: number, clientY: number) => {
+    const task = sidebarVisibleTasks[idx];
+    if (!task || !canReorderSidebarTask(task)) return;
+
+    sidebarDragIdxRef.current = idx;
+    setSidebarDragIdx(idx);
+    setSidebarReorderId(task.id);
+    document.body.style.cursor = 'grabbing';
+    document.body.style.userSelect = 'none';
+    moveSidebarReorderToPoint(clientX, clientY);
+
+    const onPointerMove = (event: PointerEvent) => {
+      event.preventDefault();
+      moveSidebarReorderToPoint(event.clientX, event.clientY);
+    };
+
+    const cleanup = () => {
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', cleanup);
+      window.removeEventListener('pointercancel', cleanup);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      handleSidebarCardDragEnd();
+    };
+
+    window.addEventListener('pointermove', onPointerMove, { passive: false });
+    window.addEventListener('pointerup', cleanup);
+    window.addEventListener('pointercancel', cleanup);
+  }, [canReorderSidebarTask, handleSidebarCardDragEnd, moveSidebarReorderToPoint, sidebarVisibleTasks]);
 
   const hasActiveFilters = selectedColors.length > 0 || selectedTags.length > 0 || selectedCategories.length > 0
 
@@ -1413,7 +1584,25 @@ export function EventManager({
     [onEventUpdate, selectedEvent?.id],
   )
 
-  // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Shared ghost ref for both sidebar and grid drags Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+  const handleSidebarTaskSelect = useCallback((task: Event) => {
+    handleEventClickInternal(task);
+  }, [handleEventClickInternal]);
+
+  const handleSidebarTaskComplete = useCallback((task: Event, e: React.MouseEvent) => {
+    e.stopPropagation();
+    handleToggleComplete(task.id, true);
+  }, [handleToggleComplete]);
+
+  const handleSidebarTaskUncomplete = useCallback((task: Event, e: React.MouseEvent) => {
+    e.stopPropagation();
+    handleToggleComplete(task.id, false);
+  }, [handleToggleComplete]);
+
+  const handleSidebarTaskTimer = useCallback((_task: Event, e: React.MouseEvent) => {
+    e.stopPropagation();
+  }, []);
+
+  // Shared ghost ref for both sidebar and grid drags
   const globalGhostRef = useRef<HTMLDivElement>(null)
   const [globalDragEvent, setGlobalDragEvent] = useState<Event | null>(null)
   const globalDragEventRef = useRef<Event | null>(null)
@@ -1455,8 +1644,10 @@ export function EventManager({
     onEventUpdate?.(event.id, updatedEvent)
   }, [onEventUpdate, events])
 
-  // Sidebar custom mouse drag Ã¢â‚¬â€œ mirrors the calendar ghost system
+  // Sidebar custom mouse drag mirrors the calendar ghost system
   const handleSidebarMouseDown = useCallback((e: React.MouseEvent, event: Event) => {
+    const target = e.target as HTMLElement
+    if (target.closest('[data-drag-handle]')) return
     e.preventDefault()
     const startX = e.clientX
     const startY = e.clientY
@@ -1505,10 +1696,12 @@ export function EventManager({
 
     window.addEventListener('mousemove', onMove)
     window.addEventListener('mouseup', onUp)
-  }, [dropEventOnCalendar])
+  }, [dropEventOnCalendar, setActiveDragEvent])
 
   // Sidebar touch drag for mobile
   const handleSidebarTouchStart = useCallback((e: React.TouchEvent, event: Event) => {
+    const target = e.target as HTMLElement
+    if (target.closest('[data-drag-handle]')) return
     const touch = e.touches[0]
     const startX = touch.clientX
     const startY = touch.clientY
@@ -1558,11 +1751,11 @@ export function EventManager({
 
     window.addEventListener('touchmove', onMove, { passive: false })
     window.addEventListener('touchend', onEnd)
-  }, [dropEventOnCalendar])
+  }, [dropEventOnCalendar, setActiveDragEvent])
 
   // External drag listeners (for MobileDynamicIsland long press)
   useEffect(() => {
-    const handleExternalDragStart = (e: any) => {
+    const handleExternalDragStart = (e: CustomEvent<ExternalDragDetail>) => {
       const { task, x, y } = e.detail;
       setActiveDragEvent(task);
       const g = globalGhostRef.current;
@@ -1573,7 +1766,7 @@ export function EventManager({
       }
     };
 
-    const handleExternalDragMove = (e: any) => {
+    const handleExternalDragMove = (e: CustomEvent<ExternalDragMoveDetail>) => {
       const { x, y } = e.detail;
       const g = globalGhostRef.current;
       if (g) {
@@ -1581,7 +1774,7 @@ export function EventManager({
       }
     };
 
-    const handleExternalDragEnd = (e: any) => {
+    const handleExternalDragEnd = (_e: Event) => {
       const g = globalGhostRef.current;
       if (!g) return;
       
@@ -1609,12 +1802,12 @@ export function EventManager({
       setActiveDragEvent(null);
     };
 
-    window.addEventListener('adonai:external-drag-start', handleExternalDragStart);
-    window.addEventListener('adonai:external-drag-move', handleExternalDragMove);
+    window.addEventListener('adonai:external-drag-start', handleExternalDragStart as EventListener);
+    window.addEventListener('adonai:external-drag-move', handleExternalDragMove as EventListener);
     window.addEventListener('adonai:external-drag-end', handleExternalDragEnd);
     return () => {
-      window.removeEventListener('adonai:external-drag-start', handleExternalDragStart);
-      window.removeEventListener('adonai:external-drag-move', handleExternalDragMove);
+      window.removeEventListener('adonai:external-drag-start', handleExternalDragStart as EventListener);
+      window.removeEventListener('adonai:external-drag-move', handleExternalDragMove as EventListener);
       window.removeEventListener('adonai:external-drag-end', handleExternalDragEnd);
     };
   }, [dropEventOnCalendar, setActiveDragEvent]);
@@ -1759,35 +1952,136 @@ export function EventManager({
     }
   }
 
-  const [searchOpen, setSearchOpen] = useState(false)
-  const searchInputRef = useRef<HTMLInputElement>(null)
   const viewLabels: Record<"day" | "week" | "month" | "year" | "3day" | "schedule" | "list", string> = {
-    day: "Día",
+    day: "D\u00eda",
     week: "Semana",
     month: "Mes",
-    year: "Año",
-    "3day": "3 días",
+    year: "A\u00f1o",
+    "3day": "3 d\u00edas",
     schedule: "Agenda",
     list: "Lista",
   }
 
-  useEffect(() => {
-    if (searchOpen && searchInputRef.current) {
-      setTimeout(() => searchInputRef.current?.focus(), 100)
-    }
-  }, [searchOpen])
+  const mobileMonthLabel = format(currentDate, "MMMM", { locale: es })
+  const currentWeekdayLabel = format(currentDate, "EEE", { locale: es }).replace('.', '').toUpperCase()
+  const currentDayNumber = format(currentDate, "d")
+  const hasNotebookSidebar = !hideSidebar && !isDesktopSidebarCollapsed && (view === "day" || view === "week")
+  const mobileWeekdayLabel = currentWeekdayLabel.slice(0, 3)
 
-  const compactDayLabel = format(currentDate, "EEE d", { locale: es }).replace('.', '')
-  const hasNotebookSidebar = !hideSidebar && (view === "day" || view === "week")
+  useEffect(() => {
+    const root = calendarRootRef.current
+    if (!root) return
+
+    const isTouchZoomView = view === "day" || view === "week" || view === "3day"
+    if (!isTouchZoomView) return
+
+    const getDistance = (touches: TouchList) => {
+      const first = touches[0]
+      const second = touches[1]
+      return Math.hypot(second.clientX - first.clientX, second.clientY - first.clientY)
+    }
+
+    const handleTouchStart = (event: TouchEvent) => {
+      if (event.touches.length === 2) {
+        pinchDistanceRef.current = getDistance(event.touches)
+      }
+    }
+
+    const handleTouchMove = (event: TouchEvent) => {
+      if (event.touches.length !== 2 || pinchDistanceRef.current === null) return
+
+      event.preventDefault()
+      const nextDistance = getDistance(event.touches)
+      const delta = nextDistance - pinchDistanceRef.current
+
+      if (Math.abs(delta) < 18) return
+
+      setHourZoom((previous) => {
+        const direction = delta > 0 ? 40 : -40
+        return Math.max(60, Math.min(320, previous + direction))
+      })
+      pinchDistanceRef.current = nextDistance
+    }
+
+    const clearPinch = () => {
+      pinchDistanceRef.current = null
+    }
+
+    root.addEventListener('touchstart', handleTouchStart, { passive: true })
+    root.addEventListener('touchmove', handleTouchMove, { passive: false })
+    root.addEventListener('touchend', clearPinch)
+    root.addEventListener('touchcancel', clearPinch)
+
+    return () => {
+      root.removeEventListener('touchstart', handleTouchStart)
+      root.removeEventListener('touchmove', handleTouchMove)
+      root.removeEventListener('touchend', clearPinch)
+      root.removeEventListener('touchcancel', clearPinch)
+    }
+  }, [view])
 
   return (
-    <div data-calendar-grid className={cn("relative flex w-full max-w-full flex-col gap-0", className)}>
+    <div ref={calendarRootRef} data-calendar-grid className={cn("relative flex w-full max-w-full flex-col gap-0", className)}>
       {/* Sticky Header - Google-like */}
       <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-xl border-b border-outline-variant/10 px-2 sm:px-3 pb-3 pt-4 lg:px-2 lg:pt-3 -mx-0 mb-0 shadow-sm">
+        <div className="flex items-center gap-2 pl-12 sm:hidden">
+          <Popover>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                className="inline-flex items-center gap-2 rounded-2xl px-1 py-1 text-left transition-opacity hover:opacity-80"
+              >
+                <span className="text-2xl font-black tracking-tight text-foreground leading-none">
+                  {mobileMonthLabel.charAt(0).toUpperCase() + mobileMonthLabel.slice(1)}
+                </span>
+                <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                <span className="inline-flex h-7 items-center rounded-full border border-primary/20 bg-primary/10 px-2.5 text-[10px] font-black uppercase tracking-[0.24em] text-primary shadow-sm">
+                  {mobileWeekdayLabel}
+                </span>
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[min(92vw,360px)] rounded-[28px] border-outline-variant/10 bg-surface-container/95 p-0 shadow-2xl backdrop-blur-3xl" align="start">
+              <div className="border-b border-outline-variant/5 px-4 py-3">
+                <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Fecha y vista</span>
+              </div>
+              <div className="p-3">
+                <CalendarPicker mode="single" selected={currentDate} onSelect={(date) => date && commitCurrentDate(date)} initialFocus className="p-1" />
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  {(["day", "week", "month", "year"] as const).map((option) => (
+                    <button
+                      key={option}
+                      type="button"
+                      onClick={() => handleViewChange(option)}
+                      className={cn(
+                        "h-11 rounded-2xl border text-xs font-black uppercase tracking-widest transition-all",
+                        view === option
+                          ? "border-primary bg-primary text-primary-foreground shadow-lg shadow-primary/20"
+                          : "border-outline-variant/10 bg-surface-container-low text-foreground"
+                      )}
+                    >
+                      {viewLabels[option]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
+
+          <button
+            type="button"
+            onClick={() => commitCurrentDate(new Date())}
+            className="inline-flex h-10 min-w-[42px] items-center justify-center rounded-2xl bg-primary/12 px-3 text-base font-black text-primary shadow-sm"
+          >
+            {currentDayNumber}
+          </button>
+
+          <div className="flex-1 min-w-0" />
+        </div>
+
         {/* Single-line header: Month + Day + Nav + View tabs */}
         <div className={cn(
-          "flex items-center gap-1.5 pl-12 lg:gap-2",
-          hasNotebookSidebar ? "lg:pl-[352px]" : "lg:pl-0"
+          "hidden sm:flex items-center gap-1.5 pl-12 lg:gap-2",
+          hasNotebookSidebar ? "lg:pl-[384px]" : "lg:pl-3"
         )}>
           {/* Month name (opens date picker) */}
           <Popover>
@@ -1796,6 +2090,7 @@ export function EventManager({
                 <span className="text-xl sm:text-2xl lg:text-3xl font-black tracking-tight text-foreground leading-none flex items-center gap-2">
                   {format(currentDate, "MMMM", { locale: es }).charAt(0).toUpperCase() + format(currentDate, "MMMM", { locale: es }).slice(1)}
                 </span>
+                <ChevronDown className="h-4 w-4 text-muted-foreground" />
               </button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0 border-outline-variant/10 bg-surface-container/95 backdrop-blur-3xl shadow-2xl" align="start">
@@ -1808,12 +2103,6 @@ export function EventManager({
               <CalendarPicker mode="single" selected={currentDate} onSelect={(date) => date && commitCurrentDate(date)} initialFocus className="p-3" />
             </PopoverContent>
           </Popover>
-
-          {containedScroll && view === "day" && (
-            <div className="flex h-8 shrink-0 items-center rounded-xl border border-outline-variant/20 bg-surface-container px-3 text-[11px] font-black uppercase tracking-wide text-foreground shadow-sm">
-              {compactDayLabel}
-            </div>
-          )}
 
           {/* Nav arrows */}
           <div className="flex items-center gap-0.5 shrink-0 rounded-xl border border-outline-variant/10 bg-surface-container-low/70 p-0.5">
@@ -1833,6 +2122,17 @@ export function EventManager({
             </Button>
           </div>
 
+          {(view === "day" || view === "week") && !hideSidebar && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsDesktopSidebarCollapsed((previous) => !previous)}
+              className="hidden lg:inline-flex h-7 rounded-lg px-3 text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:bg-primary/10 hover:text-primary"
+            >
+              {isDesktopSidebarCollapsed ? "Mostrar tareas" : "Ocultar tareas"}
+            </Button>
+          )}
+
           {/* Spacer */}
           <div className="flex-1 min-w-0" />
 
@@ -1842,16 +2142,16 @@ export function EventManager({
               <SelectValue>{viewLabels[view]}</SelectValue>
             </SelectTrigger>
             <SelectContent align="end" className="min-w-[132px] rounded-2xl border-outline-variant/10 bg-surface-container/95 p-1 shadow-2xl backdrop-blur-xl">
-              <SelectItem value="day" className="rounded-xl text-xs font-bold">Día</SelectItem>
+              <SelectItem value="day" className="rounded-xl text-xs font-bold">{"D\u00eda"}</SelectItem>
               <SelectItem value="week" className="rounded-xl text-xs font-bold">Semana</SelectItem>
               <SelectItem value="month" className="rounded-xl text-xs font-bold">Mes</SelectItem>
-              <SelectItem value="year" className="rounded-xl text-xs font-bold">Año</SelectItem>
+              <SelectItem value="year" className="rounded-xl text-xs font-bold">{"A\u00f1o"}</SelectItem>
             </SelectContent>
           </Select>
 
           {/* Zoom controls */}
           {view !== "month" && view !== "year" && (
-            <div className="flex items-center gap-0.5 border border-outline-variant/10 rounded-xl overflow-hidden shrink-0">
+            <div className="hidden sm:flex items-center gap-0.5 border border-outline-variant/10 rounded-xl overflow-hidden shrink-0">
               <button
                 onClick={() => setHourZoom(h => Math.max(60, h - 40))}
                 className="h-7 w-7 flex items-center justify-center text-[10px] font-black hover:bg-surface-container/80 transition-all active:scale-90 text-muted-foreground/60 hover:text-foreground"
@@ -1871,37 +2171,7 @@ export function EventManager({
               </button>
             </div>
           )}
-
-          {/* Search toggle */}
-          <button
-            type="button"
-            onClick={() => setSearchOpen(!searchOpen)}
-            className="h-7 w-7 flex items-center justify-center rounded-lg text-muted-foreground/60 hover:text-foreground hover:bg-surface-container/80 transition-all shrink-0"
-          >
-            <Search className="w-4 h-4" />
-          </button>
         </div>
-
-        {/* Search bar (expandable) */}
-        {searchOpen && (
-          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden mt-2">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/30 pointer-events-none" />
-              <input
-                ref={searchInputRef}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Buscar eventos..."
-                className="w-full h-9 text-sm bg-surface-container/50 border border-outline-variant/20 rounded-xl pl-10 pr-10 focus:outline-none focus:ring-2 focus:ring-primary/30"
-              />
-              {searchQuery && (
-                <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/40 hover:text-foreground">
-                  <X className="w-4 h-4" />
-                </button>
-              )}
-            </div>
-          </motion.div>
-        )}
       </div>
 
       {/* Main Content */}
@@ -1916,7 +2186,7 @@ export function EventManager({
             className={containedScroll ? "h-full" : "min-h-0"}
           >
             {view === "month" && (
-              <MonthView
+              <SecondaryMonthView
                 currentDate={currentDate}
                 events={calendarVisibleEvents}
                 onEventClick={handleEventClickInternal}
@@ -1930,12 +2200,12 @@ export function EventManager({
                 onDrop={handleDrop}
                 getColorClasses={getColorClasses}
                 hoveredDay={hoveredDay}
-                onHoverDay={setHoveredDay}
+                onHoverDay={handleHoveredDayChange}
                 dragDisabled={dragDisabled}
               />
             )}
             {view === "year" && (
-              <YearView
+              <SecondaryYearView
                 currentDate={currentDate}
                 events={calendarVisibleEvents}
                 onSelectMonth={(monthDate) => {
@@ -1946,12 +2216,12 @@ export function EventManager({
             )}
             {(view === "week" || view === "day" || view === "3day") && (
               <div className={cn("flex flex-col lg:flex-row min-h-0 gap-0 lg:gap-4 relative items-stretch", containedScroll ? "h-full" : "w-full", hasNotebookSidebar && "lg:pl-6 lg:pr-2")}>
-                {!hideSidebar && (view === "day" || view === "week") && (
+                {!hideSidebar && !isDesktopSidebarCollapsed && (view === "day" || view === "week") && (
                   <Card 
                     data-sidebar-droptarget="true"
 
                     className={cn(
-                      "hidden lg:flex w-72 flex-shrink-0 flex-col border-outline-variant/12 notebook-cream-bg shadow-sm overflow-hidden z-10 relative",
+                      "hidden lg:flex w-[23.5rem] flex-shrink-0 flex-col border-outline-variant/12 notebook-cream-bg shadow-sm overflow-hidden z-10 relative",
                       "sticky top-[76px] max-h-[calc(100vh-120px)]"
                     )}
                     onDragOver={(e) => {
@@ -1991,11 +2261,11 @@ export function EventManager({
                         Tareas de hoy
                       </h2>
                       <p className="text-[12px] leading-snug text-foreground/50 font-semibold mt-1 notebook-handwriting">
-                        Mantén presionado para arrastrar al calendario
+                        {"Mant\u00e9n presionado para arrastrar al calendario"}
                       </p>
                     </div>
 
-                    {/* Folder tab bar — matching DailyPage notebook style */}
+                    {/* Folder tab bar - matching DailyPage notebook style */}
                     <div className="relative z-10 flex items-center gap-2 overflow-x-auto no-scrollbar px-5 py-1 pb-1 mb-1 justify-start pl-11">
                       {uniqueCategories.map(cat => {
                         const isSelected = selectedCategory === cat;
@@ -2015,47 +2285,47 @@ export function EventManager({
                       })}
                     </div>
 
-                    <div ref={sidebarScrollRef} className="relative z-10 flex-1 overflow-y-auto custom-scrollbar px-5 py-3 pl-11 focus:outline-none focus:ring-2 focus:ring-primary/20" data-sidebar-scroll="true" tabIndex={0}>
-                      {/* Tasks for the active folder tab */}
-                      <div className="notebook-task-list">
-                        {Object.values(tasksByFolder).flat().length > 0 ? (
-                          Object.values(tasksByFolder).flat().map((event) => {
-                            const evColor = (event.color.startsWith('#') || event.color.startsWith('var')) ? event.color : undefined;
-                            return (
-                              <motion.div
-                                key={event.id}
-                                layout="position"
-                                transition={{ layout: { duration: 0.08, ease: [0.2, 0.8, 0.2, 1] } }}
-                                onMouseDown={(e) => {
-                                  handleSidebarMouseDown(e, event);
-                                }}
-                                onTouchStart={(e) => {
-                                  handleSidebarTouchStart(e, event);
-                                }}
-                                draggable={canReorderSidebarTask(event)}
-                                onDragStart={(e) => handleSidebarReorderStart(e, event)}
-                                onDragOver={(e) => handleSidebarReorderOver(e, event)}
-                                onDragEnd={handleSidebarReorderEnd}
-                                onClick={() => handleEventClickInternal(event)}
-                                className={`group flex items-start gap-3 px-2 py-2 transition-colors cursor-grab active:cursor-grabbing hover:border-primary/18 touch-none ${
-                                  sidebarReorderId === event.id || globalDragEvent?.id === event.id
-                                    ? 'rounded-xl border border-primary/45 bg-primary/5 ring-2 ring-primary/45 shadow-[0_0_18px_rgba(99,102,241,0.24)]'
-                                    : ''
-                                }`}
-                              >
-                                <div className="flex-1 min-w-0">
-                                  <span className="block text-[14px] font-semibold leading-snug tracking-normal text-foreground transition-colors group-hover:text-primary break-words whitespace-pre-wrap"><span className="select-none mr-1.5 text-[16px]" style={{ color: evColor || priorityColors[getPriorityKey(event.urgency || false, event.importance || false)] || 'var(--outline)' }}>*</span>{event.title}</span>
-                                </div>
-                              </motion.div>
-                            );
-                          })
-                        ) : (
-                          <div className="flex flex-col items-center justify-center py-8 text-center px-2">
-                            <List className="w-6 h-6 mb-2 text-on-surface-variant/40" />
-                            <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant/50">Sin tareas para hoy</p>
-                          </div>
-                        )}
-                      </div>
+                    <div ref={sidebarScrollRef} className="relative z-10 flex-1 overflow-y-auto custom-scrollbar px-2 py-3 pl-8 pr-2 focus:outline-none focus:ring-2 focus:ring-primary/20" data-sidebar-scroll="true" tabIndex={0}>
+                      {sidebarVisibleTasks.length > 0 ? (
+                        <div className="notebook-task-list" style={{ ['--notebook-rule-color' as string]: 'rgba(30, 41, 59, 0.02)' }}>
+                          {sidebarVisibleTasks.map((event, idx) => (
+                            <div
+                              key={event.id}
+                              data-sidebar-task-idx={idx}
+                              onMouseDown={(e) => {
+                                handleSidebarMouseDown(e, event);
+                              }}
+                              onTouchStart={(e) => {
+                                handleSidebarTouchStart(e, event);
+                              }}
+                              className="touch-none"
+                            >
+                              <TaskCard
+                                task={event}
+                                taskIdx={idx}
+                                isDone={!!event.completed}
+                                completingTaskId={null}
+                                dragIdx={sidebarDragIdx}
+                                handleDragStart={handleSidebarCardDragStart}
+                                handleDragOver={handleSidebarCardDragOver}
+                                handleDragEnd={handleSidebarCardDragEnd}
+                                handlePointerReorderStart={handleSidebarPointerReorderStart}
+                                setSelectedTask={handleSidebarTaskSelect}
+                                handleComplete={handleSidebarTaskComplete}
+                                handleUncomplete={handleSidebarTaskUncomplete}
+                                handleStartTimer={handleSidebarTaskTimer}
+                                view="daily"
+                                notebookView
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-center justify-center py-8 text-center px-2">
+                          <List className="w-6 h-6 mb-2 text-on-surface-variant/40" />
+                          <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant/50">Sin tareas para hoy</p>
+                        </div>
+                      )}
                     </div>
                   </Card>
                 )}
@@ -2099,7 +2369,7 @@ export function EventManager({
 
 
             {view === "schedule" && (
-              <ScheduleView
+              <SecondaryScheduleView
                 events={calendarVisibleEvents}
                 currentDate={currentDate}
                 onEventClick={handleEventClickInternal}
@@ -2112,7 +2382,7 @@ export function EventManager({
       </div>
 
 
-      {/* Event Dialog — pixel-match TaskDetailModal + time section */}
+      {/* Event Dialog - pixel-match TaskDetailModal + time section */}
       <AnimatePresence>
         {isDialogOpen && (() => {
           const hasTime = isCreating ? !newEvent.isAllDay : !selectedEvent?.isAllDay;
@@ -2141,7 +2411,7 @@ export function EventManager({
                 onClick={requestDialogClose}
               />
 
-              {/* Modal panel Ã¢â‚¬â€ identical container to TaskDetailModal */}
+              {/* Modal panel - identical container to TaskDetailModal */}
               <motion.div
                 key="event-modal"
                 initial={{ opacity: 0, scale: 0.95, y: 10 }}
@@ -2159,7 +2429,7 @@ export function EventManager({
                 )}>
                   <div className={cn("flex flex-col gap-6", containedScroll ? "p-4" : "p-6")}>
 
-                    {/* Ã¢â€â‚¬Ã¢â€â‚¬ Header Ã¢â€â‚¬Ã¢â€â‚¬ same as TaskDetailModal */}
+                    {/* Header - same as TaskDetailModal */}
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <button
@@ -2215,7 +2485,7 @@ export function EventManager({
                               "w-full text-xl font-semibold bg-surface/50 border border-outline-variant/30 rounded-[22px] px-6 py-5 focus:outline-none focus:ring-4 focus:ring-primary/10 placeholder:text-muted-foreground/20 transition-all shadow-sm",
                               !isCreating && selectedEvent?.completed && "text-muted-foreground/50 line-through decoration-primary/30"
                             )}
-                            placeholder="Título"
+                            placeholder={"T\u00edtulo"}
                             autoFocus
                           />
                         </div>
@@ -2302,7 +2572,7 @@ export function EventManager({
                       {/* MODO (Segmented style) */}
                       {hasTime && (isCreating || !!selectedEvent) && (
                         <div className="space-y-2">
-                          <label className="text-[11px] font-bold text-muted-foreground/60 uppercase tracking-wider ml-1">¿Donde quiere verlo?</label>
+                          <label className="text-[11px] font-bold text-muted-foreground/60 uppercase tracking-wider ml-1">{"\u00bfD\u00f3nde quiere verlo?"}</label>
                           <div className="flex p-1 bg-surface-container/30 border border-outline-variant/10 rounded-[20px] gap-1">
                             {[
                               { id: 'calendar_only' as const, label: 'SOLO CALENDARIO' },
@@ -2343,11 +2613,11 @@ export function EventManager({
                         </div>
                       )}
 
-                      {/* DURACIÃƒâ€œN (Pills style) */}
+                      {/* DURACION (Pills style) */}
                       {(creationSource === 'calendar_only' || creationSource === 'both') && isCreating && hasTime && (
                         <div className="space-y-3">
                           <div className="flex items-center justify-between px-1">
-                             <label className="text-[11px] font-bold text-muted-foreground/60 uppercase tracking-wider">Duración estimada</label>
+                             <label className="text-[11px] font-bold text-muted-foreground/60 uppercase tracking-wider">{"Duraci\u00f3n estimada"}</label>
                              <div className="flex items-center gap-2">
                                 <input
                                   type="number"
@@ -2443,7 +2713,7 @@ export function EventManager({
                         </div>
                       </div>
 
-                      {/* REPETICIÃƒâ€œN */}
+                      {/* REPETICION */}
                       {(() => {
                         const priorityColorChoices = [
                           { id: 'p1', value: priorityColors.p1, label: 'P1', isCustom: false },
@@ -2464,10 +2734,10 @@ export function EventManager({
                         const weekDays = [
                           { value: 1, label: 'L', full: 'lunes' },
                           { value: 2, label: 'M', full: 'martes' },
-                          { value: 3, label: 'X', full: 'miércoles' },
+                          { value: 3, label: "X", full: "mi\u00e9rcoles" },
                           { value: 4, label: 'J', full: 'jueves' },
                           { value: 5, label: 'V', full: 'viernes' },
-                          { value: 6, label: 'S', full: 'sábado' },
+                          { value: 6, label: "S", full: "s\u00e1bado" },
                           { value: 0, label: 'D', full: 'domingo' },
                         ]
                         const patchRecurrence = (patch: Partial<Event>) => {
@@ -2489,16 +2759,16 @@ export function EventManager({
                           .filter(d => selectedDays.includes(d.value))
                           .map(d => d.full)
                         const unitLabel: Record<string, [string, string]> = {
-                          days: ['día', 'días'],
+                          days: ["d\u00eda", "d\u00edas"],
                           weeks: ['semana', 'semanas'],
                           months: ['mes', 'meses'],
-                          years: ['año', 'años'],
+                          years: ["a\u00f1o", "a\u00f1os"],
                         }
                         const baseSummary = (() => {
                           if (!currentRec || currentRec === 'none') return 'No se repite'
-                          if (currentRec === 'daily') return 'Se repite cada día'
+                          if (currentRec === "daily") return "Se repite cada d\u00eda"
                           if (currentRec === 'monthly') return 'Se repite cada mes'
-                          if (currentRec === 'yearly') return 'Se repite cada año'
+                          if (currentRec === "yearly") return "Se repite cada a\u00f1o"
                           if (currentRec === 'weekdays') return 'Se repite de lunes a viernes'
                           if (currentRec === 'biweekly') return selectedDayNames.length ? `Se repite cada 2 semanas: ${selectedDayNames.join(', ')}` : 'Se repite cada 2 semanas'
                           if (currentRec === 'weekly') return selectedDayNames.length ? `Se repite cada ${selectedDayNames.join(', ')}` : 'Se repite cada semana'
@@ -2591,7 +2861,7 @@ export function EventManager({
 
                             <div className="space-y-2">
                               <div className="flex items-center justify-between px-1">
-                                <label className="text-[11px] font-bold text-muted-foreground/60 uppercase tracking-wider">Notificación</label>
+                                <label className="text-[11px] font-bold text-muted-foreground/60 uppercase tracking-wider">{"Notificaci\u00f3n"}</label>
                                 <button
                                   type="button"
                                   onClick={() => patchReminder({ reminderEnabled: !reminderEnabled, reminderMinutesBefore: reminderMinutes || 10 })}
@@ -2599,7 +2869,7 @@ export function EventManager({
                                     "w-9 h-9 rounded-full flex items-center justify-center border transition-all",
                                     reminderEnabled ? "bg-primary/15 text-primary border-primary/25" : "bg-surface-container/30 text-muted-foreground border-outline-variant/15"
                                   )}
-                                  aria-label={reminderEnabled ? 'Desactivar notificación' : 'Activar notificación'}
+                                  aria-label={reminderEnabled ? "Desactivar notificaci\u00f3n" : "Activar notificaci\u00f3n"}
                                 >
                                   {reminderEnabled ? <Bell className="w-4 h-4" /> : <BellOff className="w-4 h-4" />}
                                 </button>
@@ -2628,7 +2898,7 @@ export function EventManager({
                             </div>
 
                             <div className="flex items-center justify-between gap-3">
-                              <label className="text-[11px] font-bold text-muted-foreground/60 uppercase tracking-wider ml-1">Repetición</label>
+                              <label className="text-[11px] font-bold text-muted-foreground/60 uppercase tracking-wider ml-1">{"Repetici\u00f3n"}</label>
                               <button
                                 type="button"
                                 onClick={() => patchRecurrence({
@@ -2690,7 +2960,7 @@ export function EventManager({
                                   onClick={() => patchRecurrence({ recurrence: 'none', recurrenceDays: [] })}
                                   className="w-full rounded-2xl py-2 text-[10px] font-black uppercase tracking-wider text-muted-foreground hover:text-destructive transition-colors"
                                 >
-                                  Quitar repetición
+                                  {"Quitar repetici\u00f3n"}
                                 </button>
                               )}
 
@@ -2712,10 +2982,10 @@ export function EventManager({
                                         onChange={(e) => patchRecurrence({ recurrence: 'custom', recurrenceUnit: e.target.value as Event['recurrenceUnit'] })}
                                         className="h-10 rounded-xl bg-surface/70 border border-outline-variant/20 px-3 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/30"
                                       >
-                                        <option value="days">días</option>
+                                        <option value="days">{"d\u00edas"}</option>
                                         <option value="weeks">semanas</option>
                                         <option value="months">meses</option>
-                                        <option value="years">años</option>
+                                        <option value="years">{"a\u00f1os"}</option>
                                       </select>
                                     </div>
                                   </div>
@@ -2780,7 +3050,7 @@ export function EventManager({
                                     }}
                                     className="w-full rounded-2xl bg-primary text-primary-foreground py-2.5 text-[10px] font-black uppercase tracking-wider shadow-lg shadow-primary/15 hover:scale-[1.01] active:scale-95 transition-all"
                                   >
-                                    Guardar repetición
+                                    {"Guardar repetici\u00f3n"}
                                   </button>
                                 </>
                               )}
@@ -2864,9 +3134,9 @@ export function EventManager({
                         </div>
                       </div>
 
-                      {/* DESCRIPCIÃƒâ€œN */}
+                      {/* DESCRIPCION */}
                       <div className="space-y-1">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 ml-2">Descripción</label>
+                        <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 ml-2">{"Descripci\u00f3n"}</label>
                         <Textarea
                           value={descVal}
                           onChange={(e) => isCreating
@@ -2903,7 +3173,7 @@ export function EventManager({
               className={cn(containedScroll ? "absolute" : "fixed", "inset-0 z-[100] flex items-center justify-center p-4 pointer-events-none")}
             >
               <div className="w-full max-w-sm rounded-[28px] border border-outline-variant/20 bg-background p-5 shadow-2xl pointer-events-auto">
-                <h3 className="text-base font-semibold text-foreground">¿Quieres guardar los cambios?</h3>
+                <h3 className="text-base font-semibold text-foreground">{"\u00bfQuieres guardar los cambios?"}</h3>
                 <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
                   Hay cambios pendientes en este elemento.
                 </p>
@@ -2947,7 +3217,7 @@ export function EventManager({
             onMouseUp={(e) => e.stopPropagation()}
             hideCloseButton={true}
           >
-            <DialogTitle className="sr-only">Vista rápida del evento</DialogTitle>
+            <DialogTitle className="sr-only">{"Vista r\u00e1pida del evento"}</DialogTitle>
             
             {/* Controladores X | Basura en la esquina superior izquierda */}
             <div className="absolute left-4 top-2 flex items-center gap-2 z-20">
@@ -2992,7 +3262,7 @@ export function EventManager({
 
             {/* Contenedor del Formulario sin labels */}
             <div className="space-y-3 pt-10 flex-1 overflow-y-auto min-h-0 pr-1">
-              {/* TÍTULO */}
+              {/* TITULO */}
               <input
                 type="text"
                 value={previewTitle}
@@ -3001,16 +3271,16 @@ export function EventManager({
                 placeholder="Nombre del evento"
               />
 
-              {/* DESCRIPCIÓN */}
+              {/* DESCRIPCION */}
               <textarea
                 value={previewDescription}
                 onChange={(e) => setPreviewDescription(e.target.value)}
                 style={{ fieldSizing: 'content' } as React.CSSProperties}
                 className="w-full text-xs bg-surface/50 border border-outline-variant/30 rounded-2xl p-3 focus:outline-none focus:ring-2 focus:ring-primary/30 min-h-[56px] max-h-[150px] placeholder:text-muted-foreground/20 transition-all resize-none text-foreground leading-[1.5] overflow-y-auto block"
-                placeholder="Añadir descripción..."
+                placeholder={"A\u00f1adir descripci\u00f3n..."}
               />
 
-              {/* COLOR Y NOTIFICACIÓN EN LA MISMA LÍNEA */}
+              {/* COLOR Y NOTIFICACION EN LA MISMA LINEA */}
               <div className="flex items-center gap-2">
                 {/* Selector de Colores */}
                 <div className="flex-1 flex flex-wrap gap-1 p-1 bg-surface/50 border border-outline-variant/30 rounded-2xl items-center justify-center min-h-[32px]">
@@ -3040,7 +3310,7 @@ export function EventManager({
                   })}
                 </div>
 
-                {/* Botón de Notificación (Cicla minutos) */}
+                {/* Boton de Notificacion (Cicla minutos) */}
                 <button
                   type="button"
                   onClick={() => {
@@ -3068,7 +3338,7 @@ export function EventManager({
                 </button>
               </div>
 
-              {/* DÓNDE QUIERES VERLO (Solo si aplica) */}
+              {/* DONDE QUIERES VERLO (Solo si aplica) */}
               {quickPreviewEvent && !quickPreviewEvent.id.startsWith('google-') && (
                 <div className="flex p-0.5 bg-surface-container/30 border border-outline-variant/10 rounded-2xl gap-1">
                   {[
@@ -3185,7 +3455,7 @@ export function EventManager({
             </button>
 
             <div className="p-10 pb-6">
-              <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-primary mb-2">Agenda del día</h2>
+              <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-primary mb-2">{"Agenda del d\u00eda"}</h2>
               <h3 className="text-3xl font-black font-headline tracking-tighter uppercase leading-none">
                 {selectedDayForSheet && format(selectedDayForSheet, "EEEE, d 'de' MMMM", { locale: es })}
               </h3>
@@ -3246,7 +3516,7 @@ export function EventManager({
                       <Calendar className="w-16 h-16" />
                       <div className="space-y-2">
                         <h3 className="text-xl font-black uppercase tracking-widest">Nada planeado</h3>
-                        <p className="text-xs font-bold opacity-60">Tu agenda está despejada por ahora.</p>
+                        <p className="text-xs font-bold opacity-60">{"Tu agenda est\u00e1 despejada por ahora."}</p>
                       </div>
                     </div>
                   )}
@@ -3397,7 +3667,7 @@ function TimeGridView({
   setIsCreating: (val: boolean) => void
   setNewEvent: React.Dispatch<React.SetStateAction<Partial<Event>>>
   setIsDialogOpen: (val: boolean) => void
-  colors: any[]
+  colors: unknown[]
   categories: string[]
   openCreateDialog: (startTime: Date, endTime?: Date, cellClickDate?: Date) => void
   className?: string
@@ -3472,6 +3742,7 @@ function TimeGridView({
       clusters.forEach(cluster => {
         const columns: Event[][] = []
         const assignments = new Map<string, number>()
+        const spans = new Map<string, number>()
 
         cluster.forEach(event => {
           let columnIndex = columns.findIndex(column => {
@@ -3489,8 +3760,28 @@ function TimeGridView({
         const columnCount = Math.max(1, columns.length)
         cluster.forEach(event => {
           const columnIndex = assignments.get(event.id) || 0
+          let span = 1
+
+          for (let nextColumnIndex = columnIndex + 1; nextColumnIndex < columnCount; nextColumnIndex += 1) {
+            const hasOverlapInNextColumn = columns[nextColumnIndex].some((candidate) => {
+              return (
+                candidate.startTime.getTime() < event.endTime.getTime() &&
+                candidate.endTime.getTime() > event.startTime.getTime()
+              )
+            })
+
+            if (hasOverlapInNextColumn) break
+            span += 1
+          }
+
+          spans.set(event.id, span)
+        })
+
+        cluster.forEach(event => {
+          const columnIndex = assignments.get(event.id) || 0
+          const span = spans.get(event.id) || 1
           const gap = 1.25
-          const width = (100 / columnCount) - gap
+          const width = (100 / columnCount) * span - gap
           const left = (100 / columnCount) * columnIndex
           layouts.set(event.id, { left, width })
         })
@@ -3559,7 +3850,7 @@ function TimeGridView({
       setMobileEditOriginalEvent(null);
       window.dispatchEvent(new CustomEvent('adonai:draft-state-change', { detail: { active: false } }));
     }
-  }, [view, currentDate]);
+  }, [view, currentDate, mobileEditEvent, mobileEditOriginalEvent]);
 
   const handleMobileSave = () => {
     if (!mobileEditEvent) return;
@@ -3673,7 +3964,7 @@ function TimeGridView({
 
         if (!isDraggingRef.current) return;
 
-        // Ghost logic — always visible while dragging calendar events
+        // Ghost logic - always visible while dragging calendar events
         if (isMoving && ghostRef.current) {
           const isMobile = window.matchMedia('(max-width: 767px)').matches;
           if (isMobile) {
@@ -3931,7 +4222,7 @@ function TimeGridView({
       {!hideGridHeader && (
         <div
           className={cn(
-            "sticky z-20 flex overflow-x-auto border-b border-outline-variant/25 bg-surface-container shadow-[0_10px_26px_hsl(var(--background)/0.96)]",
+            "sticky z-20 hidden overflow-x-auto border-b border-outline-variant/25 bg-surface-container shadow-[0_10px_26px_hsl(var(--background)/0.96)] sm:flex",
             containedScroll ? "top-0" : "top-[57px] lg:top-[57px]"
           )}
         >
@@ -4304,7 +4595,7 @@ function TimeGridView({
                                         onInteractOutside={(e) => e.preventDefault()}
                                         onPointerDownOutside={(e) => e.preventDefault()}
                                       >
-                                      <DialogTitle className="sr-only">Descripción del evento</DialogTitle>
+                                      <DialogTitle className="sr-only">{"Descripci\u00f3n del evento"}</DialogTitle>
                                         {/* pt-10 deja espacio para la X integrada de Radix (top-4 right-4) */}
                                         <div className="px-5 pt-10 pb-3">
                                           <textarea
@@ -4399,7 +4690,7 @@ function TimeGridView({
                           className="absolute -top-7 left-1/2 -translate-x-1/2 whitespace-nowrap z-40"
                         >
                           <div className="bg-foreground text-background text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg shadow-lg">
-                            Arrastra los bordes Ã¢â€ â€¢
+                            Arrastra los bordes
                           </div>
                         </motion.div>
                       )}
@@ -4504,7 +4795,7 @@ function TimeGridView({
         </div>
       </div>
 
-      {/* Ghost element for internal calendar drag Ã¢â‚¬â€ always follows mouse */}
+      {/* Ghost element for internal calendar drag - always follows mouse */}
       <div
         ref={ghostRef}
         style={{
@@ -4553,338 +4844,3 @@ function TimeGridView({
   )
 }
 
-function MonthView({
-  currentDate,
-  events,
-  onEventClick,
-  onCellClick,
-  onDragStart,
-  onDragEnd,
-  onDrop,
-  getColorClasses,
-  hoveredDay: externalHoveredDay,
-  onHoverDay: externalOnHoverDay,
-  dragDisabled = false,
-}: {
-  currentDate: Date
-  events: Event[]
-  onEventClick: (event: Event) => void
-  onCellClick?: (date: Date) => void
-  onDragStart?: (event: Event) => void
-  onDragEnd?: () => void
-  onDrop?: (date: Date) => void
-  getColorClasses: (color: string) => { bg: string; text: string }
-  hoveredDay?: Date | null
-  onHoverDay?: (date: Date | null) => void
-  dragDisabled?: boolean
-}) {
-  const [internalHoveredDay, setInternalHoveredDay] = useState<Date | null>(null);
-  const hoveredDay = externalHoveredDay !== undefined ? externalHoveredDay : internalHoveredDay;
-  const onHoverDay = externalOnHoverDay || setInternalHoveredDay;
-
-  const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1)
-  const lastDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0)
-  const startDate = new Date(firstDayOfMonth)
-  startDate.setDate(startDate.getDate() - startDate.getDay())
-
-  const days = []
-  const currentDay = new Date(startDate)
-
-  for (let i = 0; i < 42; i++) {
-    days.push(new Date(currentDay))
-    currentDay.setDate(currentDay.getDate() + 1)
-  }
-
-  const getEventsForDay = (date: Date) => {
-    return events
-      .filter((event) => {
-        const eventDate = new Date(event.startTime)
-        return (
-          eventDate.getDate() === date.getDate() &&
-          eventDate.getMonth() === date.getMonth() &&
-          eventDate.getFullYear() === date.getFullYear()
-        )
-      })
-      .sort((a, b) => (a.priority || 0) - (b.priority || 0))
-  }
-
-  return (
-    <Card className="overflow-hidden border-outline-variant/10 bg-surface-container/30 backdrop-blur-sm shadow-sm">
-      <div className="grid grid-cols-7 border-b border-outline-variant/5 sticky top-[64px] z-10 bg-background/95 backdrop-blur-md">
-        {["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"].map((day) => (
-          <div key={day} className="p-3 text-center text-xs font-black uppercase tracking-widest text-muted-foreground">
-            {day.toUpperCase()}
-          </div>
-        ))}
-      </div>
-      <div className="grid grid-cols-7">
-        {days.map((day, index) => {
-          const dayEvents = getEventsForDay(day)
-          const isCurrentMonth = day.getMonth() === currentDate.getMonth()
-          const isToday = day.toDateString() === new Date().toDateString()
-
-          const isHovered = hoveredDay && day.toDateString() === hoveredDay.toDateString()
-
-          return (
-            <div
-              key={index}
-              className={cn(
-                "min-h-[90px] border-b border-r border-outline-variant/5 p-1 transition-all duration-300 last:border-r-0 relative group",
-                !isCurrentMonth && "opacity-20",
-                "hover:bg-primary/5 cursor-pointer",
-                isHovered && "bg-primary/10 shadow-inner z-10"
-              )}
-              onMouseEnter={() => onHoverDay(day)}
-              onMouseLeave={() => onHoverDay(null)}
-              onClick={() => onCellClick?.(day)}
-              onDragOver={(e) => {
-                e.preventDefault()
-                onHoverDay(day)
-              }}
-              onDrop={(e) => {
-                e.preventDefault()
-                onDrop?.(day)
-                onHoverDay(null)
-              }}
-            >
-              <div className={cn(
-                "mb-2 flex h-6 w-6 items-center justify-center rounded-lg text-xs font-bold transition-all",
-                isToday && "bg-primary text-black font-black shadow-lg shadow-primary/20 scale-110",
-                isHovered && !isToday && "bg-primary/20 text-primary scale-110"
-              )}>
-                {day.getDate()}
-              </div>
-              <div className="space-y-1">
-                {dayEvents.slice(0, 3).map(event => (
-                  <div 
-                    key={event.id}
-                    draggable={!dragDisabled}
-                    onDragStart={(e) => {
-                      if (dragDisabled) return
-                      e.stopPropagation()
-                      onDragStart?.(event)
-                    }}
-                    onDragEnd={() => onDragEnd?.()}
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      onEventClick(event)
-                    }}
-                    className={cn(
-                      "relative cursor-pointer rounded-md px-2 py-1 text-[9px] font-medium truncate transition-all duration-300 flex items-center gap-1",
-                      "hover:scale-110 hover:z-50 hover:shadow-xl hover:text-[10px] hover:py-1.5",
-                      event.color && !event.color.startsWith('#') && !event.color.startsWith('var') && getColorClasses(event.color).bg,
-                      "shadow-sm",
-                      event.completed && "opacity-40 line-through grayscale-[0.5]"
-                    )}
-                    style={getEventStyles(event.color)}
-                  >
-                    {event.links && getEventLinks(event.links).length > 0 && (
-                      <span className="shrink-0 opacity-70 text-[7px] leading-none">&#x1F517;</span>
-                    )}
-                    <span className="whitespace-normal break-words">{event.title}</span>
-                  </div>
-                ))}
-                {dayEvents.length > 3 && (
-                  <div className="text-[9px] font-black text-on-surface-variant/40 pl-2 flex items-center gap-1">
-                    <Plus className="w-2 h-2" />
-                    {dayEvents.length - 3} más
-                  </div>
-                )}
-              </div>
-              
-              {/* Visual selection indicator */}
-              {isHovered && (
-                <motion.div 
-                  layoutId="hover-indicator"
-                  className="absolute inset-0 border-2 border-primary/30 rounded-lg pointer-events-none"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ duration: 0.2 }}
-                />
-              )}
-            </div>
-          )
-        })}
-      </div>
-    </Card>
-  )
-}
-
-function YearView({
-  currentDate,
-  events,
-  onSelectMonth,
-}: {
-  currentDate: Date
-  events: Event[]
-  onSelectMonth: (date: Date) => void
-}) {
-  const months = Array.from({ length: 12 }, (_, month) => new Date(currentDate.getFullYear(), month, 1))
-  const today = new Date()
-
-  const getEventsForMonth = (monthDate: Date) => events.filter((event) => {
-    const eventDate = new Date(event.startTime)
-    return eventDate.getFullYear() === monthDate.getFullYear() && eventDate.getMonth() === monthDate.getMonth()
-  })
-
-  return (
-    <div className="grid grid-cols-2 gap-2 px-3 pb-6 sm:grid-cols-3 lg:grid-cols-4 lg:px-0">
-      {months.map((monthDate) => {
-        const monthEvents = getEventsForMonth(monthDate)
-        const isCurrentMonth = today.getFullYear() === monthDate.getFullYear() && today.getMonth() === monthDate.getMonth()
-
-        return (
-          <button
-            key={monthDate.toISOString()}
-            type="button"
-            onClick={() => onSelectMonth(monthDate)}
-            className={cn(
-              "min-h-[132px] rounded-2xl border border-outline-variant/10 bg-surface-container/35 p-3 text-left transition-all hover:border-primary/30 hover:bg-primary/5 active:scale-[0.98]",
-              isCurrentMonth && "border-primary/30 bg-primary/10"
-            )}
-          >
-            <div className="flex items-start justify-between gap-2">
-              <span className="text-sm font-black capitalize text-foreground">
-                {format(monthDate, "MMMM", { locale: es })}
-              </span>
-              <span className="rounded-full bg-background/70 px-2 py-0.5 text-[10px] font-black text-muted-foreground">
-                {monthEvents.length}
-              </span>
-            </div>
-            <div className="mt-4 grid grid-cols-7 gap-1">
-              {eachDayOfInterval({ start: startOfMonth(monthDate), end: endOfMonth(monthDate) }).slice(0, 35).map((day) => {
-                const hasEvent = monthEvents.some((event) => isSameDay(event.startTime, day))
-                return (
-                  <span
-                    key={day.toISOString()}
-                    className={cn(
-                      "h-1.5 rounded-full bg-outline-variant/20",
-                      hasEvent && "bg-primary",
-                      isSameDay(day, today) && "bg-foreground"
-                    )}
-                  />
-                )
-              })}
-            </div>
-          </button>
-        )
-      })}
-    </div>
-  )
-}
-
-function ScheduleView({
-  events,
-  currentDate,
-  onEventClick,
-  onToggleComplete,
-  getColorClasses,
-}: {
-  events: Event[]
-  currentDate: Date
-  onEventClick: (event: Event) => void
-  onToggleComplete: (id: string, completed: boolean) => void
-  getColorClasses: (color: string) => { bg: string; text: string }
-}) {
-  const { colors: priorityColors } = usePriorityColors()
-  const groupedEvents = useMemo(() => {
-    const groups: Record<string, Event[]> = {}
-    
-    // Sort events by date
-    const sorted = [...events].sort((a, b) => a.startTime.getTime() - b.startTime.getTime())
-    
-    sorted.forEach(event => {
-      const dateKey = event.startTime.toDateString()
-      if (!groups[dateKey]) groups[dateKey] = []
-      groups[dateKey].push(event)
-    })
-    
-    return Object.entries(groups)
-      .map(([date, evs]) => ({
-        date: new Date(date),
-        events: evs
-      }))
-      .sort((a, b) => a.date.getTime() - b.date.getTime())
-  }, [events])
-
-  return (
-    <Card className="flex-1 border-outline-variant/10 bg-surface-container/30 backdrop-blur-sm shadow-sm overflow-hidden p-6">
-      <ScrollArea className="h-full">
-        <div className="space-y-8 pr-4">
-          {groupedEvents.length > 0 ? groupedEvents.map(({ date, events: dayEvents }, idx) => (
-            <div key={idx} className="space-y-4">
-              <div className="sticky top-0 z-20 bg-surface-container-high/80 backdrop-blur-xl py-2 px-4 rounded-2xl border border-outline-variant/5 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <span className="text-2xl font-black text-primary">{format(date, "d")}</span>
-                  <div className="flex flex-col">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-foreground">{format(date, "EEEE", { locale: es })}</span>
-                    <span className="text-[9px] font-bold uppercase tracking-widest opacity-40">{format(date, "MMMM", { locale: es })}</span>
-                  </div>
-                </div>
-                {date.toDateString() === new Date().toDateString() && (
-                  <Badge className="bg-primary text-black font-black text-[8px] uppercase tracking-widest border-none">Hoy</Badge>
-                )}
-              </div>
-              
-              <div className="grid gap-3 pl-4">
-                {dayEvents.map(event => (
-                  <div 
-                    key={event.id}
-                    onClick={() => onEventClick(event)}
-                    className={cn(
-                      "group flex items-start gap-3 p-4 rounded-2xl hover:brightness-105 border transition-all cursor-pointer active:scale-[0.98]",
-                      event.completed && "opacity-60"
-                    )}
-                    style={{ 
-                      ...((event.color && (event.color.startsWith('#') || event.color.startsWith('var')))
-                        ? getEventStyles(event.color)
-                        : {
-                            backgroundColor: (() => { const pc = priorityColors[getPriorityKey(event.urgency || false, event.importance || false)]; return pc && pc !== 'transparent' ? `${pc}4D` : 'transparent'; })(),
-                            borderColor: 'rgba(var(--outline-variant), 0.08)',
-                            color: '#FFFFFF',
-                          })
-                    }}
-                  >
-                    <div className="flex flex-col items-center gap-1 shrink-0 pt-0.5">
-                      <div
-                        className="w-2.5 h-2.5 rounded-full shrink-0"
-                        style={{ backgroundColor: (event.color && (event.color.startsWith('#') || event.color.startsWith('var'))) ? event.color : 'var(--primary)' }}
-                      />
-                      {event.links && getEventLinks(event.links).length > 0 && (
-                        <EventLinkClips links={event.links} color={event.color} />
-                      )}
-                    </div>
-
-                    <div className="flex flex-col items-center justify-center min-w-[60px] border-r border-white/20 pr-4">
-                      <span className="text-[13px]" style={{ color: 'inherit' }}>{format(event.startTime, "h:mm a")}</span>
-                      <span className="text-[11px] opacity-50" style={{ color: 'inherit' }}>{format(event.endTime, "h:mm a")}</span>
-                    </div>
-                    
-                    <div className="flex-1 min-w-0">
-                      <h3 className={cn("text-[15px] break-words whitespace-normal transition-colors", event.completed && "line-through")} style={{ color: 'inherit' }}>{event.title}</h3>
-                      {event.description && (
-                        <p className="text-[11px] font-medium line-clamp-1 mt-1" style={{ color: 'inherit', opacity: 0.7 }}>{event.description}</p>
-                      )}
-                    </div>
-                    
-                    <div className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                      <ChevronRight className="w-4 h-4" style={{ color: 'inherit', opacity: 0.5 }} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )) : (
-            <div className="flex flex-col items-center justify-center py-20 text-center space-y-6 opacity-20">
-              <Calendar className="w-16 h-16" />
-              <div className="space-y-2">
-                <h3 className="text-xl font-black uppercase tracking-widest">Nada planeado</h3>
-                <p className="text-xs font-bold opacity-60">Tu agenda está despejada por ahora.</p>
-              </div>
-            </div>
-          )}
-        </div>
-      </ScrollArea>
-    </Card>
-  )
-}

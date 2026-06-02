@@ -146,7 +146,9 @@ export const TaskCard = memo(({
       exit={view === 'daily' ? { opacity: 0, transition: { duration: 0.08 } } : undefined}
       onDragOver={(e) => handleDragOver?.(e, taskIdx)}
       style={cardStyle}
-      className={`relative flex items-start gap-2 overflow-hidden border px-1.5 py-2 transition-all group/task md:px-2 select-none ${
+      className={`relative flex items-start gap-2 overflow-hidden border py-2 transition-all group/task select-none ${
+        notebookView ? 'px-1' : 'px-1.5 md:px-2'
+      } ${
         notebookView ? 'notebook-task-row min-h-[42px]' : view === 'daily' ? 'min-h-[42px] border-b-transparent border-x-transparent border-t-transparent' : 'min-h-[42px] border-x-transparent border-t-transparent'
       } ${
         highlighted ? 'ring-2 ring-primary/40 bg-primary/5' : ''
@@ -158,7 +160,7 @@ export const TaskCard = memo(({
       {(
         <div
           data-drag-handle="true"
-          draggable={false}
+          draggable={Boolean(handleDragStart) && !handlePointerReorderStart}
           className="relative z-20 flex h-8 w-5 flex-shrink-0 items-center justify-center rounded-lg text-on-surface-variant/35 hover:bg-on-surface-variant/5 hover:text-on-surface-variant/60 cursor-grab active:cursor-grabbing select-none"
           title="Arrastra para reordenar"
           aria-label="Arrastrar tarea"
@@ -277,7 +279,7 @@ export const TaskCard = memo(({
         />
       </div>
 
-      <div className="relative z-10 flex flex-1 min-w-0 flex-col justify-center pr-2">
+      <div className={`relative z-10 flex flex-1 min-w-0 flex-col justify-center ${notebookView ? 'pr-0.5' : 'pr-2'}`}>
         <div className="flex min-w-0 items-start gap-2">
           <div className={`min-w-0 text-[14px] font-semibold tracking-normal transition-all flex flex-1 items-start gap-2 font-headline ${
             isDone || completingTaskId === task.id ? 'text-on-surface-variant/30 line-through' : 'text-foreground'

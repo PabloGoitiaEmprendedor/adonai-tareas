@@ -1,9 +1,7 @@
-import { useState } from "react";
 import { motion } from "framer-motion";
-import { Check, Brain, ArrowRight, Apple, Monitor, Loader2 } from "lucide-react";
+import { Check, Brain, ArrowRight } from "lucide-react";
 import { PublicNav } from "@/components/PublicNav";
 import { PublicFooter } from "@/components/PublicFooter";
-import { startGuidedDownload } from "@/lib/downloadGuide";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProfile } from "@/hooks/useProfile";
 import { useNavigate } from "react-router-dom";
@@ -15,45 +13,18 @@ const fadeUp = {
   transition: { duration: 0.5 },
 };
 
-function useDownload(platform: "win" | "mac") {
-  const [downloading, setDownloading] = useState(false);
-  const handleDownload = () => {
-    setDownloading(true);
-    startGuidedDownload(platform);
-    window.setTimeout(() => setDownloading(false), 3000);
-  };
-  return { downloading, handleDownload };
-}
-
 function StartFreeButtons() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const win = useDownload("win");
-  const mac = useDownload("mac");
 
   return (
-    <div className="mt-8 space-y-2">
-      <button
-        onClick={() => { win.handleDownload(); mac.handleDownload = () => {}; }}
-        disabled={win.downloading}
-        className="inline-flex h-14 w-full items-center justify-center gap-2 rounded-full border border-[#151820]/12 bg-[#151820] px-6 text-sm font-black text-white shadow-sm transition hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-60"
-      >
-        {win.downloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Monitor className="h-4 w-4" />}
-        {win.downloading ? "Descargando..." : "Descargar para Windows"}
-      </button>
-      <button
-        onClick={mac.handleDownload}
-        disabled={mac.downloading}
-        className="inline-flex h-14 w-full items-center justify-center gap-2 rounded-full border border-[#151820]/12 bg-white px-6 text-sm font-black text-[#151820] shadow-sm transition hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-60"
-      >
-        {mac.downloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Apple className="h-4 w-4" />}
-        {mac.downloading ? "Descargando..." : "Descargar para Mac"}
-      </button>
+    <div className="mt-8">
       <button
         onClick={() => navigate(user ? "/daily" : "/welcome")}
-        className="inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-full bg-[#F7F6F1] px-4 text-xs font-semibold text-[#151820]/55 transition hover:text-[#151820]/80"
+        className="inline-flex h-14 w-full items-center justify-center gap-2 rounded-full bg-[#5B7CFA] px-6 text-sm font-black text-white shadow-[0_18px_45px_rgba(91,124,250,0.26)] transition hover:bg-[#4F6EE8] hover:-translate-y-0.5 active:translate-y-0"
       >
-        Usar versión web
+        Comenzar Gratis
+        <ArrowRight className="h-4 w-4 animate-[ctaArrow_1.15s_ease-in-out_infinite]" />
       </button>
     </div>
   );

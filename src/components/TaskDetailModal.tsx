@@ -6,6 +6,7 @@ import { es } from 'date-fns/locale';
 
 import { useTasks } from '@/hooks/useTasks';
 import { useFolders } from '@/hooks/useFolders';
+import { ensureOneSignalSubscribed } from '@/lib/onesignal';
 import { useRecurrenceRules } from '@/hooks/useRecurrenceRules';
 import { useGoals } from '@/hooks/useGoals';
 import { notify } from '@/components/ui/adonai-notifier';
@@ -14,9 +15,10 @@ import { AutoTextarea } from '@/components/ui/auto-textarea';
 import { CalendarDatePicker } from '@/components/ui/calendar-date-picker';
 import { DurationPicker } from '@/components/ui/duration-picker';
 import { REMINDER_OPTIONS, buildReminderMetadata, getReminderSettings } from '@/lib/reminders';
+import type { RecurrenceFrequency, TaskLike } from '@/lib/taskTypes';
 
 interface TaskDetailModalProps {
-  task: any;
+  task: TaskLike | null;
   open: boolean;
   onClose: () => void;
 }
@@ -39,7 +41,7 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
   const [status, setStatus] = useState('pending');
   const [timerOpen, setTimerOpen] = useState(false);
   const [showRecurrence, setShowRecurrence] = useState(false);
-  const [recurrenceFreq, setRecurrenceFreq] = useState<'daily' | 'weekly' | 'monthly' | 'yearly' | 'none'>('none');
+  const [recurrenceFreq, setRecurrenceFreq] = useState<RecurrenceFrequency>('none');
   const [selectedWeekDays, setSelectedWeekDays] = useState<number[]>([]);
   const [selectedMonthDay, setSelectedMonthDay] = useState<number | null>(null);
   const [selectedYearMonth, setSelectedYearMonth] = useState<number | null>(null);
@@ -48,7 +50,17 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
   const [reminderMinutesBefore, setReminderMinutesBefore] = useState<number>(15);
   const [hasChanges, setHasChanges] = useState(false);
 
-  const originalData = useRef<any>(null);
+  const originalData = useRef<{
+    title: string;
+    description: string;
+    link: string;
+    dueDate: string;
+    estimatedMinutes: number;
+    importance: boolean;
+    urgency: boolean;
+    folderId: string | null;
+    goalId: string | null;
+  } | null>(null);
 
   useEffect(() => {
     if (task && open) {
@@ -106,10 +118,22 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
 
     if (recurrenceFreq !== 'none') {
       if (task.recurrence_id) {
-        try { await deleteRule.mutateAsync(task.recurrence_id); } catch { }
+        try {
+          await deleteRule.mutateAsync(task.recurrence_id);
+        } catch (error) {
+          console.debug('[TaskDetailModal] deleteRule before recreate failed:', error);
+        }
       }
 
-      const ruleData: any = {
+      const ruleData: {
+        frequency: Exclude<RecurrenceFrequency, 'none'>;
+        interval: number;
+        start_date: string;
+        end_date: null;
+        days_of_week: number[];
+        day_of_month: number | null;
+        month_of_year: number | null;
+      } = {
         frequency: recurrenceFreq, interval: 1,
         start_date: dueDate || format(new Date(), 'yyyy-MM-dd'), end_date: null,
         days_of_week: recurrenceFreq === 'weekly' ? selectedWeekDays : [],
@@ -128,7 +152,11 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
         return;
       }
     } else if (task.recurrence_id) {
-      try { await deleteRule.mutateAsync(task.recurrence_id); } catch { }
+      try {
+        await deleteRule.mutateAsync(task.recurrence_id);
+      } catch (error) {
+        console.debug('[TaskDetailModal] deleteRule on clear recurrence failed:', error);
+      }
       recurrenceId = null;
     }
 
@@ -193,19 +221,19 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
       <AnimatePresence>
         {open && !timerOpen && (
           <>
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/60 z-[60]" onClick={handleSaveAndClose} />
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60]" onClick={handleSaveAndClose} />
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 10 }}
               transition={{ type: 'spring', damping: 22, stiffness: 260 }}
-              className="fixed inset-0 z-[70] flex items-center justify-center p-4 pointer-events-none"
+              className="fixed inset-0 z-[70] flex items-end justify-center p-0 sm:items-center sm:p-4 pointer-events-none"
             >
-              <div className="relative mx-auto w-full max-w-[400px] max-h-[90vh] overflow-y-auto pointer-events-auto rounded-[32px] no-scrollbar shadow-[0_20px_60px_-10px_hsla(140,95%,8%,0.15)] bg-background border border-border">
+              <div className="relative mx-auto w-full max-w-[440px] max-h-[92vh] overflow-y-auto pointer-events-auto rounded-t-[30px] rounded-b-none border border-border bg-background no-scrollbar shadow-[0_20px_60px_-10px_hsla(140,95%,8%,0.15)] sm:max-h-[90vh] sm:rounded-[32px]">
                 
-                <div className="flex flex-col p-6 gap-6">
+                <div className="flex flex-col gap-5 p-4 pb-6 sm:gap-6 sm:p-6">
                   {/* Top bar / Header Actions */}
-                  <div className="flex items-center justify-between">
+                  <div className="sticky top-0 z-10 -mx-4 -mt-4 flex items-center justify-between border-b border-border/60 bg-background/95 px-4 py-3 backdrop-blur-xl sm:static sm:m-0 sm:border-b-0 sm:bg-transparent sm:p-0">
                     <div className="flex items-center gap-3">
                       <button onClick={handleSaveAndClose}
                         className="p-1.5 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 transition-all active:scale-90 text-muted-foreground"
@@ -225,7 +253,7 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
                       </button>
                     </div>
                     <button onClick={handleSave}
-                      className={`px-5 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${hasChanges ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20' : 'text-muted-foreground bg-surface-container/30 border border-outline-variant/10'}`}>
+                      className={`min-w-[108px] px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all sm:px-5 ${hasChanges ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20' : 'text-muted-foreground bg-surface-container/30 border border-outline-variant/10'}`}>
                       {hasChanges ? 'Guardar Cambios' : 'Sin cambios'}
                     </button>
                   </div>
@@ -243,7 +271,7 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
                     </div>
 
                     {/* Date + Time row */}
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                       <div>
                         <CalendarDatePicker 
                           date={dueDate} 
@@ -269,7 +297,7 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
                       <div className="rounded-[22px] border border-outline-variant/10 bg-surface-container/30 p-3 space-y-3">
                         <button
                           type="button"
-                          onClick={() => { setReminderEnabled((value) => !value); markChanged(); }}
+                          onClick={() => { const next = !reminderEnabled; setReminderEnabled(next); markChanged(); if (next) ensureOneSignalSubscribed(); }}
                           className={`w-full flex items-center justify-between rounded-2xl px-4 py-3 text-[10px] font-black uppercase tracking-widest transition-all border ${reminderEnabled ? 'bg-primary/10 text-primary border-primary/20' : 'bg-surface/40 text-muted-foreground border-outline-variant/10'}`}
                         >
                           <span>Activar alerta</span>
@@ -421,7 +449,7 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
                             <div className="pt-2 space-y-4">
                               <div className="grid grid-cols-5 gap-1 p-1 rounded-2xl bg-surface-container/30 border border-outline-variant/10">
                                 {[{ id: 'none', label: 'No' }, { id: 'daily', label: 'Día' }, { id: 'weekly', label: 'Sem' }, { id: 'monthly', label: 'Mes' }, { id: 'yearly', label: 'Año' }].map((f) => (
-                                  <button key={f.id} onClick={() => { setRecurrenceFreq(f.id as any); markChanged(); if (f.id === 'monthly' && !selectedMonthDay) setSelectedMonthDay(new Date().getDate()); }}
+                                <button key={f.id} onClick={() => { setRecurrenceFreq(f.id as RecurrenceFrequency); markChanged(); if (f.id === 'monthly' && !selectedMonthDay) setSelectedMonthDay(new Date().getDate()); }}
                                     className={`py-2 rounded-xl text-[10px] font-black uppercase transition-all ${recurrenceFreq === f.id ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/10' : 'text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5'}`}>
                                     {f.label}
                                   </button>

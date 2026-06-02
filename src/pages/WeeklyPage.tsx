@@ -11,11 +11,13 @@ import { AISchedulerModal } from '@/components/AISchedulerModal';
 import AdonaiCalendarView from '@/components/calendar/AdonaiCalendarView';
 import { useCalendarEvents } from '@/hooks/useCalendarEvents';
 import { useCalendarIntegration } from '@/hooks/useCalendarIntegration';
+import { GoogleCalendarConnectModal } from '@/components/ui/google-calendar-connect-modal';
+import type { TaskLike } from '@/lib/taskTypes';
 
 const WeeklyPage = () => {
   const [selectedDay, setSelectedDay] = useState<Date>(new Date());
-  const [selectedTask, setSelectedTask] = useState<any>(null);
-  const [timerTask, setTimerTask] = useState<any>(null);
+  const [selectedTask, setSelectedTask] = useState<TaskLike | null>(null);
+  const [timerTask, setTimerTask] = useState<TaskLike | null>(null);
   const [completingTaskId, setCompletingTaskId] = useState<string | null>(null);
 
   const [aiModalOpen, setAiModalOpen] = useState(false);
@@ -29,7 +31,7 @@ const WeeklyPage = () => {
   const { tasks, updateTask } = useTasks(tasksFilter);
   const { profile } = useProfile();
 
-  const { connected: calendarConnected } = useCalendarIntegration();
+  const { connected: calendarConnected, hasConnectedBefore, isLoading: calendarIntegrationLoading } = useCalendarIntegration();
   const { events: googleCalendarEvents } = useCalendarEvents(
     new Date(weekStart).toISOString(),
     new Date(weekEnd).toISOString()
@@ -42,12 +44,12 @@ const WeeklyPage = () => {
 
   const selectedDayTasks = getTasksForDay(selectedDay);
 
-  const handleComplete = (task: any) => {
+  const handleComplete = (task: TaskLike) => {
     setCompletingTaskId(task.id);
     const hadActiveTimer = timerTask?.id === task.id;
     if (hadActiveTimer) setTimerTask(null);
 
-    const remainingTasks = selectedDayTasks.filter((t: any) => t.status !== 'done' && t.id !== task.id);
+    const remainingTasks = selectedDayTasks.filter((t) => t.status !== 'done' && t.id !== task.id);
     const isLastTask = selectedDayTasks.length > 0 && remainingTasks.length === 0;
 
     updateTask.mutate({ 
@@ -65,12 +67,12 @@ const WeeklyPage = () => {
     });
   };
 
-  const handleUncomplete = (task: any, e: React.MouseEvent) => {
+  const handleUncomplete = (task: TaskLike, e: React.MouseEvent) => {
     e.stopPropagation();
     updateTask.mutate({ id: task.id, status: 'pending', completed_at: null });
   };
 
-  const handleStartTimer = (task: any, e: React.MouseEvent) => {
+  const handleStartTimer = (task: TaskLike, e: React.MouseEvent) => {
     e.stopPropagation();
     setTimerTask(task);
   };
@@ -79,13 +81,18 @@ const WeeklyPage = () => {
 
   return (
       <div className="max-w-full mx-auto px-0 sm:px-4 pt-2 pb-10 space-y-4">
-        <section id="weekly-calendar-main" className="space-y-4 pt-2 px-0">
+        <section id="weekly-calendar-main" className="relative space-y-4 pt-2 px-0">
           <AdonaiCalendarView
             selectedDate={selectedDay}
             onSelectDate={setSelectedDay}
             dragDisabled={false}
             className="overflow-visible"
             googleEvents={googleCalendarEvents}
+          />
+
+          <GoogleCalendarConnectModal
+            open={!calendarIntegrationLoading && !calendarConnected && !hasConnectedBefore}
+            mode="inline"
           />
         </section>
 

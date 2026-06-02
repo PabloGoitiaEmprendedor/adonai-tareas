@@ -11,6 +11,7 @@ import {
   getPendingAnonymousEmailUpgradeUserId,
   clearAnonymousEmailUpgrade,
 } from '@/lib/anonymousSession';
+import { clearAdonaiStorage } from '@/lib/appStorage';
 
 interface AuthContextType {
   session: Session | null;
@@ -219,7 +220,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           saveSessionFlags(cached);
           setLoading(false);
         }
-      } catch (err) {
+      } catch (err: unknown) {
         console.error('[Auth] Init error:', err);
         if (mounted) setLoading(false);
       }
@@ -300,7 +301,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       saveSessionFlags(anonymousSession);
       setSession(anonymousSession);
       setUser(anonymousSession.user);
-    } catch (error) {
+    } catch (error: unknown) {
       setLoading(false);
       throw error;
     }
@@ -318,9 +319,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (wasAnonymous) {
         await signInAnonymously();
       }
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("Error signing out, forcing local clear", err);
-      localStorage.clear();
+      clearAdonaiStorage(localStorage);
       window.location.reload();
     }
   };
@@ -334,6 +335,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   );
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) throw new Error('useAuth must be used within AuthProvider');

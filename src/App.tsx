@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Target, Sparkles, Menu } from "lucide-react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -48,8 +48,11 @@ import DownloadGuideOverlay from '@/components/DownloadGuideOverlay';
 import DownloadGateModal from '@/components/DownloadGateModal';
 import { getAnalyticsExperience, setAnalyticsUser, trackAnalyticsEvent, trackPageView } from "@/lib/analytics";
 import CalendarCallback from "./pages/CalendarCallback";
+import CalendarSetupGuide from "./pages/CalendarSetupGuide";
 import SheetsCallback from "./pages/SheetsCallback";
 import { WeeklySummaryCollector } from "@/components/WeeklySummaryCollector";
+import { subscribeElectronEvent } from "@/lib/electronEvents";
+import OneSignalInitializer from '@/components/OneSignalInitializer';
 
 
 const queryClient = new QueryClient({
@@ -87,7 +90,7 @@ const AnalyticsRouteTracking = () => {
     trackAnalyticsEvent("app_surface_loaded", {
       app_experience: getAnalyticsExperience(location.pathname),
     });
-  }, []);
+  }, [location.pathname]);
 
   useEffect(() => {
     trackPageView(location.pathname + location.search);
@@ -163,6 +166,10 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const localOnboardingDone = localStorage.getItem('adonai_onboarding_done') === 'true';
   
   if (profile && !profile.onboarding_completed && !localOnboardingDone) {
+    // Si el usuario ya tiene nombre en su perfil, ya usó la app → saltar onboarding
+    if (profile.name) {
+      return <>{children}</>;
+    }
     return <Navigate to="/onboarding" replace />;
   }
 
@@ -190,6 +197,9 @@ const AppRoutes = () => {
     if (browserPath === '/mini') {
       return <MiniTasksPage />;
     }
+    if (browserPath === '/onboarding' || browserPath.startsWith('/onboarding?')) {
+      return <OnboardingPage />;
+    }
 
     if (loading) {
       return <LoadingScreen message="Sincronizando Adonai" />;
@@ -204,7 +214,12 @@ const AppRoutes = () => {
     // Primer uso en escritorio/local: mostrar la pantalla que pregunta si ya tiene cuenta.
     if (isElectron || isLocalHost) {
       // Respetar sesiones existentes para que una actualizacion no saque a nadie de su cuenta.
-      if (user) {
+      if (user && !user.is_anonymous) {
+        return <Navigate to="/daily" replace />;
+      }
+
+      // Si el usuario ya completó onboarding (aunque sea anónimo), ir directo a la app
+      if (user && localStorage.getItem('adonai_onboarding_done') === 'true') {
         return <Navigate to="/daily" replace />;
       }
 
@@ -230,6 +245,7 @@ const AppRoutes = () => {
         <Route path="/group-invite/:groupId" element={<GroupInvitePage />} />
         <Route path="/onboarding" element={<OnboardingPage />} />
         <Route path="/calendar-callback" element={appRouteElement(<CalendarCallback />)} />
+        <Route path="/calendar-setup" element={appRouteElement(<CalendarSetupGuide />)} />
         <Route path="/sheets-callback" element={appRouteElement(<SheetsCallback />)} />
         
         <Route 
@@ -268,7 +284,45 @@ const AppRoutes = () => {
   );
 };
 
+function parseVersion(v: string): number[] {
+  return v.replace(/^v/, '').split('.').map(Number);
+}
+
+function isNewer(latest: string, current: string): boolean {
+  const l = parseVersion(latest);
+  const c = parseVersion(current);
+  for (let i = 0; i < Math.max(l.length, c.length); i++) {
+    const a = l[i] ?? 0;
+    const b = c[i] ?? 0;
+    if (a !== b) return a > b;
+  }
+  return false;
+}
+
 const App = () => {
+  const [forcedUpdate, setForcedUpdate] = useState<{ version: string } | null>(null);
+
+  useEffect(() => {
+    const checkForcedUpdate = async () => {
+      try {
+        const res = await fetch('https://api.github.com/repos/PabloGoitiaEmprendedor/adonai-tareas/releases/latest');
+        if (!res.ok) return;
+        const data = await res.json();
+        const latestTag = data.tag_name || '';
+        const currentVersion = await window.electronAPI?.getAppVersion?.() || '';
+        if (latestTag && currentVersion && isNewer(latestTag, currentVersion)) {
+          setForcedUpdate({ version: latestTag.replace(/^v/, '') });
+        }
+      } catch {
+        // Silently fail – auto-updater will try anyway
+      }
+    };
+
+    if (window.electronAPI) {
+      checkForcedUpdate();
+    }
+  }, []);
+
   useEffect(() => {
     const browserPath = window.location.pathname.replace(/\/$/, '');
     if (!window.location.hash && (browserPath.startsWith('/invite/') || browserPath.startsWith('/group-invite/'))) {
@@ -301,8 +355,7 @@ const App = () => {
       }
     }
 
-    if (window.electronAPI?.onDeepLink) {
-      window.electronAPI.onDeepLink(async (url: string) => {
+    const unsubscribeDeepLink = subscribeElectronEvent(window.electronAPI?.onDeepLink, async (url: string) => {
         console.log("Received deep link:", url);
         
         // Handle calendar callback deep links
@@ -351,15 +404,17 @@ const App = () => {
           }
         }
       });
-    }
 
-    if (window.electronAPI?.onInvalidateQueries) {
-      window.electronAPI.onInvalidateQueries(() => {
+    const unsubscribeInvalidateQueries = subscribeElectronEvent(window.electronAPI?.onInvalidateQueries, () => {
         console.log("Global sync: Invalidate queries");
         queryClient.invalidateQueries({ queryKey: ['tasks'] });
         queryClient.invalidateQueries({ queryKey: ['profile'] });
       });
-    }
+
+    return () => {
+      unsubscribeDeepLink();
+      unsubscribeInvalidateQueries();
+    };
   }, []);
 
   return (
@@ -372,6 +427,7 @@ const App = () => {
             <AuthProvider>
               <AnalyticsRouteTracking />
               <AnalyticsIdentity />
+              <OneSignalInitializer />
               <NotificationManager />
               <WeeklySummaryCollector />
               <NavigationWrapper>
@@ -381,6 +437,9 @@ const App = () => {
               <DownloadGateModal />
             </AuthProvider>
           </HashRouter>
+          {forcedUpdate && (
+            <UpdateDialog forcedVersion={forcedUpdate.version} onDismiss={() => setForcedUpdate(null)} />
+          )}
         </TooltipProvider>
       </ThemeProvider>
     </QueryClientProvider>

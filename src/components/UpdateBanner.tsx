@@ -6,6 +6,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Download, RefreshCw, Check, X } from 'lucide-react';
+import { subscribeElectronEvent } from '@/lib/electronEvents';
 
 type UpdateStatus =
   | { status: 'checking' }
@@ -20,10 +21,10 @@ const UpdateBanner = () => {
   const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
-    const api = (window as any).electronAPI;
+    const api = window.electronAPI;
     if (!api?.onUpdateStatus) return;
 
-    api.onUpdateStatus((data: UpdateStatus) => {
+    return subscribeElectronEvent(api.onUpdateStatus, (data: UpdateStatus) => {
       setUpdate(data);
       setDismissed(false); // show again on new status
     });
@@ -35,7 +36,7 @@ const UpdateBanner = () => {
   if (update.status === 'checking' || update.status === 'up-to-date') return null;
 
   const handleRestart = () => {
-    const api = (window as any).electronAPI;
+    const api = window.electronAPI;
     api?.installUpdateNow?.();
   };
 

@@ -1,0 +1,106 @@
+import { useEffect, useRef } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
+import { useProfile } from '@/hooks/useProfile';
+import {
+  isOneSignalSupported,
+  getOnesignalAppId,
+  loginOneSignal,
+  logoutOneSignal,
+  addOnesignalTag,
+  setOnesignalEmail,
+} from '@/lib/onesignal';
+
+const isElectron = !!(
+  window.electronAPI ||
+  navigator.userAgent.toLowerCase().includes('electron') ||
+  (window.process && window.process.versions && !!window.process.versions.electron)
+);
+
+const OneSignalInitializer = () => {
+  const { user } = useAuth();
+  const { profile } = useProfile();
+  const identitySetRef = useRef(false);
+
+  useEffect(() => {
+    if (!isOneSignalSupported()) return;
+    if (isElectron) return;
+    if (getOnesignalAppId() === '__ONESIGNAL_APP_ID__') return;
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') return;
+  }, []);
+
+  useEffect(() => {
+    if (!user || !window.OneSignal) return;
+    if (isElectron) return;
+    if (getOnesignalAppId() === '__ONESIGNAL_APP_ID__') return;
+
+    if (identitySetRef.current) return;
+
+    const setupIdentity = async () => {
+      if (!user) return;
+
+      if (user.id) {
+        await loginOneSignal(user.id);
+      }
+
+      if (profile?.tier) {
+        addOnesignalTag('tier', profile.tier);
+      }
+
+      if (user.email) {
+        await setOnesignalEmail(user.email);
+      }
+
+      identitySetRef.current = true;
+    };
+
+    setupIdentity();
+  }, [user, profile]);
+
+  useEffect(() => {
+    if (!user && identitySetRef.current) {
+      identitySetRef.current = false;
+      logoutOneSignal();
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (!window.OneSignal) return;
+    if (isElectron) return;
+    if (getOnesignalAppId() === '__ONESIGNAL_APP_ID__') return;
+
+    const handlers: Array<() => void> = [];
+
+    const setupListeners = () => {
+      if (!window.OneSignal) return;
+
+      window.OneSignal.Notifications.addEventListener('click', (event: any) => {
+        const targetUrl = event?.data?.url || event?.data?.launchUrl;
+        if (targetUrl) {
+          window.location.hash = `#${targetUrl}`;
+        }
+      });
+
+      handlers.push(() => window.OneSignal.Notifications.removeEventListener('click', () => {}));
+    };
+
+    if (window.OneSignal) {
+      setupListeners();
+    } else {
+      const interval = setInterval(() => {
+        if (window.OneSignal) {
+          clearInterval(interval);
+          setupListeners();
+        }
+      }, 500);
+      handlers.push(() => clearInterval(interval));
+    }
+
+    return () => {
+      handlers.forEach((fn) => fn());
+    };
+  }, []);
+
+  return null;
+};
+
+export default OneSignalInitializer;

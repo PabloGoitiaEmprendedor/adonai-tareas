@@ -3,16 +3,12 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import OrbitalSystem from "@/components/ui/OrbitalSystem";
 import {
-  Apple,
   ArrowRight,
   Brain,
   CalendarDays,
   Check,
   ChevronRight,
-  Globe,
-  Loader2,
   MessageCircle,
-  Monitor,
   NotebookPen,
   User,
   VolumeX,
@@ -20,7 +16,6 @@ import {
 } from "lucide-react";
 import { PublicFooter } from "@/components/PublicFooter";
 import { PublicNav } from "@/components/PublicNav";
-import { startGuidedDownload } from "@/lib/downloadGuide";
 import { useAuth } from '@/contexts/AuthContext';
 import { useProfile } from '@/hooks/useProfile';
 
@@ -74,70 +69,10 @@ function IntroExperience() {
   );
 }
 
-function useDownload(platform: "win" | "mac") {
-  const [downloading, setDownloading] = useState(false);
-  const handleDownload = () => {
-    setDownloading(true);
-    startGuidedDownload(platform);
-    window.setTimeout(() => setDownloading(false), 3000);
-  };
-  return { downloading, handleDownload };
-}
-
-function PlatformChoiceModal({ onClose }: { onClose: () => void }) {
-  const chooseDownload = (platform: "win" | "mac") => {
-    startGuidedDownload(platform);
-    onClose();
-  };
-
-  return (
-    <div className="fixed inset-0 z-[90] flex items-end justify-center bg-[#151820]/58 p-3 backdrop-blur-sm sm:items-center">
-      <motion.div
-        initial={{ opacity: 0, y: 18, scale: 0.98 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        className="w-full max-w-md overflow-hidden rounded-[28px] border border-white/18 bg-white shadow-[0_28px_90px_rgba(21,24,32,0.28)]"
-      >
-        <div className="relative bg-[#151820] p-6 text-white">
-          <img src="/logo.png" alt="" className="absolute right-5 top-5 h-12 w-12 rounded-2xl object-contain opacity-20" />
-          <p className="text-[11px] font-black uppercase tracking-[0.22em] text-white/42">Elige tu entrada</p>
-          <h3 className="mt-3 max-w-xs text-2xl font-black leading-tight tracking-[-0.02em]">Como quieres descargar Adonai?</h3>
-          <p className="mt-2 text-sm font-semibold leading-relaxed text-white/58">La app de escritorio desbloquea la mini ventana y notificaciones nativas.</p>
-        </div>
-
-        <div className="space-y-2 p-4">
-          <button
-            onClick={() => chooseDownload("win")}
-            className="flex w-full items-center justify-between rounded-2xl border border-[#151820]/8 bg-[#F7F6F1] p-4 text-left transition hover:border-[#5B7CFA]/35 hover:bg-[#EEF3FF]"
-          >
-            <span>
-              <span className="block text-sm font-black text-[#151820]">Windows</span>
-              <span className="mt-0.5 block text-xs font-semibold text-[#151820]/50">Descarga la mini ventana para escritorio.</span>
-            </span>
-            <Monitor className="h-5 w-5 text-[#5B7CFA]" />
-          </button>
-
-          <button
-            onClick={() => chooseDownload("mac")}
-            className="flex w-full items-center justify-between rounded-2xl border border-[#151820]/8 bg-[#F7F6F1] p-4 text-left transition hover:border-[#5B7CFA]/35 hover:bg-[#EEF3FF]"
-          >
-            <span>
-              <span className="block text-sm font-black text-[#151820]">Mac</span>
-              <span className="mt-0.5 block text-xs font-semibold text-[#151820]/50">Descarga Adonai para macOS.</span>
-            </span>
-            <Apple className="h-5 w-5 text-[#5B7CFA]" />
-          </button>
-
-          <button onClick={onClose} className="w-full rounded-full px-4 py-3 text-xs font-black text-[#151820]/42 transition hover:text-[#151820]">
-            Volver
-          </button>
-        </div>
-      </motion.div>
-    </div>
-  );
-}
-
-function PrimaryCTA({ className = "", tone = "brand", label = "Descargar ahora" }: { className?: string; tone?: "brand" | "dark" | "light"; label?: string }) {
-  const [open, setOpen] = useState(false);
+function PrimaryCTA({ className = "", tone = "brand", label = "Comenzar Gratis" }: { className?: string; tone?: "brand" | "dark" | "light"; label?: string }) {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const isLoggedIn = !!user;
   const toneClass =
     tone === "dark"
       ? "bg-[#151820] text-white shadow-[0_18px_45px_rgba(21,24,32,0.22)] hover:bg-[#0B0F17]"
@@ -146,47 +81,12 @@ function PrimaryCTA({ className = "", tone = "brand", label = "Descargar ahora" 
       : "bg-[#5B7CFA] text-white shadow-[0_18px_45px_rgba(91,124,250,0.26)] hover:bg-[#4F6EE8]";
 
   return (
-    <>
-      <button
-        onClick={() => setOpen(true)}
-        className={`group inline-flex h-14 w-full items-center justify-center gap-2 rounded-full px-6 text-sm font-semibold transition hover:-translate-y-0.5 active:translate-y-0 sm:w-auto sm:px-7 ${toneClass} ${className}`}
-      >
-        {label}
-        <ArrowRight className="h-4 w-4 animate-[ctaArrow_1.15s_ease-in-out_infinite]" />
-      </button>
-      {open && <PlatformChoiceModal onClose={() => setOpen(false)} />}
-    </>
-  );
-}
-
-function WebButton({ label }: { label?: string }) {
-  const navigate = useNavigate();
-  const { user } = useAuth();
-  const isLoggedIn = !!user;
-  return (
     <button
       onClick={() => navigate(isLoggedIn ? "/daily" : "/welcome")}
-      className="inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-full bg-white/30 px-4 text-xs font-medium text-[#151820]/45 backdrop-blur transition hover:bg-white/60 hover:text-[#151820]/70 active:translate-y-0 sm:w-auto sm:px-5"
+      className={`group inline-flex h-14 w-full items-center justify-center gap-2 rounded-full px-6 text-sm font-semibold transition hover:-translate-y-0.5 active:translate-y-0 sm:w-auto sm:px-7 ${toneClass} ${className}`}
     >
-      <Globe className="h-3.5 w-3.5" />
-      {label ?? (isLoggedIn ? "Entrar" : "Usar version web")}
-    </button>
-  );
-}
-
-function DownloadButton({ platform, compact = false }: { platform: "win" | "mac"; compact?: boolean }) {
-  const { downloading, handleDownload } = useDownload(platform);
-  const Icon = platform === "win" ? Monitor : Apple;
-  return (
-    <button
-      onClick={handleDownload}
-      disabled={downloading}
-      className={`inline-flex items-center justify-center gap-2 rounded-full border border-[#151820]/12 bg-white px-5 font-black text-[#151820] shadow-sm transition hover:-translate-y-0.5 hover:border-[#151820]/24 disabled:opacity-60 ${
-        compact ? "h-11 text-xs" : "h-14 w-full text-sm sm:w-auto sm:px-6"
-      }`}
-    >
-      {downloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Icon className="h-4 w-4" />}
-      {downloading ? "Descargando..." : platform === "win" ? "Windows" : "Mac"}
+      {label}
+      <ArrowRight className="h-4 w-4 animate-[ctaArrow_1.15s_ease-in-out_infinite]" />
     </button>
   );
 }
@@ -217,7 +117,6 @@ function Hero() {
 
           <div className="mt-9 flex max-w-4xl flex-col items-start gap-3">
             <PrimaryCTA />
-            <WebButton label="Verlo en la web" />
           </div>
 
         </motion.div>
@@ -546,7 +445,7 @@ function VideoTutorial() {
           transition={{ duration: 0.5, ease: "easeOut", delay: 0.2 }}
           className="mt-10 text-center"
         >
-          <PrimaryCTA tone="dark" label="Descargar Adonai" />
+          <PrimaryCTA tone="dark" label="Comenzar Gratis" />
         </motion.div>
       </div>
     </section>
@@ -756,7 +655,6 @@ function Pricing() {
 
             <div className="mt-8 space-y-2">
               <PrimaryCTA />
-              <WebButton />
             </div>
           </motion.div>
 
@@ -871,9 +769,8 @@ function FinalCTA() {
           <p className="mx-auto mt-6 max-w-2xl text-lg font-semibold leading-relaxed text-[#151820]/62">
             Saca lo pendiente, mira lo importante y vuelve a ejecutar con calma.
           </p>
-          <div className="mt-10 flex flex-col justify-center gap-3">
+          <div className="mt-10 flex justify-center">
             <PrimaryCTA />
-            <WebButton />
           </div>
         </motion.div>
       </div>

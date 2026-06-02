@@ -9,7 +9,7 @@ export const useSettings = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
-  const { data: settings } = useQuery({
+  const { data: settings, isLoading } = useQuery({
     queryKey: ['settings', user?.id],
     queryFn: async () => {
       if (!user) return null;
@@ -38,5 +38,5 @@ export const useSettings = () => {
     },
   });
 
-  return { settings, updateSettings };
+  return { settings, isLoading, updateSettings };
 };
