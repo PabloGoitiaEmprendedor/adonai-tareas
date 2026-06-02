@@ -1,5 +1,10 @@
 [
   {
+    "version": "1.0.156",
+    "notes": "Public desktop release with invisible background updates, session persistence hardening, onboarding routines fix, OAuth callback routing, console cleanup",
+    "pub_date": "2026-06-02T07:14:43Z"
+  },
+  {
     "version": "1.0.155",
     "notes": "Invisible desktop updates, session persistence hardening, onboarding routines fix, OAuth callback routing, console cleanup",
     "pub_date": "2026-06-02T06:45:00Z"
