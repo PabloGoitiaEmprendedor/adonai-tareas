@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProfile } from '@/hooks/useProfile';
+import { useNavigate } from 'react-router-dom';
 import {
   isOneSignalSupported,
   getOnesignalAppId,
@@ -16,9 +17,17 @@ const isElectron = !!(
   (window.process && window.process.versions && !!window.process.versions.electron)
 );
 
+type NotificationClickEvent = {
+  data?: {
+    url?: string;
+    launchUrl?: string;
+  };
+};
+
 const OneSignalInitializer = () => {
   const { user } = useAuth();
   const { profile } = useProfile();
+  const navigate = useNavigate();
   const identitySetRef = useRef(false);
 
   useEffect(() => {
@@ -73,14 +82,15 @@ const OneSignalInitializer = () => {
     const setupListeners = () => {
       if (!window.OneSignal) return;
 
-      window.OneSignal.Notifications.addEventListener('click', (event: any) => {
+      const handleNotificationClick = (event: NotificationClickEvent) => {
         const targetUrl = event?.data?.url || event?.data?.launchUrl;
         if (targetUrl) {
-          window.location.hash = `#${targetUrl}`;
+          navigate(targetUrl.startsWith('/') ? targetUrl : `/${targetUrl}`);
         }
-      });
+      };
 
-      handlers.push(() => window.OneSignal.Notifications.removeEventListener('click', () => {}));
+      window.OneSignal.Notifications.addEventListener('click', handleNotificationClick);
+      handlers.push(() => window.OneSignal.Notifications.removeEventListener('click', handleNotificationClick));
     };
 
     if (window.OneSignal) {
@@ -98,7 +108,7 @@ const OneSignalInitializer = () => {
     return () => {
       handlers.forEach((fn) => fn());
     };
-  }, []);
+  }, [navigate]);
 
   return null;
 };

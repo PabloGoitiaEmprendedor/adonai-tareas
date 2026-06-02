@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Target, Sparkles, Menu } from "lucide-react";
+import { motion } from "framer-motion";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { HashRouter, Route, Routes, Navigate, useNavigate, useLocation } from "react-router-dom";
+import { BrowserRouter, HashRouter, Route, Routes, Navigate, useNavigate, useLocation } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
@@ -53,6 +52,8 @@ import SheetsCallback from "./pages/SheetsCallback";
 import { WeeklySummaryCollector } from "@/components/WeeklySummaryCollector";
 import { subscribeElectronEvent } from "@/lib/electronEvents";
 import OneSignalInitializer from '@/components/OneSignalInitializer';
+import { BrandLogo } from '@/components/BrandLogo';
+import { getLegacyWebRouteRedirect } from '@/lib/webRouteBridge';
 
 
 const queryClient = new QueryClient({
@@ -69,6 +70,12 @@ const queryClient = new QueryClient({
 });
 
 import NavigationWrapper from "@/components/NavigationWrapper";
+
+const isElectronRenderer = () => !!(
+  window.electronAPI ||
+  navigator.userAgent.toLowerCase().includes('electron') ||
+  (window.process && window.process.versions && !!window.process.versions.electron)
+);
 
 const ThemeSync = () => {
   const { setTheme } = useTheme();
@@ -124,9 +131,12 @@ const LoadingScreen = ({ message }: { message: string }) => (
       transition={{ duration: 0.8 }}
       className="flex flex-col items-center gap-8"
     >
-      <div className="relative">
-        <Menu className="w-8 h-8 text-on-surface-variant" />
-      </div>
+      <motion.div
+        animate={{ rotate: 360 }}
+        transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
+      >
+        <BrandLogo className="h-16 w-16 drop-shadow-[0_0_18px_rgba(91,124,250,0.28)]" />
+      </motion.div>
 
       <div className="flex flex-col items-center gap-3">
         <p className="text-[9px] font-bold text-on-surface-variant uppercase tracking-[0.6em] ml-[0.6em]">
@@ -178,6 +188,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
 const AppRoutes = () => {
   const { user, loading } = useAuth();
+  const location = useLocation();
   const browserPath = window.location.pathname.replace(/\/$/, '');
   
   const isElectron = !!window.electronAPI || 
@@ -232,7 +243,7 @@ const AppRoutes = () => {
   return (
     <>
       <ThemeSync />
-      <Routes>
+      <Routes location={location} key={location.key}>
         <Route path="/mini" element={<MiniTasksPage />} />
         <Route path="/toast" element={<ToastPage />} />
         <Route path="/welcome" element={
@@ -285,15 +296,15 @@ const AppRoutes = () => {
 };
 
 const App = () => {
+  const Router = isElectronRenderer() ? HashRouter : BrowserRouter;
+
   useEffect(() => {
     const browserPath = window.location.pathname.replace(/\/$/, '');
-    if (!window.location.hash && (browserPath.startsWith('/invite/') || browserPath.startsWith('/group-invite/'))) {
-      window.location.replace(`${window.location.origin}/#${browserPath}`);
-      return;
-    }
-
-    if (!window.location.hash && (browserPath === '/calendar-callback' || browserPath === '/sheets-callback')) {
-      window.location.replace(`${window.location.origin}/#${browserPath}${window.location.search}`);
+    const legacyWebRouteRedirect = !isElectronRenderer()
+      ? getLegacyWebRouteRedirect(window.location)
+      : null;
+    if (legacyWebRouteRedirect) {
+      window.location.replace(legacyWebRouteRedirect);
       return;
     }
 
@@ -385,7 +396,7 @@ const App = () => {
         <TooltipProvider>
           <Sonner position="bottom-right" duration={4000} />
           <AdonaiNotifier />
-          <HashRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+          <Router future={{ v7_relativeSplatPath: true }}>
             <AuthProvider>
               <AnalyticsRouteTracking />
               <AnalyticsIdentity />
@@ -398,7 +409,7 @@ const App = () => {
               <DownloadGuideOverlay />
               <DownloadGateModal />
             </AuthProvider>
-          </HashRouter>
+          </Router>
         </TooltipProvider>
       </ThemeProvider>
     </QueryClientProvider>

@@ -34,3 +34,6 @@ public/Adonai-Setup.exe
 
 # Vite timestamp files
 vite.config.ts.timestamp-*.mjs
+
+# Vendored ECC repo (kept locally, not pushed)
+.vendor/

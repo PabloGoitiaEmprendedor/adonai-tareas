@@ -140,9 +140,9 @@ const OnboardingPage = () => {
       setShowCalendarSetupHelp(true);
       const calendarStepIndex = ONBOARDING_STEPS.indexOf('calendar_choice');
       if (calendarStepIndex >= 0) setCurrentStepIndex(calendarStepIndex);
-      window.history.replaceState({}, '', '/onboarding');
+      navigate('/onboarding', { replace: true });
     }
-  }, []);
+  }, [navigate]);
 
   const handleLinkPaste = <T extends { link: string }>(
     event: ClipboardEvent<HTMLInputElement>,

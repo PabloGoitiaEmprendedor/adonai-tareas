@@ -26,17 +26,10 @@ const isMissingAdminNotificationsTable = (error: { code?: string; message?: stri
 const sendExternalNotification = async (title: string, body: string, type: 'info' | 'warning' | 'success' = 'info') => {
   if (!canNotify()) return false;
 
-  window.dispatchEvent(new CustomEvent('adonai:notify', {
-    detail: { title, message: body, type },
-  }));
-
-  const shouldShowNative = !!window.electronAPI?.showNotification && document.visibilityState !== 'visible';
-  if (shouldShowNative) {
+  if (window.electronAPI?.showNotification) {
     window.electronAPI.showNotification(title, body, type);
     return true;
   }
-
-  if (window.electronAPI?.showNotification) return true;
 
   if (!('Notification' in window)) return false;
   if (Notification.permission === 'default') {

@@ -19,6 +19,8 @@ import { PublicNav } from "@/components/PublicNav";
 import { useAuth } from '@/contexts/AuthContext';
 import { useProfile } from '@/hooks/useProfile';
 
+const INTRO_VISIBLE_MS = 850;
+
 const fadeUp = {
   initial: { opacity: 0, y: 18 },
   whileInView: { opacity: 1, y: 0 },
@@ -32,7 +34,7 @@ function IntroExperience() {
   useEffect(() => {
     if (!visible) return;
     sessionStorage.setItem("adonaiLandingIntroSeen", "true");
-    const timer = window.setTimeout(() => setVisible(false), 2500);
+    const timer = window.setTimeout(() => setVisible(false), INTRO_VISIBLE_MS + 150);
     return () => window.clearTimeout(timer);
   }, [visible]);
 
@@ -40,29 +42,17 @@ function IntroExperience() {
     <AnimatePresence>
       {visible && (
         <motion.div
-          initial={{ opacity: 1 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 1.15, ease: "easeInOut" }}
-          className="fixed inset-0 z-[120] flex items-center justify-center overflow-hidden bg-[#151820] text-white"
+          onAnimationEnd={() => setVisible(false)}
+          className="pointer-events-none fixed inset-0 z-[120] flex items-center justify-center overflow-hidden bg-[#151820] text-white animate-[adonaiLandingIntro_850ms_ease-in-out_forwards]"
         >
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_42%,rgba(91,124,250,0.34),transparent_36%)]" />
-          <motion.div
-            initial={{ opacity: 0, scale: 0.96 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 1.015 }}
-            transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
-            className="relative flex flex-col items-center px-6 text-center"
-          >
-            <motion.img
+          <div className="relative flex flex-col items-center px-6 text-center">
+            <img
               src="/logo.png"
               alt="Adonai"
-              initial={{ scale: 0.86, rotate: -5 }}
-              animate={{ scale: [0.86, 1.04, 1], rotate: [-5, 2, 0] }}
-              transition={{ duration: 1.1, ease: "easeOut" }}
               className="h-24 w-24 rounded-[30px] object-contain shadow-[0_28px_80px_rgba(91,124,250,0.34)]"
             />
-          </motion.div>
+          </div>
         </motion.div>
       )}
     </AnimatePresence>
@@ -377,7 +367,9 @@ function ClickToPlayVideo({ src }: { src: string }) {
     try {
       await video.play();
       setActivated(true);
-    } catch {}
+    } catch {
+      // Browsers may keep playback blocked until a later user gesture.
+    }
   };
 
   return (

@@ -173,9 +173,9 @@ const SettingsPage = () => {
         toast.error(message);
       })
       .finally(() => {
-        window.history.replaceState(null, '', `${window.location.origin}${window.location.pathname}#/settings`);
+        navigate('/settings', { replace: true });
       });
-  }, [notion.databases]);
+  }, [navigate, notion.databases]);
 
   const reviewTasks = notionImportTasks.filter((task) => notionReviewTaskIds.includes(task.notion_page_id));
   const allReviewTasksReady = reviewTasks.every((task) => task.due_date && task.urgency !== null && task.importance !== null);
