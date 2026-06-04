@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSettings } from "./useSettings";
+import { createGoogleOAuthState } from "@/lib/googleOAuthState";
 
 const readableFunctionError = async (error: unknown) => {
   const fallback = error instanceof Error ? error.message : "No se pudo completar la operacion";
@@ -49,12 +50,13 @@ export const useSheetsIntegration = () => {
       const redirectUri = isElectron
         ? "https://adonai-tareas.vercel.app/sheets-callback"
         : `${window.location.origin}/sheets-callback`;
+      const state = createGoogleOAuthState("sheets", isElectron);
       
       const data = await invokeFunction<{ url?: string }>("google-auth", {
         action: "get-url",
         redirect_uri: redirectUri,
         service: "sheets",
-        state: isElectron ? "desktop" : undefined,
+        state,
       });
       if (!data?.url) throw new Error("No se pudo iniciar la conexion con Google Sheets");
 

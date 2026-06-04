@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { isGoogleOAuthDesktopState, validateGoogleOAuthState } from '@/lib/googleOAuthState';
 import { motion } from 'framer-motion';
 import { Check, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -23,8 +24,7 @@ const SheetsCallback = () => {
  return;
  }
 
- // If state is 'desktop', redirect to the desktop application custom protocol
- if (state === 'desktop') {
+ if (isGoogleOAuthDesktopState(state) && !window.electronAPI) {
  setStatus('redirecting');
  window.location.href = `adonai-tasks://sheets-callback?code=${code}&state=${state}`;
  return;
@@ -33,6 +33,10 @@ const SheetsCallback = () => {
  if (!user) return;
 
  try {
+ if (!validateGoogleOAuthState(state, 'sheets')) {
+ throw new Error('Estado OAuth invalido o expirado');
+ }
+
  console.log("Invoking google-auth callback for Google Sheets, user:", user?.id);
  const isElectron = !!window.electronAPI;
  const redirect_uri = isElectron

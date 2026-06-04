@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSettings } from "./useSettings";
 import { useEffect, useMemo } from "react";
+import { createGoogleOAuthState } from "@/lib/googleOAuthState";
 
 const CALENDAR_CONNECTED_ONCE_KEY = "adonai_calendar_connected_once";
 
@@ -65,11 +66,12 @@ export const useCalendarIntegration = () => {
       const redirectUri = isElectron
         ? "https://adonai-tareas.vercel.app/calendar-callback"
         : `${window.location.origin}/calendar-callback`;
+      const state = createGoogleOAuthState("calendar", isElectron);
       
       const data = await invokeFunction<{ url?: string }>("google-auth", {
         action: "get-url",
         redirect_uri: redirectUri,
-        state: isElectron ? "desktop" : undefined,
+        state,
       });
       if (!data?.url) throw new Error("No se pudo iniciar la conexión con Google Calendar");
 

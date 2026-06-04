@@ -1,13 +1,24 @@
 import { useEffect, useRef, useState, memo, type CSSProperties } from 'react';
 import { motion } from 'framer-motion';
-import { Check, Paperclip, X } from 'lucide-react';
+import { Paperclip } from 'lucide-react';
 import { useTasks } from '@/hooks/useTasks';
 import { usePriorityColors } from '@/hooks/usePriorityColors';
 import { TaskCheckbox } from './TaskCheckbox';
 import { TaskDurationBadge, TaskTimerButton } from './TaskTime';
 
-interface TaskCardProps {
-  task: any;
+type TaskCardTask = {
+  id: string;
+  title?: string;
+  link?: string | null;
+  actual_duration_seconds?: number | null;
+  estimated_minutes?: number | null;
+  urgency?: boolean | null;
+  importance?: boolean | null;
+  status?: string | null;
+};
+
+interface TaskCardProps<TTask extends TaskCardTask> {
+  task: TTask;
   taskIdx: number;
   isDone: boolean;
   completingTaskId: string | null;
@@ -20,17 +31,17 @@ interface TaskCardProps {
   handleTouchMove?: (e: React.TouchEvent) => void;
   handleTouchEnd?: () => void;
   handlePointerReorderStart?: (idx: number, clientX: number, clientY: number) => void;
-  setSelectedTask: (task: any) => void;
-  handleComplete: (task: any, e: React.MouseEvent) => void;
-  handleUncomplete: (task: any, e: React.MouseEvent) => void;
-  handleStartTimer: (task: any, e: React.MouseEvent) => void;
+  setSelectedTask: (task: TTask) => void;
+  handleComplete: (task: TTask, e: React.MouseEvent) => void;
+  handleUncomplete: (task: TTask, e: React.MouseEvent) => void;
+  handleStartTimer: (task: TTask, e: React.MouseEvent) => void;
   view: 'daily' | 'weekly';
   hideTimer?: boolean;
   highlighted?: boolean;
   notebookView?: boolean;
 }
 
-export const TaskCard = memo(({
+const TaskCardComponent = <TTask extends TaskCardTask,>({
   task,
   taskIdx,
   isDone,
@@ -51,14 +62,15 @@ export const TaskCard = memo(({
   hideTimer = true,
   highlighted = false,
   notebookView = false
-}: TaskCardProps) => {
+}: TaskCardProps<TTask>) => {
   const { updateTask } = useTasks();
   const [isEditing, setIsEditing] = useState(false);
-  const [editedTitle, setEditedTitle] = useState(task.title);
+  const [editedTitle, setEditedTitle] = useState(task.title || '');
   const titleTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dragStartedRef = useRef(false);
   const cardBodyRef = useRef<HTMLDivElement | null>(null);
+  const skipNextBlurSubmitRef = useRef(false);
 
   const resizeTitleEditor = () => {
     const editor = titleTextareaRef.current;
@@ -73,7 +85,8 @@ export const TaskCard = memo(({
   }, [isEditing, editedTitle]);
 
   const cancelEdit = () => {
-    setEditedTitle(task.title);
+    skipNextBlurSubmitRef.current = true;
+    setEditedTitle(task.title || '');
     setIsEditing(false);
     window.dispatchEvent(new CustomEvent('adonai:task-editing-change', { detail: { active: false } }));
   };
@@ -85,6 +98,28 @@ export const TaskCard = memo(({
     }
     setIsEditing(false);
     window.dispatchEvent(new CustomEvent('adonai:task-editing-change', { detail: { active: false } }));
+  };
+
+  const startTitleEdit = () => {
+    skipNextBlurSubmitRef.current = false;
+    setIsEditing(true);
+    setEditedTitle(task.title || '');
+    window.dispatchEvent(new CustomEvent('adonai:task-editing-change', { detail: { active: true } }));
+  };
+
+  const handleEditorBlur = () => {
+    if (skipNextBlurSubmitRef.current) {
+      skipNextBlurSubmitRef.current = false;
+      return;
+    }
+    submitEdit();
+  };
+
+  const openTaskDetails = (event: React.MouseEvent) => {
+    const target = event.target as HTMLElement;
+    if (target.closest('[data-drag-handle], [data-no-drag], button, a, input, textarea, select')) return;
+    if (isEditing || dragIdx === taskIdx || dragStartedRef.current) return;
+    setSelectedTask(task);
   };
 
   const handleBodyTouchStart = (e: React.TouchEvent) => {
@@ -131,6 +166,11 @@ export const TaskCard = memo(({
     background: 'transparent',
     borderRadius: '18px 15px 20px 16px',
   } as CSSProperties;
+  const dragHandleStyle: CSSProperties & { WebkitTouchCallout?: string } = {
+    touchAction: 'none',
+    WebkitTouchCallout: 'none',
+    userSelect: 'none',
+  };
 
   return (
     <motion.div
@@ -141,6 +181,7 @@ export const TaskCard = memo(({
       data-task-idx={taskIdx}
       data-task-id={task.id}
       onDragEnd={() => handleDragEnd?.()}
+      onClick={openTaskDetails}
       initial={view === 'daily' ? { opacity: 0 } : { opacity: 0, scale: 0.98 }}
       animate={{ opacity: 1 }}
       exit={view === 'daily' ? { opacity: 0, transition: { duration: 0.08 } } : undefined}
@@ -154,7 +195,7 @@ export const TaskCard = memo(({
         highlighted ? 'ring-2 ring-primary/40 bg-primary/5' : ''
       } ${
         dragIdx === taskIdx ? 'border-primary/55 bg-primary/5 ring-2 ring-primary/45 shadow-[0_0_18px_rgba(99,102,241,0.24)]' : ''
-      } border-x-transparent border-t-transparent hover:border-primary/18 ${notebookView ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'}`}
+      } border-x-transparent border-t-transparent hover:border-primary/18 cursor-pointer`}
     >
         {/* Drag handle (desktop + mobile): the only area that starts drag */}
       {(
@@ -222,7 +263,7 @@ export const TaskCard = memo(({
               handleTouchEnd?.();
             }
           }}
-          style={{ touchAction: 'none', WebkitTouchCallout: 'none' as any, userSelect: 'none' }}
+          style={dragHandleStyle}
         >
           <span className="flex flex-col gap-0.5">
             <span className="block h-1 w-1 rounded-full bg-current opacity-70" />
@@ -281,11 +322,11 @@ export const TaskCard = memo(({
 
       <div className={`relative z-10 flex flex-1 min-w-0 flex-col justify-center ${notebookView ? 'pr-0.5' : 'pr-2'}`}>
         <div className="flex min-w-0 items-start gap-2">
-          <div className={`min-w-0 text-[14px] font-semibold tracking-normal transition-all flex flex-1 items-start gap-2 font-headline ${
+          <div className={`min-w-0 text-[12.5px] md:text-[14px] font-semibold tracking-normal transition-all flex flex-1 items-start gap-2 font-headline ${
             isDone || completingTaskId === task.id ? 'text-on-surface-variant/30 line-through' : 'text-foreground'
           }`}>
             {isEditing ? (
-              <>
+              <div className="min-w-0 flex-1" data-no-drag="true">
                 <textarea
                   ref={titleTextareaRef}
                   autoFocus
@@ -296,6 +337,7 @@ export const TaskCard = memo(({
                     target.style.height = 'auto';
                     target.style.height = Math.min(target.scrollHeight, 220) + 'px';
                   }}
+                  onBlur={handleEditorBlur}
                   onKeyDown={e => {
                     if (e.key === 'Enter' && !e.shiftKey) {
                       e.preventDefault();
@@ -306,40 +348,22 @@ export const TaskCard = memo(({
                   onClick={e => e.stopPropagation()}
                   draggable={false}
                   data-no-drag="true"
-                  className="notebook-task-editor cursor-edit relative z-10 min-h-[28px] min-w-0 flex-1 bg-transparent px-1 focus:outline-none resize-none overflow-hidden leading-snug"
+                  className="notebook-task-editor cursor-edit relative z-10 min-h-[1.35em] w-full min-w-0 bg-transparent px-1 focus:outline-none resize-none overflow-hidden leading-[1.2]"
                   rows={Math.max(1, editedTitle.split('\n').length)}
                   spellCheck={false}
                 />
-                <div className="flex items-start gap-1.5 pt-0.5" data-no-drag="true" onClick={(e) => e.stopPropagation()}>
-                  <button
-                    type="button"
-                    className="h-8 w-8 rounded-xl border border-outline-variant/20 bg-surface/40 text-primary hover:bg-surface/70 active:scale-95 transition-all flex items-center justify-center cursor-click"
-                    onClick={submitEdit}
-                    aria-label="Guardar"
-                    title="Guardar"
-                  >
-                    <Check className="h-4 w-4" strokeWidth={3} />
-                  </button>
-                  <button
-                    type="button"
-                    className="h-8 w-8 rounded-xl border border-outline-variant/20 bg-surface/40 text-muted-foreground hover:bg-surface/70 active:scale-95 transition-all flex items-center justify-center cursor-click"
-                    onClick={cancelEdit}
-                    aria-label="Cancelar"
-                    title="Cancelar"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-              </>
+              </div>
             ) : (
-              <span 
-                className="notebook-task-editor cursor-edit relative z-10 block min-w-0 flex-1 rounded px-1 -ml-1 transition-colors hover:bg-on-surface-variant/5 hover:text-primary leading-snug"
-                onClick={(e) => { e.stopPropagation(); setIsEditing(true); setEditedTitle(task.title); window.dispatchEvent(new CustomEvent('adonai:task-editing-change', { detail: { active: true } })); }}
-                draggable={false}
-                data-no-drag="true"
-              >
-                {task.title}
-              </span>
+              <div className="min-w-0 flex-1">
+                <span 
+                  className="notebook-task-editor cursor-edit relative z-10 inline max-w-full rounded px-1 -ml-1 leading-[1.2] transition-colors hover:bg-on-surface-variant/5 hover:text-primary"
+                  onClick={(e) => { e.stopPropagation(); startTitleEdit(); }}
+                  draggable={false}
+                  data-no-drag="true"
+                >
+                  {task.title}
+                </span>
+              </div>
             )}
 
             {isDone && task.actual_duration_seconds > 0 && (
@@ -354,20 +378,10 @@ export const TaskCard = memo(({
         </div>
       </div>
       
-      <button
-        type="button"
-        className="relative z-10 min-h-8 w-10 flex-shrink-0 appearance-none rounded-xl border-0 bg-transparent p-0 transition-colors hover:bg-on-surface-variant/5 focus:outline-none focus:ring-2 focus:ring-primary/25 md:w-14"
-        title="Abrir detalles"
-        aria-label="Abrir detalles de la tarea"
-        onClick={(e) => {
-          e.stopPropagation();
-          if (dragIdx === taskIdx) return;
-          setSelectedTask(task);
-        }}
-      />
-
       <div className="relative z-10 flex items-center gap-1.5 flex-shrink-0 flex-wrap justify-end max-w-[45%]">
       </div>
     </motion.div>
   );
-});
+};
+
+export const TaskCard = memo(TaskCardComponent) as typeof TaskCardComponent;

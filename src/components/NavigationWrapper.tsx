@@ -1,10 +1,10 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { NotebookTabs, Users, User, Calendar, Settings, Menu, Target, Trophy, BarChart3, Sun, History, Palette, X, Flame, MessageSquare } from 'lucide-react';
+import { Users, User, Calendar, Settings, Target, Trophy, BarChart3, Sun, History, Palette, X, Flame, MessageSquare, MoreVertical, Link2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 
-import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { MobileBottomIsland } from '@/components/MobileBottomIsland';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -16,8 +16,6 @@ import FirstTaskSignupModal from './FirstTaskSignupModal';
 import ExitIntentModal from './ExitIntentModal';
 import PostOnboardingVideoTutorial from './PostOnboardingVideoTutorial';
 import { useTasks } from '@/hooks/useTasks';
-import { usePriorityColors, getPriorityKey } from '@/hooks/usePriorityColors';
-import { MobileDynamicIsland } from '@/components/ui/mobile-task-island';
 import FAB from '@/components/FAB';
 import TaskCaptureModal, { type TaskCaptureModalHandle } from '@/components/TaskCaptureModal';
 import QuickRecurrenceFlow from '@/components/QuickRecurrenceFlow';
@@ -33,6 +31,7 @@ import AchievementsPage from '@/pages/AchievementsPage';
 import AppSettingsPage from '@/pages/SettingsPage';
 import PrioritySettingsPage from '@/pages/PrioritySettingsPage';
 import TrashPage from '@/pages/TrashPage';
+import { writeCalendarDate, writeCalendarViewMode } from '@/lib/calendarStateSync';
 
 // Detect if running inside Electron (desktop app)
 const isElectronEnv: boolean =
@@ -85,147 +84,6 @@ interface NavigationWrapperProps {
   children: React.ReactNode;
 }
 
-const ProfileProgress = ({ metrics }: { metrics: any }) => (
-  <div className="grid grid-cols-2 gap-2 pt-1 w-full">
-    <div className="relative overflow-hidden rounded-2xl border border-[#E65100]/20 bg-gradient-to-br from-[#E65100]/16 to-[#FFB300]/5 px-2 py-1.5 shadow-sm">
-      <div className="absolute -right-3 -top-3 h-10 w-10 rounded-full bg-[#E65100]/25 blur-xl" />
-      <div className="relative flex items-center gap-1.5">
-        <div className="relative flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg bg-[#E65100]/15">
-          <span className="absolute h-4 w-4 rounded-full bg-[#E65100]/25 blur-md animate-pulse" />
-          <Flame className="relative z-10 h-3.5 w-3.5 text-[#E65100] fill-[#E65100]/35 drop-shadow-[0_0_6px_rgba(230,81,0,0.35)]" />
-        </div>
-        <div className="min-w-0">
-          <p className="text-[7.5px] font-black uppercase tracking-[0.16em] text-[#E65100]/70">Racha</p>
-          <p className="text-xs font-black leading-none text-foreground">{metrics?.streak_current || 0}d</p>
-        </div>
-      </div>
-    </div>
-
-    <div className="relative overflow-hidden rounded-2xl border border-[#FFD700]/25 bg-gradient-to-br from-[#FFD700]/18 to-[#F59E0B]/5 px-2 py-1.5 shadow-sm">
-      <div className="absolute -right-3 -top-3 h-10 w-10 rounded-full bg-[#FFD700]/25 blur-xl" />
-      <div className="relative flex items-center gap-1.5">
-        <div className="relative flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg bg-[#FFD700]/15">
-          <span className="absolute h-4 w-4 rounded-full bg-[#FFD700]/25 blur-md animate-pulse" />
-          <Trophy className="relative z-10 h-3.5 w-3.5 text-[#D9A600] fill-[#FFD700]/35 drop-shadow-[0_0_6px_rgba(255,215,0,0.35)]" />
-        </div>
-        <div className="min-w-0">
-          <p className="text-[7.5px] font-black uppercase tracking-[0.16em] text-[#B88A00]/75">Nivel</p>
-          <p className="text-xs font-black leading-none text-foreground">{metrics?.level || 1}</p>
-        </div>
-      </div>
-    </div>
-  </div>
-);
-
-const SidebarContent = ({ user, profile, metrics, menuItems, location, handleNavigate, startTutorial, isSheet, toggleSidebar }: any) => {
-
-  return (
-  <div className="flex flex-col h-full bg-surface text-foreground">
-    <div className={`p-5 border-b border-outline-variant flex flex-col gap-3.5 ${isSheet ? 'pr-16' : ''}`}>
-      <div className="flex items-center justify-between gap-3">
-        <div 
-          onClick={() => handleNavigate('/profile')}
-          className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity group flex-1 min-w-0"
-        >
-          <div className="w-11 h-11 rounded-2xl bg-surface-container flex items-center justify-center border border-outline-variant group-hover:bg-surface-container-high transition-colors flex-shrink-0">
-            <User className="w-5 h-5 text-primary" />
-          </div>
-          <div className="flex flex-col min-w-0">
-            <span className="text-sm font-black text-foreground truncate tracking-tight">
-              {((profile?.name && profile.name.trim()) || 
-                 (user?.user_metadata?.full_name && user.user_metadata.full_name.trim()) || 
-                 user?.email?.split('@')[0] || 
-                 'Mi Espacio')}
-            </span>
-
-          </div>
-        </div>
-
-        {!isSheet && (
-          <button 
-            onClick={toggleSidebar}
-            className="w-9 h-9 rounded-xl hover:bg-surface-container flex items-center justify-center text-on-surface-variant transition-colors flex-shrink-0"
-            aria-label={"Cerrar men\u00fa"}
-          >
-            <Menu className="w-4 h-4" />
-          </button>
-        )}
-      </div>
-
-      <ProfileProgress metrics={metrics} />
-    </div>
-    
-    <div className="flex-1 overflow-y-auto py-4">
-      <div className="px-3 space-y-1">
-        {menuItems.map((item: any) => (
-          (() => {
-            const active = location.pathname === item.path || item.activePaths?.includes(location.pathname);
-            return (
-          <Button
-            key={item.path}
-            id={`nav-${item.path.replace('/', '') || 'today'}`}
-            variant="ghost"
-            onClick={() => handleNavigate(item.path)}
-            className={`w-full justify-start gap-4 h-12 rounded-xl transition-all duration-300 ${
-              active
-                ? 'bg-primary/20 text-foreground font-bold' 
-                : 'text-on-surface-variant hover:bg-surface-container hover:text-foreground'
-            }`}
-          >
-            <span className="relative flex h-5 w-5 items-center justify-center">
-              <item.icon className={`w-5 h-5 ${active ? 'text-foreground' : ''}`} />
-              {item.badge > 0 && (
-                <span className="absolute -right-2 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-black leading-none text-white">
-                  {item.badge > 99 ? '99+' : item.badge}
-                </span>
-              )}
-            </span>
-            <span className="text-sm tracking-wide">{item.label}</span>
-            {item.badge > 0 && (
-              <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-black leading-none text-white shadow-sm shadow-red-500/30">
-                {item.badge > 99 ? '99+' : item.badge}
-              </span>
-            )}
-          </Button>
-            );
-          })()
-        ))}
-
-        {/* Admin panel - CEO only */}
-        {user?.email === 'pablogoitiaemprendedor@gmail.com' && (
-          <Button
-            variant="ghost"
-            onClick={() => handleNavigate('/admin')}
-            className={`w-full justify-start gap-4 h-12 rounded-xl transition-all duration-300 ${
-              location.pathname === '/admin' 
-                ? 'bg-primary/20 text-foreground font-bold' 
-                : 'text-on-surface-variant hover:bg-surface-container hover:text-foreground'
-            }`}
-          >
-            <BarChart3 className={`w-5 h-5 ${location.pathname === '/admin' ? 'text-foreground' : ''}`} />
-            <span className="text-sm tracking-wide">Admin Panel</span>
-          </Button>
-        )}
-      </div>
-
-    </div>
-
-    {user?.is_anonymous && (
-      <div className="p-6 border-t border-outline-variant space-y-3">
-        <Button 
-          onClick={() => handleNavigate('/auth')} 
-          variant="default" 
-          className="w-full justify-start gap-4 h-12 bg-primary text-black hover:bg-primary/90 rounded-xl font-bold shadow-lg shadow-primary/20 transition-all active:scale-95"
-        >
-          <User className="w-5 h-5" />
-          <span>{"Iniciar sesi\u00f3n"}</span>
-        </Button>
-      </div>
-    )}
-  </div>
-  );
-};
-
 const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
   const [open, setOpen] = useState(false);
   const [tutorialRun, setTutorialRun] = useState(false);
@@ -238,8 +96,57 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
   const [eventCreateOpen, setEventCreateOpen] = useState(false);
   const [taskEditingActive, setTaskEditingActive] = useState(false);
 
+  const [pageTitle, setPageTitle] = useState(() => {
+    const map: Record<string, string> = {
+      '/daily': 'Tareas de hoy',
+      '/week': '',
+      '/friends': 'Amigos',
+      '/chat': 'Chat IA',
+      '/goals': 'Metas',
+      '/profile': 'Perfil',
+      '/achievements': 'Logros',
+      '/settings': 'Ajustes',
+      '/priority-settings': 'Personalizar',
+      '/trash': 'Historial',
+      '/admin': 'Admin',
+    };
+    return map[location.pathname] || '';
+  });
+  const [pageTitleMeta, setPageTitleMeta] = useState('');
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<{ title?: string; meta?: string }>).detail || {};
+      setPageTitle(detail.title || '');
+      setPageTitleMeta(detail.meta || '');
+    };
+    window.addEventListener('adonai:set-page-title', handler);
+    return () => window.removeEventListener('adonai:set-page-title', handler);
+  }, []);
+
+  useEffect(() => {
+    const map: Record<string, string> = {
+      '/daily': 'Tareas de hoy',
+      '/week': '',
+      '/friends': 'Amigos',
+      '/chat': 'Chat IA',
+      '/goals': 'Metas',
+      '/profile': 'Perfil',
+      '/achievements': 'Logros',
+      '/settings': 'Ajustes',
+      '/priority-settings': 'Personalizar',
+      '/trash': 'Historial',
+      '/admin': 'Admin',
+    };
+    if (location.pathname in map) {
+      setPageTitle(map[location.pathname]);
+      setPageTitleMeta('');
+    }
+  }, [location.pathname]);
+
   const isPathFabHidden = ['/folders', '/goals', '/friends', '/profile', '/settings', '/priority-settings', '/trash', '/achievements', '/chat'].some(path => location.pathname.startsWith(path));
   const fabHidden = draftActive || detailActive || eventCreateOpen || taskEditingActive || isPathFabHidden;
+  const islandHidden = draftActive || detailActive || eventCreateOpen || taskEditingActive || settingsDialogOpen;
 
   useEffect(() => {
     const handler = (e: Event) => setDraftActive((e as CustomEvent).detail.active)
@@ -292,6 +199,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
   // Scroll to top on route change
   useEffect(() => {
     window.scrollTo(0, 0);
+    setOpen(false);
   }, [location.pathname]);
 
 
@@ -299,7 +207,6 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
   const { profile } = useProfile();
   const { metrics } = useStreaks();
   const navigate = useNavigate();
-  const isWeeklyPage = location.pathname === '/week';
 
   // Task capture state
   const [captureOpen, setCaptureOpen] = useState(false);
@@ -313,6 +220,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
   const [evDuration, setEvDuration] = useState(30);
   const [evColor, setEvColor] = useState('#5B7CFA');
   const [targetContext, setTargetContext] = useState<{ goalId?: string; folderId?: string }>({});
+  const [dailyFolderContext, setDailyFolderContext] = useState<{ folderId?: string; folderName?: string }>({});
   const captureModalRef = useRef<TaskCaptureModalHandle>(null);
 
   const today = format(new Date(), 'yyyy-MM-dd');
@@ -325,7 +233,6 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
   }), [mobileMonthStart, mobileMonthEnd]);
   const { tasks, createTask } = useTasks(mobileTasksFilter);
   const { folders } = useFolders();
-  const { colors: priorityColors } = usePriorityColors();
   const notion = useNotionIntegration();
   const friendUnreadCount = useFriendUnreadCount();
   const lastNotionAutoSyncRef = useRef(0);
@@ -365,33 +272,57 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
 
   // Listen for global open-capture events
   useEffect(() => {
-    const handleOpenCapture = (e: any) => {
-      const { goalId, folderId } = e.detail || {};
+    const handleOpenCapture = (e: Event) => {
+      const { goalId, folderId } = (e as CustomEvent<{ goalId?: string; folderId?: string }>).detail || {};
       openCaptureInTextMode({ goalId, folderId });
     };
-    window.addEventListener('adonai:open-capture' as any, handleOpenCapture);
-    return () => window.removeEventListener('adonai:open-capture' as any, handleOpenCapture);
+    window.addEventListener('adonai:open-capture', handleOpenCapture);
+    return () => window.removeEventListener('adonai:open-capture', handleOpenCapture);
   }, [openCaptureInTextMode]);
+
+  useEffect(() => {
+    const handleDailyFolderContext = (event: Event) => {
+      const { folderId, folderName } = (event as CustomEvent).detail || {};
+      setDailyFolderContext(folderId ? { folderId, folderName } : {});
+    };
+
+    window.addEventListener('adonai:daily-folder-context-change', handleDailyFolderContext);
+    return () => window.removeEventListener('adonai:daily-folder-context-change', handleDailyFolderContext);
+  }, []);
+
+  useEffect(() => {
+    if (location.pathname !== '/daily') {
+      setDailyFolderContext({});
+    }
+  }, [location.pathname]);
 
   const menuItems = [
     { label: 'Hoy', icon: Sun, path: '/daily' },
-    { label: 'Cuadernos', icon: NotebookTabs, path: '/folders' },
     { label: 'Calendario', icon: Calendar, path: '/week' },
     { label: isAdmin ? 'Chat IA' : 'IA pronto', icon: MessageSquare, path: '/chat' },
     { label: 'Metas', icon: Target, path: '/goals' },
     { label: 'Amigos', icon: Users, path: '/friends', badge: friendUnreadCount },
-    { label: 'Ajustes', icon: Settings, path: '#settings', activePaths: SETTINGS_PATHS },
+    { label: 'Ajustes', icon: Settings, path: '/settings', activePaths: SETTINGS_PATHS },
   ];
 
   const handleNavigate = (path: string) => {
     if (path === '#') return;
     if (path === '#settings') {
-      setSettingsPanelPath(SETTINGS_PATHS.includes(location.pathname) ? location.pathname : '/profile');
-      setSettingsDialogOpen(true);
+      navigate('/settings');
       setOpen(false);
       return;
     }
+    if (path === '/week') {
+      writeCalendarDate(new Date());
+      writeCalendarViewMode('day');
+    }
     navigate(path);
+    setOpen(false);
+  };
+
+  const openSettingsPanel = (path: string) => {
+    setSettingsPanelPath(path);
+    setSettingsDialogOpen(true);
     setOpen(false);
   };
 
@@ -436,7 +367,6 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
   const isWelcomePage = cleanPath === '/welcome';
   const isAuthPage = cleanPath === '/auth';
   const isMiniPage = cleanPath === '/mini';
-  const isCalendarPage = cleanPath === '/calendar';
   const isLandingPage = cleanPath === '' || cleanPath === '/' || cleanPath === '/landing';
   const isPrivacyPage = cleanPath === '/politica-de-privacidad';
   const isTermsPage = cleanPath === '/terminos-de-servicio';
@@ -469,6 +399,19 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
     return <>{children}</>;
   }
 
+  const isDailyPage = location.pathname === '/daily';
+  const isCalendarRoute = location.pathname === '/week';
+  const isFriendsRoute = location.pathname === '/friends';
+  const hideMobileHeader = isCalendarRoute;
+  const mobileOverflowItems = [
+    { label: 'Perfil', icon: User, action: () => handleNavigate('/profile') },
+    { label: 'Metas', icon: Target, action: () => handleNavigate('/goals') },
+    { label: 'Logros', icon: Trophy, action: () => handleNavigate('/achievements') },
+    { label: 'Configuracion', icon: Settings, action: () => handleNavigate('/settings') },
+    { label: 'Personalizar', icon: Palette, action: () => handleNavigate('/priority-settings') },
+    { label: 'Historial', icon: History, action: () => handleNavigate('/trash') },
+  ];
+
   return (
     <div className="min-h-screen bg-background">
       <TitleBar />
@@ -477,22 +420,6 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
       <ExitIntentModal />
       <PostOnboardingVideoTutorial />
       
-      <Sheet open={open} onOpenChange={setOpen}>
-        <SheetContent side="left" className="w-[280px] glass-sheet border-r-outline-variant/20 p-0">
-          <SidebarContent 
-            user={user} 
-            profile={profile} 
-            metrics={metrics}
-            menuItems={menuItems} 
-            location={location} 
-            handleNavigate={handleNavigate} 
-            startTutorial={() => { setTutorialRun(true); setOpen(false); }}
-            isSheet 
-            toggleSidebar={() => setOpen(false)}
-          />
-        </SheetContent>
-      </Sheet>
-
       <Dialog open={settingsDialogOpen} onOpenChange={setSettingsDialogOpen}>
         <DialogContent className="h-[min(92dvh,780px)] w-[calc(100vw-1rem)] max-w-[1120px] rounded-[26px] border border-outline-variant/25 bg-surface/94 p-0 shadow-2xl shadow-black/35 backdrop-blur-xl overflow-hidden sm:w-[calc(100vw-1.5rem)] sm:rounded-[28px]">
           <DialogHeader>
@@ -556,31 +483,113 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
       </Dialog>
 
       {/* Floating Header Trigger - mobile only (pilot handles desktop) */}
-      {!open && (
-        <div className={`fixed left-3 z-[70] flex items-center gap-2 sm:left-4 lg:hidden ${
-            window.electronAPI ? 'top-10' : 'top-3 sm:top-4'}`}>
-          <button
-            id="global-menu-trigger"
-            onClick={() => setOpen(true)}
-            aria-label={"Mostrar men\u00fa"}
-            className="relative w-9 h-9 rounded-xl bg-transparent text-on-surface-variant/70 backdrop-blur-xl border border-outline-variant/10 hover:bg-surface-container/40 hover:text-foreground transition-all active:scale-90 flex items-center justify-center"
-          >
-            <Menu className="w-4 h-4" />
-            {friendUnreadCount > 0 && (
-              <span className="absolute -right-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-black leading-none text-white shadow-lg shadow-red-500/35">
-                {friendUnreadCount > 99 ? '99+' : friendUnreadCount}
+      {!hideMobileHeader && (
+      <div
+        className={`fixed left-0 right-0 z-[70] lg:hidden ${
+          window.electronAPI ? 'top-10' : 'top-0'} ${
+          isDailyPage
+            ? 'bg-[#f7f3e9]'
+            : isFriendsRoute
+              ? 'border-b border-outline-variant/10 bg-surface'
+              : 'border-b border-outline-variant/10 bg-background'
+        }`}
+      >
+        <div className="flex h-14 items-center justify-between px-4">
+          <div className={`min-w-0 flex-1 ${location.pathname === '/friends' ? 'pr-24' : 'pr-2'}`}>
+              {pageTitle && (
+                <h1 className={`truncate text-lg font-black font-headline tracking-tight ${isDailyPage ? 'text-[#1f2633]' : 'text-foreground/85'}`}>
+                  {pageTitle}
+                </h1>
+              )}
+            {user?.is_anonymous && (
+              <button
+                onClick={() => navigate('/auth')}
+                className="mt-0.5 flex w-max items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-[10px] font-bold text-primary transition-all active:scale-95"
+              >
+                {"Invitado \u00b7 Iniciar sesi\u00f3n"}
+              </button>
+            )}
+          </div>
+
+          <div className="relative flex items-center gap-1.5">
+            {location.pathname === '/friends' && (
+              <div className="absolute right-11 top-0 flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => window.dispatchEvent(new CustomEvent('adonai:friends-copy-link'))}
+                  className="flex h-10 w-10 items-center justify-center rounded-full bg-surface-container text-foreground shadow-sm"
+                  aria-label="Copiar link personal"
+                >
+                  <Link2 className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => window.dispatchEvent(new CustomEvent('adonai:friends-create-group'))}
+                  className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm"
+                  aria-label="Crear grupo"
+                >
+                  <Users className="h-4 w-4" />
+                </button>
+              </div>
+            )}
+            {pageTitleMeta && (
+              <span className={`rounded-full px-2 text-xs font-black tabular-nums ${isDailyPage ? 'text-[#6f7480]/65' : 'text-on-surface-variant/70'}`}>
+                {pageTitleMeta}
               </span>
             )}
-          </button>
-          {user?.is_anonymous && (
             <button
-              onClick={() => navigate('/auth')}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-[11px] font-bold hover:bg-primary/20 transition-all active:scale-95"
+              id="global-menu-trigger"
+              onClick={() => setOpen((value) => !value)}
+              aria-label={"Mostrar opciones"}
+              className={`relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-all hover:text-foreground active:scale-90 ${isDailyPage ? 'text-[#1f2633]/70' : 'text-on-surface-variant/70'}`}
             >
-              {"Invitado \u00b7 Iniciar sesi\u00f3n"}
+              <MoreVertical className="w-5 h-5" />
+              {friendUnreadCount > 0 && (
+                <span className="absolute right-0 top-0 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-black leading-none text-white shadow-lg shadow-red-500/35">
+                  {friendUnreadCount > 99 ? '99+' : friendUnreadCount}
+                </span>
+              )}
             </button>
-          )}
+
+            {open && (
+              <div className="pointer-events-auto absolute right-0 top-12 z-[95] w-[248px] overflow-hidden rounded-3xl border border-black/10 bg-[#fffdf6] p-2 text-[#1d2430] shadow-2xl shadow-black/25 dark:border-white/10 dark:bg-[#111827] dark:text-white">
+                <div className="grid grid-cols-2 gap-2 border-b border-black/10 p-2 pb-3 dark:border-white/10">
+                  <div className="rounded-2xl bg-[#182033] px-3 py-2 text-white">
+                    <div className="flex items-center gap-2 text-[#E65100]">
+                      <Flame className="h-4 w-4 fill-[#E65100]/35" />
+                      <span className="text-[10px] font-black uppercase tracking-[0.14em]">Racha</span>
+                    </div>
+                    <p className="mt-1 text-lg font-black leading-none">{metrics?.streak_current || 0}d</p>
+                  </div>
+                  <div className="rounded-2xl bg-[#182033] px-3 py-2 text-white">
+                    <div className="flex items-center gap-2 text-[#D9A600]">
+                      <Trophy className="h-4 w-4 fill-[#FFD700]/35" />
+                      <span className="text-[10px] font-black uppercase tracking-[0.14em]">Nivel</span>
+                    </div>
+                    <p className="mt-1 text-lg font-black leading-none">{metrics?.level || 1}</p>
+                  </div>
+                </div>
+                <div className="py-1">
+                  {mobileOverflowItems.map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <button
+                        key={item.label}
+                        type="button"
+                        onClick={item.action}
+                        className="flex h-11 w-full items-center gap-3 rounded-2xl px-3 text-left text-sm font-bold text-[#1d2430] transition-colors hover:bg-black/5 dark:text-white dark:hover:bg-white/8"
+                      >
+                        <Icon className="h-4 w-4 text-[#687181] dark:text-white/60" />
+                        <span>{item.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
+      </div>
       )}
 
       {/* Navigation Pilot - floating hover menu (desktop only) */}
@@ -596,33 +605,24 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
         id="main-content"
         className="flex-1 pb-24 lg:pb-12 min-h-screen bg-background"
       >
-        <div className={`w-full ${window.electronAPI ? 'pt-16' : 'pt-[4.5rem]'}`}>
+        <div className={`w-full ${isCalendarRoute ? 'pt-0' : window.electronAPI ? 'pt-16' : 'pt-14'}`}>
           {children}
         </div>
       </main>
 
       {/* Universal Task Capture UI */}
       <div className="relative z-[60]">
-        {/* Mobile logic: Island on week page + FAB everywhere (hidden during draft/detail/event-create) */}
+        {/* Mobile: Bottom navigation island */}
+        {!islandHidden && !captureOpen && !recurrenceOpen && <MobileBottomIsland />}
+
+        {/* Mobile logic: FAB + task trigger on week page */}
         <div className="lg:hidden">
-          {(isWeeklyPage || isCalendarPage) && !draftActive && (
-            <MobileDynamicIsland
-              tasks={tasks}
-              currentDate={mobileIslandDate}
-              onAddTask={() => openCaptureInTextMode()}
-              onTaskClick={(task) => {
-                window.dispatchEvent(new CustomEvent('adonai:open-task-detail', { detail: task }));
-              }}
-              priorityColors={priorityColors}
-              getPriorityKey={getPriorityKey}
-              folders={folders}
-            />
-          )}
-          {!fabHidden && (
+          {!fabHidden && !captureOpen && !recurrenceOpen && (
             <FAB 
-              onTextClick={() => openCaptureInTextMode()} 
+              onTextClick={() => openCaptureInTextMode(dailyFolderContext.folderId ? { folderId: dailyFolderContext.folderId } : undefined)}
               onVoiceClick={() => openCaptureInVoiceMode()} 
               onRecurrenceClick={() => setRecurrenceOpen(true)}
+              contextLabel={dailyFolderContext.folderName}
                onEventClick={() => {
                 setEvTitle('')
                 setEvDate(format(new Date(), 'yyyy-MM-dd'))
@@ -638,12 +638,13 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
         </div>
 
         {/* Desktop logic: FAB visible unless draft or detail is open */}
-        {!fabHidden && (
+        {!fabHidden && !captureOpen && !recurrenceOpen && (
         <div className="hidden lg:block">
           <FAB 
-            onTextClick={() => openCaptureInTextMode()} 
+            onTextClick={() => openCaptureInTextMode(dailyFolderContext.folderId ? { folderId: dailyFolderContext.folderId } : undefined)}
             onVoiceClick={() => openCaptureInVoiceMode()} 
             onRecurrenceClick={() => setRecurrenceOpen(true)}
+            contextLabel={dailyFolderContext.folderName}
               onEventClick={() => {
                 setEvTitle('')
                 setEvDate(format(new Date(), 'yyyy-MM-dd'))

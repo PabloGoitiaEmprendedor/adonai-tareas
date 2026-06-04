@@ -4,9 +4,11 @@ import { useTasks } from '@/hooks/useTasks';
 import { useFolders } from '@/hooks/useFolders';
 import { useProfile } from '@/hooks/useProfile';
 import { useStreaks } from '@/hooks/useStreaks';
-import { format, differenceInDays, parseISO } from 'date-fns';
-import { Flame, Monitor, Apple, Sparkles, Notebook, NotebookText, Trophy, Snowflake, Menu, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { format, differenceInDays, parseISO, addDays } from 'date-fns';
+import { Flame, Monitor, Apple, Trophy, Snowflake, ChevronLeft, ChevronRight, Search, X, Plus, Settings } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 import { triggerTaskCelebration, triggerDailyCelebration, triggerOnTimeCelebration } from '@/lib/celebrations';
 import TaskDetailModal from '@/components/TaskDetailModal';
 import FullscreenTimer from '@/components/FullscreenTimer';
@@ -17,8 +19,9 @@ import MiniTaskWidget from '@/components/MiniTaskWidget';
 import { ChaosBuddiesTrigger } from '@/components/ChaosBuddiesTrigger';
 import { compareTasksWithinQuadrants, getTaskManualOrderGroupKey } from '@/lib/taskOrdering';
 import { playPageTurnSound } from '@/lib/soundEffects';
-import { QuickNotebookTaskAdd } from '@/components/QuickNotebookTaskAdd';
 import type { TaskLike } from '@/lib/taskTypes';
+import { useCalendarEvents, type CalendarEvent } from '@/hooks/useCalendarEvents';
+import { writeCalendarDate, writeCalendarViewMode } from '@/lib/calendarStateSync';
 
 const NOTEBOOK_PAGE_COUNT = 30;
 const TASKS_PER_NOTEBOOK_PAGE = 10;
@@ -26,17 +29,53 @@ const NOTEBOOK_PAGE_STORAGE_KEY = 'adonai_daily_notebook_page';
 
 const clampNotebookPage = (page: number) => Math.min(NOTEBOOK_PAGE_COUNT, Math.max(1, page || 1));
 
+type MobileSearchResult =
+  | {
+      kind: 'task';
+      id: string;
+      title: string;
+      subtitle: string;
+      task: TaskLike;
+      sortDate: string;
+    }
+  | {
+      kind: 'event';
+      id: string;
+      title: string;
+      subtitle: string;
+      event: CalendarEvent;
+      sortDate: string;
+    };
+
+type DailyFolder = {
+  id: string;
+  name: string;
+  color?: string | null;
+  deleted_at?: string | null;
+  isShared?: boolean;
+};
+
 const DailyPage = () => {
  const today = useMemo(() => format(new Date(), 'yyyy-MM-dd'), []);
  const tasksFilter = useMemo(() => ({ date: today, excludeEvents: false }), [today]);
+ const navigate = useNavigate();
  const getInitialNotebookPage = () => {
    return 1;
  };
  const showStats = false;
 
- const { tasks, updateTask, isLoading } = useTasks(tasksFilter);
- const { createTask } = useTasks();
- const { folders } = useFolders();
+ const { tasks, updateTask, deleteTask, isLoading } = useTasks(tasksFilter);
+ const { tasks: allSearchTasks } = useTasks();
+ const calendarSearchRange = useMemo(() => {
+   const now = new Date();
+   return {
+     start: addDays(now, -90).toISOString(),
+     end: addDays(now, 365).toISOString(),
+   };
+ }, []);
+ const { events: calendarSearchEvents } = useCalendarEvents(calendarSearchRange.start, calendarSearchRange.end);
+ const { folders, createFolder, deleteFolder } = useFolders();
+ const visibleFolders = useMemo<DailyFolder[]>(() => (folders as DailyFolder[]).filter((folder) => !folder.deleted_at), [folders]);
  const { profile } = useProfile();
  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
  const { metrics, trackDayActive } = useStreaks();
@@ -51,6 +90,8 @@ const DailyPage = () => {
  return differenceInDays(todayDate, lastActive) >= 2;
  }, [metrics?.last_active_date]);
  const [selectedTask, setSelectedTask] = useState<TaskLike | null>(null);
+ const [mobileSearchQuery, setMobileSearchQuery] = useState('');
+ const [folderManageMode, setFolderManageMode] = useState(false);
  const [timerTask, setTimerTask] = useState<TaskLike | null>(null);
  const [dragIdx, setDragIdx] = useState<number | null>(null);
  const dragIdxRef = useRef<number | null>(null);
@@ -114,6 +155,78 @@ const DailyPage = () => {
  
  return [...filtered].sort(compareTasksWithinQuadrants);
  }, [tasks, selectedFolderId, today]);
+
+  const mobileSearchResults = useMemo<MobileSearchResult[]>(() => {
+    const query = mobileSearchQuery.trim().toLowerCase();
+    if (query.length < 2) return [];
+
+    const taskResults = allSearchTasks
+      .filter((task: TaskLike) => task.status !== 'done' && task.status !== 'deleted')
+      .filter((task: TaskLike) => {
+        const haystack = [
+          task.title,
+          task.description,
+          task.link,
+          task.due_date,
+        ].filter(Boolean).join(' ').toLowerCase();
+        return haystack.includes(query);
+      })
+      .sort(compareTasksWithinQuadrants)
+      .map((task: TaskLike) => {
+        const folder = visibleFolders.find((item) => item.id === task.folder_id);
+        return {
+          kind: 'task' as const,
+          id: `task-${task.id}`,
+          title: task.title || 'Sin titulo',
+          subtitle: `${folder?.name || (task.folder_id ? 'Cuaderno' : 'Hoy')}${task.due_date ? ` · ${task.due_date}` : ''}`,
+          task,
+          sortDate: task.due_date || '9999-12-31',
+        };
+      });
+
+    const eventResults = calendarSearchEvents
+      .filter((event) => {
+        const haystack = [
+          event.title,
+          event.description,
+          event.location,
+          event.start,
+        ].filter(Boolean).join(' ').toLowerCase();
+        return haystack.includes(query);
+      })
+      .map((event) => {
+        const startDate = event.start ? new Date(event.start) : null;
+        const hasValidStart = !!startDate && !Number.isNaN(startDate.getTime());
+        return {
+          kind: 'event' as const,
+          id: `event-${event.id}`,
+          title: event.title || 'Evento sin titulo',
+          subtitle: hasValidStart ? `Calendario · ${format(startDate, 'dd/MM/yyyy HH:mm')}` : 'Calendario',
+          event,
+          sortDate: hasValidStart ? startDate.toISOString() : '9999-12-31',
+        };
+      });
+
+    return [...taskResults, ...eventResults]
+      .sort((a, b) => a.sortDate.localeCompare(b.sortDate))
+      .slice(0, 8);
+  }, [allSearchTasks, calendarSearchEvents, mobileSearchQuery, visibleFolders]);
+
+  const openSearchResult = useCallback((result: MobileSearchResult) => {
+    if (result.kind === 'task') {
+      setSelectedTask(result.task);
+      setMobileSearchQuery('');
+      return;
+    }
+
+    const startDate = result.event.start ? new Date(result.event.start) : null;
+    if (startDate && !Number.isNaN(startDate.getTime())) {
+      writeCalendarDate(startDate);
+      writeCalendarViewMode('day');
+    }
+    setMobileSearchQuery('');
+    navigate('/week');
+  }, [navigate]);
 
 
 
@@ -312,25 +425,194 @@ const DailyPage = () => {
 
  const profileName = useMemo(() => profile?.name, [profile?.name]);
 
- const visibleNotebookTasks = useMemo(() => {
- const start = (notebookPage - 1) * TASKS_PER_NOTEBOOK_PAGE;
- return orderedTasks.slice(start, start + TASKS_PER_NOTEBOOK_PAGE);
- }, [notebookPage, orderedTasks]);
+ const visibleNotebookTasks = orderedTasks;
 
- const notebookTaskTotalPages = useMemo(() => {
- return Math.max(1, Math.ceil(orderedTasks.length / TASKS_PER_NOTEBOOK_PAGE));
- }, [orderedTasks.length]);
+  const isMainNotebookComplete = selectedFolderId === null && orderedTasks.length > 0 && orderedTasks.every((task) => task.status === 'done');
 
- const showNotebookQuickAdd = notebookPage === notebookTaskTotalPages;
- const isMainNotebookComplete = selectedFolderId === null && orderedTasks.length > 0 && orderedTasks.every((task) => task.status === 'done');
-
-  const shouldShowTaskPage = notebookPage <= NOTEBOOK_PAGE_COUNT;
+  const shouldShowTaskPage = true;
 
   const currentFolderName = useMemo(() => {
     if (selectedFolderId === null) return 'Hoy';
-    const folder = folders.find((f) => f.id === selectedFolderId);
+    const folder = visibleFolders.find((f) => f.id === selectedFolderId);
     return folder?.name || 'Hoy';
-  }, [selectedFolderId, folders]);
+  }, [selectedFolderId, visibleFolders]);
+
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('adonai:daily-folder-context-change', {
+      detail: selectedFolderId ? { folderId: selectedFolderId, folderName: currentFolderName } : {},
+    }));
+
+    return () => {
+      window.dispatchEvent(new CustomEvent('adonai:daily-folder-context-change', { detail: {} }));
+    };
+  }, [selectedFolderId, currentFolderName]);
+
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('adonai:set-page-title', {
+      detail: { title: 'Tareas de hoy', meta: '' },
+    }));
+  }, []);
+
+  const countFolderTasks = useCallback((folderId: string) => (
+    allSearchTasks.filter((task: TaskLike) => task.folder_id === folderId && task.status !== 'deleted').length
+  ), [allSearchTasks]);
+
+  const handleCreateFolder = useCallback(() => {
+    const name = window.prompt('Nombre del nuevo cuaderno');
+    const trimmedName = name?.trim();
+    if (!trimmedName) return;
+
+    createFolder.mutate(
+      { name: trimmedName, color: '#A8A29E' },
+      {
+        onSuccess: (folder: DailyFolder) => {
+          setSelectedFolderId(folder.id);
+          toast.success('Cuaderno creado');
+        },
+        onError: () => toast.error('No se pudo crear el cuaderno'),
+      }
+    );
+  }, [createFolder]);
+
+  const handleDeleteFolder = useCallback((folder: DailyFolder) => {
+    if (folder.isShared) {
+      toast.error('No puedes eliminar un cuaderno compartido por otra persona');
+      return;
+    }
+
+    const folderTasks = allSearchTasks.filter((task: TaskLike) => task.folder_id === folder.id && task.status !== 'deleted');
+    const confirmed = folderTasks.length > 0
+      ? window.confirm(`El cuaderno "${folder.name}" tiene ${folderTasks.length} tarea${folderTasks.length === 1 ? '' : 's'}. Si lo eliminas, esas tareas irán a la papelera. ¿Quieres continuar?`)
+      : window.confirm(`¿Eliminar el cuaderno "${folder.name}"?`);
+
+    if (!confirmed) return;
+
+    toast.promise((async () => {
+      for (const task of folderTasks) {
+        await deleteTask.mutateAsync(task.id);
+      }
+      await deleteFolder.mutateAsync(folder.id);
+      if (selectedFolderId === folder.id) setSelectedFolderId(null);
+    })(), {
+      loading: 'Eliminando cuaderno...',
+      success: 'Cuaderno eliminado',
+      error: 'No se pudo eliminar el cuaderno',
+    });
+  }, [allSearchTasks, deleteFolder, deleteTask, selectedFolderId]);
+
+  const renderDailySearch = (compact = false) => (
+    <div className={`relative z-30 ${compact ? 'px-2 pb-2 pt-0' : 'mb-2'}`}>
+      <div className="flex h-11 items-center gap-2 rounded-[22px] border border-outline-variant/40 bg-white/40 px-3 shadow-none">
+        <Search className="h-4 w-4 shrink-0 text-[#6f7480]/55" />
+        <input
+          value={mobileSearchQuery}
+          onChange={(event) => setMobileSearchQuery(event.target.value)}
+          placeholder="Buscar..."
+          className="min-w-0 flex-1 bg-transparent text-[10px] font-semibold tracking-tight text-[#1f2633] outline-none placeholder:text-[#6f7480]/55"
+        />
+        {mobileSearchQuery && (
+          <button
+            type="button"
+            onClick={() => setMobileSearchQuery('')}
+            className="flex h-7 w-7 items-center justify-center rounded-full text-[#6f7480]/60 transition active:scale-95"
+            aria-label="Limpiar busqueda"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
+      </div>
+
+      {mobileSearchResults.length > 0 && (
+        <div className="absolute left-2 right-2 top-[calc(100%+4px)] z-40 overflow-hidden rounded-3xl border border-black/8 bg-[#fffdf7] shadow-2xl shadow-black/18 md:left-0 md:right-0">
+          {mobileSearchResults.map((result) => (
+            <button
+              key={result.id}
+              type="button"
+              onClick={() => openSearchResult(result)}
+              className="flex w-full items-start gap-3 border-b border-black/6 px-4 py-3 text-left last:border-b-0 active:bg-black/5"
+            >
+              <span className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${result.kind === 'event' ? 'bg-emerald-500/75' : 'bg-primary/75'}`} />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-black text-[#1f2633]">{result.title}</span>
+                <span className="mt-0.5 block truncate text-[11px] font-bold text-[#6f7480]">
+                  {result.subtitle}
+                </span>
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
+  const renderFolderTabs = (compact = false) => (
+    <div className={`relative z-20 flex items-center gap-2 overflow-x-auto no-scrollbar ${compact ? 'py-2 pl-2 pr-3' : 'py-1 pb-1 mb-1 justify-start'}`}>
+      <button
+        onClick={() => selectFolderWithSound(null)}
+        className={`flex-shrink-0 rounded-full border px-3 py-1.5 text-[10px] font-semibold tracking-tight transition-all md:px-4 ${
+          selectedFolderId === null
+            ? 'bg-foreground text-background border-foreground'
+            : 'bg-white/40 text-on-surface-variant/80 border-outline-variant/40 hover:text-foreground hover:border-outline-variant/60'
+        }`}
+      >
+        Hoy
+      </button>
+
+      {visibleFolders.map((folder) => {
+        const isSelected = selectedFolderId === folder.id;
+        const taskCount = countFolderTasks(folder.id);
+        return (
+          <div key={folder.id} className="relative flex-shrink-0">
+            <button
+              onClick={() => selectFolderWithSound(isSelected ? null : folder.id)}
+              className={`rounded-full border py-1.5 pl-3 text-[10px] font-semibold tracking-tight transition-all md:pl-4 ${
+                folderManageMode && !folder.isShared ? 'pr-8' : 'pr-3 md:pr-4'
+              } ${
+                isSelected
+                  ? 'bg-foreground text-background border-foreground'
+                  : 'bg-white/40 text-on-surface-variant/80 border-outline-variant/40 hover:text-foreground hover:border-outline-variant/60'
+              }`}
+              title={taskCount > 0 ? `${taskCount} tarea${taskCount === 1 ? '' : 's'}` : undefined}
+            >
+              {folder.name}
+            </button>
+            {folderManageMode && !folder.isShared && (
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  handleDeleteFolder(folder);
+                }}
+                className="absolute right-1 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-full bg-error/12 text-error shadow-sm transition active:scale-90"
+                aria-label={`Eliminar cuaderno ${folder.name}`}
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+        );
+      })}
+
+      <button
+        type="button"
+        onClick={handleCreateFolder}
+        className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-primary/14 text-primary shadow-sm shadow-primary/10 transition active:scale-95"
+        aria-label="Crear cuaderno"
+      >
+        <Plus className="h-4 w-4" />
+      </button>
+      <button
+        type="button"
+        onClick={() => setFolderManageMode((value) => !value)}
+        className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full transition active:scale-95 ${
+          folderManageMode ? 'bg-foreground text-background shadow-sm' : 'bg-white/45 text-[#6f7480] shadow-sm'
+        }`}
+        aria-label="Gestionar cuadernos"
+      >
+        <Settings className="h-4 w-4" />
+      </button>
+    </div>
+  );
 
  const handleComplete = useCallback(async (task: TaskLike, e: React.MouseEvent) => {
  e.stopPropagation();
@@ -347,12 +629,14 @@ const DailyPage = () => {
  const remainingTasks = currentTasks.filter((t: TaskLike) => t.status !== 'done' && t.id !== task.id);
  const isLastTask = currentTasks.length > 0 && remainingTasks.length === 0;
 
- updateTask.mutate({ 
- id: task.id, 
- status: 'done', 
+ const completionUpdate = {
+ id: task.id,
+ status: 'done',
  completed_at: new Date().toISOString(),
- actual_duration_seconds: Number(finalDuration) || 0
- }, {
+ ...(isCurrentlyTiming ? { actual_duration_seconds: Number(finalDuration) || 0 } : {}),
+ };
+
+ updateTask.mutate(completionUpdate, {
  onSuccess: () => {
  setCompletingTaskId(null);
  checkAndUnlock.mutate({ type: 'task_completed' });
@@ -400,11 +684,6 @@ const DailyPage = () => {
 
   const turnNotebookPage = useCallback((direction: 1 | -1) => {
     setPageTurnDirection(direction);
-    setNotebookPage((page) => {
-      const next = clampNotebookPage(page + direction);
-      if (next !== page) playPageTurnSound();
-      return next;
-    });
   }, []);
 
  const goToPrevPage = useCallback(() => {
@@ -693,27 +972,9 @@ const DailyPage = () => {
   animate={{ opacity: 1, y: 0 }}
   className="relative hidden min-h-[min(740px,calc(100vh-8rem))] w-full md:flex flex-col overflow-hidden rounded-[36px] notebook-cream-bg border border-black/[0.07] pt-3 pb-3 pl-24 pr-10 backdrop-blur-xl"
  style={{
- backgroundImage: 'radial-gradient(circle at 18% 22%, rgba(255,255,255,0.09) 0 1px, transparent 1.6px), radial-gradient(circle at 73% 58%, rgba(0,0,0,0.05) 0 1px, transparent 1.7px), radial-gradient(circle at 42% 76%, rgba(255,255,255,0.045) 0 1px, transparent 1.8px)',
- backgroundPosition: '0 18px',
  borderRadius: '36px 34px 38px 35px',
  }}
  >
- <div className="absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-white/[0.60] to-transparent pointer-events-none rounded-t-[36px]" />
- <div className="pointer-events-none absolute bottom-5 right-0 top-5 w-10">
- {[0, 1, 2, 3, 4, 5].map((page) => (
- <span
- key={page}
- className="absolute right-0 block h-[calc(100%-8px)] rounded-r-[22px] border-r border-y border-outline-variant/10 bg-background/20"
- style={{
- top: `${page * 4}px`,
- width: `${12 + page * 4}px`,
- opacity: 0.18 - page * 0.018,
- }}
- />
- ))}
- </div>
- <div className="absolute bottom-8 left-16 top-8 w-px bg-rose-300/30" />
- <div className="absolute bottom-8 right-14 top-8 w-px bg-rose-300/20" />
  <div className="absolute inset-y-3 left-5 flex flex-col justify-between">
  {Array.from({ length: 18 }).map((_, ring) => (
  <span
@@ -734,50 +995,23 @@ const DailyPage = () => {
  animate="center"
  exit="exit"
  transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
- className="relative z-10 flex flex-1 flex-col"
+ className="relative z-10 flex min-h-0 flex-1 flex-col"
  style={{ transformOrigin: pageTurnDirection > 0? 'right center': 'left center', transformStyle: 'preserve-3d' }}
  >
  {shouldShowTaskPage? (
  <>
- {/* Cuadernos Bar - minimal pill tabs */}
+ {/* Task notebook tabs */}
   <div className="relative z-10 mb-1">
     <h2 className="text-lg font-bold font-headline tracking-tight notebook-handwriting text-foreground/70">
       Tareas de hoy
     </h2>
-    {/* Folder pills moved up, search removed */}
+    {renderDailySearch(false)}
   </div>
-  <div className="relative z-10 flex items-center gap-2 overflow-x-auto no-scrollbar py-1 pb-1 mb-1 justify-start">
-     <button
-       onClick={() => selectFolderWithSound(null)}
-       className={`flex-shrink-0 px-4 py-1.5 rounded-full text-[11px] font-black uppercase tracking-wide transition-all border ${
-         selectedFolderId === null
-           ? 'bg-foreground text-background border-foreground'
-           : 'bg-white/40 text-on-surface-variant/80 border-outline-variant/40 hover:text-foreground hover:border-outline-variant/60'
-       }`}
-     >
-       Hoy
-     </button>
-    {folders.map((folder) => {
-      const isSelected = selectedFolderId === folder.id;
-      return (
-        <button
-          key={folder.id}
-          onClick={() => selectFolderWithSound(isSelected ? null : folder.id)}
-          className={`flex-shrink-0 px-4 py-1.5 rounded-full text-[11px] font-black uppercase tracking-wide transition-all border notebook-handwriting ${
-            isSelected
-              ? 'bg-foreground text-background border-foreground'
-              : 'bg-white/40 text-on-surface-variant/80 border-outline-variant/40 hover:text-foreground hover:border-outline-variant/60'
-          }`}
-        >
-          {folder.name}
-        </button>
-      );
-    })}
- </div>
+  {renderFolderTabs(false)}
 
   {/* Task List - Inside Desktop Notebook */}
   <div
-  className="relative z-10 mt-1.5 pb-5 pt-[2px]"
+  className="relative z-10 mt-1.5 min-h-0 flex-1 overflow-y-auto pb-5 pr-1 pt-[2px]"
  >
  {isLoading? (
  <div className="space-y-6">
@@ -793,7 +1027,7 @@ const DailyPage = () => {
   <TaskCard
   key={task.id}
   task={task}
-  taskIdx={(notebookPage - 1) * TASKS_PER_NOTEBOOK_PAGE + idx}
+  taskIdx={idx}
   isDone={task.status === 'done'}
   completingTaskId={completingTaskId}
   dragIdx={dragIdx}
@@ -815,13 +1049,7 @@ const DailyPage = () => {
   ))}
   </div>
   ) : null}
-    {/* Quick-add row desktop */}
-    {!isLoading && showNotebookQuickAdd && !isMainNotebookComplete && (
-      <div className="relative z-10 mt-1">
-        <QuickNotebookTaskAdd folderId={selectedFolderId} folderName={currentFolderName} />
-     </div>
-   )}
-   {!isMainNotebookComplete && visibleNotebookTasks.length === 0 && notebookPage !== 1 && (
+   {!isMainNotebookComplete && visibleNotebookTasks.length === 0 && (
    renderBlankNotebookPage(false)
    )}
  </div>
@@ -833,8 +1061,6 @@ const DailyPage = () => {
  )}
  </motion.div>
  </AnimatePresence>
- {renderPageDragHandles(false)}
- {renderNotebookControls(false)}
  </motion.div>
 
   {/* Mini notebook button (outside mobile notebook) */}
@@ -851,72 +1077,86 @@ const DailyPage = () => {
 
   {/* Mobile Task Island - fixed full-screen notebook */}
   <motion.div 
-  initial={{ opacity: 0, y: 15 }}
+  initial={{ opacity: 0, y: 4 }}
   animate={{ opacity: 1, y: 0 }}
-   className="fixed inset-0 z-30 md:hidden flex flex-col overflow-hidden notebook-cream-bg"
-  style={{
-  backgroundImage: 'radial-gradient(circle at 20% 22%, rgba(255,255,255,0.09) 0 1px, transparent 1.6px), radial-gradient(circle at 78% 62%, rgba(0,0,0,0.05) 0 1px, transparent 1.7px), radial-gradient(circle at 44% 76%, rgba(255,255,255,0.045) 0 1px, transparent 1.8px)',
-  backgroundPosition: '0 17px',
-  }}>
-  {/* Top gradient */}
-  <div className="absolute inset-x-0 top-0 h-12 bg-gradient-to-b from-white/[0.60] to-transparent pointer-events-none" />
+  transition={{ duration: 0.08, ease: 'linear' }}
+   className="fixed inset-x-0 bottom-[72px] top-14 z-30 md:hidden flex flex-col overflow-hidden notebook-cream-bg daily-mobile-notebook"
+  >
   
-  {/* Page stack effect (right side) */}
-  <div className="pointer-events-none absolute bottom-4 right-0 top-4 w-7">
-  {[0, 1, 2, 3, 4].map((page) => (
-  <span
-  key={page}
-  className="absolute right-0 block h-[calc(100%-6px)] rounded-r-[18px] border-r border-y border-outline-variant/10 bg-background/20"
-  style={{
-  top: `${page * 3}px`,
-  width: `${8 + page * 3}px`,
-  opacity: 0.16 - page * 0.018,
-  }}
-  />
-  ))}
+  {renderDailySearch(true)}
+  {renderFolderTabs(true)}
+  
+  <div className="hidden">
+    <div className="flex items-center gap-0.5">
+      <button
+        onClick={goToPrevPage}
+        disabled={notebookPage === 1}
+        className="w-8 h-8 flex items-center justify-center rounded-xl text-on-surface-variant/30 hover:text-foreground hover:bg-black/5 transition-all disabled:opacity-20 disabled:pointer-events-none"
+        aria-label="Página anterior"
+      >
+        <ChevronLeft className="w-4 h-4" strokeWidth={2.5} />
+      </button>
+      <span className="text-[10px] font-black tabular-nums text-on-surface-variant/30 mx-0.5 min-w-[28px] text-center">
+        {notebookPage}/{NOTEBOOK_PAGE_COUNT}
+      </span>
+      <button
+        onClick={goToNextPage}
+        disabled={notebookPage >= NOTEBOOK_PAGE_COUNT}
+        className="w-8 h-8 flex items-center justify-center rounded-xl text-on-surface-variant/30 hover:text-foreground hover:bg-black/5 transition-all disabled:opacity-20 disabled:pointer-events-none"
+        aria-label="Página siguiente"
+      >
+        <ChevronRight className="w-4 h-4" strokeWidth={2.5} />
+      </button>
+    </div>
   </div>
-  
-  {/* Vertical margin lines */}
-  <div className="absolute bottom-7 right-7 top-7 w-px bg-rose-300/25" />
-  <div className="absolute bottom-7 left-9 top-7 w-px bg-rose-300/20" />
-  <div className="relative z-20 flex items-center pt-3 pb-1" style={{ paddingLeft: '36px', paddingRight: '8px' }}>
-    <button
-      onClick={() => {
-        const trigger = document.getElementById('global-menu-trigger');
-        if (trigger) trigger.click();
-      }}
-      className="w-5 h-5 flex items-center justify-center text-zinc-400/40 hover:text-zinc-400/70 transition-colors shrink-0"
-      aria-label="Abrir menú"
-      style={{ marginRight: '12px', marginLeft: '-18px', background: 'transparent' }}
-    >
-      <Menu className="w-3 h-3" strokeWidth={2} />
-    </button>
-    <h2 className="flex-1 text-lg font-bold font-headline tracking-tight notebook-handwriting text-foreground/80">
-      Tareas de hoy
-    </h2>
-    <button
-      onClick={goToPrevPage}
-      disabled={notebookPage === 1}
-      className="w-8 h-8 flex items-center justify-center rounded-xl text-on-surface-variant/30 hover:text-foreground hover:bg-black/5 transition-all disabled:opacity-20 disabled:pointer-events-none"
-      aria-label="Página anterior"
-    >
-      <ChevronLeft className="w-4 h-4" strokeWidth={2.5} />
-    </button>
-    <span className="text-[10px] font-black tabular-nums text-on-surface-variant/30 mx-0.5 min-w-[28px] text-center">
-      {notebookPage}/{NOTEBOOK_PAGE_COUNT}
-    </span>
-    <button
-      onClick={goToNextPage}
-      disabled={notebookPage >= NOTEBOOK_PAGE_COUNT}
-      className="w-8 h-8 flex items-center justify-center rounded-xl text-on-surface-variant/30 hover:text-foreground hover:bg-black/5 transition-all disabled:opacity-20 disabled:pointer-events-none"
-      aria-label="Página siguiente"
-    >
-      <ChevronRight className="w-4 h-4" strokeWidth={2.5} />
-    </button>
+
+  <div className="hidden">
+    <div className="flex h-11 items-center gap-2 rounded-[22px] bg-[#f8efe1]/85 px-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.72),0_12px_24px_rgba(87,67,31,0.12)] backdrop-blur-sm">
+      <Search className="h-4 w-4 shrink-0 text-[#6f7480]/55" />
+      <input
+        value={mobileSearchQuery}
+        onChange={(event) => setMobileSearchQuery(event.target.value)}
+        placeholder="Buscar..."
+        className="min-w-0 flex-1 bg-transparent text-sm font-bold text-[#1f2633] outline-none placeholder:text-[#6f7480]/55"
+      />
+      {mobileSearchQuery && (
+        <button
+          type="button"
+          onClick={() => setMobileSearchQuery('')}
+          className="flex h-7 w-7 items-center justify-center rounded-full text-[#6f7480]/60 active:scale-95"
+          aria-label="Limpiar busqueda"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      )}
+    </div>
+
+    {mobileSearchResults.length > 0 && (
+      <div className="absolute left-2 right-2 top-12 z-40 overflow-hidden rounded-3xl border border-black/8 bg-[#fffdf7] shadow-2xl shadow-black/18">
+        {mobileSearchResults.map((result) => {
+          return (
+            <button
+              key={result.id}
+              type="button"
+              onClick={() => openSearchResult(result)}
+              className="flex w-full items-start gap-3 border-b border-black/6 px-4 py-3 text-left last:border-b-0 active:bg-black/5"
+            >
+              <span className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${result.kind === 'event' ? 'bg-emerald-500/75' : 'bg-primary/75'}`} />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-black text-[#1f2633]">{result.title}</span>
+                <span className="mt-0.5 block truncate text-[11px] font-bold text-[#6f7480]">
+                  {result.subtitle}
+                </span>
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    )}
   </div>
 
   {/* Folder pills - scrollable row */}
-  <div className="relative z-20 flex items-center gap-2 overflow-x-auto no-scrollbar py-1 px-2" style={{ paddingLeft: '36px' }}>
+  <div className="hidden">
      <button
        onClick={() => selectFolderWithSound(null)}
        className={`flex-shrink-0 px-3 py-1.5 rounded-full text-[11px] font-black uppercase tracking-wide transition-all border ${
@@ -955,7 +1195,7 @@ const DailyPage = () => {
   initial="enter"
   animate="center"
   exit="exit"
-  transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+  transition={{ duration: 0.08, ease: 'linear' }}
   className="flex flex-col min-h-full"
   style={{ transformOrigin: pageTurnDirection > 0? 'right center': 'left center', transformStyle: 'preserve-3d' }}
   >
@@ -966,7 +1206,7 @@ const DailyPage = () => {
    className="flex flex-col flex-1"
   >
   {isLoading? (
-  <div className="space-y-4 px-[36px] pr-4 py-2">
+  <div className="space-y-4 pl-2 pr-4 py-2">
   {[1, 2, 3].map((i) => (
   <div key={i} className="h-20 bg-surface-container-highest/10 border border-outline-variant/10 rounded-2xl animate-pulse" />
   ))}
@@ -975,12 +1215,12 @@ const DailyPage = () => {
   renderBlankNotebookPage(true)
   ): visibleNotebookTasks.length > 0? (
   <>
-   <div className="notebook-task-list mx-[16px] ml-[36px] my-2">
+   <div className="notebook-task-list ml-0 mr-3 my-1">
    {visibleNotebookTasks.map((task, idx) => (
    <TaskCard
    key={task.id}
    task={task}
-   taskIdx={(notebookPage - 1) * TASKS_PER_NOTEBOOK_PAGE + idx}
+   taskIdx={idx}
    isDone={task.status === 'done'}
    completingTaskId={completingTaskId}
    dragIdx={dragIdx}
@@ -1000,25 +1240,15 @@ const DailyPage = () => {
   highlighted={highlightedTaskId === task.id}
   />
   ))}
-  {!isLoading && showNotebookQuickAdd && !isMainNotebookComplete && (
-    <div className="pt-1">
-      <QuickNotebookTaskAdd folderId={selectedFolderId} folderName={currentFolderName} />
     </div>
-  )}
+    </>
+    ): (
+    <>
+    <div className="flex-1" />
+    </>
+    )}
   </div>
-  </>
-  ): (
-  <>
-  <div className="flex-1" />
-  {!isLoading && showNotebookQuickAdd && !isMainNotebookComplete && (
-    <div className="pl-[36px] pr-4 pb-3 shrink-0">
-      <QuickNotebookTaskAdd folderId={selectedFolderId} folderName={currentFolderName} />
-    </div>
-  )}
-  </>
-  )}
-  </div>
-    {!isMainNotebookComplete && visibleNotebookTasks.length === 0 && notebookPage !== 1 && (
+    {!isMainNotebookComplete && visibleNotebookTasks.length === 0 && (
     renderBlankNotebookPage(true)
     )}
   </>

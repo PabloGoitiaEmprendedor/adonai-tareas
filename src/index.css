@@ -565,7 +565,7 @@
   }
 
   .notebook-task-list {
-    --notebook-rule-color: rgba(30, 41, 59, 0.12);
+    --notebook-rule-color: rgba(30, 41, 59, 0.07);
     border-top: 1px solid var(--notebook-rule-color);
     border-bottom: 1px solid var(--notebook-rule-color);
   }
@@ -576,6 +576,10 @@
 
   .notebook-task-list > *:last-child {
     border-bottom: 0 !important;
+  }
+
+  .notebook-task-list .notebook-task-row {
+    border-bottom-color: var(--notebook-rule-color) !important;
   }
 
   .notebook-task-row {
@@ -591,6 +595,10 @@
     white-space: pre-wrap;
     overflow-wrap: anywhere;
     word-break: break-word;
+  }
+
+  .daily-mobile-notebook {
+    box-shadow: none !important;
   }
 }
 

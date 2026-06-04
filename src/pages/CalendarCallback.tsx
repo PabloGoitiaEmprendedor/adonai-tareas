@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 
 import { supabase } from '@/integrations/supabase/client'
 import { useAuth } from '@/contexts/AuthContext'
+import { isGoogleOAuthDesktopState, validateGoogleOAuthState } from '@/lib/googleOAuthState'
 
 const CalendarCallback = () => {
   const [searchParams] = useSearchParams()
@@ -27,7 +28,7 @@ const CalendarCallback = () => {
         return
       }
 
-      if (state === 'desktop') {
+      if (isGoogleOAuthDesktopState(state) && !window.electronAPI) {
         setStatus('redirecting')
         window.location.href = `adonai-tasks://calendar-callback?code=${code}&state=${state}`
         return
@@ -36,6 +37,10 @@ const CalendarCallback = () => {
       if (!user) return
 
       try {
+        if (!validateGoogleOAuthState(state, 'calendar')) {
+          throw new Error('Estado OAuth invalido o expirado')
+        }
+
         const isElectron = !!window.electronAPI
         const redirect_uri = isElectron
           ? 'https://adonai-tareas.vercel.app/calendar-callback'

@@ -21,11 +21,11 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { motion, AnimatePresence } from "framer-motion"
 import { Calendar, Clock, LayoutGrid, List, Plus, Minus, Filter, X, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Check, MoreHorizontal, Link as LinkIcon, Trash2, Repeat, Zap, Menu, GripHorizontal, GripVertical, Bell, BellOff, Palette, Pencil, ExternalLink, Settings, Paperclip } from "lucide-react"
-import ScrollableTimePicker from "./scrollable-time-picker"
 import { usePriorityColors, getPriorityKey } from "@/hooks/usePriorityColors"
 import { cn } from "@/lib/utils"
-import { REMINDER_OPTIONS } from "@/lib/reminders"
+import { REMINDER_OPTIONS, type ReminderMinutes } from "@/lib/reminders"
 import { TaskCard } from "@/components/TaskCard"
+import { useIsMobile } from "@/hooks/use-mobile"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -87,6 +87,51 @@ export interface Event {
   recurrenceId?: string
   sortOrder?: number | null
 }
+
+const REMINDER_CYCLE_VALUES: ReminderMinutes[] = [0, 5, 10, 15, 30, 60, 1440, 10080]
+const REMINDER_LABEL_BY_VALUE = new Map<number, string>(REMINDER_OPTIONS.map((option) => [option.value, option.label]))
+
+const getReminderDisplayLabel = (enabled: boolean, minutes?: number) => {
+  if (!enabled) return "Sin recordatorio"
+  return REMINDER_LABEL_BY_VALUE.get(minutes ?? 0) || "En el momento"
+}
+
+const getNextReminderState = (enabled: boolean, minutes?: number) => {
+  if (!enabled) {
+    return { reminderEnabled: true, reminderMinutesBefore: REMINDER_CYCLE_VALUES[0] }
+  }
+
+  const currentIndex = REMINDER_CYCLE_VALUES.indexOf((minutes ?? 0) as ReminderMinutes)
+  const nextIndex = currentIndex >= 0 ? currentIndex + 1 : 0
+
+  if (nextIndex >= REMINDER_CYCLE_VALUES.length) {
+    return { reminderEnabled: false, reminderMinutesBefore: minutes ?? REMINDER_CYCLE_VALUES[0] }
+  }
+
+  return { reminderEnabled: true, reminderMinutesBefore: REMINDER_CYCLE_VALUES[nextIndex] }
+}
+
+type RecurrenceMode = NonNullable<Event['recurrence']>
+type RecurrenceUnit = NonNullable<Event['recurrenceUnit']>
+type RecurrenceEndType = NonNullable<Event['recurrenceEndType']>
+
+const WEEK_DAYS = [
+  { value: 1, label: 'L', full: 'lunes' },
+  { value: 2, label: 'M', full: 'martes' },
+  { value: 3, label: 'X', full: 'miércoles' },
+  { value: 4, label: 'J', full: 'jueves' },
+  { value: 5, label: 'V', full: 'viernes' },
+  { value: 6, label: 'S', full: 'sábado' },
+  { value: 0, label: 'D', full: 'domingo' },
+]
+
+const RECURRENCE_UNIT_LABELS: Record<RecurrenceUnit, [string, string]> = {
+  days: ['día', 'días'],
+  weeks: ['semana', 'semanas'],
+  months: ['mes', 'meses'],
+  years: ['año', 'años'],
+}
+
 type CalendarViewMode = "month" | "week" | "day" | "year" | "list" | "schedule" | "3day";
 type ExternalDragDetail = { task: Event; x: number; y: number };
 type ExternalDragMoveDetail = { x: number; y: number };
@@ -157,78 +202,6 @@ const stripHtml = (html: string): string => {
   return text.replace(/<[^>]*?>/g, '').trim();
 };
 
-const hue2rgb = (p: number, q: number, t: number) => {
-  if (t < 0) t += 1;
-  if (t > 1) t -= 1;
-  if (t < 1/6) return p + (q - p) * 6 * t;
-  if (t < 1/2) return q;
-  if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
-  return p;
-};
-
-const lightenColor = (hex: string, amount: number): string => {
-  if (!hex || !hex.startsWith('#')) return hex;
-  const clean = hex.replace('#', '');
-  const r = parseInt(clean.substring(0, 2), 16);
-  const g = parseInt(clean.substring(2, 4), 16);
-  const b = parseInt(clean.substring(4, 6), 16);
-  if (isNaN(r) || isNaN(g) || isNaN(b)) return hex;
-  const lighten = (c: number) => Math.min(255, Math.round(c + (255 - c) * amount));
-  return `#${[r, g, b].map(c => lighten(c).toString(16).padStart(2, '0')).join('')}`;
-};
-
-const darkenColor = (hex: string): string => {
-  if (!hex || !hex.startsWith('#')) return '#FFFFFF';
-  const isDarkMode = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
-  if (isDarkMode) return '#FFFFFF';
-
-  const clean = hex.replace('#', '');
-  let r = parseInt(clean.substring(0, 2), 16);
-  let g = parseInt(clean.substring(2, 4), 16);
-  let b = parseInt(clean.substring(4, 6), 16);
-  if (isNaN(r) || isNaN(g) || isNaN(b)) return '#FFFFFF';
-
-  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-  let amount: number;
-  if (luminance > 0.55) amount = 0.65;
-  else if (luminance > 0.3) amount = 0.5;
-  else amount = 0.35;
-
-  // Convert to HSL
-  r /= 255; g /= 255; b /= 255;
-  const max = Math.max(r, g, b), min = Math.min(r, g, b);
-  const l = (max + min) / 2;
-  let s = 0, h = 0;
-  if (max !== min) {
-    const d = max - min;
-    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-    switch (max) {
-      case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break;
-      case g: h = ((b - r) / d + 2) / 6; break;
-      case b: h = ((r - g) / d + 4) / 6; break;
-    }
-  }
-
-  // Increase saturation 50%
-  s = Math.min(1, s * 1.5);
-
-  const newL = l * (1 - amount);
-
-  // Convert back to RGB
-  let rr: number, gg: number, bb: number;
-  if (s === 0) {
-    rr = gg = bb = newL;
-  } else {
-    const qq = newL < 0.5 ? newL * (1 + s) : newL + s - newL * s;
-    const pp = 2 * newL - qq;
-    rr = hue2rgb(pp, qq, h + 1/3);
-    gg = hue2rgb(pp, qq, h);
-    bb = hue2rgb(pp, qq, h - 1/3);
-  }
-
-  return `#${[rr, gg, bb].map(c => Math.round(c * 255).toString(16).padStart(2, '0')).join('')}`;
-};
-
 const getTextColorForBg = (hex: string): string => {
   if (!hex || !hex.startsWith('#')) return '#FFFFFF';
   const clean = hex.replace('#', '');
@@ -252,21 +225,20 @@ const getEventStyles = (hexColor?: string) => {
   if (!isHex) return {};
   
   if (isDarkMode) {
-    const bgColor = hexToRgba(hexColor, 0.3);
     return {
-      backgroundColor: bgColor,
-      color: '#FFFFFF',
+      backgroundColor: hexColor,
+      backgroundBlendMode: 'normal',
+      color: getTextColorForBg(hexColor),
       borderLeft: `4px solid ${hexColor}`,
       borderRight: '1px solid rgba(255, 255, 255, 0.05)',
       borderTop: '1px solid rgba(255, 255, 255, 0.05)',
       borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
     };
   } else {
-    const bgColor = hexToRgba(hexColor, 0.15);
-    const textColor = darkenColor(hexColor);
     return {
-      backgroundColor: bgColor,
-      color: textColor,
+      backgroundColor: hexColor,
+      backgroundBlendMode: 'normal',
+      color: getTextColorForBg(hexColor),
       borderLeft: `4px solid ${hexColor}`,
       borderRight: '1px solid rgba(0, 0, 0, 0.04)',
       borderTop: '1px solid rgba(0, 0, 0, 0.04)',
@@ -411,7 +383,12 @@ const areEventListsEquivalent = (left: Event[], right: Event[]) => {
       event.endTime?.getTime() === other.endTime?.getTime() &&
       event.isAllDay === other.isAllDay &&
       event.completed === other.completed &&
-      event.color === other.color
+      event.color === other.color &&
+      event.description === other.description &&
+      event.isEvent === other.isEvent &&
+      event.reminderEnabled === other.reminderEnabled &&
+      event.reminderMinutesBefore === other.reminderMinutesBefore &&
+      JSON.stringify(event.links || []) === JSON.stringify(other.links || [])
   })
 }
 
@@ -499,7 +476,15 @@ export function EventManager({
           // For completion:
           const completionMatches = extEvent.completed === pending.completed
 
-          const isConfirmed = timeMatches && priorityMatches && completionMatches
+          const contentMatches =
+            extEvent.title === pending.title &&
+            extEvent.description === pending.description &&
+            extEvent.isEvent === pending.isEvent &&
+            extEvent.reminderEnabled === pending.reminderEnabled &&
+            extEvent.reminderMinutesBefore === pending.reminderMinutesBefore &&
+            JSON.stringify(extEvent.links || []) === JSON.stringify(pending.links || [])
+
+          const isConfirmed = timeMatches && priorityMatches && completionMatches && contentMatches
 
           if (isConfirmed) {
             pendingDropsRef.current.delete(extEvent.id)
@@ -562,12 +547,24 @@ export function EventManager({
   ]
 
   const [isQuickPreviewOpen, setIsQuickPreviewOpen] = useState(false)
+  const [isQuickPreviewExpanded, setIsQuickPreviewExpanded] = useState(false)
   const [quickPreviewEvent, setQuickPreviewEvent] = useState<Event | null>(null)
 
   // Local draft states for preview editing
   const [previewTitle, setPreviewTitle] = useState('')
   const [previewDescription, setPreviewDescription] = useState('')
+  const [previewStartTime, setPreviewStartTime] = useState<Date>(new Date())
+  const [previewEndTime, setPreviewEndTime] = useState<Date>(new Date())
   const [previewIsEvent, setPreviewIsEvent] = useState(true)
+  const [previewImportance, setPreviewImportance] = useState(false)
+  const [previewUrgency, setPreviewUrgency] = useState(false)
+  const [previewRecurrence, setPreviewRecurrence] = useState<RecurrenceMode>('none')
+  const [previewRecurrenceDays, setPreviewRecurrenceDays] = useState<number[]>([])
+  const [previewRecurrenceInterval, setPreviewRecurrenceInterval] = useState(1)
+  const [previewRecurrenceUnit, setPreviewRecurrenceUnit] = useState<RecurrenceUnit>('weeks')
+  const [previewRecurrenceEndType, setPreviewRecurrenceEndType] = useState<RecurrenceEndType>('never')
+  const [previewRecurrenceEndDate, setPreviewRecurrenceEndDate] = useState('')
+  const [previewRecurrenceEndCount, setPreviewRecurrenceEndCount] = useState(5)
   const [previewColor, setPreviewColor] = useState('')
   const [previewReminderEnabled, setPreviewReminderEnabled] = useState(false)
   const [previewReminderMinutes, setPreviewReminderMinutes] = useState(15)
@@ -578,11 +575,23 @@ export function EventManager({
       onEventClick(event)
     } else {
       setQuickPreviewEvent(event)
+      setIsQuickPreviewExpanded(false)
       setPreviewTitle(event.title || '')
       const rawDesc = event.description || '';
       const cleanedDesc = cleanDescription(rawDesc);
       setPreviewDescription(cleanedDesc)
+      setPreviewStartTime(new Date(event.startTime))
+      setPreviewEndTime(new Date(event.endTime))
       setPreviewIsEvent(event.isEvent !== false)
+      setPreviewImportance(!!event.importance)
+      setPreviewUrgency(!!event.urgency)
+      setPreviewRecurrence(event.recurrence || 'none')
+      setPreviewRecurrenceDays(event.recurrenceDays || [])
+      setPreviewRecurrenceInterval(event.recurrenceInterval || 1)
+      setPreviewRecurrenceUnit(event.recurrenceUnit || 'weeks')
+      setPreviewRecurrenceEndType(event.recurrenceEndType || 'never')
+      setPreviewRecurrenceEndDate(event.recurrenceEndDate || '')
+      setPreviewRecurrenceEndCount(event.recurrenceEndCount || 5)
       setPreviewColor(event.color || priorityColors.p4)
       setPreviewReminderEnabled(!!event.reminderEnabled)
       setPreviewReminderMinutes(event.reminderMinutesBefore ?? 15)
@@ -591,24 +600,8 @@ export function EventManager({
     }
   }, [onEventClick, priorityColors])
 
-  const openFullDialogFromPreview = () => {
-    if (!quickPreviewEvent) return
-    
-    const draftEvent: Event = {
-      ...quickPreviewEvent,
-      title: previewTitle,
-      description: previewDescription,
-      isEvent: previewIsEvent,
-      color: previewColor,
-      reminderEnabled: previewReminderEnabled,
-      reminderMinutesBefore: previewReminderMinutes,
-      links: previewLinks,
-    }
-    
-    setSelectedEvent(draftEvent)
-    setIsCreating(false)
-    setIsQuickPreviewOpen(false)
-    setIsDialogOpen(true)
+  const toggleQuickPreviewDetails = () => {
+    setIsQuickPreviewExpanded((expanded) => !expanded)
   }
 
   const handleSaveQuickPreview = useCallback(() => {
@@ -617,24 +610,52 @@ export function EventManager({
     const updates: Partial<Event> = {
       title: previewTitle,
       description: previewDescription,
+      startTime: previewStartTime,
+      endTime: previewEndTime,
       isEvent: previewIsEvent,
+      importance: previewImportance,
+      urgency: previewUrgency,
+      recurrence: previewRecurrence,
+      recurrenceDays: previewRecurrence === 'none' ? [] : previewRecurrenceDays,
+      recurrenceInterval: previewRecurrence === 'none' ? 1 : previewRecurrenceInterval,
+      recurrenceUnit: previewRecurrence === 'none' ? 'weeks' : previewRecurrenceUnit,
+      recurrenceEndType: previewRecurrence === 'none' ? 'never' : previewRecurrenceEndType,
+      recurrenceEndDate: previewRecurrenceEndType === 'date' ? previewRecurrenceEndDate : undefined,
+      recurrenceEndCount: previewRecurrenceEndType === 'count' ? previewRecurrenceEndCount : undefined,
       color: previewColor,
       reminderEnabled: previewReminderEnabled,
       reminderMinutesBefore: previewReminderMinutes,
       links: previewLinks.filter(l => l.trim() !== ''),
     }
+
+    const updatedEvent = { ...quickPreviewEvent, ...updates }
+    pendingDropsRef.current.set(quickPreviewEvent.id, updatedEvent)
+    setTimeout(() => { pendingDropsRef.current.delete(quickPreviewEvent.id) }, 5000)
+    setEvents((prev) => prev.map((event) => event.id === quickPreviewEvent.id ? updatedEvent : event))
     
     onEventUpdate?.(quickPreviewEvent.id, updates)
     setIsQuickPreviewOpen(false)
+    setIsQuickPreviewExpanded(false)
     setQuickPreviewEvent(null)
-  }, [quickPreviewEvent, previewTitle, previewDescription, previewIsEvent, previewColor, previewReminderEnabled, previewReminderMinutes, previewLinks, onEventUpdate])
+  }, [quickPreviewEvent, previewTitle, previewDescription, previewStartTime, previewEndTime, previewIsEvent, previewImportance, previewUrgency, previewRecurrence, previewRecurrenceDays, previewRecurrenceInterval, previewRecurrenceUnit, previewRecurrenceEndType, previewRecurrenceEndDate, previewRecurrenceEndCount, previewColor, previewReminderEnabled, previewReminderMinutes, previewLinks, onEventUpdate])
 
 
   const hasChanges = useMemo(() => {
     if (!quickPreviewEvent) return false
     const origTitle = quickPreviewEvent.title || ''
     const origDesc = quickPreviewEvent.description || ''
+    const origStartTime = quickPreviewEvent.startTime?.getTime()
+    const origEndTime = quickPreviewEvent.endTime?.getTime()
     const origIsEvent = quickPreviewEvent.isEvent !== false
+    const origImportance = !!quickPreviewEvent.importance
+    const origUrgency = !!quickPreviewEvent.urgency
+    const origRecurrence = quickPreviewEvent.recurrence || 'none'
+    const origRecurrenceDays = quickPreviewEvent.recurrenceDays || []
+    const origRecurrenceInterval = quickPreviewEvent.recurrenceInterval || 1
+    const origRecurrenceUnit = quickPreviewEvent.recurrenceUnit || 'weeks'
+    const origRecurrenceEndType = quickPreviewEvent.recurrenceEndType || 'never'
+    const origRecurrenceEndDate = quickPreviewEvent.recurrenceEndDate || ''
+    const origRecurrenceEndCount = quickPreviewEvent.recurrenceEndCount || 5
     const origColor = quickPreviewEvent.color || priorityColors.p4
     const origReminder = !!quickPreviewEvent.reminderEnabled
     const origMins = quickPreviewEvent.reminderMinutesBefore ?? 15
@@ -646,7 +667,18 @@ export function EventManager({
     return (
       previewTitle !== origTitle ||
       previewDescription !== origDesc ||
+      previewStartTime.getTime() !== origStartTime ||
+      previewEndTime.getTime() !== origEndTime ||
       previewIsEvent !== origIsEvent ||
+      previewImportance !== origImportance ||
+      previewUrgency !== origUrgency ||
+      previewRecurrence !== origRecurrence ||
+      JSON.stringify([...previewRecurrenceDays].sort()) !== JSON.stringify([...origRecurrenceDays].sort()) ||
+      previewRecurrenceInterval !== origRecurrenceInterval ||
+      previewRecurrenceUnit !== origRecurrenceUnit ||
+      previewRecurrenceEndType !== origRecurrenceEndType ||
+      previewRecurrenceEndDate !== origRecurrenceEndDate ||
+      previewRecurrenceEndCount !== origRecurrenceEndCount ||
       previewColor.toLowerCase() !== origColor.toLowerCase() ||
       previewReminderEnabled !== origReminder ||
       (previewReminderEnabled && previewReminderMinutes !== origMins) ||
@@ -656,7 +688,18 @@ export function EventManager({
     quickPreviewEvent,
     previewTitle,
     previewDescription,
+    previewStartTime,
+    previewEndTime,
     previewIsEvent,
+    previewImportance,
+    previewUrgency,
+    previewRecurrence,
+    previewRecurrenceDays,
+    previewRecurrenceInterval,
+    previewRecurrenceUnit,
+    previewRecurrenceEndType,
+    previewRecurrenceEndDate,
+    previewRecurrenceEndCount,
     previewColor,
     previewReminderEnabled,
     previewReminderMinutes,
@@ -664,11 +707,131 @@ export function EventManager({
     priorityColors
   ])
 
+  const previewRecurrenceDayNames = useMemo(() => (
+    WEEK_DAYS
+      .filter((day) => previewRecurrenceDays.includes(day.value))
+      .map((day) => day.full)
+  ), [previewRecurrenceDays])
+
+  const previewRecurrenceSummary = useMemo(() => {
+    const title = previewTitle || 'Este elemento'
+    const baseSummary = (() => {
+      if (!previewRecurrence || previewRecurrence === 'none') return 'No se repite'
+      if (previewRecurrence === 'daily') return 'Se repite cada día'
+      if (previewRecurrence === 'weekdays') return 'Se repite de lunes a viernes'
+      if (previewRecurrence === 'weekly') {
+        return previewRecurrenceDayNames.length
+          ? `Se repite cada ${previewRecurrenceDayNames.join(', ')}`
+          : 'Se repite cada semana'
+      }
+      if (previewRecurrence === 'biweekly') {
+        return previewRecurrenceDayNames.length
+          ? `Se repite cada 2 semanas: ${previewRecurrenceDayNames.join(', ')}`
+          : 'Se repite cada 2 semanas'
+      }
+      if (previewRecurrence === 'monthly') return 'Se repite cada mes'
+      if (previewRecurrence === 'yearly') return 'Se repite cada año'
+
+      const [singular, plural] = RECURRENCE_UNIT_LABELS[previewRecurrenceUnit]
+      const cadence = `Se repite cada ${previewRecurrenceInterval} ${previewRecurrenceInterval === 1 ? singular : plural}`
+      return previewRecurrenceUnit === 'weeks' && previewRecurrenceDayNames.length
+        ? `${cadence}: ${previewRecurrenceDayNames.join(', ')}`
+        : cadence
+    })()
+
+    const endSummary = previewRecurrenceEndType === 'date' && previewRecurrenceEndDate
+      ? ` hasta ${format(new Date(`${previewRecurrenceEndDate}T12:00:00`), 'd MMM yyyy', { locale: es })}`
+      : previewRecurrenceEndType === 'count'
+        ? ` durante ${previewRecurrenceEndCount} eventos`
+        : ''
+
+    return `${title}: ${baseSummary}${endSummary}.`
+  }, [
+    previewTitle,
+    previewRecurrence,
+    previewRecurrenceDayNames,
+    previewRecurrenceUnit,
+    previewRecurrenceInterval,
+    previewRecurrenceEndType,
+    previewRecurrenceEndDate,
+    previewRecurrenceEndCount,
+  ])
+
+  const applyPreviewRecurrenceMode = (mode: RecurrenceMode) => {
+    setPreviewRecurrence(mode)
+
+    if (mode === 'none') {
+      setPreviewRecurrenceDays([])
+      setPreviewRecurrenceInterval(1)
+      setPreviewRecurrenceUnit('weeks')
+      setPreviewRecurrenceEndType('never')
+      setPreviewRecurrenceEndDate('')
+      setPreviewRecurrenceEndCount(5)
+      return
+    }
+
+    if (mode === 'weekdays') {
+      setPreviewRecurrenceDays([1, 2, 3, 4, 5])
+      setPreviewRecurrenceInterval(1)
+      setPreviewRecurrenceUnit('weeks')
+      return
+    }
+
+    if (mode === 'weekly' || mode === 'biweekly') {
+      setPreviewRecurrenceDays((days) => days.length ? days : [previewStartTime.getDay()])
+      setPreviewRecurrenceInterval(mode === 'biweekly' ? 2 : 1)
+      setPreviewRecurrenceUnit('weeks')
+      return
+    }
+
+    if (mode === 'daily') {
+      setPreviewRecurrenceDays([])
+      setPreviewRecurrenceInterval(1)
+      setPreviewRecurrenceUnit('days')
+      return
+    }
+
+    if (mode === 'monthly') {
+      setPreviewRecurrenceDays([])
+      setPreviewRecurrenceInterval(1)
+      setPreviewRecurrenceUnit('months')
+      return
+    }
+
+    if (mode === 'yearly') {
+      setPreviewRecurrenceDays([])
+      setPreviewRecurrenceInterval(1)
+      setPreviewRecurrenceUnit('years')
+      return
+    }
+
+    setPreviewRecurrenceInterval((interval) => Math.max(1, interval || 1))
+    setPreviewRecurrenceUnit((unit) => unit || 'weeks')
+  }
+
+  const togglePreviewRecurrenceDay = (day: number) => {
+    setPreviewRecurrenceDays((days) => {
+      const nextDays = days.includes(day)
+        ? days.filter((value) => value !== day)
+        : [...days, day]
+
+      if (nextDays.length === 0) {
+        setPreviewRecurrence('none')
+      } else if (previewRecurrence !== 'custom') {
+        setPreviewRecurrence(previewRecurrence === 'biweekly' ? 'biweekly' : 'weekly')
+      }
+
+      setPreviewRecurrenceUnit('weeks')
+      return nextDays
+    })
+  }
+
 
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [confirmCloseOpen, setConfirmCloseOpen] = useState(false)
   const [dialogInitialSnapshot, setDialogInitialSnapshot] = useState('')
   const [isCreating, setIsCreating] = useState(false)
+  const [createReminderDefaultActive, setCreateReminderDefaultActive] = useState(false)
   const [creationSource, setCreationSource] = useState<'calendar_only' | 'task_only' | 'both'>('calendar_only')
   const [durationMinutes, setDurationMinutes] = useState(30)
   const [customDuration, setCustomDuration] = useState('')
@@ -680,8 +843,8 @@ export function EventManager({
     color: colors[0].value,
     category: categories[0],
     tags: [],
-    reminderEnabled: false,
-    reminderMinutesBefore: 15,
+    reminderEnabled: true,
+    reminderMinutesBefore: 0,
   })
 
   const [selectedCategory, setSelectedCategory] = useState<string>('Hoy');
@@ -1165,9 +1328,7 @@ export function EventManager({
         (currentDateStr === todayStr && e.startTime < startOfDay(currentDate) && !e.completed);
       const taskCat = e.category || 'Hoy';
       // 'Hoy' tab shows tasks with no category or category === 'Hoy'
-      const matchesCategory = selectedCategory === 'Hoy'
-        ? (!e.category || e.category === 'Hoy')
-        : taskCat === selectedCategory;
+      const matchesCategory = selectedCategory === 'Hoy' ? true : taskCat === selectedCategory;
       return inTimeRange && matchesCategory;
     });
     const grouped: Record<string, Event[]> = {};
@@ -1385,9 +1546,10 @@ export function EventManager({
       recurrenceInterval: 1,
       recurrenceUnit: 'weeks',
       recurrenceEndType: 'never',
-      reminderEnabled: false,
-      reminderMinutesBefore: 15,
+      reminderEnabled: true,
+      reminderMinutesBefore: 0,
     });
+    setCreateReminderDefaultActive(true);
     setCreationSource('calendar_only');
     setDurationMinutes(30);
     setCustomDuration('');
@@ -1436,9 +1598,10 @@ export function EventManager({
         tags: [],
         recurrence: 'none',
         links: [],
-        reminderEnabled: false,
-        reminderMinutesBefore: 15,
+        reminderEnabled: true,
+        reminderMinutesBefore: 0,
       })
+      setCreateReminderDefaultActive(false)
       return
     }
 
@@ -1496,9 +1659,10 @@ export function EventManager({
       recurrenceUnit: 'weeks',
       recurrenceEndType: 'never',
       links: [],
-      reminderEnabled: false,
-      reminderMinutesBefore: 15,
+      reminderEnabled: true,
+      reminderMinutesBefore: 0,
     })
+    setCreateReminderDefaultActive(false)
   }, [newEvent, colors, categories, onEventCreate, creationSource, events])
 
   const handleUpdateEvent = useCallback(() => {
@@ -2021,8 +2185,8 @@ export function EventManager({
   return (
     <div ref={calendarRootRef} data-calendar-grid className={cn("relative flex w-full max-w-full flex-col gap-0", className)}>
       {/* Sticky Header - Google-like */}
-      <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-xl border-b border-outline-variant/10 px-2 sm:px-3 pb-3 pt-4 lg:px-2 lg:pt-3 -mx-0 mb-0 shadow-sm">
-        <div className="flex items-center gap-2 pl-12 sm:hidden">
+      <div className="sticky top-0 z-30 bg-background border-b border-outline-variant/10 px-2 sm:px-3 pb-2 pt-2 lg:px-2 lg:pt-2 -mx-0 mb-0 shadow-none">
+        <div className="flex items-center gap-2 pl-2 pr-12 sm:hidden">
           <Popover>
             <PopoverTrigger asChild>
               <button
@@ -2174,15 +2338,7 @@ export function EventManager({
 
       {/* Main Content */}
       <div className={cn(containedScroll ? "flex-1 min-h-0" : "min-h-0", "relative")}>
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={view}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.3, ease: "easeOut" }}
-            className={containedScroll ? "h-full" : "min-h-0"}
-          >
+        <div className={containedScroll ? "h-full" : "min-h-0"}>
             {view === "month" && (
               <SecondaryMonthView
                 currentDate={currentDate}
@@ -2271,7 +2427,7 @@ export function EventManager({
                           <button
                             key={cat}
                             onClick={() => setSelectedCategory(cat)}
-                            className={`flex-shrink-0 px-4 py-1.5 rounded-full text-[11px] font-black uppercase tracking-wide transition-all border notebook-handwriting ${
+                            className={`flex-shrink-0 px-4 py-1.5 rounded-full text-[10px] font-semibold tracking-tight transition-all border ${
                               isSelected
                                 ? 'bg-primary/15 text-primary border-primary/35 shadow-sm'
                                 : 'bg-white/40 text-on-surface-variant/80 border-outline-variant/40 hover:text-foreground hover:border-outline-variant/60'
@@ -2285,7 +2441,7 @@ export function EventManager({
 
                     <div ref={sidebarScrollRef} className="relative z-10 flex-1 overflow-y-auto custom-scrollbar px-2 py-3 pl-8 pr-2 focus:outline-none focus:ring-2 focus:ring-primary/20" data-sidebar-scroll="true" tabIndex={0}>
                       {sidebarVisibleTasks.length > 0 ? (
-                        <div className="notebook-task-list" style={{ ['--notebook-rule-color' as string]: 'rgba(30, 41, 59, 0.02)' }}>
+                        <div className="notebook-task-list">
                           {sidebarVisibleTasks.map((event, idx) => (
                             <div
                               key={event.id}
@@ -2375,8 +2531,7 @@ export function EventManager({
                 getColorClasses={getColorClasses}
               />
             )}
-          </motion.div>
-        </AnimatePresence>
+        </div>
       </div>
 
 
@@ -2405,7 +2560,7 @@ export function EventManager({
               <motion.div
                 key="event-backdrop"
                 initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                className={cn(containedScroll ? "absolute" : "fixed", "inset-0 bg-black/60 z-[60]")}
+                className={cn(containedScroll ? "absolute" : "fixed", "inset-0 bg-[#F4F7EF] dark:bg-[#080B10] z-[60]")}
                 onClick={requestDialogClose}
               />
 
@@ -2417,18 +2572,18 @@ export function EventManager({
                 exit={{ opacity: 0, scale: 0.95, y: 10 }}
                 transition={{ type: 'spring', damping: 22, stiffness: 260 }}
                 className={cn(
-                  containedScroll ? "absolute p-3" : "fixed p-4",
-                  "inset-0 z-[70] flex items-center justify-center pointer-events-none"
+                  containedScroll ? "absolute p-3" : "fixed p-0 sm:p-4",
+                  "inset-0 z-[70] flex items-stretch justify-center pointer-events-none sm:items-center"
                 )}
               >
                 <div className={cn(
-                  "relative mx-auto w-full overflow-y-auto pointer-events-auto border border-border bg-background shadow-[0_20px_60px_-10px_hsl(var(--primary)/0.18)]",
-                  containedScroll ? "max-w-[500px] max-h-[calc(100%-1.5rem)] rounded-[24px]" : "max-w-[680px] max-h-[90vh] rounded-[32px] no-scrollbar"
+                  "relative mx-auto w-full overflow-y-auto pointer-events-auto border border-outline-variant/25 bg-background shadow-[0_28px_80px_rgba(0,0,0,0.22)]",
+                  containedScroll ? "max-w-[500px] max-h-[calc(100%-1.5rem)] rounded-[24px]" : "h-full max-h-full max-w-full rounded-none border-0 no-scrollbar sm:h-auto sm:max-w-[640px] sm:max-h-[88vh] sm:rounded-[30px] sm:border"
                 )}>
-                  <div className={cn("flex flex-col gap-6", containedScroll ? "p-4" : "p-6")}>
+                  <div className={cn("flex flex-col gap-4", containedScroll ? "p-4" : "p-5")}>
 
                     {/* Header - same as TaskDetailModal */}
-                    <div className="flex items-center justify-between">
+                    <div className="sticky top-0 z-10 -mx-1 flex items-center justify-between rounded-[24px] bg-background/95 px-1 py-1">
                       <div className="flex items-center gap-3">
                         <button
                           onClick={requestDialogClose}
@@ -2448,7 +2603,7 @@ export function EventManager({
                       </div>
                       <button
                         onClick={isCreating ? handleCreateEvent : handleUpdateEvent}
-                        className="px-5 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:scale-[1.03] active:scale-95 transition-all"
+                        className="px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:scale-[1.03] active:scale-95 transition-all"
                       >
                         {isCreating
                           ? hasTime
@@ -2458,7 +2613,7 @@ export function EventManager({
                       </button>
                     </div>
 
-                      <div className={cn("space-y-6", containedScroll && "space-y-4")}>
+                      <div className={cn("space-y-4", containedScroll && "space-y-3")}>
 
                       {/* TAREA */}
                       <div className="space-y-2">
@@ -2480,7 +2635,7 @@ export function EventManager({
                               : setSelectedEvent(prev => prev ? ({ ...prev, title: e.target.value }) : null)
                             }
                             className={cn(
-                              "w-full text-xl font-semibold bg-surface/50 border border-outline-variant/30 rounded-[22px] px-6 py-5 focus:outline-none focus:ring-4 focus:ring-primary/10 placeholder:text-muted-foreground/20 transition-all shadow-sm",
+                              "w-full text-lg font-bold bg-surface/70 border border-outline-variant/25 rounded-[22px] px-5 py-4 focus:outline-none focus:ring-4 focus:ring-primary/10 placeholder:text-muted-foreground/20 transition-all shadow-sm",
                               !isCreating && selectedEvent?.completed && "text-muted-foreground/50 line-through decoration-primary/30"
                             )}
                             placeholder={"T\u00edtulo"}
@@ -2490,14 +2645,14 @@ export function EventManager({
                       </div>
 
                       {/* CONFIGURACION RAPIDA (Grid layout) */}
-                      <div className={cn("grid gap-4", containedScroll ? "grid-cols-1" : "grid-cols-2")}>
+                      <div className="grid grid-cols-1 gap-3">
                         {/* FECHA */}
                         <div className="space-y-2">
                           <label className="text-[11px] font-bold text-muted-foreground/60 uppercase tracking-wider ml-1">Fecha</label>
                           <Popover>
                             <PopoverTrigger asChild>
                               <div
-                                className="flex items-center gap-3 bg-surface/50 border border-outline-variant/30 rounded-[18px] px-4 py-3.5 cursor-pointer hover:border-primary/40 hover:bg-surface transition-all shadow-sm group"
+                                className="flex items-center gap-3 bg-surface/70 border border-outline-variant/25 rounded-[18px] px-4 py-3 cursor-pointer hover:border-primary/40 hover:bg-surface transition-all shadow-sm group"
                               >
                                 <Calendar className="w-4 h-4 text-primary/40 group-hover:text-primary transition-colors" />
                                 <span className="text-[11px] font-bold text-primary truncate">
@@ -2532,46 +2687,13 @@ export function EventManager({
                           </Popover>
                         </div>
 
-                        {/* HORA */}
-                        {!isCreating ? (
-                          <div className="space-y-2">
-                             <label className="text-[11px] font-bold text-muted-foreground/60 uppercase tracking-wider ml-1">Horario</label>
-                             <div className="flex flex-col gap-1.5">
-                                <ScrollableTimePicker
-                                  value={format(selectedEvent?.startTime || new Date(), 'HH:mm')}
-                                  onChange={(val) => {
-                                    const [h, m] = val.split(':').map(Number);
-                                    const d = new Date(selectedEvent?.startTime || new Date());
-                                    d.setHours(h, m);
-                                    setSelectedEvent(prev => prev ? ({ ...prev, startTime: d }) : null);
-                                  }}
-                                  className="w-full h-11"
-                                />
-                             </div>
-                          </div>
-                        ) : (
-                          <div className="space-y-2">
-                            <label className="text-[11px] font-bold text-muted-foreground/60 uppercase tracking-wider ml-1">Hora inicio</label>
-                            <ScrollableTimePicker
-                              value={format(newEvent.startTime || new Date(), 'HH:mm')}
-                              onChange={(val) => {
-                                const [h, m] = val.split(':').map(Number);
-                                const d = new Date(newEvent.startTime || new Date());
-                                d.setHours(h, m);
-                                const end = addMinutes(d, durationMinutes);
-                                setNewEvent(prev => ({ ...prev, startTime: d, endTime: end }));
-                              }}
-                              className="w-full h-11"
-                            />
-                          </div>
-                        )}
                       </div>
 
                       {/* MODO (Segmented style) */}
                       {hasTime && (isCreating || !!selectedEvent) && (
                         <div className="space-y-2">
                           <label className="text-[11px] font-bold text-muted-foreground/60 uppercase tracking-wider ml-1">{"\u00bfD\u00f3nde quiere verlo?"}</label>
-                          <div className="flex p-1 bg-surface-container/30 border border-outline-variant/10 rounded-[20px] gap-1">
+                          <div className="flex p-1 bg-surface-container/30 border border-outline-variant/20 rounded-[20px] gap-1">
                             {[
                               { id: 'calendar_only' as const, label: 'SOLO CALENDARIO' },
                               { id: 'both' as const, label: 'LISTA DE TAREAS Y CALENDARIO' },
@@ -2663,7 +2785,7 @@ export function EventManager({
                       {/* PRIORIDAD */}
                       <div className="space-y-2">
                         <label className="text-[11px] font-bold text-muted-foreground/60 uppercase tracking-wider ml-1">Prioridad</label>
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-2 gap-2.5">
                           <button
                             type="button"
                             onClick={() => {
@@ -2678,7 +2800,7 @@ export function EventManager({
                               })
                             }}
                             className={cn(
-                              "flex flex-col items-center justify-center gap-1 rounded-[22px] font-black uppercase tracking-widest text-[9px] transition-all border h-14",
+                              "flex flex-col items-center justify-center gap-1 rounded-[20px] font-black uppercase tracking-widest text-[9px] transition-all border h-12",
                               importanceVal 
                                 ? "bg-amber-500/10 text-amber-500 border-amber-500/30 shadow-lg shadow-amber-500/5" 
                                 : "bg-surface-container/30 text-muted-foreground border-outline-variant/10 hover:bg-surface-container/50"
@@ -2700,7 +2822,7 @@ export function EventManager({
                               })
                             }}
                             className={cn(
-                              "flex flex-col items-center justify-center gap-1 rounded-[22px] font-black uppercase tracking-widest text-[9px] transition-all border h-14",
+                              "flex flex-col items-center justify-center gap-1 rounded-[20px] font-black uppercase tracking-widest text-[9px] transition-all border h-12",
                               urgencyVal 
                                 ? "bg-red-500/10 text-red-500 border-red-500/30 shadow-lg shadow-red-500/5" 
                                 : "bg-surface-container/30 text-muted-foreground border-outline-variant/10 hover:bg-surface-container/50"
@@ -2784,7 +2906,19 @@ export function EventManager({
                         const reminderEnabled = !!recEvent?.reminderEnabled
                         const reminderMinutes = recEvent?.reminderMinutesBefore ?? 15
                         const quickReminders = REMINDER_OPTIONS
-                        const patchReminder = (patch: Partial<Event>) => patchRecurrence(patch)
+                        const patchReminder = (patch: Partial<Event>) => {
+                          if (isCreating) setCreateReminderDefaultActive(false)
+                          patchRecurrence(patch)
+                        }
+                        const cycleReminder = () => {
+                          if (isCreating && createReminderDefaultActive && reminderEnabled && reminderMinutes === 0) {
+                            setCreateReminderDefaultActive(false)
+                            patchRecurrence({ reminderEnabled: false, reminderMinutesBefore: 0 })
+                            return
+                          }
+
+                          patchReminder(getNextReminderState(reminderEnabled, reminderMinutes))
+                        }
 
                         return (
                           <div className="space-y-3">
@@ -2860,16 +2994,17 @@ export function EventManager({
                             <div className="space-y-2">
                               <div className="flex items-center justify-between px-1">
                                 <label className="text-[11px] font-bold text-muted-foreground/60 uppercase tracking-wider">{"Notificaci\u00f3n"}</label>
-                                <button
-                                  type="button"
-                                  onClick={() => patchReminder({ reminderEnabled: !reminderEnabled, reminderMinutesBefore: reminderMinutes || 10 })}
+                                  <button
+                                    type="button"
+                                  onClick={cycleReminder}
                                   className={cn(
-                                    "w-9 h-9 rounded-full flex items-center justify-center border transition-all",
+                                    "h-9 rounded-full px-3 flex items-center justify-center gap-2 border transition-all text-[10px] font-black",
                                     reminderEnabled ? "bg-primary/15 text-primary border-primary/25" : "bg-surface-container/30 text-muted-foreground border-outline-variant/15"
                                   )}
                                   aria-label={reminderEnabled ? "Desactivar notificaci\u00f3n" : "Activar notificaci\u00f3n"}
                                 >
                                   {reminderEnabled ? <Bell className="w-4 h-4" /> : <BellOff className="w-4 h-4" />}
+                                  <span>{getReminderDisplayLabel(reminderEnabled, reminderMinutes)}</span>
                                 </button>
                               </div>
                               {reminderEnabled && (
@@ -3162,7 +3297,7 @@ export function EventManager({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className={cn(containedScroll ? "absolute" : "fixed", "inset-0 bg-black/50 z-[90]")}
+              className={cn(containedScroll ? "absolute" : "fixed", "inset-0 bg-black/80 backdrop-blur-2xl z-[90]")}
             />
             <motion.div
               initial={{ opacity: 0, scale: 0.96, y: 8 }}
@@ -3205,11 +3340,14 @@ export function EventManager({
         onMouseDown={(e) => e.stopPropagation()}
         onMouseUp={(e) => e.stopPropagation()}
       >
-        <Dialog open={isQuickPreviewOpen} onOpenChange={(open) => { if (!open) { setIsQuickPreviewOpen(false); setQuickPreviewEvent(null); } }}>
+        <Dialog open={isQuickPreviewOpen} onOpenChange={(open) => { if (!open) { setIsQuickPreviewOpen(false); setIsQuickPreviewExpanded(false); setQuickPreviewEvent(null); } }}>
           <DialogContent 
-            className="w-full max-w-sm max-h-[480px] bg-surface-container-high/95 backdrop-blur-3xl border border-outline-variant/10 rounded-[28px] shadow-2xl p-4 overflow-hidden outline-none flex flex-col"
-            onInteractOutside={(e) => e.preventDefault()}
-            onPointerDownOutside={(e) => e.preventDefault()}
+            className={cn(
+              "left-0 top-0 h-[100dvh] max-h-[100dvh] w-screen translate-x-0 translate-y-0 bg-background border-0 rounded-none shadow-[0_28px_80px_rgba(0,0,0,0.22)] p-4 overflow-hidden outline-none flex flex-col transition-[max-width,max-height] duration-300 sm:left-[50%] sm:top-[50%] sm:h-auto sm:w-full sm:translate-x-[-50%] sm:translate-y-[-50%] sm:border sm:border-outline-variant/25 sm:rounded-[30px] sm:p-5",
+              isQuickPreviewExpanded
+                ? "sm:max-w-[430px] sm:max-h-[88vh]"
+                : "sm:max-w-[430px] sm:max-h-[min(560px,calc(100vh-48px))]"
+            )}
             onClick={(e) => e.stopPropagation()}
             onMouseDown={(e) => e.stopPropagation()}
             onMouseUp={(e) => e.stopPropagation()}
@@ -3219,25 +3357,26 @@ export function EventManager({
             <DialogDescription className="sr-only">Edita los datos principales del evento seleccionado.</DialogDescription>
             
             {/* Controladores X | Basura en la esquina superior izquierda */}
-            <div className="absolute left-4 top-2 flex items-center gap-2 z-20">
+            <div className="absolute left-5 top-5 flex items-center gap-3 z-20">
               <button
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
                   setIsQuickPreviewOpen(false);
+                  setIsQuickPreviewExpanded(false);
                   setQuickPreviewEvent(null);
                 }}
                 onMouseDown={(e) => e.stopPropagation()}
                 onMouseUp={(e) => e.stopPropagation()}
-                className="w-7 h-7 rounded-2xl flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/5 text-muted-foreground hover:text-foreground transition-colors focus:outline-none focus-visible:outline-none focus-visible:ring-0"
+                className="p-1.5 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 transition-all active:scale-90 text-muted-foreground hover:text-foreground focus:outline-none focus-visible:outline-none focus-visible:ring-0"
                 title="Cerrar"
               >
-                <X className="w-3.5 h-3.5" />
+                <X className="w-4 h-4" />
               </button>
               
               {quickPreviewEvent && (
                 <>
-                  <span className="text-muted-foreground/30 font-light text-[10px]">|</span>
+                  <span className="w-px h-4 bg-border" />
                   <button
                     type="button"
                     onClick={(e) => {
@@ -3245,12 +3384,13 @@ export function EventManager({
                       if (quickPreviewEvent) {
                         handleDeleteEvent(quickPreviewEvent.id);
                         setIsQuickPreviewOpen(false);
+                        setIsQuickPreviewExpanded(false);
                         setQuickPreviewEvent(null);
                       }
                     }}
                     onMouseDown={(e) => e.stopPropagation()}
                     onMouseUp={(e) => e.stopPropagation()}
-                    className="w-7 h-7 rounded-2xl flex items-center justify-center hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+                    className="w-8 h-8 rounded-xl flex items-center justify-center transition-all hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
                     title="Eliminar evento"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
@@ -3260,29 +3400,110 @@ export function EventManager({
             </div>
 
             {/* Contenedor del Formulario sin labels */}
-            <div className="space-y-3 pt-10 flex-1 overflow-y-auto min-h-0 pr-1">
+            <div className="space-y-3 pt-12 flex-1 overflow-y-auto min-h-0 pr-1">
               {/* TITULO */}
-              <input
-                type="text"
-                value={previewTitle}
-                onChange={(e) => setPreviewTitle(e.target.value)}
-                className="w-full text-sm font-bold bg-surface/50 border border-outline-variant/30 rounded-2xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all placeholder:text-muted-foreground/20 text-foreground"
-                placeholder="Nombre del evento"
-              />
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 ml-1">Tarea</label>
+                <input
+                  type="text"
+                  value={previewTitle}
+                  onChange={(e) => setPreviewTitle(e.target.value)}
+                  className="w-full text-[15px] font-bold bg-surface/70 border border-outline-variant/25 rounded-[22px] px-4 py-3.5 focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all placeholder:text-muted-foreground/20 text-foreground shadow-sm"
+                  placeholder="Nombre del evento"
+                />
+              </div>
+
+              {isQuickPreviewExpanded && (
+                <>
+                  <div className="grid grid-cols-1 gap-3">
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 ml-1">Fecha</label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <button
+                            type="button"
+                            className="w-full h-11 flex items-center gap-3 bg-surface/70 border border-outline-variant/25 rounded-[18px] px-4 cursor-pointer hover:border-primary/40 hover:bg-surface transition-all shadow-sm group"
+                          >
+                            <Calendar className="w-4 h-4 text-primary/40 group-hover:text-primary transition-colors" />
+                            <span className="text-[11px] font-bold text-primary truncate">
+                              {format(previewStartTime, "EEE, d MMM", { locale: es }).toUpperCase()}
+                            </span>
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0 rounded-[28px] overflow-hidden border-outline-variant/10 shadow-2xl" align="start">
+                          <CalendarPicker
+                            mode="single"
+                            selected={previewStartTime}
+                            onSelect={(date) => {
+                              if (!date) return;
+                              const nextStart = new Date(previewStartTime);
+                              nextStart.setFullYear(date.getFullYear(), date.getMonth(), date.getDate());
+                              const nextEnd = new Date(previewEndTime);
+                              nextEnd.setFullYear(date.getFullYear(), date.getMonth(), date.getDate());
+                              setPreviewStartTime(nextStart);
+                              setPreviewEndTime(nextEnd);
+                            }}
+                            initialFocus
+                            locale={es}
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 ml-1">Prioridad</label>
+                    <div className="grid grid-cols-2 gap-2.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const nextImportance = !previewImportance;
+                          setPreviewImportance(nextImportance);
+                          setPreviewColor(priorityColors[getPriorityKey(previewUrgency, nextImportance)]);
+                        }}
+                        className={cn(
+                          "flex items-center justify-center rounded-[20px] font-black uppercase tracking-widest text-[9px] transition-all border h-12",
+                          previewImportance
+                            ? "bg-amber-500/10 text-amber-500 border-amber-500/30 shadow-lg shadow-amber-500/5"
+                            : "bg-surface-container/30 text-muted-foreground border-outline-variant/10 hover:bg-surface-container/50"
+                        )}
+                      >
+                        Importante
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const nextUrgency = !previewUrgency;
+                          setPreviewUrgency(nextUrgency);
+                          setPreviewColor(priorityColors[getPriorityKey(nextUrgency, previewImportance)]);
+                        }}
+                        className={cn(
+                          "flex items-center justify-center rounded-[20px] font-black uppercase tracking-widest text-[9px] transition-all border h-12",
+                          previewUrgency
+                            ? "bg-red-500/10 text-red-500 border-red-500/30 shadow-lg shadow-red-500/5"
+                            : "bg-surface-container/30 text-muted-foreground border-outline-variant/10 hover:bg-surface-container/50"
+                        )}
+                      >
+                        Urgente
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
 
               {/* DESCRIPCION */}
               <textarea
                 value={previewDescription}
                 onChange={(e) => setPreviewDescription(e.target.value)}
                 style={{ fieldSizing: 'content' } as React.CSSProperties}
-                className="w-full text-xs bg-surface/50 border border-outline-variant/30 rounded-2xl p-3 focus:outline-none focus:ring-2 focus:ring-primary/30 min-h-[56px] max-h-[150px] placeholder:text-muted-foreground/20 transition-all resize-none text-foreground leading-[1.5] overflow-y-auto block"
+                className="w-full text-sm bg-surface-container/30 border border-outline-variant/10 rounded-[22px] p-4 focus:outline-none focus:ring-2 focus:ring-primary/30 min-h-[56px] max-h-[120px] placeholder:text-muted-foreground/20 transition-all resize-none text-foreground leading-[1.5] overflow-y-auto block"
                 placeholder={"A\u00f1adir descripci\u00f3n..."}
               />
 
               {/* COLOR Y NOTIFICACION EN LA MISMA LINEA */}
               <div className="flex items-center gap-2">
                 {/* Selector de Colores */}
-                <div className="flex-1 flex flex-wrap gap-1 p-1 bg-surface/50 border border-outline-variant/30 rounded-2xl items-center justify-center min-h-[32px]">
+                <div className="flex-1 flex flex-nowrap gap-1.5 p-2 bg-surface-container/25 border border-outline-variant/15 rounded-[20px] items-center min-h-[40px] overflow-x-auto no-scrollbar">
                   {[
                     { value: priorityColors.p1, label: 'P1' },
                     { value: priorityColors.p2, label: 'P2' },
@@ -3297,7 +3518,7 @@ export function EventManager({
                         type="button"
                         onClick={() => setPreviewColor(color.value)}
                         className={cn(
-                          "h-5 w-5 rounded-full border transition-all flex items-center justify-center relative",
+                          "h-5 w-5 shrink-0 rounded-full border transition-all flex items-center justify-center relative",
                           active 
                             ? "ring-2 ring-primary ring-offset-1 ring-offset-background scale-110 z-10 border-transparent" 
                             : "border-outline-variant/20 hover:scale-105"
@@ -3307,39 +3528,49 @@ export function EventManager({
                       />
                     );
                   })}
+                  <label
+                    className="h-5 w-5 shrink-0 rounded-full border border-dashed border-outline-variant/30 text-muted-foreground/70 hover:text-primary hover:border-primary/40 transition-all flex items-center justify-center cursor-pointer"
+                    style={{ backgroundColor: pendingCustomColor }}
+                    title="Agregar color personalizado"
+                  >
+                    <Plus className="w-3 h-3 text-white drop-shadow" />
+                    <input
+                      type="color"
+                      className="sr-only"
+                      value={pendingCustomColor}
+                      onChange={(e) => {
+                        const next = e.target.value;
+                        setPendingCustomColor(next);
+                        addCustomColor(next);
+                        setPreviewColor(next);
+                      }}
+                    />
+                  </label>
                 </div>
 
                 {/* Boton de Notificacion (Cicla minutos) */}
                 <button
                   type="button"
                   onClick={() => {
-                    if (!previewReminderEnabled) {
-                      setPreviewReminderEnabled(true);
-                      setPreviewReminderMinutes(15);
-                    } else {
-                      if (previewReminderMinutes === 5) setPreviewReminderMinutes(15);
-                      else if (previewReminderMinutes === 15) setPreviewReminderMinutes(30);
-                      else if (previewReminderMinutes === 30) setPreviewReminderMinutes(60);
-                      else {
-                        setPreviewReminderEnabled(false);
-                      }
-                    }
+                    const nextReminder = getNextReminderState(previewReminderEnabled, previewReminderMinutes)
+                    setPreviewReminderEnabled(nextReminder.reminderEnabled)
+                    setPreviewReminderMinutes(nextReminder.reminderMinutesBefore)
                   }}
                   className={cn(
-                    "h-8 px-2.5 rounded-2xl border flex items-center gap-1.5 transition-all text-[9px] font-black uppercase tracking-wider whitespace-nowrap",
+                    "h-9 rounded-full px-3 flex items-center justify-center gap-2 border transition-all text-[10px] font-black whitespace-nowrap",
                     previewReminderEnabled 
                       ? "bg-primary/15 text-primary border-primary/25 shadow-sm" 
                       : "bg-surface-container/30 text-muted-foreground border-outline-variant/15 hover:border-primary/30 hover:text-primary"
                   )}
                 >
                   {previewReminderEnabled ? <Bell className="w-3 h-3" /> : <BellOff className="w-3 h-3" />}
-                  <span>{previewReminderEnabled ? (previewReminderMinutes === 60 ? '1 hora' : `${previewReminderMinutes} min`) : 'Notificar'}</span>
+                  <span>{getReminderDisplayLabel(previewReminderEnabled, previewReminderMinutes)}</span>
                 </button>
               </div>
 
               {/* DONDE QUIERES VERLO (Solo si aplica) */}
               {quickPreviewEvent && !quickPreviewEvent.id.startsWith('google-') && (
-                <div className="flex p-0.5 bg-surface-container/30 border border-outline-variant/10 rounded-2xl gap-1">
+                <div className="flex p-1 bg-surface-container/30 border border-outline-variant/20 rounded-[20px] gap-1">
                   {[
                     { id: true, label: 'SOLO CALENDARIO' },
                     { id: false, label: 'TAREA Y CALENDARIO' },
@@ -3349,7 +3580,7 @@ export function EventManager({
                       type="button"
                       onClick={() => setPreviewIsEvent(opt.id)}
                       className={cn(
-                        "flex-1 py-1.5 rounded-[14px] text-[9px] font-black uppercase tracking-tight transition-all",
+                        "flex-1 py-2 rounded-[14px] text-[9px] font-black uppercase tracking-tight transition-all",
                         previewIsEvent === opt.id
                           ? "bg-primary text-primary-foreground shadow-sm"
                           : "text-muted-foreground hover:bg-black/5 dark:hover:bg-white/5"
@@ -3361,58 +3592,214 @@ export function EventManager({
                 </div>
               )}
 
-              {/* ENLACES (LINKS) */}
-              <div className="space-y-1.5">
-                {previewLinks.map((link, idx) => (
-                  <div key={idx} className="flex items-center gap-2">
-                    <div className="relative flex-1">
-                      <LinkIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground/30 pointer-events-none" />
-                      <input
-                        type="text"
-                        value={link}
-                        onChange={(e) => {
-                          const updated = [...previewLinks];
-                          updated[idx] = e.target.value;
-                          setPreviewLinks(updated);
-                        }}
-                        className="w-full text-[11px] bg-surface/50 border border-outline-variant/30 rounded-2xl pl-8 pr-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary/30 text-foreground transition-all"
-                        placeholder="https://..."
-                      />
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setPreviewLinks(prev => prev.filter((_, i) => i !== idx))}
-                      className="w-7 h-7 rounded-2xl flex items-center justify-center hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors border border-outline-variant/10"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
+              {isQuickPreviewExpanded && (
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between px-1">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">Repetición</label>
                   </div>
-                ))}
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setPreviewLinks(prev => [...prev, ''])}
-                    className="py-1 px-2 rounded-2xl border border-dashed border-outline-variant/30 text-muted-foreground hover:text-primary hover:border-primary/40 transition-all flex items-center gap-1 text-[9px] font-black uppercase tracking-wider w-max bg-surface/30"
-                  >
-                    <LinkIcon className="w-3 h-3" />
-                    <span>+ Enlace</span>
-                  </button>
+                  <div className="rounded-[22px] border border-outline-variant/15 bg-surface-container/25 p-3 space-y-3">
+                    <div className="rounded-2xl bg-primary/10 border border-primary/15 px-4 py-3 text-[12px] font-bold text-foreground leading-relaxed">
+                      {previewRecurrenceSummary}
+                    </div>
+
+                    <div className="grid grid-cols-4 gap-1.5">
+                      {([
+                        { id: 'none', label: 'No' },
+                        { id: 'daily', label: 'Diario' },
+                        { id: 'weekdays', label: 'L-V' },
+                        { id: 'weekly', label: 'Semanal' },
+                        { id: 'biweekly', label: '2 sem' },
+                        { id: 'monthly', label: 'Mensual' },
+                        { id: 'yearly', label: 'Anual' },
+                        { id: 'custom', label: 'A medida' },
+                      ] as const).map((option) => (
+                        <button
+                          key={option.id}
+                          type="button"
+                          onClick={() => applyPreviewRecurrenceMode(option.id)}
+                          className={cn(
+                            "h-9 rounded-xl text-[10px] font-black transition-all border",
+                            previewRecurrence === option.id
+                              ? "bg-primary/15 text-primary border-primary/30"
+                              : "bg-surface/50 text-muted-foreground border-outline-variant/15 hover:text-primary"
+                          )}
+                        >
+                          {option.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    {(previewRecurrence === 'weekly' ||
+                      previewRecurrence === 'biweekly' ||
+                      previewRecurrence === 'weekdays' ||
+                      (previewRecurrence === 'custom' && previewRecurrenceUnit === 'weeks')) && (
+                      <div className="grid grid-cols-7 gap-1.5">
+                        {WEEK_DAYS.map((day) => {
+                          const active = previewRecurrenceDays.includes(day.value)
+                          return (
+                            <button
+                              key={day.value}
+                              type="button"
+                              onClick={() => togglePreviewRecurrenceDay(day.value)}
+                              className={cn(
+                                "h-10 rounded-full text-xs font-black transition-all border",
+                                active
+                                  ? "bg-primary text-primary-foreground border-primary shadow-lg shadow-primary/20"
+                                  : "bg-surface/60 text-muted-foreground border-outline-variant/20 hover:border-primary/30 hover:text-primary"
+                              )}
+                              aria-label={`Repetir los ${day.full}`}
+                            >
+                              {day.label}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    )}
+
+                    {previewRecurrence !== 'none' && (
+                      <div className="space-y-3 border-t border-outline-variant/10 pt-3">
+                        {previewRecurrence === 'custom' && (
+                          <div className="grid grid-cols-[80px_1fr] gap-2 items-center">
+                            <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground/70">Cada</span>
+                            <div className="grid grid-cols-[72px_1fr] gap-2">
+                              <input
+                                type="number"
+                                min={1}
+                                max={365}
+                                value={previewRecurrenceInterval}
+                                onChange={(e) => setPreviewRecurrenceInterval(Math.max(1, Number(e.target.value) || 1))}
+                                className="h-10 rounded-xl bg-surface/70 border border-outline-variant/20 px-3 text-sm font-black focus:outline-none focus:ring-2 focus:ring-primary/30"
+                              />
+                              <select
+                                value={previewRecurrenceUnit}
+                                onChange={(e) => {
+                                  setPreviewRecurrenceUnit(e.target.value as RecurrenceUnit)
+                                  if (e.target.value !== 'weeks') setPreviewRecurrenceDays([])
+                                }}
+                                className="h-10 rounded-xl bg-surface/70 border border-outline-variant/20 px-3 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/30"
+                              >
+                                <option value="days">días</option>
+                                <option value="weeks">semanas</option>
+                                <option value="months">meses</option>
+                                <option value="years">años</option>
+                              </select>
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="space-y-2">
+                          <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground/70">Finaliza</span>
+                          <div className="grid grid-cols-3 gap-1.5">
+                            {([
+                              { id: 'never', label: 'Nunca' },
+                              { id: 'date', label: 'Fecha' },
+                              { id: 'count', label: 'Eventos' },
+                            ] as const).map((option) => (
+                              <button
+                                key={option.id}
+                                type="button"
+                                onClick={() => setPreviewRecurrenceEndType(option.id)}
+                                className={cn(
+                                  "h-9 rounded-xl text-[10px] font-black transition-all border",
+                                  previewRecurrenceEndType === option.id
+                                    ? "bg-primary/15 text-primary border-primary/30"
+                                    : "bg-surface/50 text-muted-foreground border-outline-variant/15 hover:text-primary"
+                                )}
+                              >
+                                {option.label}
+                              </button>
+                            ))}
+                          </div>
+
+                          {previewRecurrenceEndType === 'date' && (
+                            <input
+                              type="date"
+                              value={previewRecurrenceEndDate}
+                              onChange={(e) => setPreviewRecurrenceEndDate(e.target.value)}
+                              className="w-full h-10 rounded-xl bg-surface/70 border border-outline-variant/20 px-3 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/30"
+                            />
+                          )}
+
+                          {previewRecurrenceEndType === 'count' && (
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="number"
+                                min={1}
+                                max={999}
+                                value={previewRecurrenceEndCount}
+                                onChange={(e) => setPreviewRecurrenceEndCount(Math.max(1, Number(e.target.value) || 1))}
+                                className="h-10 w-24 rounded-xl bg-surface/70 border border-outline-variant/20 px-3 text-sm font-black focus:outline-none focus:ring-2 focus:ring-primary/30"
+                              />
+                              <span className="text-xs font-bold text-muted-foreground">eventos</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* ENLACES (LINKS) */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 ml-2">Links o referencias</label>
+                <div className="flex flex-col gap-2">
+                  {(previewLinks.length > 0 ? previewLinks : ['']).map((link, idx) => (
+                    <div key={idx} className="flex items-center gap-2">
+                      <div className="relative flex-1">
+                        <LinkIcon className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/30 pointer-events-none" />
+                        <input
+                          type="text"
+                          value={link}
+                          onChange={(e) => {
+                            const nextValue = e.target.value;
+                            if (previewLinks.length === 0) {
+                              setPreviewLinks([nextValue]);
+                              return;
+                            }
+                            const updated = [...previewLinks];
+                            updated[idx] = nextValue;
+                            setPreviewLinks(updated);
+                          }}
+                          className="w-full text-sm bg-surface-container/30 border border-outline-variant/10 rounded-[24px] pl-12 pr-5 py-3 focus:outline-none focus:ring-2 focus:ring-primary/30 text-foreground transition-all placeholder:text-muted-foreground/20"
+                          placeholder="https://..."
+                        />
+                      </div>
+                      {idx === (previewLinks.length > 0 ? previewLinks.length - 1 : 0) && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPreviewLinks(prev => {
+                              const links = prev.length > 0 ? prev : [''];
+                              const lastLink = links[links.length - 1]?.trim();
+                              return lastLink ? [...links, ''] : links;
+                            });
+                          }}
+                          className="w-12 h-12 flex-shrink-0 flex items-center justify-center rounded-[24px] bg-surface-container/30 border border-outline-variant/10 text-muted-foreground/50 hover:text-primary hover:bg-surface-container hover:border-primary/30 transition-all"
+                          aria-label="Agregar enlace"
+                        >
+                          <Plus className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
                 </div>
               </div>
+
             </div>
 
             {/* ACCIONES DEL FOOTER */}
             <div className="flex items-center justify-between gap-3 pt-2.5 mt-3 border-t border-outline-variant/10 flex-shrink-0">
               <button
                 type="button"
-                onClick={openFullDialogFromPreview}
+                onClick={toggleQuickPreviewDetails}
                 className={cn(
                   "h-9 px-4 rounded-2xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 border border-outline-variant/30 text-foreground hover:bg-black/5 dark:hover:bg-white/5",
                   !hasChanges && "w-full bg-primary text-primary-foreground border-transparent hover:bg-primary/95"
                 )}
               >
-                <Settings className="w-3.5 h-3.5" />
-                <span>Detalles</span>
+                {isQuickPreviewExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <Settings className="w-3.5 h-3.5" />}
+                <span>{isQuickPreviewExpanded ? 'Vista previa' : 'Detalles'}</span>
               </button>
               
               {hasChanges && (
@@ -3421,6 +3808,7 @@ export function EventManager({
                     type="button"
                     onClick={() => {
                       setIsQuickPreviewOpen(false);
+                      setIsQuickPreviewExpanded(false);
                       setQuickPreviewEvent(null);
                     }}
                     className="px-4 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-wider text-muted-foreground hover:text-foreground transition-all"
@@ -3686,6 +4074,12 @@ function TimeGridView({
   const HOUR_HEIGHT = hourZoom;
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const initialEventsRef = useRef<Event[]>([])
+  const [currentNow, setCurrentNow] = useState(() => new Date())
+
+  useEffect(() => {
+    const tick = window.setInterval(() => setCurrentNow(new Date()), 60_000)
+    return () => window.clearInterval(tick)
+  }, [])
   
   const days = useMemo(() => {
     if (view === "day") return [currentDate]
@@ -3711,9 +4105,10 @@ function TimeGridView({
   }, [days])
 
   const hours = Array.from({ length: 24 }, (_, i) => i)
+  const isMobileViewport = useIsMobile()
 
   const eventLayouts = useMemo(() => {
-    const layouts = new Map<string, { left: number; width: number }>()
+    const layouts = new Map<string, { left: number; width: number; zIndex: number; contentWidth: number }>()
 
     days.forEach(day => {
       const dayEvents = events
@@ -3743,7 +4138,6 @@ function TimeGridView({
       clusters.forEach(cluster => {
         const columns: Event[][] = []
         const assignments = new Map<string, number>()
-        const spans = new Map<string, number>()
 
         cluster.forEach(event => {
           let columnIndex = columns.findIndex(column => {
@@ -3759,63 +4153,80 @@ function TimeGridView({
         })
 
         const columnCount = Math.max(1, columns.length)
+        const columnWidth = 100 / columnCount
+        const gap = isMobileViewport ? 2.5 : 1.25
+        const baseLayouts = new Map<string, { left: number; width: number; columnIndex: number; zIndex: number }>()
+
         cluster.forEach(event => {
           const columnIndex = assignments.get(event.id) || 0
-          let span = 1
-
-          for (let nextColumnIndex = columnIndex + 1; nextColumnIndex < columnCount; nextColumnIndex += 1) {
-            const hasOverlapInNextColumn = columns[nextColumnIndex].some((candidate) => {
-              return (
-                candidate.startTime.getTime() < event.endTime.getTime() &&
-                candidate.endTime.getTime() > event.startTime.getTime()
-              )
-            })
-
-            if (hasOverlapInNextColumn) break
-            span += 1
-          }
-
-          spans.set(event.id, span)
+          const left = columnWidth * columnIndex
+          const width = Math.max(8, 100 - left - gap)
+          baseLayouts.set(event.id, { left, width, columnIndex, zIndex: 20 + columnIndex })
         })
 
         cluster.forEach(event => {
-          const columnIndex = assignments.get(event.id) || 0
-          const span = spans.get(event.id) || 1
-          const gap = 1.25
-          const width = (100 / columnCount) * span - gap
-          const left = (100 / columnCount) * columnIndex
-          layouts.set(event.id, { left, width })
+          const layout = baseLayouts.get(event.id)
+          if (!layout) return
+
+          const blockingLeft = cluster.reduce<number | null>((closestLeft, candidate) => {
+            const candidateLayout = baseLayouts.get(candidate.id)
+            if (!candidateLayout || candidateLayout.columnIndex <= layout.columnIndex) return closestLeft
+
+            const overlapsVertically =
+              candidate.startTime.getTime() < event.endTime.getTime() &&
+              candidate.endTime.getTime() > event.startTime.getTime()
+
+            if (!overlapsVertically) return closestLeft
+            return closestLeft === null ? candidateLayout.left : Math.min(closestLeft, candidateLayout.left)
+          }, null)
+
+          const safeTextWidth = blockingLeft === null
+            ? 100
+            : Math.max(8, Math.min(100, ((blockingLeft - layout.left - gap) / layout.width) * 100))
+
+          layouts.set(event.id, { ...layout, contentWidth: safeTextWidth })
         })
       })
     })
 
     return layouts
-  }, [days, events])
+  }, [days, events, isMobileViewport])
 
   useEffect(() => {
     if (!isShowingToday) return
 
-    if (!containedScroll) {
-      const calendarTop = scrollContainerRef.current
-        ? scrollContainerRef.current.getBoundingClientRect().top + window.scrollY
-        : window.scrollY
+    const scrollToCurrentTime = () => {
       const now = new Date()
       const currentHourPosition = (now.getHours() + now.getMinutes() / 60) * HOUR_HEIGHT
-      const targetY = Math.max(0, calendarTop + currentHourPosition - window.innerHeight * 0.42)
-      window.requestAnimationFrame(() => {
+
+      if (!containedScroll) {
+        const calendarTop = scrollContainerRef.current
+          ? scrollContainerRef.current.getBoundingClientRect().top + window.scrollY
+          : window.scrollY
+        const targetY = Math.max(0, calendarTop + currentHourPosition - window.innerHeight * 0.42)
         window.scrollTo({ top: targetY, behavior: 'auto' })
-      })
-      return
+        return
+      }
+
+      const scrollEl = scrollContainerRef.current
+      if (!scrollEl) return
+
+      const centeredPosition = currentHourPosition - scrollEl.clientHeight * 0.42
+      const maxScrollTop = Math.max(0, scrollEl.scrollHeight - scrollEl.clientHeight)
+      scrollEl.scrollTop = Math.max(0, Math.min(maxScrollTop, centeredPosition))
     }
 
-    const scrollEl = scrollContainerRef.current
-    if (!scrollEl) return
+    let firstFrame = 0
+    let secondFrame = 0
+    firstFrame = window.requestAnimationFrame(() => {
+      scrollToCurrentTime()
+      secondFrame = window.requestAnimationFrame(scrollToCurrentTime)
+    })
 
-    const now = new Date()
-    const currentHourPosition = (now.getHours() + now.getMinutes() / 60) * HOUR_HEIGHT
-    const centeredPosition = currentHourPosition - scrollEl.clientHeight * 0.42
-    const maxScrollTop = Math.max(0, scrollEl.scrollHeight - scrollEl.clientHeight)
-    scrollEl.scrollTop = Math.max(0, Math.min(maxScrollTop, centeredPosition))
+    return () => {
+      window.cancelAnimationFrame(firstFrame)
+      window.cancelAnimationFrame(secondFrame)
+    }
   }, [containedScroll, isShowingToday, currentDate, view, HOUR_HEIGHT])
 
   const [isResizing, setIsResizing] = useState<string | null>(null);
@@ -4259,7 +4670,7 @@ function TimeGridView({
       <div
         ref={scrollContainerRef}
         className={cn(
-          "min-h-0 scroll-smooth",
+          "min-h-0",
           containedScroll ? "flex-1 overflow-auto overscroll-contain" : "overflow-visible"
         )}
         style={{ touchAction: 'pan-y' }}
@@ -4395,7 +4806,22 @@ function TimeGridView({
                   .map((event) => {
                     const startHour = event.startTime.getHours() + event.startTime.getMinutes() / 60
                     const duration = Math.max(0.25, (event.endTime.getTime() - event.startTime.getTime()) / (1000 * 60 * 60))
-                    const layout = eventLayouts.get(event.id) || { left: 0, width: 98 }
+                    const layout = eventLayouts.get(event.id) || { left: 0, width: 98, zIndex: 20, contentWidth: 100 }
+                    const isVeryShortEvent = duration < 0.35
+                    const eventTitleFontSize = isVeryShortEvent
+                      ? (isMobileViewport ? '8.5px' : '10px')
+                      : isMobileViewport
+                        ? (hourZoom >= 240 ? '11px' : hourZoom >= 120 ? '10px' : '9.5px')
+                        : (hourZoom >= 240 ? '13px' : hourZoom >= 120 ? '12px' : '11px')
+                    const eventMetaFontSize = isMobileViewport
+                      ? (hourZoom >= 160 ? '9px' : '8.5px')
+                      : (hourZoom >= 160 ? '10px' : '9px')
+                    const eventZIndex =
+                      isResizing === event.id || isMoving === event.id
+                        ? 50
+                        : mobileEditEvent?.id === event.id
+                          ? 40
+                          : layout.zIndex
                     
                     return (
                       <div
@@ -4411,7 +4837,7 @@ function TimeGridView({
                           className={cn(
                             "absolute rounded-xl hover:brightness-110 overflow-hidden group select-none",
                             "transition-[opacity,transform] duration-200 ease-out",
-                            duration < 0.35 ? "px-1.5 py-0.5" : "px-2 py-1.5",
+                            isVeryShortEvent ? "px-1.5 py-0.5" : isMobileViewport ? "px-1.5 py-1" : "px-2 py-1.5",
                             duration < 0.35 ? "font-semibold" : "font-bold",
                             event.color && !event.color.startsWith('#') && !event.color.startsWith('var') && getColorClasses(event.color).bg,
                             !dragDisabled && "cursor-grab active:cursor-grabbing",
@@ -4426,7 +4852,8 @@ function TimeGridView({
                             top: `${startHour * HOUR_HEIGHT + 2}px`,
                             left: `${layout.left + 0.5}%`,
                             width: `${layout.width}%`,
-                            height: `${duration * HOUR_HEIGHT - 4}px`,
+                            height: `${Math.max(isMobileViewport ? 22 : 18, duration * HOUR_HEIGHT - 4)}px`,
+                            zIndex: eventZIndex,
                             userSelect: 'none',
                             ...getEventStyles(event.color)
                           }}
@@ -4542,19 +4969,25 @@ function TimeGridView({
                             )} />
                           </div>
 
-                          <div className={cn("flex items-start h-full gap-1.5 px-1", duration < 0.35 ? "flex-row items-center py-0" : "flex-row py-0.5")}>
-                            <div className="flex-1 min-w-0 leading-tight">
-                              <p className={cn("leading-tight drop-shadow-sm break-words", event.completed && "line-through")}
-                                style={{ 
-                                  fontSize: duration < 0.35 
-                                    ? `${Math.max(8, Math.min(13, Math.round(hourZoom * 0.065 + 2)))}px` 
-                                    : `${Math.max(10, Math.min(16, Math.round(hourZoom * 0.06 + 4)))}px` 
-                                }}>
+                          <div className={cn("flex items-start h-full gap-1 px-0.5", isVeryShortEvent ? "flex-row items-center py-0" : "flex-row py-0.5")}>
+                            <div
+                              className="min-w-0 leading-tight"
+                              style={{ width: `${layout.contentWidth}%` }}
+                            >
+                              <p
+                                className={cn(
+                                  "break-words",
+                                  isMobileViewport ? "leading-[1.18] drop-shadow-none" : "leading-[1.16] drop-shadow-sm",
+                                  isMobileViewport && (duration < 0.5 ? "line-clamp-2" : duration < 0.9 ? "line-clamp-3" : "line-clamp-4"),
+                                  event.completed && "line-through"
+                                )}
+                                style={{ fontSize: eventTitleFontSize }}
+                              >
                                 {event.title}
                               </p>
                               {!event.isAllDay && duration > 0.3 && (
                                 <p className="opacity-85 mt-[1px] leading-tight drop-shadow-sm"
-                                  style={{ fontSize: `${Math.max(8, Math.min(13, Math.round(hourZoom * 0.05 + 3)))}px` }}>
+                                  style={{ fontSize: eventMetaFontSize }}>
                                   {(() => {
                                     const totalMin = Math.round(duration * 60);
                                     if (totalMin < 60) return `${totalMin} min`;
@@ -4567,8 +5000,8 @@ function TimeGridView({
                               {event.description && duration > 0.6 && cleanDescription(event.description) && (
                                 <>
                                   <p
-                                    className="mt-0.5 leading-snug opacity-70 whitespace-pre-line line-clamp-3"
-                                    style={{ fontSize: `${Math.max(8, Math.min(13, Math.round(hourZoom * 0.05 + 3)))}px` }}
+                                    className={cn("mt-0.5 opacity-70 whitespace-pre-line", isMobileViewport ? "leading-[1.15] line-clamp-2" : "leading-snug line-clamp-3")}
+                                    style={{ fontSize: eventMetaFontSize }}
                                   >
                                     <span
                                       className="cursor-pointer hover:opacity-100 hover:underline hover:decoration-dotted hover:decoration-1 hover:underline-offset-2 transition-all inline"
@@ -4593,8 +5026,6 @@ function TimeGridView({
                                     <Dialog open={descDialogEvent?.id === event.id} onOpenChange={(open) => { if (!open) setDescDialogEvent(null); }}>
                                       <DialogContent
                                         className="w-full max-w-[430px] rounded-[20px] shadow-2xl p-0 outline-none overflow-hidden border-0"
-                                        onInteractOutside={(e) => e.preventDefault()}
-                                        onPointerDownOutside={(e) => e.preventDefault()}
                                       >
                                       <DialogTitle className="sr-only">{"Descripci\u00f3n del evento"}</DialogTitle>
                                         <DialogDescription className="sr-only">Edita la descripcion del evento seleccionado.</DialogDescription>
@@ -4778,18 +5209,17 @@ function TimeGridView({
             ))}
 
             {/* Current Time Indicator */}
-            {days.some(d => d.toDateString() === new Date().toDateString()) && (
+            {days.some(d => d.toDateString() === currentNow.toDateString()) && (
               <div 
-                className="absolute w-full flex items-center z-20 pointer-events-none"
-                style={{ top: `${(new Date().getHours() + new Date().getMinutes() / 60) * HOUR_HEIGHT}px` }}
+                className="absolute w-full flex items-center z-30 pointer-events-none"
+                style={{ top: `${(currentNow.getHours() + currentNow.getMinutes() / 60) * HOUR_HEIGHT}px` }}
               >
-                <div className="relative flex items-center justify-center -ml-1.5">
-                  <div className="absolute w-4 h-4 rounded-full bg-primary/20 animate-ping opacity-25" />
-                  <div className="w-3 h-3 rounded-full bg-primary border-2 border-background dark:border-surface-container-high shadow-[0_0_0_4px_hsl(var(--primary)/0.08)]" />
+                <div className="relative flex items-center justify-center -ml-1">
+                  <div className="h-2.5 w-2.5 rounded-full border border-background bg-[#111827] shadow-sm dark:border-[#111827] dark:bg-white" />
                 </div>
-                <div className="flex-1 h-0.5 bg-gradient-to-r from-primary via-primary/70 to-transparent opacity-50" />
-                <span className="text-[8px] font-black text-primary bg-background/85 dark:bg-surface-container-high/85 px-1.5 py-0.5 rounded-full ml-2 shadow-sm border border-primary/10 backdrop-blur-sm">
-                  {format(new Date(), "h:mm a", { locale: es })}
+                <div className="flex-1 h-px bg-[#111827]/70 dark:bg-white/80" />
+                <span className="ml-2 rounded-full bg-background/88 px-1.5 py-0.5 text-[8px] font-semibold text-[#111827]/70 shadow-sm backdrop-blur-sm dark:bg-[#111827]/88 dark:text-white/80">
+                  {format(currentNow, "h:mm a", { locale: es })}
                 </span>
               </div>
             )}
