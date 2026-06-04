@@ -1,33 +1,42 @@
--- Habilitar las extensiones necesarias
+-- Required Supabase extensions.
 create extension if not exists pg_cron;
 create extension if not exists pg_net;
 
--- Esto activa el reporte automático cada domingo a las 9 AM
+-- Store these values once in Supabase Vault before scheduling jobs:
+-- select vault.create_secret('https://YOUR_PROJECT.supabase.co', 'project_url');
+-- select vault.create_secret('YOUR_SUPABASE_ANON_KEY', 'anon_key');
+
 select cron.schedule(
   'weekly-power-report',
   '0 9 * * 0',
   $$
   select net.http_post(
-    url:='https://bpckgibqjrqdxzbvtiyn.supabase.co/functions/v1/weekly-power-report',
-    headers:='{
-      "Content-Type": "application/json", 
-      "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJwY2tnaWJxanJxZHh6YnZ0aXluIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzQ5MzI1MCwiZXhwIjoyMDkzMDY5MjUwfQ.CxLGxwUwXs2CDFKWauaBgSpWaq85aj1C0SVxfUE8knk"
-    }'::jsonb
+    url := (select decrypted_secret from vault.decrypted_secrets where name = 'project_url')
+      || '/functions/v1/weekly-power-report',
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'Authorization', 'Bearer ' || (select decrypted_secret from vault.decrypted_secrets where name = 'anon_key')
+    )
   )
   $$
 );
 
--- Ejecutar recordatorios de tareas y eventos cada minuto.
+-- Run task and event reminders every minute.
+select cron.unschedule(jobid)
+from cron.job
+where jobname = 'task-reminders';
+
 select cron.schedule(
   'task-reminders',
   '* * * * *',
   $$
   select net.http_post(
-    url:='https://bpckgibqjrqdxzbvtiyn.supabase.co/functions/v1/task-reminders',
-    headers:='{
-      "Content-Type": "application/json",
-      "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJwY2tnaWJxanJxZHh6YnZ0aXluIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzQ5MzI1MCwiZXhwIjoyMDkzMDY5MjUwfQ.CxLGxwUwXs2CDFKWauaBgSpWaq85aj1C0SVxfUE8knk"
-    }'::jsonb
+    url := (select decrypted_secret from vault.decrypted_secrets where name = 'project_url')
+      || '/functions/v1/task-reminders',
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'Authorization', 'Bearer ' || (select decrypted_secret from vault.decrypted_secrets where name = 'anon_key')
+    )
   )
   $$
 );

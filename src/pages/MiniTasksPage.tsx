@@ -1086,21 +1086,18 @@ if (!isExpanded) {
  const remainingTasks = currentTasks.filter((t: MiniTask) => t.status!== 'done' && t.id!== task.id);
  const isLastTask = currentTasks.length > 0 && remainingTasks.length === 0;
 
- console.log("Mutating task update with:", { 
- id: task.id, 
- status: 'done', 
- completed_at: new Date().toISOString(),
- actual_duration_seconds: finalDuration
- });
+  const completionUpdate = {
+  id: task.id,
+  status: 'done',
+  completed_at: new Date().toISOString(),
+  creation_source: 'mini_plus',
+  ...(isTimerForThisTask ? { actual_duration_seconds: finalDuration } : {}),
+  };
 
- updateTask.mutate(
- { 
- id: task.id, 
- status: 'done', 
- completed_at: new Date().toISOString(),
- actual_duration_seconds: finalDuration,
- creation_source: 'mini_plus',
- },
+  console.log("Mutating task update with:", completionUpdate);
+
+  updateTask.mutate(
+  completionUpdate,
  { 
  onSuccess: () => {
  console.log("Task updated successfully");

@@ -407,7 +407,11 @@ export const useTasks = (filters?: { date?: string; startDate?: string; endDate?
         }
       }
 
-      await pushTaskChangesToNotion(targetId, updates);
+      try {
+        await pushTaskChangesToNotion(targetId, updates);
+      } catch (error) {
+        console.warn('No se pudo sincronizar la tarea con Notion:', error);
+      }
 
       if (updates.status === 'done') {
         await supabase.from('usage_events').insert({
@@ -455,7 +459,10 @@ export const useTasks = (filters?: { date?: string; startDate?: string; endDate?
     onError: (err, variables, context) => {
       console.error("Error updating task:", err, "variables:", variables);
       queryClient.setQueryData(['tasks', user?.id, filters], context?.previousData);
-      const errorMessage = err instanceof Error ? err.message : 'Error desconocido';
+      const errorLike = err as { message?: string; details?: string; hint?: string; code?: string };
+      const errorMessage = err instanceof Error
+        ? err.message
+        : errorLike?.message || errorLike?.details || errorLike?.hint || errorLike?.code || 'Error desconocido';
       toast.error(`No se pudo actualizar la tarea: ${errorMessage}`);
     },
     onSettled: () => {

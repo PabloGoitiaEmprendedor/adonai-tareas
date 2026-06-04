@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
-import { Plus, Link, Check, X } from 'lucide-react';
+import { Pencil, Link, Check, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { useTasks } from '@/hooks/useTasks';
@@ -28,7 +28,7 @@ interface QuickNotebookTaskAddProps {
   onDisabledClick?: () => void;
 }
 
-export const QuickNotebookTaskAdd = ({ folderId, folderName, disabled, onDisabledClick }: QuickNotebookTaskAddProps) => {
+export const QuickNotebookTaskAdd = ({ folderId, disabled, onDisabledClick }: QuickNotebookTaskAddProps) => {
   const { createTask } = useTasks();
   const { colors } = usePriorityColors();
   const [phase, setPhase] = useState<'idle' | 'title' | 'link' | 'priority'>('idle');
@@ -95,9 +95,8 @@ export const QuickNotebookTaskAdd = ({ folderId, folderName, disabled, onDisable
             className="flex h-[38px] w-full items-center gap-2.5 px-2 text-left text-on-surface-variant/25 transition-colors hover:text-primary/60"
           >
             <span className="flex h-5 w-5 items-center justify-center rounded-full border border-outline-variant/20 bg-background/20">
-              <Plus className="h-3 w-3" />
+              <Pencil className="h-3 w-3" />
             </span>
-            <span className="text-[12px] font-medium tracking-normal text-on-surface-variant/35">Vaciar tarea en {folderName || 'Hoy'}</span>
           </motion.button>
         )}
 
@@ -109,7 +108,7 @@ export const QuickNotebookTaskAdd = ({ folderId, folderName, disabled, onDisable
             exit={{ opacity: 0 }}
             className="flex items-start gap-3 px-2 py-2"
           >
-            <Plus className="h-4 w-4 text-primary/60 mt-1" />
+            <Pencil className="h-4 w-4 text-primary/60 mt-1" />
             <div className="flex-1 min-w-0">
             <textarea
               autoFocus

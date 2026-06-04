@@ -54,8 +54,26 @@ const ChatPage = () => {
   const activeSession = sessions.find(s => s.id === activeSessionId) || null;
 
   useEffect(() => {
+    if (!isAdmin || activeSessionId) return;
+    const newSession: Session = {
+      id: generateId(),
+      title: 'Nueva conversacion',
+      messages: [],
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+    setSessions(prev => [newSession, ...prev]);
+    setActiveSessionId(newSession.id);
+  }, [activeSessionId, isAdmin]);
+
+  useEffect(() => {
     saveSessions(sessions);
   }, [sessions]);
+
+  useEffect(() => {
+    if (!activeSessionId) return;
+    requestAnimationFrame(() => inputRef.current?.focus());
+  }, [activeSessionId]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -236,7 +254,7 @@ const ChatPage = () => {
   return (
     <div className="min-h-screen bg-background text-foreground selection:bg-primary/20 pb-32">
       <div className="max-w-[430px] lg:max-w-4xl mx-auto px-6 pt-12 space-y-6">
-        <div className="flex items-center justify-between pt-8 pb-2">
+        <div className="hidden lg:flex items-center justify-between pt-8 pb-2">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-primary/15 flex items-center justify-center">
               <MessageSquare className="w-5 h-5 text-primary" />
@@ -395,7 +413,7 @@ const ChatPage = () => {
                 <>
                   <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-4 no-scrollbar">
                     {activeSession.messages.length === 0 && !streamingMsgId && (
-                      <div className="flex flex-col items-center justify-center py-12 text-center">
+                      <div className="hidden">
                         <div className="w-12 h-12 rounded-[16px] bg-primary/10 flex items-center justify-center mb-3 overflow-hidden ring-1 ring-primary/20">
                           <img src="/logo.png" alt="Adonai" className="w-8 h-8 object-contain" />
                         </div>

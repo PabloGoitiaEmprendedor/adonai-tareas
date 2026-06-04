@@ -24,7 +24,19 @@ interface AdonaiCalendarViewProps {
   className?: string;
   hideSidebar?: boolean;
   fillHeight?: boolean;
-  googleEvents?: Array<{ id: string; title: string; start: string; end: string; description?: string; color?: string | null; allDay?: boolean; location?: string; htmlLink?: string }>;
+  googleEvents?: Array<{
+    id: string;
+    title: string;
+    start: string;
+    end: string;
+    description?: string;
+    color?: string | null;
+    allDay?: boolean;
+    location?: string;
+    htmlLink?: string;
+    links?: string[];
+    reminders?: { useDefault?: boolean; overrides?: { method: string; minutes: number }[] } | null;
+  }>;
 }
 
 const TIME_PREFIX_REGEX = /^\[T:(\d{2}:\d{2})-(\d{2}:\d{2})\]/;
@@ -52,6 +64,23 @@ const parseColorFromDescription = (description: string | null) => {
   const match = description.match(COLOR_PREFIX_REGEX);
   if (!match) return null;
   return match[1]; // Return the color value
+};
+
+const getFirstHttpLink = (links?: string[]) => {
+  const rawLink = (links || [])
+    .flatMap((link) => link.split(/\s+/))
+    .map((link) => link.trim().replace(/[.,;:!?)]+$/, ''))
+    .find((link) => /^https?:\/\//i.test(link));
+
+  if (!rawLink) return undefined;
+
+  try {
+    const url = new URL(rawLink);
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return undefined;
+    return url.toString();
+  } catch {
+    return undefined;
+  }
 };
 
 const rebuildDescription = (startTime: Date | null, endTime: Date | null, color: string | null, text: string): string => {
@@ -256,6 +285,7 @@ const AdonaiCalendarView: React.FC<AdonaiCalendarViewProps> = ({ selectedDate, o
     // Map Time Blocks
     timeBlocks?.forEach((block) => {
       const blockDays = block.days_of_week || [];
+      const blockReminder = getReminderSettings(block.metadata, 'event');
       
       // Determine recurrence type from time block data
       let recurrence: Event['recurrence'] = 'none';
@@ -292,7 +322,12 @@ const AdonaiCalendarView: React.FC<AdonaiCalendarViewProps> = ({ selectedDate, o
                 color: block.color || 'blue',
                 category: 'Calendario',
                 description: '',
+                metadata: block.metadata || {},
                 isEvent: true,
+                recurrence,
+                recurrenceDays,
+                reminderEnabled: !!blockReminder,
+                reminderMinutesBefore: blockReminder?.minutes_before,
               });
             }
           });
@@ -317,6 +352,8 @@ const AdonaiCalendarView: React.FC<AdonaiCalendarViewProps> = ({ selectedDate, o
         isEvent: true,
         recurrence,
         recurrenceDays,
+        reminderEnabled: !!blockReminder,
+        reminderMinutesBefore: blockReminder?.minutes_before,
       });
     });
 
@@ -390,6 +427,7 @@ const AdonaiCalendarView: React.FC<AdonaiCalendarViewProps> = ({ selectedDate, o
         category: 'Google Calendar',
         description: ge.description || '',
         links: [...new Set([
+          ...(ge.htmlLink ? [ge.htmlLink] : []),
           ...(ge.links || []),
           ...(ge.location && ge.location.includes('http')
             ? ge.location.split(/\s+/).filter(w => w.startsWith('http://') || w.startsWith('https://')).map(w => w.replace(/[.,;:!?)]+$/, ''))
@@ -514,6 +552,71 @@ const AdonaiCalendarView: React.FC<AdonaiCalendarViewProps> = ({ selectedDate, o
     return { taskId: id.replace('task-', ''), occurrenceDate: null, isGeneratedOccurrence: false };
   };
 
+  const dispatchRuntimeReminder = (id: string, event: Partial<Event>) => {
+    if (event.reminderEnabled === undefined && event.reminderMinutesBefore === undefined) return;
+
+    const start = event.startTime;
+    if (!(start instanceof Date) || Number.isNaN(start.getTime())) return;
+
+    window.dispatchEvent(new CustomEvent('adonai:runtime-reminder-upsert', {
+      detail: {
+        id,
+        title: event.title || 'Recordatorio',
+        kind: event.isEvent === false ? 'task' : 'event',
+        start: start.toISOString(),
+        minutes_before: event.reminderMinutesBefore ?? 15,
+        enabled: event.reminderEnabled !== false,
+        link: getFirstHttpLink(event.links),
+      },
+    }));
+  };
+
+  const maybeDispatchRuntimeReminder = (id: string, updates: Partial<Event>) => {
+    const originalEvent = calendarEvents.find(event => event.id === id);
+    const nextEvent = { ...originalEvent, ...updates };
+    const reminderIsEnabled = updates.reminderEnabled ?? originalEvent?.reminderEnabled ?? false;
+    const touchesReminderSchedule =
+      updates.reminderEnabled !== undefined
+      || updates.reminderMinutesBefore !== undefined
+      || updates.startTime !== undefined
+      || updates.title !== undefined
+      || updates.isEvent !== undefined
+      || updates.isAllDay !== undefined
+      || updates.links !== undefined;
+
+    if (!touchesReminderSchedule) return;
+    if (!reminderIsEnabled && updates.reminderEnabled !== false) return;
+
+    dispatchRuntimeReminder(id, {
+      ...nextEvent,
+      reminderEnabled: reminderIsEnabled,
+      reminderMinutesBefore: updates.reminderMinutesBefore ?? originalEvent?.reminderMinutesBefore ?? 15,
+    });
+  };
+
+  useEffect(() => {
+    googleEvents.forEach((event) => {
+      const start = parseISO(event.start);
+      if (Number.isNaN(start.getTime())) return;
+
+      const popupReminder = event.reminders?.overrides?.find((reminder) => reminder.method === 'popup');
+      const reminderEnabled = Boolean(popupReminder || event.reminders?.useDefault);
+      if (!reminderEnabled) return;
+
+      dispatchRuntimeReminder(`google-${event.id}`, {
+        title: event.title,
+        isEvent: true,
+        startTime: start,
+        links: [
+          ...(event.htmlLink ? [event.htmlLink] : []),
+          ...(event.links || []),
+        ],
+        reminderEnabled: true,
+        reminderMinutesBefore: popupReminder?.minutes ?? 15,
+      });
+    });
+  }, [googleEvents]);
+
   const resolveRecurringUpdateScope = (scope: RecurringUpdateScope) => {
     recurrenceScopeResolverRef.current?.(scope);
     recurrenceScopeResolverRef.current = null;
@@ -585,8 +688,14 @@ const AdonaiCalendarView: React.FC<AdonaiCalendarViewProps> = ({ selectedDate, o
 
   const handleEventUpdate = async (id: string, updates: Partial<Event>) => {
     if (updates.reminderEnabled) {
+      localStorage.setItem('adonai_notifications_enabled', 'true');
+      if (!window.electronAPI?.showNotification && 'Notification' in window && Notification.permission === 'default') {
+        Notification.requestPermission().catch(() => {});
+      }
       ensureOneSignalSubscribed();
     }
+
+    maybeDispatchRuntimeReminder(id, updates);
 
     // Handle completion of recurring instances (skip for calendar-only events)
     const recMatch = id.match(/^task-(.+)-rec-(\d{4}-\d{2}-\d{2})$/);
@@ -707,6 +816,7 @@ const AdonaiCalendarView: React.FC<AdonaiCalendarViewProps> = ({ selectedDate, o
         return;
       }
 
+      const originalEvent = calendarEvents.find(event => event.id === id);
       const updateData: any = {};
       
       if (updates.title) updateData.title = updates.title;
@@ -715,6 +825,15 @@ const AdonaiCalendarView: React.FC<AdonaiCalendarViewProps> = ({ selectedDate, o
       if (updates.color) updateData.color = updates.color;
       if (updates.recurrence !== undefined) updateData.is_recurring = updates.recurrence !== 'none';
       if (updates.recurrenceDays !== undefined) updateData.days_of_week = updates.recurrenceDays;
+      if (updates.reminderEnabled !== undefined || updates.reminderMinutesBefore !== undefined) {
+        const reminderSource = (updates as any).metadata || originalEvent?.metadata || {};
+        updateData.metadata = buildReminderMetadata(
+          reminderSource,
+          'event',
+          updates.reminderEnabled ?? getReminderSettings(reminderSource, 'event')?.enabled ?? false,
+          updates.reminderMinutesBefore ?? getReminderSettings(reminderSource, 'event')?.minutes_before ?? 15,
+        );
+      }
       
       updateBlock.mutate({ id: blockId, ...updateData });
     } else if (id.startsWith('task-')) {
@@ -974,7 +1093,7 @@ const AdonaiCalendarView: React.FC<AdonaiCalendarViewProps> = ({ selectedDate, o
             : [];
 
       try {
-        await createBlock.mutateAsync({
+        const createdBlock = await createBlock.mutateAsync({
           title: event.title || 'Nuevo Evento',
           start_time: format(start, 'HH:mm:ss'),
           end_time: format(end, 'HH:mm:ss'),
@@ -984,6 +1103,9 @@ const AdonaiCalendarView: React.FC<AdonaiCalendarViewProps> = ({ selectedDate, o
           days_of_week: daysOfWeek,
           metadata: buildReminderMetadata(event.metadata, 'event', !!event.reminderEnabled, event.reminderMinutesBefore ?? 15),
         });
+        if (event.reminderEnabled && createdBlock?.id) {
+          dispatchRuntimeReminder(`block-${createdBlock.id}`, event);
+        }
       } catch (err) {
         console.error('[calendar] Error creating calendar block:', err);
       }
@@ -1059,9 +1181,16 @@ const AdonaiCalendarView: React.FC<AdonaiCalendarViewProps> = ({ selectedDate, o
         due_date: eventDateStr,
         status: 'pending',
         recurrence_id: recurrenceId,
+        metadata: buildReminderMetadata(event.metadata, isEvent ? 'event' : 'task', !!event.reminderEnabled, event.reminderMinutesBefore ?? 15),
         creation_source: isEvent ? 'event' : undefined,
       },
-      {},
+      {
+        onSuccess: (createdTask: { id?: string } | undefined) => {
+          if (event.reminderEnabled && createdTask?.id) {
+            dispatchRuntimeReminder(`task-${createdTask.id}`, event);
+          }
+        },
+      },
     );
   };
 
@@ -1148,7 +1277,7 @@ const AdonaiCalendarView: React.FC<AdonaiCalendarViewProps> = ({ selectedDate, o
   return (
     <div className={cn(fillHeight ? "relative flex h-full min-h-0 flex-1 flex-col gap-6 overflow-hidden" : "relative space-y-6", className)}>
 
-      <div className={cn(fillHeight ? "flex-1 min-h-0 animate-in fade-in slide-in-from-bottom-4 duration-700" : "animate-in fade-in slide-in-from-bottom-4 duration-700")}>
+      <div className={cn(fillHeight ? "flex-1 min-h-0" : "")}>
         <EventManager
           events={calendarEvents}
           onEventUpdate={handleEventUpdate}

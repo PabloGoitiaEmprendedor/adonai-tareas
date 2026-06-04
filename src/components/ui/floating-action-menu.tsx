@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { Plus, X } from "lucide-react";
+import { Pencil, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type FloatingActionMenuProps = {
@@ -13,9 +13,10 @@ type FloatingActionMenuProps = {
     icon?: React.ReactNode;
   }[];
   className?: string;
+  contextLabel?: string;
 };
 
-const FloatingActionMenu = ({ options, className }: FloatingActionMenuProps) => {
+const FloatingActionMenu = ({ options, className, contextLabel }: FloatingActionMenuProps) => {
   const [isOpen, setIsOpen] = useState(false);
 
   const toggleMenu = () => setIsOpen(!isOpen);
@@ -44,7 +45,7 @@ const FloatingActionMenu = ({ options, className }: FloatingActionMenuProps) => 
         )}
       </AnimatePresence>
 
-      <div className={cn("fixed bottom-6 right-5 sm:bottom-8 sm:right-8 z-[9999] flex flex-col items-end gap-3", className)}>
+      <div className={cn("fixed bottom-[92px] right-5 sm:bottom-8 sm:right-8 z-[9999] flex flex-col items-end gap-3", className)}>
         <AnimatePresence>
           {isOpen && (
             <motion.div
@@ -105,14 +106,22 @@ const FloatingActionMenu = ({ options, className }: FloatingActionMenuProps) => 
           whileTap={{ scale: 0.95 }}
           transition={{ duration: 0.5 }}
           className={cn(
-            "w-14 h-14 sm:w-16 sm:h-16 rounded-[18px] sm:rounded-[22px] flex items-center justify-center shadow-[0_12px_40px_rgba(0,0,0,0.3)] transition-all duration-500 border border-white/10",
+            "h-14 sm:h-16 rounded-[18px] sm:rounded-[22px] flex items-center justify-center gap-2 shadow-[0_12px_40px_rgba(0,0,0,0.3)] transition-all duration-500 border border-white/10",
+            contextLabel && !isOpen ? "w-auto max-w-[220px] px-4 sm:max-w-[260px] sm:px-5" : "w-14 sm:w-16",
             isOpen ? "bg-foreground text-background rotate-90" : "bg-brand text-brand-foreground"
           )}
         >
           {isOpen ? (
             <X className="w-6 h-6 sm:w-8 sm:h-8" strokeWidth={2.5} />
           ) : (
-            <Plus className="w-7 h-7 sm:w-9 sm:h-9" strokeWidth={2.5} />
+            <>
+              <Pencil className="w-6 h-6 sm:w-7 sm:h-7 shrink-0" strokeWidth={2.5} />
+              {contextLabel && (
+                <span className="max-w-[140px] truncate text-[10px] font-black uppercase tracking-[0.1em] sm:max-w-[180px] sm:text-xs sm:tracking-[0.12em]">
+                  {contextLabel}
+                </span>
+              )}
+            </>
           )}
         </motion.button>
       </div>

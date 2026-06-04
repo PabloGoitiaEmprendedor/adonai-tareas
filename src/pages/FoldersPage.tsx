@@ -17,7 +17,6 @@ import { dispatchTutorialFolderCreated } from '@/lib/tutorialEvents';
 import { usePriorityColors, getPriorityKey } from '@/hooks/usePriorityColors';
 import { compareTasksWithinQuadrants, getTaskManualOrderGroupKey } from '@/lib/taskOrdering';
 import { playPageTurnSound } from '@/lib/soundEffects';
-import { QuickNotebookTaskAdd } from '@/components/QuickNotebookTaskAdd';
 
 const FOLDER_COLORS = ['#5B7CFA', '#4F6EE8', '#6FCF97', '#F4B860', '#EB5757', '#7C97FF', '#9CA3AF', '#E5E7EB'];
 
@@ -61,7 +60,6 @@ const FoldersPage = () => {
           setNewColor(FOLDER_COLORS[0]);
           setShowCreate(false);
           dispatchTutorialFolderCreated();
-          toast.success('Cuaderno creado con éxito');
         },
         onError: () => toast.error('Error al crear cuaderno'),
       }
@@ -82,7 +80,6 @@ const FoldersPage = () => {
           setInlineName('');
           setIsCreatingInline(false);
           dispatchTutorialFolderCreated();
-          toast.success('Cuaderno creado con éxito');
         },
         onError: () => {
           toast.error('Error al crear cuaderno');
@@ -110,7 +107,6 @@ const FoldersPage = () => {
     if (window.confirm('¿Estás seguro de que quieres eliminar este cuaderno y todas sus tareas?')) {
       deleteFolder.mutate(id);
       if (selectedFolder === id) handleSelectFolder(null);
-      toast.success('Cuaderno eliminado');
     }
   };
 
@@ -405,12 +401,14 @@ const FoldersPage = () => {
 
     if (isCurrentlyTiming) setTimerTask(null);
 
-    updateTask.mutate({ 
-      id: task.id, 
-      status: 'done', 
+    const completionUpdate = {
+      id: task.id,
+      status: 'done',
       completed_at: new Date().toISOString(),
-      actual_duration_seconds: Number(finalDuration) || 0
-    }, {
+      ...(isCurrentlyTiming ? { actual_duration_seconds: Number(finalDuration) || 0 } : {}),
+    };
+
+    updateTask.mutate(completionUpdate, {
       onSuccess: () => {
         setCompletingTaskId(null);
         triggerTaskCelebration(task.title, profile?.name);
@@ -605,10 +603,10 @@ const FoldersPage = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95 }}
-            className="max-w-[430px] lg:max-w-6xl mx-auto px-6 pt-12 space-y-12"
+            className="max-w-[430px] lg:max-w-6xl mx-auto px-6 pt-12 space-y-6"
           >
             {/* Header Section */}
-            <div id="folders-header" className="flex flex-col items-center justify-center pt-8 pb-4">
+            <div className="hidden lg:flex flex-col items-center justify-center pt-8 pb-4">
               <h1 className="page-title text-center text-4xl md:text-5xl font-black font-headline !pl-0">
                 Cuadernos
               </h1>
@@ -922,12 +920,6 @@ const FoldersPage = () => {
                           ))}
                         </div>
                       ) : null}
-                      {folderPage === folderTotalPages && (
-                        <QuickNotebookTaskAdd
-                          folderId={isUncategorized ? null : selectedFolder}
-                          folderName={currentFolder?.name || 'Hoy'}
-                        />
-                      )}
                     </div>
                   </motion.div>
                 </AnimatePresence>
@@ -1093,12 +1085,6 @@ const FoldersPage = () => {
                           ))}
                         </div>
                       ) : null}
-                      {folderPage === folderTotalPages && (
-                        <QuickNotebookTaskAdd
-                          folderId={isUncategorized ? null : selectedFolder}
-                          folderName={currentFolder?.name || 'Hoy'}
-                        />
-                      )}
                     </div>
                   </motion.div>
                 </AnimatePresence>

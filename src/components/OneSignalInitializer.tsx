@@ -31,21 +31,13 @@ const OneSignalInitializer = () => {
   const identitySetRef = useRef(false);
 
   useEffect(() => {
-    if (!isOneSignalSupported()) return;
+    if (!user || !isOneSignalSupported()) return;
     if (isElectron) return;
     if (getOnesignalAppId() === '__ONESIGNAL_APP_ID__') return;
-    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') return;
-  }, []);
-
-  useEffect(() => {
-    if (!user || !window.OneSignal) return;
-    if (isElectron) return;
-    if (getOnesignalAppId() === '__ONESIGNAL_APP_ID__') return;
-
     if (identitySetRef.current) return;
 
-    const setupIdentity = async () => {
-      if (!user) return;
+    const setupIdentity = async (OneSignal: NonNullable<typeof window.OneSignal>) => {
+      if (!user || identitySetRef.current) return;
 
       if (user.id) {
         await loginOneSignal(user.id);
@@ -60,9 +52,17 @@ const OneSignalInitializer = () => {
       }
 
       identitySetRef.current = true;
+      console.info('[OneSignal] User identity configured', {
+        origin: window.location.origin,
+        permission: OneSignal.Notifications.permission,
+        externalId: user.id,
+        pushSubscriptionId: OneSignal.User.PushSubscription.id || null,
+        pushOptedIn: OneSignal.User.PushSubscription.optedIn,
+      });
     };
 
-    setupIdentity();
+    window.OneSignalDeferred = window.OneSignalDeferred || [];
+    window.OneSignalDeferred.push(setupIdentity);
   }, [user, profile]);
 
   useEffect(() => {

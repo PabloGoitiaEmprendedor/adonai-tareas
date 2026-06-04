@@ -1,14 +1,12 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Play, Clock, Calendar, Flag, Trash2, Repeat, Target, Link as LinkIcon, ChevronDown, Check } from 'lucide-react';
+import { X, Clock, Trash2, Repeat, Link as LinkIcon, ChevronDown, Bell, BellOff } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 import { useTasks } from '@/hooks/useTasks';
-import { useFolders } from '@/hooks/useFolders';
 import { ensureOneSignalSubscribed } from '@/lib/onesignal';
 import { useRecurrenceRules } from '@/hooks/useRecurrenceRules';
-import { useGoals } from '@/hooks/useGoals';
 import { notify } from '@/components/ui/adonai-notifier';
 import FullscreenTimer from './FullscreenTimer';
 import { AutoTextarea } from '@/components/ui/auto-textarea';
@@ -16,6 +14,26 @@ import { CalendarDatePicker } from '@/components/ui/calendar-date-picker';
 import { DurationPicker } from '@/components/ui/duration-picker';
 import { REMINDER_OPTIONS, buildReminderMetadata, getReminderSettings } from '@/lib/reminders';
 import type { RecurrenceFrequency, TaskLike } from '@/lib/taskTypes';
+
+const REMINDER_CYCLE_VALUES: number[] = REMINDER_OPTIONS.map((option) => option.value);
+const REMINDER_LABEL_BY_VALUE = new Map<number, string>(REMINDER_OPTIONS.map((option) => [option.value, option.label]));
+
+const getReminderDisplayLabel = (enabled: boolean, minutes?: number) => {
+  if (!enabled) return 'Sin recordatorio';
+  return REMINDER_LABEL_BY_VALUE.get(minutes ?? 15) ?? '15 min antes';
+};
+
+const getNextReminderState = (enabled: boolean, minutes?: number) => {
+  if (!enabled) return { reminderEnabled: true, reminderMinutesBefore: REMINDER_CYCLE_VALUES[0] };
+  const currentIndex = REMINDER_CYCLE_VALUES.indexOf(minutes ?? 15);
+  if (currentIndex === -1 || currentIndex === REMINDER_CYCLE_VALUES.length - 1) {
+    return { reminderEnabled: false, reminderMinutesBefore: REMINDER_CYCLE_VALUES[0] };
+  }
+  return {
+    reminderEnabled: true,
+    reminderMinutesBefore: REMINDER_CYCLE_VALUES[currentIndex + 1],
+  };
+};
 
 interface TaskDetailModalProps {
   task: TaskLike | null;
@@ -25,8 +43,6 @@ interface TaskDetailModalProps {
 
 const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
   const { updateTask, deleteTask, createTask } = useTasks();
-  const { folders } = useFolders();
-  const { goals } = useGoals();
   const { createRule, deleteRule } = useRecurrenceRules();
 
   const [title, setTitle] = useState('');
@@ -36,9 +52,6 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
   const [estimatedMinutes, setEstimatedMinutes] = useState(0);
   const [importance, setImportance] = useState(false);
   const [urgency, setUrgency] = useState(false);
-  const [folderId, setFolderId] = useState<string | null>(null);
-  const [goalId, setGoalId] = useState<string | null>(null);
-  const [status, setStatus] = useState('pending');
   const [timerOpen, setTimerOpen] = useState(false);
   const [showRecurrence, setShowRecurrence] = useState(false);
   const [recurrenceFreq, setRecurrenceFreq] = useState<RecurrenceFrequency>('none');
@@ -50,18 +63,6 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
   const [reminderMinutesBefore, setReminderMinutesBefore] = useState<number>(15);
   const [hasChanges, setHasChanges] = useState(false);
 
-  const originalData = useRef<{
-    title: string;
-    description: string;
-    link: string;
-    dueDate: string;
-    estimatedMinutes: number;
-    importance: boolean;
-    urgency: boolean;
-    folderId: string | null;
-    goalId: string | null;
-  } | null>(null);
-
   useEffect(() => {
     if (task && open) {
       setTitle(task.title || '');
@@ -72,9 +73,6 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
       setEstimatedMinutes(task.estimated_minutes || 25);
       setImportance(task.importance || false);
       setUrgency(task.urgency || false);
-      setFolderId(task.folder_id || null);
-      setGoalId(task.goal_id || null);
-      setStatus(task.status || 'pending');
       setRecurrenceFreq('none');
       setSelectedWeekDays([]);
       setSelectedMonthDay(null);
@@ -85,12 +83,6 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
       setReminderMinutesBefore(reminder?.minutes_before ?? 15);
       setShowRecurrence(false);
       setHasChanges(false);
-      originalData.current = {
-        title: task.title || '', description: task.description || '', link: task.link || '',
-        dueDate: task.due_date || '', estimatedMinutes: task.estimated_minutes || 25,
-        importance: task.importance || false, urgency: task.urgency || false,
-        folderId: task.folder_id || null, goalId: task.goal_id || null,
-      };
     }
   }, [task, open]);
 
@@ -166,11 +158,9 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
       due_date: dueDate || null,
       estimated_minutes: estimatedMinutes || null,
       importance, urgency, priority,
-      folder_id: folderId, goal_id: goalId, status,
       recurrence_id: recurrenceId,
       link: links.filter(l => l.trim() !== '').join(' ') || null,
       metadata: buildReminderMetadata(task.metadata, 'task', reminderEnabled, reminderMinutesBefore),
-      ...(status === 'done' ? { completed_at: new Date().toISOString() } : {}),
     };
 
     if (task.isNew) {
@@ -221,15 +211,15 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
       <AnimatePresence>
         {open && !timerOpen && (
           <>
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60]" onClick={handleSaveAndClose} />
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/80 backdrop-blur-2xl z-[60]" onClick={handleSaveAndClose} />
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 10 }}
               transition={{ type: 'spring', damping: 22, stiffness: 260 }}
-              className="fixed inset-0 z-[70] flex items-end justify-center p-0 sm:items-center sm:p-4 pointer-events-none"
+              className="fixed inset-0 z-[70] flex items-stretch justify-center p-0 sm:items-center sm:p-4 pointer-events-none"
             >
-              <div className="relative mx-auto w-full max-w-[440px] max-h-[92vh] overflow-y-auto pointer-events-auto rounded-t-[30px] rounded-b-none border border-border bg-background no-scrollbar shadow-[0_20px_60px_-10px_hsla(140,95%,8%,0.15)] sm:max-h-[90vh] sm:rounded-[32px]">
+              <div className="relative mx-auto h-[100dvh] w-full max-w-none max-h-[100dvh] overflow-y-auto pointer-events-auto rounded-none border-0 bg-background no-scrollbar shadow-[0_20px_60px_-10px_hsla(140,95%,8%,0.15)] sm:h-auto sm:max-w-[440px] sm:max-h-[90vh] sm:rounded-[32px] sm:border sm:border-border">
                 
                 <div className="flex flex-col gap-5 p-4 pb-6 sm:gap-6 sm:p-6">
                   {/* Top bar / Header Actions */}
@@ -244,7 +234,7 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
                       <button onClick={() => setTimerOpen(true)}
                         className="w-8 h-8 rounded-xl flex items-center justify-center transition-all hover:bg-primary/10 text-primary"
                         title="Iniciar timer">
-                        <Play className="w-4 h-4 fill-current" />
+                        <Clock className="w-4 h-4" />
                       </button>
                       <button onClick={handleDelete}
                         className="w-8 h-8 rounded-xl flex items-center justify-center transition-all hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
@@ -261,7 +251,7 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
                   <div className="space-y-5">
                     {/* Title Section */}
                     <div className="space-y-1">
-                      <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Tarea</label>
+                      <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Nombre de la tarea</label>
                       <AutoTextarea
                         value={title}
                         onChange={(e) => { setTitle(e.target.value); markChanged(); }}
@@ -270,8 +260,19 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
                       />
                     </div>
 
+                    {/* Description */}
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/40 ml-2">Descripción</label>
+                      <AutoTextarea
+                        value={description}
+                        onChange={(e) => { setDescription(e.target.value); markChanged(); }}
+                        placeholder="Detalles adicionales..."
+                        className="w-full text-sm bg-surface-container/30 border border-outline-variant/10 rounded-[24px] p-5 focus:outline-none focus:ring-2 focus:ring-primary/30 min-h-[100px] placeholder:text-on-surface-variant/20 transition-all"
+                      />
+                    </div>
+
                     {/* Date + Time row */}
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_124px_128px] sm:items-end">
                       <div>
                         <CalendarDatePicker 
                           date={dueDate} 
@@ -280,44 +281,30 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
                         />
                       </div>
                       <div className="space-y-1">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Minutos</label>
+                        <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Duración</label>
                         <div className="relative group">
                           <Clock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-on-surface-variant/30 group-focus-within:text-primary/50 transition-colors" />
-                        <DurationPicker 
-                          value={estimatedMinutes} 
-                          onChange={(val) => { setEstimatedMinutes(val); markChanged(); }}
-                          className="bg-surface-container/30 border border-outline-variant/10 rounded-[20px] pl-11 pr-4 py-3"
+                          <DurationPicker
+                            value={estimatedMinutes}
+                            onChange={(val) => { setEstimatedMinutes(val); markChanged(); }}
+                            className="h-[48px] bg-surface-container/30 border border-outline-variant/10 rounded-[20px] pl-11 pr-4 py-3 whitespace-nowrap"
                           />
                         </div>
                       </div>
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Recordatorio</label>
-                      <div className="rounded-[22px] border border-outline-variant/10 bg-surface-container/30 p-3 space-y-3">
-                        <button
-                          type="button"
-                          onClick={() => { const next = !reminderEnabled; setReminderEnabled(next); markChanged(); if (next) ensureOneSignalSubscribed(); }}
-                          className={`w-full flex items-center justify-between rounded-2xl px-4 py-3 text-[10px] font-black uppercase tracking-widest transition-all border ${reminderEnabled ? 'bg-primary/10 text-primary border-primary/20' : 'bg-surface/40 text-muted-foreground border-outline-variant/10'}`}
-                        >
-                          <span>Activar alerta</span>
-                          <span>{reminderEnabled ? 'ON' : 'OFF'}</span>
-                        </button>
-                        {reminderEnabled && (
-                          <div className="grid grid-cols-2 gap-2">
-                            {REMINDER_OPTIONS.map((option) => (
-                              <button
-                                key={option.value}
-                                type="button"
-                                onClick={() => { setReminderMinutesBefore(option.value); markChanged(); }}
-                                className={`h-10 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${reminderMinutesBefore === option.value ? 'bg-primary/15 text-primary border-primary/30' : 'bg-surface/40 text-muted-foreground border-outline-variant/10 hover:text-foreground'}`}
-                              >
-                                {option.label}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const nextReminder = getNextReminderState(reminderEnabled, reminderMinutesBefore);
+                          setReminderEnabled(nextReminder.reminderEnabled);
+                          setReminderMinutesBefore(nextReminder.reminderMinutesBefore);
+                          markChanged();
+                          if (nextReminder.reminderEnabled) ensureOneSignalSubscribed();
+                        }}
+                        className={`h-[48px] w-full rounded-[20px] px-3 flex items-center justify-center gap-2 border transition-all text-[10px] font-black whitespace-nowrap self-end ${reminderEnabled ? 'bg-primary/15 text-primary border-primary/25 shadow-sm' : 'bg-surface-container/30 text-muted-foreground border-outline-variant/15 hover:border-primary/30 hover:text-primary'}`}
+                      >
+                        {reminderEnabled ? <Bell className="w-3 h-3 shrink-0" /> : <BellOff className="w-3 h-3 shrink-0" />}
+                        <span>{getReminderDisplayLabel(reminderEnabled, reminderMinutesBefore)}</span>
+                      </button>
                     </div>
 
                     {/* Priority (Matrix Style) */}
@@ -337,7 +324,7 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
 
                     {/* Links */}
                     <div className="space-y-1">
-                      <label className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/40 ml-2">Links o Referencias</label>
+                      <label className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/40 ml-2">Links</label>
                       <div className="flex flex-col gap-2">
                         {links.map((l, i) => (
                           <div key={i} className="relative group flex items-center gap-2">
@@ -384,115 +371,66 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
                       </div>
                     </div>
 
-                    {/* Description */}
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/40 ml-2">Descripción</label>
-                      <AutoTextarea 
-                        value={description} 
-                        onChange={(e) => { setDescription(e.target.value); markChanged(); }}
-                        placeholder="Detalles adicionales..."
-                        className="w-full text-sm bg-surface-container/30 border border-outline-variant/10 rounded-[24px] p-5 focus:outline-none focus:ring-2 focus:ring-primary/30 min-h-[100px] placeholder:text-on-surface-variant/20 transition-all"
-                      />
-                    </div>
-
-                    {/* Notebook Selection */}
-                    {folders.length > 0 && (
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 ml-2">Cuaderno</label>
-                        <div className="flex flex-wrap gap-2">
-                          <button onClick={() => { setFolderId(null); markChanged(); }}
-                            className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border ${!folderId ? 'bg-primary text-primary-foreground border-primary shadow-lg shadow-primary/20' : 'bg-surface-container/30 text-muted-foreground border-outline-variant/10 hover:bg-surface-container/50'}`}>
-                            Hoy
-                          </button>
-                          {folders.map((folder) => (
-                            <button key={folder.id} onClick={() => { setFolderId(folder.id === folderId ? null : folder.id); markChanged(); }}
-                              className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border ${folderId === folder.id ? 'border-transparent shadow-lg text-black' : 'bg-surface-container/30 text-muted-foreground border-outline-variant/10 hover:bg-surface-container/50'}`}
-                              style={folderId === folder.id ? { backgroundColor: (folder.color || '#5B7CFA'), shadowColor: (folder.color || '#5B7CFA') + '40' } : {}}>
-                              {folder.name}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Goal Selection */}
-                    {goals.filter(g => g.active).length > 0 && (
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 ml-2">Meta Asociada</label>
-                        <div className="flex flex-wrap gap-2">
-                          <button onClick={() => { setGoalId(null); markChanged(); }}
-                            className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border ${!goalId ? 'bg-primary text-primary-foreground border-primary shadow-lg shadow-primary/20' : 'bg-surface-container/30 text-muted-foreground border-outline-variant/10 hover:bg-surface-container/50'}`}>
-                            Sin meta
-                          </button>
-                          {goals.filter(g => g.active).map((goal) => (
-                            <button key={goal.id} onClick={() => { setGoalId(goal.id === goalId ? null : goal.id); markChanged(); }}
-                              className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border flex items-center gap-2 ${goalId === goal.id ? 'bg-primary text-primary-foreground border-primary shadow-lg shadow-primary/20' : 'bg-surface-container/30 text-muted-foreground border-outline-variant/10 hover:bg-surface-container/50'}`}>
-                              <Target className="w-3 h-3" />
-                              {goal.title}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
 
                     {/* Recurrence Selection */}
-                    <div className="space-y-1">
+                    <div className="space-y-1.5">
                       <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 ml-2">Repetición</label>
-                      <button onClick={() => setShowRecurrence(!showRecurrence)}
-                        className={`w-full p-4 rounded-[20px] text-[11px] font-black uppercase tracking-wider flex items-center justify-between transition-all border ${recurrenceFreq !== 'none' ? 'text-primary border-primary/20 bg-primary/10' : 'text-muted-foreground border-outline-variant/10 bg-surface-container/30 hover:bg-surface-container/50'}`}>
-                        <span className="flex items-center gap-3"><Repeat className="w-4 h-4" /> {recurrenceLabel}</span>
-                        <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${showRecurrence ? 'rotate-180' : ''}`} />
-                      </button>
-                      <AnimatePresence>
-                        {showRecurrence && (
-                          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-                            <div className="pt-2 space-y-4">
-                              <div className="grid grid-cols-5 gap-1 p-1 rounded-2xl bg-surface-container/30 border border-outline-variant/10">
-                                {[{ id: 'none', label: 'No' }, { id: 'daily', label: 'Día' }, { id: 'weekly', label: 'Sem' }, { id: 'monthly', label: 'Mes' }, { id: 'yearly', label: 'Año' }].map((f) => (
-                                <button key={f.id} onClick={() => { setRecurrenceFreq(f.id as RecurrenceFrequency); markChanged(); if (f.id === 'monthly' && !selectedMonthDay) setSelectedMonthDay(new Date().getDate()); }}
-                                    className={`py-2 rounded-xl text-[10px] font-black uppercase transition-all ${recurrenceFreq === f.id ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/10' : 'text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5'}`}>
-                                    {f.label}
-                                  </button>
-                                ))}
+                      <div className="rounded-[22px] border border-outline-variant/15 bg-surface-container/25 p-3 space-y-3">
+                        <button
+                          type="button"
+                          onClick={() => setShowRecurrence(!showRecurrence)}
+                          className="w-full rounded-2xl bg-primary/10 border border-primary/15 px-4 py-3 text-[12px] font-bold text-foreground leading-relaxed flex items-center justify-between gap-3"
+                        >
+                          <span className="flex items-center gap-3"><Repeat className="w-4 h-4" /> {recurrenceLabel}</span>
+                          <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${showRecurrence ? 'rotate-180' : ''}`} />
+                        </button>
+                        <AnimatePresence>
+                          {showRecurrence && (
+                            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+                              <div className="pt-1 space-y-3">
+                                <div className="grid grid-cols-5 gap-1.5">
+                                  {[{ id: 'none', label: 'No' }, { id: 'daily', label: 'Día' }, { id: 'weekly', label: 'Sem' }, { id: 'monthly', label: 'Mes' }, { id: 'yearly', label: 'Año' }].map((f) => (
+                                    <button
+                                      key={f.id}
+                                      type="button"
+                                      onClick={() => {
+                                        setRecurrenceFreq(f.id as RecurrenceFrequency);
+                                        markChanged();
+                                        if (f.id === 'monthly' && !selectedMonthDay) setSelectedMonthDay(new Date().getDate());
+                                      }}
+                                      className={`h-9 rounded-xl text-[10px] font-black transition-all border ${recurrenceFreq === f.id ? 'bg-primary/15 text-primary border-primary/30' : 'bg-surface/50 text-muted-foreground border-outline-variant/15 hover:text-primary'}`}
+                                    >
+                                      {f.label}
+                                    </button>
+                                  ))}
+                                </div>
+                                {recurrenceFreq === 'weekly' && (
+                                  <div className="grid grid-cols-7 gap-1.5">
+                                    {weekDayLabels.map(({ label, value }) => (
+                                      <button key={value} type="button" onClick={() => toggleWeekDay(value)}
+                                        className={`h-10 rounded-full text-xs font-black transition-all border ${selectedWeekDays.includes(value) ? 'bg-primary text-primary-foreground border-primary shadow-lg shadow-primary/20' : 'bg-surface/60 text-muted-foreground border-outline-variant/20 hover:border-primary/30 hover:text-primary'}`}>
+                                        {label}
+                                      </button>
+                                    ))}
+                                  </div>
+                                )}
+                                {recurrenceFreq === 'monthly' && (
+                                  <div className="grid grid-cols-7 gap-1.5">
+                                    {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
+                                      <button key={day} type="button" onClick={() => { setSelectedMonthDay(day); markChanged(); }}
+                                        className={`aspect-square rounded-lg text-[10px] font-black transition-all border ${selectedMonthDay === day ? 'bg-primary text-primary-foreground border-transparent shadow-md shadow-primary/20' : 'text-muted-foreground border-outline-variant/10 bg-surface-container/30 hover:bg-surface-container/50'}`}>
+                                        {day}
+                                      </button>
+                                    ))}
+                                  </div>
+                                )}
                               </div>
-                              {recurrenceFreq === 'weekly' && (
-                                <div className="flex justify-between gap-1">
-                                  {weekDayLabels.map(({ label, value }) => (
-                                    <button key={value} onClick={() => toggleWeekDay(value)}
-                                      className={`w-10 h-10 rounded-full text-[11px] font-black transition-all border ${selectedWeekDays.includes(value) ? 'bg-primary text-primary-foreground border-transparent shadow-lg shadow-primary/20' : 'text-muted-foreground border-outline-variant/10 bg-surface-container/30 hover:bg-surface-container/50'}`}>
-                                      {label}
-                                    </button>
-                                  ))}
-                                </div>
-                              )}
-                              {recurrenceFreq === 'monthly' && (
-                                <div className="grid grid-cols-7 gap-1.5">
-                                  {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
-                                    <button key={day} onClick={() => { setSelectedMonthDay(day); markChanged(); }}
-                                      className={`aspect-square rounded-lg text-[10px] font-black transition-all border ${selectedMonthDay === day ? 'bg-primary text-primary-foreground border-transparent shadow-md shadow-primary/20' : 'text-muted-foreground border-outline-variant/10 bg-surface-container/30 hover:bg-surface-container/50'}`}>
-                                      {day}
-                                    </button>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </div>
-
-                    {/* Status Selection */}
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 ml-2">Estado</label>
-                      <div className="flex gap-2 p-1.5 rounded-[22px] bg-surface-container/30 border border-outline-variant/10">
-                        {['pending', 'done', 'skipped'].map((s) => (
-                          <button key={s} onClick={() => { setStatus(s); markChanged(); }}
-                            className={`flex-1 py-3 rounded-[18px] text-[10px] font-black uppercase tracking-[0.15em] transition-all duration-300 ${status === s ? 'bg-primary text-primary-foreground shadow-xl shadow-primary/20' : 'text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5'}`}>
-                            {s === 'pending' ? 'Pendiente' : s === 'done' ? 'Hecha' : 'Pospuesta'}
-                          </button>
-                        ))}
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
                       </div>
                     </div>
+
                   </div>
                 </div>
               </div>

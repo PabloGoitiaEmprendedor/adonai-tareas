@@ -16,7 +16,6 @@ import WeeklyPage from "./pages/WeeklyPage";
 import ChatPage from "./pages/ChatPage";
 import GoalsPage from "./pages/GoalsPage";
 import ProfilePage from "./pages/ProfilePage";
-import FoldersPage from "./pages/FoldersPage";
 import FriendsPage from "./pages/FriendsPage";
 import FriendInvitePage from "./pages/FriendInvitePage";
 import GroupInvitePage from "./pages/GroupInvitePage";
@@ -269,7 +268,7 @@ const AppRoutes = () => {
         <Route path="/today" element={<Navigate to="/daily" replace />} />
         <Route path="/week" element={appRouteElement(<WeeklyPage />)} />
         <Route path="/goals" element={appRouteElement(<GoalsPage />)} />
-        <Route path="/folders" element={appRouteElement(<FoldersPage />)} />
+        <Route path="/folders" element={<Navigate to="/daily" replace />} />
         <Route path="/chat" element={appRouteElement(<ChatPage />)} />
         <Route path="/friends" element={appRouteElement(<FriendsPage />)} />
         <Route path="/profile" element={appRouteElement(<ProfilePage />)} />
@@ -297,6 +296,12 @@ const AppRoutes = () => {
 
 const App = () => {
   const Router = isElectronRenderer() ? HashRouter : BrowserRouter;
+  const isToastWindow =
+    isElectronRenderer()
+    && (
+      window.location.hash.startsWith('#/toast')
+      || window.location.pathname.replace(/\/$/, '') === '/toast'
+    );
 
   useEffect(() => {
     const browserPath = window.location.pathname.replace(/\/$/, '');
@@ -389,6 +394,10 @@ const App = () => {
       unsubscribeInvalidateQueries();
     };
   }, []);
+
+  if (isToastWindow) {
+    return <ToastPage />;
+  }
 
   return (
     <QueryClientProvider client={queryClient}>

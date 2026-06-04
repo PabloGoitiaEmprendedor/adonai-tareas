@@ -1,9 +1,15 @@
-const { app, BrowserWindow, ipcMain, shell, dialog, session, Menu, MenuItem, globalShortcut, screen, clipboard, Notification } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, dialog, session, Menu, MenuItem, globalShortcut, screen, clipboard, Tray, Notification } = require('electron');
 const { exec, spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const https = require('https');
 const { autoUpdater } = require('electron-updater');
+const APP_USER_MODEL_ID = 'com.adonai.tasks';
+
+app.setName('Adonai');
+if (process.platform === 'win32') {
+  app.setAppUserModelId(APP_USER_MODEL_ID);
+}
 
 // ── Logging System ──────────────────────────────────────────────────────────
 const logPath = path.join(app.getPath('userData'), 'adonai-app.log');
@@ -22,6 +28,13 @@ logToFile(`App Version: ${app.getVersion()}`);
 logToFile(`Platform: ${process.platform}`);
 logToFile(`Arch: ${process.arch}`);
 
+let mainWindow;
+let miniWindow;
+let bubbleWindow;
+let quickTaskWindow;
+let tray = null;
+let isQuitting = false;
+
 process.on('uncaughtException', (error) => {
   logToFile(`CRITICAL: Uncaught Exception: ${error.stack || error}`);
   dialog.showErrorBox('Error en el proceso principal', error.message || 'Error desconocido');
@@ -31,10 +44,9 @@ process.on('unhandledRejection', (reason) => {
   logToFile(`CRITICAL: Unhandled Rejection: ${reason}`);
 });
 
-let mainWindow;
-let miniWindow;
-let bubbleWindow;
-let quickTaskWindow;
+app.on('before-quit', () => {
+  isQuitting = true;
+});
 
 // ── Speech Recognition & Mic Flags ──────────────────────────────────────────
 app.commandLine.appendSwitch('enable-speech-dispatcher');
@@ -60,6 +72,7 @@ if (!gotTheLock) {
     // Someone tried to run a second instance, we should focus our window.
     if (mainWindow) {
       logToFile('Focusing existing main window.');
+      if (!mainWindow.isVisible()) mainWindow.show();
       if (mainWindow.isMinimized()) mainWindow.restore();
       mainWindow.focus();
     } else {
@@ -107,6 +120,76 @@ function handleDeepLink(url) {
 }
 
 // ── Window State Management ────────────────────────────────────────────────
+function getExistingPath(candidates) {
+  return candidates.find((candidate) => {
+    try {
+      return fs.existsSync(candidate);
+    } catch {
+      return false;
+    }
+  });
+}
+
+function getAppIconPath() {
+  const baseDir = path.join(__dirname, '..');
+  const candidates = process.platform === 'win32'
+    ? [
+        path.join(baseDir, 'build', 'icon.ico'),
+        path.join(baseDir, app.isPackaged ? 'dist' : 'public', 'icon.png'),
+        path.join(baseDir, 'build', 'icon.png'),
+        path.join(baseDir, app.isPackaged ? 'dist' : 'public', 'logo.png'),
+      ]
+    : [
+        path.join(baseDir, app.isPackaged ? 'dist' : 'public', 'icon.png'),
+        path.join(baseDir, app.isPackaged ? 'dist' : 'public', 'logo.png'),
+        path.join(baseDir, 'build', 'icon.png'),
+      ];
+
+  return getExistingPath(candidates) || path.join(baseDir, app.isPackaged ? 'dist' : 'public', 'icon.png');
+}
+
+function getAppPngIconPath() {
+  const baseDir = path.join(__dirname, '..');
+  const candidates = [
+    path.join(baseDir, app.isPackaged ? 'dist' : 'public', 'logo.png'),
+    path.join(baseDir, app.isPackaged ? 'dist' : 'public', 'icon.png'),
+    path.join(baseDir, 'build', 'icon.png'),
+  ];
+
+  return getExistingPath(candidates) || path.join(baseDir, app.isPackaged ? 'dist' : 'public', 'icon.png');
+}
+
+function showMainWindow() {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    createMainWindow();
+    return;
+  }
+
+  if (!mainWindow.isVisible()) mainWindow.show();
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.focus();
+}
+
+function createTray() {
+  if (tray) return;
+
+  tray = new Tray(getAppIconPath());
+  tray.setToolTip('Adonai - recordatorios activos');
+  tray.setContextMenu(Menu.buildFromTemplate([
+    { label: 'Abrir Adonai', click: showMainWindow },
+    { type: 'separator' },
+    {
+      label: 'Salir',
+      click: () => {
+        isQuitting = true;
+        app.quit();
+      },
+    },
+  ]));
+  tray.on('click', showMainWindow);
+  tray.on('double-click', showMainWindow);
+}
+
 const configPath = path.join(app.getPath('userData'), 'window-state.json');
 const authStoragePath = path.join(app.getPath('userData'), 'supabase-auth.json');
 const authStorageBackupPath = `${authStoragePath}.bak`;
@@ -411,7 +494,9 @@ function checkForUpdatesSilently() {
   autoUpdater.checkForUpdates();
 }
 
-function createMainWindow() {
+function createMainWindow(options = {}) {
+  const startHidden = Boolean(options.startHidden);
+
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 800,
@@ -419,6 +504,7 @@ function createMainWindow() {
     backgroundColor: process.platform === 'darwin' ? '#18181B' : '#F8F9FA',
     show: false,
     autoHideMenuBar: true,
+    paintWhenInitiallyHidden: true,
     frame: false,
     titleBarStyle: 'hidden', // Native buttons on Mac, custom on Windows
     webPreferences: {
@@ -427,8 +513,9 @@ function createMainWindow() {
       preload: path.join(__dirname, 'preload.cjs'),
       webSecurity: true,
       enableBlinkFeatures: 'SpeechRecognition',
+      backgroundThrottling: false,
     },
-    icon: path.join(__dirname, '..', app.isPackaged ? 'dist' : 'public', 'icon.png'),
+    icon: getAppIconPath(),
   });
   const indexPath = path.join(__dirname, '..', 'dist', 'index.html');
   logToFile(`Loading main window: ${indexPath}`);
@@ -446,12 +533,18 @@ function createMainWindow() {
 
   mainWindow.once('ready-to-show', () => {
     if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.show();
+      if (!startHidden) mainWindow.show();
     }
   });
 
   mainWindow.webContents.on('console-message', (event, level, message, line, sourceId) => {
     console.log(`[Renderer] ${message}`);
+  });
+
+  mainWindow.on('close', (event) => {
+    if (isQuitting) return;
+    event.preventDefault();
+    mainWindow.hide();
   });
 
   mainWindow.on('closed', () => {
@@ -528,7 +621,7 @@ function createMiniWindow() {
       backgroundThrottling: false, // Keep it fluid even when not focused
       offscreen: false,
     },
-    icon: path.join(__dirname, '..', app.isPackaged ? 'dist' : 'public', 'icon.png'),
+    icon: getAppIconPath(),
   });
 
   // Mini window starts hidden — renderer signals when session is ready
@@ -627,13 +720,12 @@ app.whenReady().then(() => {
   });
 
   const isAutostart = process.argv.includes('--autostart');
+  createTray();
   
   // Check for deep link URL in process.argv on initial launch
   const deepLinkArg = process.argv.find(arg => arg.startsWith('adonai-tasks://'));
   
-  if (!isAutostart) {
-    createMainWindow();
-  }
+  createMainWindow({ startHidden: isAutostart });
   
   // Auto-open floating mini window on startup
   createMiniWindow();
@@ -658,7 +750,18 @@ app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit();
+  if (isQuitting || !tray) {
+    if (process.platform !== 'darwin') app.quit();
+  }
+});
+
+app.on('activate', () => {
+  if (mainWindow) {
+    if (!mainWindow.isVisible()) mainWindow.show();
+    mainWindow.focus();
+    return;
+  }
+  createMainWindow();
 });
 
 // ── Mini window toggle ──
@@ -819,7 +922,9 @@ ipcMain.handle('get-ready-update', () => {
 });
 
 ipcMain.on('open-external', (event, url) => {
-  shell.openExternal(url);
+  const safeUrl = normalizeExternalUrl(url);
+  if (!safeUrl) return;
+  shell.openExternal(safeUrl);
 });
 
 ipcMain.on('restart-app', () => {
@@ -855,7 +960,12 @@ ipcMain.on('window-maximize', (event) => {
 
 ipcMain.on('window-close', (event) => {
   const win = BrowserWindow.fromWebContents(event.sender);
-  if (win) win.close();
+  if (!win) return;
+  if (win === mainWindow) {
+    win.hide();
+    return;
+  }
+  win.close();
 });
 
 // ── Auto-start Settings ─────────────────────────────────────────────────────
@@ -916,6 +1026,7 @@ function createSelectionBubbleWindow() {
       nodeIntegration: false,
       contextIsolation: true,
       preload: path.join(__dirname, 'preload.cjs'),
+      backgroundThrottling: false,
     },
   });
 
@@ -1028,64 +1139,475 @@ ipcMain.on('close-quick-task', () => {
 });
 
 let toastWindow = null;
-function createToastWindow(data) {
-  if (toastWindow) {
+let toastCloseTimer = null;
+let pendingToastData = null;
+const reminderTimers = new Map();
+const firedReminderKeys = new Set();
+const MAX_TIMER_DELAY_MS = 2_147_483_647;
+const STALE_REMINDER_GRACE_MS = 15 * 60 * 1000;
+
+function clearScheduledReminder(id) {
+  const key = String(id || '');
+  const entry = reminderTimers.get(key);
+  if (entry?.timer) clearTimeout(entry.timer);
+  reminderTimers.delete(key);
+}
+
+function showToastWindow(data) {
+  if (!toastWindow || toastWindow.isDestroyed()) return;
+
+  pendingToastData = data;
+
+  toastWindow.setBounds(getToastBounds());
+  toastWindow.setOpacity(1);
+  toastWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+  toastWindow.setAlwaysOnTop(true, 'screen-saver', 1);
+  toastWindow.show();
+  toastWindow.focus();
+  toastWindow.moveTop();
+
+  if (!toastWindow.webContents.isLoading()) {
     toastWindow.webContents.send('custom-toast-data', data);
+  }
+
+  logToFile(`[Toast] show visible=${toastWindow.isVisible()} focused=${toastWindow.isFocused()} bounds=${JSON.stringify(toastWindow.getBounds())}`);
+
+  if (toastCloseTimer) clearTimeout(toastCloseTimer);
+  toastCloseTimer = null;
+  if (data?.persist !== true) {
+    toastCloseTimer = setTimeout(() => {
+      if (toastWindow && !toastWindow.isDestroyed()) toastWindow.close();
+    }, Math.max(3500, Math.min(Number(data?.durationMs) || 6500, 10000)));
+  }
+}
+
+function showNativeReminderFallback(data) {
+  if (!Notification.isSupported()) return;
+
+  const title = String(data?.title || 'Recordatorio');
+  const cleanTitle = title.replace(/^Tarea:\s*/i, '').replace(/^Recordatorio:\s*/i, '').trim() || 'tu evento';
+
+  new Notification({
+    title: 'Adonai',
+    body: `Pablo, es hora de ${cleanTitle}`,
+    silent: true,
+    icon: getAppIconPath(),
+  }).show();
+}
+
+function escapeHtml(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function getReminderDisplayText(data) {
+  const title = String(data?.title || 'tu evento')
+    .replace(/^Tarea:\s*/i, '')
+    .replace(/^Recordatorio:\s*/i, '')
+    .trim() || 'tu evento';
+
+  return `Pablo, es hora de ${title}`;
+}
+
+function getToastLogoDataUrl() {
+  const candidates = [
+    getAppPngIconPath(),
+    path.join(__dirname, '..', app.isPackaged ? 'dist' : 'public', 'logo.png'),
+    path.join(__dirname, '..', 'build', 'icon.png'),
+  ];
+
+  for (const candidate of candidates) {
+    try {
+      if (!fs.existsSync(candidate)) continue;
+      const image = fs.readFileSync(candidate);
+      return `data:image/png;base64,${image.toString('base64')}`;
+    } catch {
+      // Try the next bundled logo candidate.
+    }
+  }
+
+  return '';
+}
+
+function normalizeExternalUrl(value) {
+  const rawUrl = String(value || '').trim();
+  if (!rawUrl) return '';
+
+  try {
+    const parsed = new URL(rawUrl);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return '';
+    return parsed.toString();
+  } catch {
+    return '';
+  }
+}
+
+function getToastHtml(data) {
+  const message = escapeHtml(getReminderDisplayText(data));
+  const reminderLink = normalizeExternalUrl(data?.link || data?.url);
+  const logoSrc = getToastLogoDataUrl();
+  const logoMarkup = logoSrc
+    ? `<div class="logo-shell"><img src="${escapeHtml(logoSrc)}" alt="Adonai" /></div>`
+    : '';
+  const linkMarkup = reminderLink
+    ? `<button class="link-action" aria-label="Abrir link del evento" title="Abrir link" data-url="${escapeHtml(reminderLink)}" onclick="openReminderLink(this.dataset.url)">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M10.6 13.4a1.4 1.4 0 0 0 2 2l4.7-4.7a3.5 3.5 0 0 0-5-5l-.9.9a1.1 1.1 0 0 0 1.6 1.6l.9-.9a1.3 1.3 0 0 1 1.8 1.8L11 13.8a1.4 1.4 0 0 0-.4-.4Z" fill="currentColor"/>
+          <path d="M13.4 10.6a1.4 1.4 0 0 0-2-2l-4.7 4.7a3.5 3.5 0 1 0 5 5l.9-.9a1.1 1.1 0 0 0-1.6-1.6l-.9.9a1.3 1.3 0 1 1-1.8-1.8L13 10.2c.1.1.3.3.4.4Z" fill="currentColor"/>
+        </svg>
+      </button>`
+    : '';
+
+  return `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' data:;" />
+  <style>
+    html, body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: transparent;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
+    }
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 8px;
+      box-sizing: border-box;
+    }
+    .toast {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      box-sizing: border-box;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 0 ${reminderLink ? '76px' : '44px'} 0 14px;
+      border-radius: 26px;
+      color: #111827;
+      background: #ffffff;
+      border: 1px solid rgba(17,24,39,0.08);
+      box-shadow: 0 18px 48px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.72);
+      animation: enter 220ms cubic-bezier(.16, 1, .3, 1) both;
+    }
+    .toast::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      background: linear-gradient(to bottom, #ffffff, #f8fafc);
+      pointer-events: none;
+    }
+    .logo-shell {
+      position: relative;
+      z-index: 1;
+      flex: 0 0 42px;
+      width: 42px;
+      height: 42px;
+      display: grid;
+      place-items: center;
+      border-radius: 14px;
+      background: #f6f7fb;
+      box-shadow: 0 8px 24px rgba(17,24,39,.12), inset 0 1px 0 rgba(255,255,255,.85);
+      overflow: hidden;
+    }
+    .logo-shell img {
+      width: 32px;
+      height: 32px;
+      object-fit: contain;
+      display: block;
+      border-radius: 9px;
+    }
+    .message {
+      position: relative;
+      z-index: 1;
+      min-width: 0;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      font-size: 15px;
+      line-height: 1.24;
+      font-weight: 650;
+      letter-spacing: -0.02em;
+    }
+    .link-action,
+    .close {
+      position: absolute;
+      z-index: 2;
+      top: 12px;
+      width: 24px;
+      height: 24px;
+      border: 0;
+      border-radius: 999px;
+      background: rgba(0,0,0,.055);
+      color: rgba(0,0,0,.46);
+      cursor: default;
+      font-size: 16px;
+      line-height: 24px;
+      padding: 0;
+    }
+    .link-action {
+      right: 42px;
+      display: grid;
+      place-items: center;
+    }
+    .link-action svg {
+      width: 13px;
+      height: 13px;
+      display: block;
+    }
+    .close {
+      right: 12px;
+    }
+    .link-action:hover,
+    .close:hover {
+      background: rgba(0,0,0,.1);
+      color: rgba(0,0,0,.72);
+    }
+    @keyframes enter {
+      from { opacity: 0; transform: translateY(-16px) scale(.985); filter: blur(6px); }
+      to { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+    }
+  </style>
+</head>
+<body>
+  <div class="toast">
+    ${logoMarkup}
+    <div class="message">${message}</div>
+    ${linkMarkup}
+    <button class="close" aria-label="Cerrar" onclick="closeReminderToast()">&#215;</button>
+  </div>
+  <script>
+    function closeReminderToast() {
+      try { window.electronAPI?.closeToast?.(); } catch (_) {}
+      try { window.close(); } catch (_) {}
+    }
+
+    function openReminderLink(url) {
+      try {
+        if (url) window.electronAPI?.openExternal?.(url);
+      } catch (_) {}
+      closeReminderToast();
+    }
+
+    (() => {
+      try {
+        const Ctx = window.AudioContext || window.webkitAudioContext;
+        if (!Ctx) return;
+        const ctx = new Ctx();
+        const now = ctx.currentTime;
+        const master = ctx.createGain();
+        master.gain.setValueAtTime(0.0001, now);
+        master.gain.exponentialRampToValueAtTime(0.16, now + 0.018);
+        master.gain.exponentialRampToValueAtTime(0.0001, now + 0.46);
+        master.connect(ctx.destination);
+        [880, 1175].forEach((frequency, index) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          const startAt = now + index * 0.09;
+          const stopAt = startAt + 0.28;
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(frequency, startAt);
+          gain.gain.setValueAtTime(0.0001, startAt);
+          gain.gain.exponentialRampToValueAtTime(index === 0 ? 0.16 : 0.12, startAt + 0.018);
+          gain.gain.exponentialRampToValueAtTime(0.0001, stopAt);
+          osc.connect(gain);
+          gain.connect(master);
+          osc.start(startAt);
+          osc.stop(stopAt + 0.03);
+        });
+        setTimeout(() => ctx.close(), 650);
+      } catch (_) {}
+    })();
+  </script>
+</body>
+</html>`;
+}
+
+function loadToastWindow(data) {
+  if (!toastWindow || toastWindow.isDestroyed()) return;
+
+  pendingToastData = data;
+
+  const revealToast = () => {
+    if (pendingToastData) showToastWindow(pendingToastData);
+  };
+
+  toastWindow.webContents.once('dom-ready', revealToast);
+  toastWindow.webContents.once('did-finish-load', revealToast);
+  toastWindow.webContents.once('did-fail-load', (_event, errorCode, errorDescription) => {
+    if (errorCode === -3) return;
+    logToFile(`Failed to load toast window: ${errorCode} ${errorDescription}`);
+    showNativeReminderFallback(data);
+  });
+
+  const toastUrl = `data:text/html;charset=utf-8,${encodeURIComponent(getToastHtml(data))}`;
+
+  showToastWindow(data);
+  toastWindow.loadURL(toastUrl)
+    .then(revealToast)
+    .catch((error) => {
+      if (String(error?.message || error).includes('ERR_ABORTED')) return;
+      logToFile(`Failed to load toast window: ${error}`);
+      showNativeReminderFallback(data);
+    });
+}
+
+function getToastBounds() {
+  const display = mainWindow && !mainWindow.isDestroyed()
+    ? screen.getDisplayMatching(mainWindow.getBounds())
+    : screen.getPrimaryDisplay();
+  const { workArea } = display;
+  const toastWidth = 390;
+  const toastHeight = 96;
+
+  return {
+    width: toastWidth,
+    height: toastHeight,
+    x: Math.round(workArea.x + workArea.width - toastWidth - 22),
+    y: Math.round(workArea.y + 22),
+  };
+}
+
+function closeToastWindow() {
+  if (toastCloseTimer) clearTimeout(toastCloseTimer);
+  toastCloseTimer = null;
+  pendingToastData = null;
+
+  if (toastWindow && !toastWindow.isDestroyed()) {
+    toastWindow.close();
+  }
+}
+
+function createToastWindow(data) {
+  pendingToastData = data;
+
+  if (toastWindow && !toastWindow.isDestroyed()) {
+    loadToastWindow(data);
     return;
   }
 
-  const { width: screenWidth, height: screenHeight } = screen.getPrimaryDisplay().workAreaSize;
-  const toastWidth = 380;
-  const toastHeight = 140;
+  const bounds = getToastBounds();
 
   toastWindow = new BrowserWindow({
-    width: toastWidth,
-    height: toastHeight,
-    x: screenWidth - toastWidth - 20,
-    y: screenHeight - toastHeight - 20,
+    ...bounds,
     frame: false,
     transparent: true,
     alwaysOnTop: true,
     skipTaskbar: true,
     resizable: false,
     movable: false,
+    focusable: true,
     show: false,
+    hasShadow: false,
+    paintWhenInitiallyHidden: true,
+    acceptFirstMouse: true,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
       preload: path.join(__dirname, 'preload.cjs'),
+      webSecurity: true,
+      backgroundThrottling: false,
     },
   });
 
-  const startUrl = app.isPackaged
-    ? `file://${path.join(__dirname, '../dist/index.html')}#/toast`
-    : 'http://localhost:5173/#/toast';
+  loadToastWindow(data);
 
-  toastWindow.loadURL(startUrl);
-
-  toastWindow.once('ready-to-show', () => {
-    toastWindow.show();
-    toastWindow.webContents.send('custom-toast-data', data);
+  toastWindow.on('closed', () => {
+    if (toastCloseTimer) clearTimeout(toastCloseTimer);
+    toastCloseTimer = null;
+    pendingToastData = null;
+    toastWindow = null;
   });
+}
 
-  // Auto-close after 5 seconds
-  setTimeout(() => {
-    if (toastWindow) {
-      toastWindow.close();
-      toastWindow = null;
+function scheduleDesktopReminder(data) {
+  const id = String(data?.id || '').trim();
+  if (!id) return false;
+
+  if (data?.enabled === false) {
+    clearScheduledReminder(id);
+    return false;
+  }
+  if (firedReminderKeys.has(id)) return false;
+
+  const fireAt = Date.parse(data?.fireAt || data?.reminderAt || '');
+  if (!Number.isFinite(fireAt)) {
+    clearScheduledReminder(id);
+    return false;
+  }
+
+  const delayMs = fireAt - Date.now();
+  if (delayMs < -STALE_REMINDER_GRACE_MS) return false;
+
+  const existing = reminderTimers.get(id);
+  if (existing?.fireAt === fireAt) return true;
+
+  clearScheduledReminder(id);
+
+  const toastData = {
+    title: String(data?.title || 'Recordatorio'),
+    body: String(data?.body || ''),
+    type: data?.type || 'info',
+    link: normalizeExternalUrl(data?.link || data?.url),
+    persist: true,
+    durationMs: Number(data?.durationMs) || 7000,
+  };
+
+  const fire = () => {
+    if (firedReminderKeys.has(id)) return;
+
+    firedReminderKeys.add(id);
+    reminderTimers.delete(id);
+    createToastWindow(toastData);
+    logToFile(`[Reminder] Fired desktop reminder: ${id}`);
+  };
+
+  if (delayMs <= 0) {
+    fire();
+    return true;
+  }
+
+  const timer = setTimeout(() => {
+    if (fireAt - Date.now() > 0) {
+      scheduleDesktopReminder(data);
+      return;
     }
-  }, 5000);
+    fire();
+  }, Math.min(delayMs, MAX_TIMER_DELAY_MS));
+
+  reminderTimers.set(id, { timer, fireAt });
+  logToFile(`[Reminder] Scheduled desktop reminder: ${id} at ${new Date(fireAt).toISOString()}`);
+  return true;
 }
 
 ipcMain.on('show-notification', (event, data) => {
-  if (Notification.isSupported()) {
-    new Notification({
-      title: data?.title || 'Adonai',
-      body: data?.body || '',
-      icon: path.join(__dirname, '../build/icon.png'),
-      silent: false,
-    }).show();
-    return;
-  }
   createToastWindow(data);
+});
+
+ipcMain.on('schedule-reminder', (event, data) => {
+  scheduleDesktopReminder(data);
+});
+
+ipcMain.on('cancel-reminder', (event, id) => {
+  clearScheduledReminder(id);
+});
+
+ipcMain.on('close-toast', () => {
+  closeToastWindow();
+});
+
+ipcMain.on('toast-ready', (event) => {
+  if (!toastWindow || event.sender !== toastWindow.webContents || !pendingToastData) return;
+  showToastWindow(pendingToastData);
 });

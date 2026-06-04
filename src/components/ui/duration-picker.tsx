@@ -41,7 +41,7 @@ export function DurationPicker({
             className
           )}
         >
-          <div className="flex items-center gap-2 relative">
+          <div className="flex items-center gap-2 relative whitespace-nowrap">
             {displayValue}
           </div>
           <ChevronDown className="w-4 h-4 opacity-50 flex-shrink-0" />

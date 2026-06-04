@@ -43,6 +43,28 @@ interface Window {
     installUpdateNow?: () => void;
     restartApp?: () => void;
     showNotification?: (title: string, body: string, type?: 'info' | 'warning' | 'success' | 'error') => void;
+    scheduleReminder?: (data: {
+      id: string;
+      title: string;
+      body: string;
+      type?: 'info' | 'warning' | 'success' | 'error';
+      fireAt: string;
+      enabled?: boolean;
+      durationMs?: number;
+      link?: string;
+      persist?: boolean;
+    }) => void;
+    cancelReminder?: (id: string) => void;
+    onCustomToast?: (callback: (data: {
+      title: string;
+      body: string;
+      type?: 'info' | 'warning' | 'success' | 'error';
+      durationMs?: number;
+      link?: string;
+      persist?: boolean;
+    }) => void) => () => void;
+    toastReady?: () => void;
+    closeToast?: () => void;
     authStorageGet?: (key: string) => Promise<string | null>;
     authStorageSet?: (key: string, value: string) => Promise<void>;
     authStorageRemove?: (key: string) => Promise<void>;

@@ -268,7 +268,7 @@ setSourceType('text');
  initial={{ opacity: 0 }} 
  animate={{ opacity: 1 }} 
  exit={{ opacity: 0 }} 
- className={`fixed inset-0 z-[40] ${document.body.classList.contains('tutorial-active')? 'bg-[#061827]/55': 'bg-[#061827]/92 backdrop-blur-md'}`} 
+ className={`fixed inset-0 z-[120] ${document.body.classList.contains('tutorial-active')? 'bg-[#061827]/55': 'bg-[#061827]/92 backdrop-blur-md'}`}
  onClick={() => { if (!document.body.classList.contains('tutorial-active')) handleClose(); }} 
  />
  <motion.div
@@ -276,7 +276,7 @@ setSourceType('text');
  animate={{ opacity: 1, scale: 1, y: 0 }}
  exit={{ opacity: 0, scale: 0.95, y: 10 }}
  transition={{ type: 'spring', damping: 22, stiffness: 260 }}
- className="fixed inset-0 z-[50] flex items-center justify-center p-4 pointer-events-none"
+ className="fixed inset-0 z-[130] flex items-center justify-center p-4 pointer-events-none"
  >
  <div className={cn(
  "relative mx-auto w-full max-h-[90vh] overflow-y-auto pointer-events-auto shadow-[0_20px_70px_-18px_rgba(0,0,0,0.7)] bg-[#10141d] border border-white/10 text-white",

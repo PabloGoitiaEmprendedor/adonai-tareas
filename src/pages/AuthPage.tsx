@@ -86,7 +86,6 @@ const AuthPage = () => {
         }
       }
       clearAnonymousEmailUpgrade();
-      toast.success('¡Bienvenido!');
       navigate(redirectTo === '/' ? '/daily' : redirectTo, { replace: true });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Código incorrecto';

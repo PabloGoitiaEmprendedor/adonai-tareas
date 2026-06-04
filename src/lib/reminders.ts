@@ -1,4 +1,4 @@
-export type ReminderMinutes = 0 | 5 | 15 | 30 | 60;
+export type ReminderMinutes = 0 | 5 | 10 | 15 | 30 | 60 | 1440 | 10080;
 
 export type ReminderKind = 'task' | 'event';
 
@@ -8,11 +8,14 @@ export type ReminderSettings = {
 };
 
 export const REMINDER_OPTIONS: { value: ReminderMinutes; label: string }[] = [
-  { value: 0, label: 'A la hora' },
+  { value: 0, label: 'En el momento' },
   { value: 5, label: '5 min antes' },
+  { value: 10, label: '10 min antes' },
   { value: 15, label: '15 min antes' },
   { value: 30, label: '30 min antes' },
   { value: 60, label: '1 hora antes' },
+  { value: 1440, label: '1 día antes' },
+  { value: 10080, label: '1 semana antes' },
 ];
 
 const allowedReminderMinutes = new Set<number>(REMINDER_OPTIONS.map((option) => option.value));
@@ -29,18 +32,20 @@ export const getReminderLabel = (minutes: unknown) => {
 
 export const getReminderSettings = (metadata: unknown, kind?: ReminderKind): ReminderSettings | null => {
   if (!metadata || typeof metadata !== 'object') return null;
-  const source = metadata as Record<string, any>;
+  const source = metadata as Record<string, unknown>;
   const reminder = source.reminder
     || (kind === 'event' ? source.event_reminder : null)
     || (kind === 'task' ? source.task_reminder : null)
     || source.event_reminder
     || source.task_reminder;
 
-  if (!reminder?.enabled) return null;
+  if (!reminder || typeof reminder !== 'object') return null;
+  const reminderRecord = reminder as Record<string, unknown>;
+  if (!reminderRecord.enabled) return null;
 
   return {
     enabled: true,
-    minutes_before: normalizeReminderMinutes(reminder.minutes_before),
+    minutes_before: normalizeReminderMinutes(reminderRecord.minutes_before),
   };
 };
 

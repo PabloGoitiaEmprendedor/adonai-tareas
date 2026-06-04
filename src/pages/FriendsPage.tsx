@@ -291,6 +291,19 @@ const FriendsPage = () => {
     toast.success('Link de invitacion copiado');
   };
 
+  useEffect(() => {
+    const copyLink = () => {
+      void handleCopyInviteLink();
+    };
+    const createGroup = () => setShowGroupBox(true);
+    window.addEventListener('adonai:friends-copy-link', copyLink);
+    window.addEventListener('adonai:friends-create-group', createGroup);
+    return () => {
+      window.removeEventListener('adonai:friends-copy-link', copyLink);
+      window.removeEventListener('adonai:friends-create-group', createGroup);
+    };
+  }, [inviteLink]);
+
   const handleCopyGroupInviteLink = async () => {
     if (!groupInviteLink) return;
     await navigator.clipboard.writeText(groupInviteLink);
@@ -355,18 +368,18 @@ const FriendsPage = () => {
   };
 
   const activeComposer = showTaskBox ? 'Tarea' : showImageBox ? 'Foto' : showFolderBox ? 'Carpeta' : null;
-  const mobileTopOffset = typeof window !== 'undefined' && window.electronAPI ? '4rem' : '4.5rem';
+  const mobileTopOffset = typeof window !== 'undefined' && window.electronAPI ? '4rem' : '3.5rem';
 
   return (
     <div
-      className="fixed inset-x-0 bottom-0 z-40 bg-surface text-foreground md:static md:min-h-screen md:bg-background md:px-6 md:py-6"
+      className="fixed inset-x-0 bottom-[72px] z-40 flex flex-col bg-surface text-foreground md:static md:min-h-screen md:bg-background md:px-6 md:py-6"
       style={{ top: mobileTopOffset }}
     >
-      <div className="mx-auto flex h-full w-full max-w-none overflow-hidden rounded-none border-outline-variant/10 bg-surface shadow-none md:h-[calc(100vh-8rem)] md:max-w-6xl md:rounded-[24px] md:border md:bg-background lg:h-[calc(100vh-7rem)]">
+      <div className="mx-auto flex w-full overflow-hidden rounded-none border-outline-variant/10 bg-surface shadow-none md:max-w-6xl md:rounded-[24px] md:border md:bg-background flex-1 min-h-0 md:h-[calc(100vh-8rem)] lg:h-[calc(100vh-7rem)]">
         <aside className={`${selectedId ? 'hidden lg:flex' : 'flex'} w-full min-w-0 flex-col border-r border-outline-variant/12 bg-surface lg:w-[380px] lg:shrink-0`}>
-          <div className="sticky top-0 z-20 border-b border-outline-variant/10 bg-surface/98 p-4 backdrop-blur-xl">
-            <div className="mb-4 flex items-center justify-between">
-              <div>
+          <div className="sticky top-0 z-20 border-b border-outline-variant/10 bg-surface p-3 md:p-4">
+            <div className="mb-4 hidden items-center justify-between md:flex">
+              <div className="hidden md:block">
                 <h1 className="text-2xl font-black tracking-tight">Amigos</h1>
                 <p className="text-xs font-medium text-on-surface-variant/55">Chats, tareas y carpetas</p>
               </div>
@@ -390,7 +403,7 @@ const FriendsPage = () => {
 
             <button
               onClick={handleCopyInviteLink}
-              className="mb-3 flex w-full items-center justify-between rounded-2xl border border-outline-variant/12 bg-surface-container/70 px-3 py-2 text-left transition hover:bg-surface-container"
+              className="mb-3 hidden w-full items-center justify-between rounded-2xl border border-outline-variant/12 bg-surface-container/70 px-3 py-2 text-left transition hover:bg-surface-container md:flex"
             >
               <span className="min-w-0">
                 <span className="block text-xs font-black">Link personal de invitacion</span>
@@ -414,7 +427,7 @@ const FriendsPage = () => {
             </div>
           </div>
 
-          <div className="sticky top-[137px] z-10 flex border-b border-outline-variant/10 bg-surface/98 px-3 py-2 backdrop-blur-xl">
+          <div className="sticky top-[62px] z-10 flex border-b border-outline-variant/10 bg-surface px-3 py-2 md:top-[137px]">
             <button onClick={() => setMode('chat')} className={`rounded-full px-3 py-1.5 text-xs font-black ${mode === 'chat' ? 'bg-foreground text-background' : 'text-on-surface-variant'}`}>Chats</button>
             <button onClick={() => setMode('search')} className={`rounded-full px-3 py-1.5 text-xs font-black ${mode === 'search' ? 'bg-foreground text-background' : 'text-on-surface-variant'}`}>Personas</button>
             {pendingReceived.length > 0 && <span className="ml-auto rounded-full bg-red-500 px-2 py-1 text-[10px] font-black text-white">{pendingReceived.length}</span>}

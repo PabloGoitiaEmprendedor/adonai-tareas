@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useTasks } from '@/hooks/useTasks';
 import { useProfile } from '@/hooks/useProfile';
 import { usePriorityColors, getPriorityKey } from '@/hooks/usePriorityColors';
@@ -12,10 +12,14 @@ import AdonaiCalendarView from '@/components/calendar/AdonaiCalendarView';
 import { useCalendarEvents } from '@/hooks/useCalendarEvents';
 import { useCalendarIntegration } from '@/hooks/useCalendarIntegration';
 import { GoogleCalendarConnectModal } from '@/components/ui/google-calendar-connect-modal';
+import { readStoredCalendarDate, readStoredCalendarViewMode, subscribeCalendarState, writeCalendarViewMode } from '@/lib/calendarStateSync';
 import type { TaskLike } from '@/lib/taskTypes';
 
 const WeeklyPage = () => {
-  const [selectedDay, setSelectedDay] = useState<Date>(new Date());
+  const [selectedDay, setSelectedDay] = useState<Date>(() => readStoredCalendarDate());
+  const [viewMode, setViewMode] = useState<'day' | 'week' | 'month'>(() => {
+    return readStoredCalendarViewMode('day');
+  });
   const [selectedTask, setSelectedTask] = useState<TaskLike | null>(null);
   const [timerTask, setTimerTask] = useState<TaskLike | null>(null);
   const [completingTaskId, setCompletingTaskId] = useState<string | null>(null);
@@ -36,6 +40,14 @@ const WeeklyPage = () => {
     new Date(weekStart).toISOString(),
     new Date(weekEnd).toISOString()
   );
+
+  useEffect(() => {
+    return subscribeCalendarState(selectedDay, viewMode, setSelectedDay, setViewMode);
+  }, [selectedDay, viewMode]);
+
+  useEffect(() => {
+    writeCalendarViewMode(viewMode);
+  }, [viewMode]);
 
   const getTasksForDay = (date: Date) => {
     const dateStr = format(date, 'yyyy-MM-dd');
@@ -80,11 +92,13 @@ const WeeklyPage = () => {
   const { colors: priorityColors } = usePriorityColors();
 
   return (
-      <div className="max-w-full mx-auto px-0 sm:px-4 pt-2 pb-10 space-y-4">
-        <section id="weekly-calendar-main" className="relative space-y-4 pt-2 px-0">
+      <div className="max-w-full mx-auto px-0 sm:px-4 pt-0 pb-10 space-y-0">
+        <section id="weekly-calendar-main" className="relative space-y-0 pt-0 px-0">
           <AdonaiCalendarView
             selectedDate={selectedDay}
             onSelectDate={setSelectedDay}
+            viewMode={viewMode}
+            onViewModeChange={setViewMode}
             dragDisabled={false}
             className="overflow-visible"
             googleEvents={googleCalendarEvents}

@@ -91,7 +91,6 @@ export const useTimeBlocks = (date: string, rangeEndDate?: string) => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['time_blocks'] });
-      toast.success('Bloque programado');
     },
     onError: (err: any) => {
       const msg = err.message === 'ESTE HORARIO YA ESTÁ OCUPADO' ? err.message : 'Error al crear bloque';
@@ -136,7 +135,6 @@ export const useTimeBlocks = (date: string, rangeEndDate?: string) => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['time_blocks'] });
-      toast.success('Bloque actualizado');
     },
     onError: (err: any) => {
       const msg = err.message === 'ESTE HORARIO YA ESTÁ OCUPADO' ? err.message : 'Error al actualizar bloque';
@@ -164,7 +162,6 @@ export const useTimeBlocks = (date: string, rangeEndDate?: string) => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['time_blocks'] });
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
-      toast.info('Bloque eliminado');
     },
     onError: () => {
       toast.error('No se pudo eliminar el evento');

@@ -63,14 +63,12 @@ const AuthCallbackPage = () => {
               return;
             }
             
-            toast.success(`¡Bienvenido ${data.name}! Revisa tu correo para confirmar.`);
             navigate('/auth');
             return;
           }
         }
 
         setStatus('¡Listo! Redirigiendo...');
-        toast.success(`¡Bienvenido ${data.name}! Calendario conectado.`);
         navigate('/');
       } catch (err: any) {
         console.error('Callback error:', err);

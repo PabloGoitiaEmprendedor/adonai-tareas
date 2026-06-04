@@ -1,9 +1,35 @@
 const ONESIGNAL_APP_ID = import.meta.env.VITE_ONESIGNAL_APP_ID as string;
 
+type OneSignalListener = (event: unknown) => void;
+
+type OneSignalWebSdk = {
+  Notifications: {
+    permission: boolean;
+    requestPermission: () => Promise<void>;
+    addEventListener: (event: string, listener: OneSignalListener) => void;
+    removeEventListener: (event: string, listener: OneSignalListener) => void;
+  };
+  User: {
+    PushSubscription: {
+      id?: string | null;
+      token?: string | null;
+      optedIn?: boolean;
+      optIn: () => Promise<void>;
+    };
+    addTag?: (key: string, value: string) => void;
+    addTags?: (tags: Record<string, string>) => void;
+    removeTag?: (key: string) => void;
+    addEmail?: (email: string) => Promise<void>;
+    removeEmail?: (email: string) => Promise<void>;
+  };
+  login: (externalId: string) => Promise<void>;
+  logout: () => Promise<void>;
+};
+
 declare global {
   interface Window {
-    OneSignalDeferred?: Array<(OneSignal: any) => void>;
-    OneSignal?: any;
+    OneSignalDeferred?: Array<(OneSignal: OneSignalWebSdk) => void | Promise<void>>;
+    OneSignal?: OneSignalWebSdk;
   }
 }
 
@@ -59,15 +85,24 @@ export async function logoutOneSignal(): Promise<void> {
 }
 
 export async function ensureOneSignalSubscribed(): Promise<void> {
-  try {
-    if (!isOneSignalSupported()) return;
-    if (!window.OneSignal) return;
-    if (getOnesignalAppId() === '__ONESIGNAL_APP_ID__') return;
-    if (window.OneSignal.Notifications.permission) return;
-    await window.OneSignal.Notifications.requestPermission();
-  } catch {
-    // silent
-  }
+  if (!isOneSignalSupported()) return;
+  if (getOnesignalAppId() === '__ONESIGNAL_APP_ID__') return;
+
+  window.OneSignalDeferred = window.OneSignalDeferred || [];
+  window.OneSignalDeferred.push(async (OneSignal) => {
+    try {
+      await OneSignal.User.PushSubscription.optIn();
+      console.info('[OneSignal] Push subscription status', {
+        origin: window.location.origin,
+        permission: OneSignal.Notifications.permission,
+        subscriptionId: OneSignal.User.PushSubscription.id || null,
+        token: OneSignal.User.PushSubscription.token || null,
+        optedIn: OneSignal.User.PushSubscription.optedIn,
+      });
+    } catch (error) {
+      console.error('[OneSignal] Unable to subscribe this browser', error);
+    }
+  });
 }
 
 export function addOnesignalTag(key: string, value: string): void {
