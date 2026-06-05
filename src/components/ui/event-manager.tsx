@@ -4295,15 +4295,6 @@ function TimeGridView({
     }
   }, [draftEvent])
 
-  // Cleanup mobile edit draft mode when view or currentDate changes
-  useEffect(() => {
-    if (mobileEditEvent) {
-      setMobileEditEvent(null);
-      setMobileEditOriginalEvent(null);
-      window.dispatchEvent(new CustomEvent('adonai:draft-state-change', { detail: { active: false } }));
-    }
-  }, [view, currentDate, mobileEditEvent, mobileEditOriginalEvent]);
-
   const handleMobileSave = () => {
     if (!mobileEditEvent) return;
     const finalEvent = events.find(ev => ev.id === mobileEditEvent.id);
@@ -4335,6 +4326,10 @@ function TimeGridView({
   const ghostRef = useRef<HTMLDivElement>(null);
   const isHoveringSidebarRef = useRef<boolean>(false);
   const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const initialCalendarScrollTopRef = useRef(0);
+  const lastDragClientYRef = useRef<number | null>(null);
+  const autoScrollFrameRef = useRef<number | null>(null);
+  const mobileEditTimerRef = useRef<number | null>(null);
   
   // Track whether the user is dragging so that mouseup/click after drag doesn't open the dialog
   const isDraggingRef = useRef(false);
@@ -4357,9 +4352,116 @@ function TimeGridView({
     setIsResizing(event.id);
     setIsResizingTop(isTop);
     setInitialMouseY(e.pageY);
+    initialCalendarScrollTopRef.current = getCalendarScrollTop();
     setInitialStartTime(new Date(event.startTime));
     setInitialEndTime(new Date(event.endTime));
   };
+
+  const getCalendarScrollTop = useCallback(() => {
+    if (containedScroll) return scrollContainerRef.current?.scrollTop || 0;
+    return window.scrollY || 0;
+  }, [containedScroll]);
+
+  const getDragScrollOffset = useCallback(() => {
+    return getCalendarScrollTop() - initialCalendarScrollTopRef.current;
+  }, [getCalendarScrollTop]);
+
+  const hideTemporaryMobileEdit = useCallback(() => {
+    if (mobileEditTimerRef.current) {
+      window.clearTimeout(mobileEditTimerRef.current);
+      mobileEditTimerRef.current = null;
+    }
+    setMobileEditEvent(null);
+    setMobileEditOriginalEvent(null);
+    window.dispatchEvent(new CustomEvent('adonai:draft-state-change', { detail: { active: false } }));
+  }, []);
+
+  const showTemporaryMobileEdit = useCallback((event: Event) => {
+    if (mobileEditTimerRef.current) {
+      window.clearTimeout(mobileEditTimerRef.current);
+    }
+    setMobileEditEvent(event);
+    setMobileEditOriginalEvent(null);
+    window.dispatchEvent(new CustomEvent('adonai:draft-state-change', { detail: { active: true } }));
+    mobileEditTimerRef.current = window.setTimeout(() => {
+      hideTemporaryMobileEdit();
+    }, 3000);
+  }, [hideTemporaryMobileEdit]);
+
+  const stopAutoScroll = useCallback(() => {
+    if (autoScrollFrameRef.current !== null) {
+      window.cancelAnimationFrame(autoScrollFrameRef.current);
+      autoScrollFrameRef.current = null;
+    }
+    lastDragClientYRef.current = null;
+  }, []);
+
+  const autoScrollCalendar = useCallback((clientY: number) => {
+    lastDragClientYRef.current = clientY;
+    if (autoScrollFrameRef.current !== null) return;
+
+    const step = () => {
+      const lastY = lastDragClientYRef.current;
+      const scrollEl = scrollContainerRef.current;
+      if (lastY === null || !scrollEl) {
+        autoScrollFrameRef.current = null;
+        return;
+      }
+
+      const rect = containedScroll
+        ? scrollEl.getBoundingClientRect()
+        : { top: 0, bottom: window.innerHeight } as DOMRect;
+      const edgeSize = Math.min(120, Math.max(72, (rect.bottom - rect.top) * 0.18));
+      const topDistance = lastY - rect.top;
+      const bottomDistance = rect.bottom - lastY;
+      let velocity = 0;
+
+      if (topDistance < edgeSize) {
+        velocity = -Math.round(((edgeSize - Math.max(0, topDistance)) / edgeSize) * 18);
+      } else if (bottomDistance < edgeSize) {
+        velocity = Math.round(((edgeSize - Math.max(0, bottomDistance)) / edgeSize) * 18);
+      }
+
+      if (velocity !== 0) {
+        if (containedScroll) {
+          const maxScrollTop = Math.max(0, scrollEl.scrollHeight - scrollEl.clientHeight);
+          scrollEl.scrollTop = Math.max(0, Math.min(maxScrollTop, scrollEl.scrollTop + velocity));
+        } else {
+          window.scrollBy({ top: velocity, behavior: 'auto' });
+        }
+        autoScrollFrameRef.current = window.requestAnimationFrame(step);
+        return;
+      }
+
+      autoScrollFrameRef.current = null;
+    };
+
+    autoScrollFrameRef.current = window.requestAnimationFrame(step);
+  }, [containedScroll]);
+
+  // Cleanup mobile edit draft mode when view or currentDate changes.
+  useEffect(() => {
+    if (mobileEditEvent) {
+      hideTemporaryMobileEdit();
+    }
+  }, [view, currentDate]);
+
+  useEffect(() => {
+    return () => {
+      if (mobileEditTimerRef.current) {
+        window.clearTimeout(mobileEditTimerRef.current);
+      }
+      stopAutoScroll();
+    };
+  }, [stopAutoScroll]);
+
+  useEffect(() => {
+    if (!isMoving && !isResizing) return;
+    if (mobileEditTimerRef.current) {
+      window.clearTimeout(mobileEditTimerRef.current);
+      mobileEditTimerRef.current = null;
+    }
+  }, [isMoving, isResizing]);
 
   const currentEventsRef = useRef(events);
   useEffect(() => {
@@ -4377,13 +4479,14 @@ function TimeGridView({
       const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
       const pageX = 'touches' in e ? e.touches[0].pageX : e.pageX;
       const pageY = 'touches' in e ? e.touches[0].pageY : e.pageY;
+      autoScrollCalendar(clientY);
 
       // Use initialEventsRef.current for all collision logic to prevent infinite render loops and compounding errors
       const baseEvents = initialEventsRef.current.length > 0 ? initialEventsRef.current : events;
 
       if (isResizing && initialStartTime && initialEndTime) {
         isDraggingRef.current = true;
-        const deltaY = pageY - initialMouseY;
+        const deltaY = pageY - initialMouseY + getDragScrollOffset();
         const minutesDiff = snapMinutes((deltaY / HOUR_HEIGHT) * 60);
         
         const event = baseEvents.find(ev => ev.id === isResizing);
@@ -4407,7 +4510,7 @@ function TimeGridView({
           setEvents(baseEvents.map(ev => ev.id === isResizing ? { ...ev, endTime: newEndTime } : ev));
         }
       } else if (isMoving && initialStartTime) {
-        const deltaY = pageY - initialMouseY;
+        const deltaY = pageY - initialMouseY + getDragScrollOffset();
         const deltaX = Math.abs(pageX - initialMouseX);
         
         if (Math.abs(deltaY) > 3 || deltaX > 3) {
@@ -4509,8 +4612,21 @@ function TimeGridView({
           const isMobile = window.matchMedia('(max-width: 767px)').matches;
           if (isMobile) {
             if (changedEvent) {
-              setMobileEditEvent(changedEvent);
-              window.dispatchEvent(new CustomEvent('adonai:draft-state-change', { detail: { active: true } }));
+              if (changed && findTimedEventConflict(currentEventsRef.current, changedEvent, changedEvent.id)) {
+                notifyCalendarConflict();
+                if (initial) {
+                  setEvents(prev => prev.map(ev => ev.id === changedEvent.id ? initial : ev));
+                }
+              } else {
+                if (onEventUpdate && changed) {
+                  onRegisterPendingDrop?.(changedEvent);
+                  onEventUpdate(changedEvent.id, {
+                    startTime: changedEvent.startTime,
+                    endTime: changedEvent.endTime,
+                  });
+                }
+                showTemporaryMobileEdit(changedEvent);
+              }
             }
           } else {
             if (onEventUpdate && changedEvent && changed) {
@@ -4548,6 +4664,7 @@ function TimeGridView({
         
         setIsResizing(null);
         setIsMoving(null);
+        stopAutoScroll();
         initialEventsRef.current = [];
         // Clear dragging flag after a delay to prevent click from firing
         setTimeout(() => { isDraggingRef.current = false; }, 300);
@@ -4577,7 +4694,7 @@ function TimeGridView({
       window.removeEventListener('touchcancel', handleMouseUp);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isResizing, isMoving, initialMouseX, initialMouseY, initialStartTime, initialEndTime, initialDuration, onEventUpdate, HOUR_HEIGHT, days]);
+  }, [isResizing, isMoving, initialMouseX, initialMouseY, initialStartTime, initialEndTime, initialDuration, onEventUpdate, HOUR_HEIGHT, days, autoScrollCalendar, getDragScrollOffset, onRegisterPendingDrop, showTemporaryMobileEdit, stopAutoScroll]);
 
   // Draft resize handler - uses refs to avoid re-creating effect on each position update
   const draftEventRef = useRef(draftEvent)
@@ -4660,6 +4777,17 @@ function TimeGridView({
     e.stopPropagation()
   }, [containedScroll])
 
+  const handleCalendarScroll = useCallback(() => {
+    if (!mobileEditEvent || isMoving || isResizing) return;
+    hideTemporaryMobileEdit();
+  }, [hideTemporaryMobileEdit, isMoving, isResizing, mobileEditEvent]);
+
+  useEffect(() => {
+    if (containedScroll || !mobileEditEvent) return;
+    window.addEventListener('scroll', handleCalendarScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleCalendarScroll);
+  }, [containedScroll, handleCalendarScroll, mobileEditEvent]);
+
   return (
     <Card
       className={cn(
@@ -4715,6 +4843,7 @@ function TimeGridView({
         )}
         style={{ touchAction: 'pan-y' }}
         data-calendar-scroll="true"
+        onScroll={handleCalendarScroll}
       >
         <div className="relative flex w-full" style={{ height: `${24 * HOUR_HEIGHT}px` }}>
           {/* Time Labels - Sticky Left */}
@@ -4895,7 +5024,7 @@ function TimeGridView({
                             height: `${Math.max(isMobileViewport ? 22 : 18, duration * HOUR_HEIGHT - 4)}px`,
                             zIndex: eventZIndex,
                             userSelect: 'none',
-                            touchAction: 'none',
+                            touchAction: (isMoving === event.id || isResizing === event.id) ? 'none' : 'pan-y',
                             ...getEventStyles(event.color)
                           }}
                           onMouseDown={(e) => {
@@ -4908,14 +5037,13 @@ function TimeGridView({
                             setIsMoving(event.id);
                             setInitialMouseY(e.pageY);
                             setInitialMouseX(e.pageX);
+                            initialCalendarScrollTopRef.current = getCalendarScrollTop();
                             setInitialStartTime(new Date(event.startTime));
                             setInitialDuration((event.endTime.getTime() - event.startTime.getTime()) / 60000);
                           }}
                           onTouchStart={(e) => {
                             if (dragDisabled) return;
                             e.stopPropagation();
-                            // Prevent browser context menu / text-select on long press
-                            e.preventDefault();
                             const touch = e.touches[0];
                             const startX = touch.pageX;
                             const startY = touch.pageY;
@@ -4923,10 +5051,12 @@ function TimeGridView({
                             const isMobile = window.matchMedia('(max-width: 767px)').matches;
                             
                             if (isMobile && mobileEditEvent?.id === event.id) {
+                              if (e.cancelable) e.preventDefault();
                               isDraggingRef.current = false;
                               setIsMoving(event.id);
                               setInitialMouseY(startY);
                               setInitialMouseX(startX);
+                              initialCalendarScrollTopRef.current = getCalendarScrollTop();
                               setInitialStartTime(new Date(event.startTime));
                               setInitialDuration((event.endTime.getTime() - event.startTime.getTime()) / 60000);
                             } else {
@@ -4934,10 +5064,12 @@ function TimeGridView({
                               longPressTimerRef._startX = startX;
                               longPressTimerRef._startY = startY;
                               longPressTimerRef.current = setTimeout(() => {
+                                longPressTimerRef.current = null;
                                 isDraggingRef.current = false;
                                 setIsMoving(event.id);
                                 setInitialMouseY(startY);
                                 setInitialMouseX(startX);
+                                initialCalendarScrollTopRef.current = getCalendarScrollTop();
                                 setInitialStartTime(new Date(event.startTime));
                                 setInitialDuration((event.endTime.getTime() - event.startTime.getTime()) / 60000);
                                 
@@ -4990,6 +5122,7 @@ function TimeGridView({
                               setIsResizing(event.id);
                               setIsResizingTop(true);
                               setInitialMouseY(e.pageY);
+                              initialCalendarScrollTopRef.current = getCalendarScrollTop();
                               setInitialStartTime(new Date(event.startTime));
                               setInitialEndTime(new Date(event.endTime));
                             }}
@@ -5000,6 +5133,7 @@ function TimeGridView({
                               setIsResizing(event.id);
                               setIsResizingTop(true);
                               setInitialMouseY(touch.pageY);
+                              initialCalendarScrollTopRef.current = getCalendarScrollTop();
                               setInitialStartTime(new Date(event.startTime));
                               setInitialEndTime(new Date(event.endTime));
                             }}
@@ -5123,6 +5257,7 @@ function TimeGridView({
                               setIsResizing(event.id);
                               setIsResizingTop(false);
                               setInitialMouseY(e.pageY);
+                              initialCalendarScrollTopRef.current = getCalendarScrollTop();
                               setInitialStartTime(new Date(event.startTime));
                               setInitialEndTime(new Date(event.endTime));
                             }}
@@ -5133,6 +5268,7 @@ function TimeGridView({
                               setIsResizing(event.id);
                               setIsResizingTop(false);
                               setInitialMouseY(touch.pageY);
+                              initialCalendarScrollTopRef.current = getCalendarScrollTop();
                               setInitialStartTime(new Date(event.startTime));
                               setInitialEndTime(new Date(event.endTime));
                             }}

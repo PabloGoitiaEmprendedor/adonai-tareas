@@ -1146,14 +1146,6 @@ const firedReminderKeys = new Set();
 const MAX_TIMER_DELAY_MS = 2_147_483_647;
 const STALE_REMINDER_GRACE_MS = 15 * 60 * 1000;
 
-function playReminderBeep() {
-  try {
-    shell.beep();
-  } catch (error) {
-    logToFile(`[Reminder] Failed to play beep: ${error?.message || error}`);
-  }
-}
-
 function clearScheduledReminder(id) {
   const key = String(id || '');
   const entry = reminderTimers.get(key);
@@ -1413,31 +1405,41 @@ function getToastHtml(data) {
         const Ctx = window.AudioContext || window.webkitAudioContext;
         if (!Ctx) return;
         const ctx = new Ctx();
+        const playTone = () => {
+          const now = ctx.currentTime + 0.02;
+          const master = ctx.createGain();
+          const compressor = ctx.createDynamicsCompressor();
+          master.gain.setValueAtTime(0.0001, now);
+          master.gain.exponentialRampToValueAtTime(0.16, now + 0.02);
+          master.gain.exponentialRampToValueAtTime(0.0001, now + 0.92);
+          master.connect(compressor);
+          compressor.connect(ctx.destination);
+          [
+            { frequency: 784, delay: 0, duration: 0.34, volume: 0.16 },
+            { frequency: 1046.5, delay: 0.1, duration: 0.42, volume: 0.12 },
+            { frequency: 1318.5, delay: 0.22, duration: 0.46, volume: 0.08 },
+          ].forEach(({ frequency, delay, duration, volume }) => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            const startAt = now + delay;
+            const stopAt = startAt + duration;
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(frequency, startAt);
+            gain.gain.setValueAtTime(0.0001, startAt);
+            gain.gain.exponentialRampToValueAtTime(volume, startAt + 0.025);
+            gain.gain.exponentialRampToValueAtTime(0.0001, stopAt);
+            osc.connect(gain);
+            gain.connect(master);
+            osc.start(startAt);
+            osc.stop(stopAt + 0.04);
+          });
+          setTimeout(() => ctx.close(), 1100);
+        };
         if (ctx.state === 'suspended') {
-          ctx.resume().catch(() => {});
+          ctx.resume().then(playTone).catch(() => {});
+          return;
         }
-        const now = ctx.currentTime;
-        const master = ctx.createGain();
-        master.gain.setValueAtTime(0.0001, now);
-        master.gain.exponentialRampToValueAtTime(0.16, now + 0.018);
-        master.gain.exponentialRampToValueAtTime(0.0001, now + 0.46);
-        master.connect(ctx.destination);
-        [880, 1175].forEach((frequency, index) => {
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          const startAt = now + index * 0.09;
-          const stopAt = startAt + 0.28;
-          osc.type = 'sine';
-          osc.frequency.setValueAtTime(frequency, startAt);
-          gain.gain.setValueAtTime(0.0001, startAt);
-          gain.gain.exponentialRampToValueAtTime(index === 0 ? 0.16 : 0.12, startAt + 0.018);
-          gain.gain.exponentialRampToValueAtTime(0.0001, stopAt);
-          osc.connect(gain);
-          gain.connect(master);
-          osc.start(startAt);
-          osc.stop(stopAt + 0.03);
-        });
-        setTimeout(() => ctx.close(), 650);
+        playTone();
       } catch (_) {}
     })();
   </script>
@@ -1580,7 +1582,6 @@ function scheduleDesktopReminder(data) {
 
     firedReminderKeys.add(id);
     reminderTimers.delete(id);
-    playReminderBeep();
     createToastWindow(toastData);
     logToFile(`[Reminder] Fired desktop reminder: ${id}`);
   };
@@ -1604,7 +1605,6 @@ function scheduleDesktopReminder(data) {
 }
 
 ipcMain.on('show-notification', (event, data) => {
-  playReminderBeep();
   createToastWindow(data);
 });
 
