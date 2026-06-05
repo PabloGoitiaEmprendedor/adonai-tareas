@@ -259,6 +259,7 @@ setSourceType('text');
  if (!open) return null;
  const waveformBars = [4, 8, 12, 14, 10, 16, 12, 14, 6, 10, 14, 8, 4];
  const isMini = creationSource?.startsWith('mini_');
+ const isDarkMode = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
 
  return (
  <AnimatePresence>
@@ -268,7 +269,9 @@ setSourceType('text');
  initial={{ opacity: 0 }} 
  animate={{ opacity: 1 }} 
  exit={{ opacity: 0 }} 
- className={`fixed inset-0 z-[120] ${document.body.classList.contains('tutorial-active')? 'bg-[#061827]/55': 'bg-[#061827]/92 backdrop-blur-md'}`}
+ className={`fixed inset-0 z-[120] ${document.body.classList.contains('tutorial-active')
+   ? (isDarkMode ? 'bg-[#061827]/55' : 'bg-black/15')
+   : (isDarkMode ? 'bg-[#061827]/92 backdrop-blur-md' : 'bg-black/30 backdrop-blur-sm')}`}
  onClick={() => { if (!document.body.classList.contains('tutorial-active')) handleClose(); }} 
  />
  <motion.div
@@ -279,7 +282,10 @@ setSourceType('text');
  className="fixed inset-0 z-[130] flex items-center justify-center p-4 pointer-events-none"
  >
  <div className={cn(
- "relative mx-auto w-full max-h-[90vh] overflow-y-auto pointer-events-auto shadow-[0_20px_70px_-18px_rgba(0,0,0,0.7)] bg-[#10141d] border border-white/10 text-white",
+ "relative mx-auto w-full max-h-[90vh] overflow-y-auto pointer-events-auto shadow-[0_20px_70px_-18px_rgba(0,0,0,0.22)] border",
+ isDarkMode
+   ? "bg-[#10141d] border-white/10 text-white"
+   : "bg-background border-outline-variant/15 text-foreground shadow-[0_18px_50px_-18px_rgba(15,23,42,0.2)]",
  isMini? "max-w-[340px] rounded-[24px]": "max-w-[400px] rounded-[32px]"
  )}>
  <div className={cn("flex flex-col", isMini? "p-4 gap-4": "p-6 gap-6")}>
@@ -287,7 +293,7 @@ setSourceType('text');
  <div className="w-full flex justify-end -mt-1 -mr-1">
  <button
  onClick={() => { if (!document.body.classList.contains('tutorial-active')) handleClose(); }}
- className="p-1.5 rounded-xl hover:bg-black/5 transition-all active:scale-90 text-muted-foreground"
+ className={cn("p-1.5 rounded-xl transition-all active:scale-90", isDarkMode ? "hover:bg-black/5 text-muted-foreground" : "hover:bg-surface-container/70 text-muted-foreground/70")}
  >
  <X className={isMini? "w-3.5 h-3.5": "w-4 h-4"} />
  </button>
@@ -317,7 +323,7 @@ setSourceType('text');
  )}
  </div>
  <div className="w-full text-center px-4">
- <p className={cn("font-bold leading-tight text-foreground", isMini ? "text-base" : "text-lg")}>
+ <p className={cn("font-bold leading-tight", isDarkMode ? "text-foreground" : "text-foreground/90", isMini ? "text-base" : "text-lg")}>
  {isProcessing ? "Analizando tu voz..." : (transcript || (isRecording ? "Escuchando..." : ""))}
  {!isProcessing && isRecording && <span className={cn("inline-block ml-1 animate-pulse bg-primary", isMini ? "w-0.5 h-4" : "w-1 h-5")} />}
  </p>
@@ -327,7 +333,8 @@ setSourceType('text');
  <button
  onClick={() => stopRecording()}
  className={cn(
- "rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center shadow-lg active:scale-90 transition-transform",
+ "rounded-full flex items-center justify-center shadow-lg active:scale-90 transition-transform border",
+ isDarkMode ? "bg-primary/10 border-primary/20" : "bg-primary/15 border-primary/20",
  isMini ? "w-11 h-11" : "w-14 h-14"
  )}
  title="Detener grabación"
@@ -352,14 +359,17 @@ setSourceType('text');
  onChange={(e) => setTitle(e.target.value)}
  placeholder="¿Qué tienes que hacer?"
  className={cn(
- "w-full font-semibold bg-white/[0.04] border border-white/12 rounded-[20px] focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-white/25 resize-none text-white",
+ "w-full font-semibold rounded-[20px] focus:outline-none focus:ring-2 resize-none",
+ isDarkMode
+   ? "bg-white/[0.04] border border-white/12 focus:ring-primary/50 placeholder:text-white/25 text-white"
+   : "bg-surface-container-low/60 border border-outline-variant/20 focus:ring-primary/20 placeholder:text-muted-foreground/35 text-foreground",
  isMini ? "text-base px-4 py-3 min-h-[56px]" : "text-lg px-5 py-4 min-h-[72px]"
  )}
  />
  <div className="space-y-2" data-no-swipe>
  {links.map((linkValue, index) => (
  <div key={index} className="relative flex items-center gap-2">
- <Paperclip className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/35 pointer-events-none" />
+ <Paperclip className={cn("absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none", isDarkMode ? "text-white/35" : "text-muted-foreground/35")} />
  <input
  value={linkValue}
  onChange={(e) => {
@@ -368,13 +378,23 @@ setSourceType('text');
  setLinks(next);
  }}
  placeholder={index === 0 ? "Link opcional" : "Otro link"}
- className="w-full h-11 bg-white/[0.04] border border-white/12 rounded-[18px] pl-11 pr-12 text-sm font-semibold text-white placeholder:text-white/25 focus:outline-none focus:ring-2 focus:ring-primary/45"
+ className={cn(
+   "w-full h-11 rounded-[18px] pl-11 pr-12 text-sm font-semibold focus:outline-none focus:ring-2",
+   isDarkMode
+     ? "bg-white/[0.04] border border-white/12 text-white placeholder:text-white/25 focus:ring-primary/45"
+     : "bg-surface-container-low/60 border border-outline-variant/20 text-foreground placeholder:text-muted-foreground/35 focus:ring-primary/20"
+ )}
  />
  {index === links.length - 1 ? (
  <button
  type="button"
  onClick={() => setLinks([...links, ''])}
- className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-xl bg-white/[0.06] text-white/60 hover:bg-white/[0.1] hover:text-white flex items-center justify-center transition-colors"
+ className={cn(
+   "absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-xl flex items-center justify-center transition-colors",
+   isDarkMode
+     ? "bg-white/[0.06] text-white/60 hover:bg-white/[0.1] hover:text-white"
+     : "bg-surface-container/70 text-muted-foreground hover:bg-surface-container-high/80 hover:text-foreground"
+ )}
  aria-label="Agregar link"
  >
  <Plus className="h-4 w-4" />
@@ -383,7 +403,12 @@ setSourceType('text');
  <button
  type="button"
  onClick={() => setLinks(links.filter((_, linkIndex) => linkIndex !== index))}
- className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-xl bg-white/[0.06] text-white/50 hover:bg-white/[0.1] hover:text-white flex items-center justify-center transition-colors"
+ className={cn(
+   "absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-xl flex items-center justify-center transition-colors",
+   isDarkMode
+     ? "bg-white/[0.06] text-white/50 hover:bg-white/[0.1] hover:text-white"
+     : "bg-surface-container/70 text-muted-foreground hover:bg-surface-container-high/80 hover:text-foreground"
+ )}
  aria-label="Quitar link"
  >
  <X className="h-4 w-4" />
@@ -393,15 +418,20 @@ setSourceType('text');
  ))}
  </div>
  <div className="relative" data-no-swipe>
- <Folder className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/35 pointer-events-none" />
+ <Folder className={cn("absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none", isDarkMode ? "text-white/35" : "text-muted-foreground/35")} />
  <select
  value={selectedFolderId || ''}
  onChange={(event) => setSelectedFolderId(event.target.value || null)}
- className="w-full h-11 appearance-none bg-white/[0.04] border border-white/12 rounded-[18px] pl-11 pr-4 text-sm font-semibold text-white focus:outline-none focus:ring-2 focus:ring-primary/45"
+ className={cn(
+   "w-full h-11 appearance-none rounded-[18px] pl-11 pr-4 text-sm font-semibold focus:outline-none focus:ring-2",
+   isDarkMode
+     ? "bg-white/[0.04] border border-white/12 text-white focus:ring-primary/45"
+     : "bg-surface-container-low/60 border border-outline-variant/20 text-foreground focus:ring-primary/20"
+ )}
  >
- <option className="bg-[#10141d]" value="">Hoy / Sin cuaderno</option>
+ <option className={isDarkMode ? "bg-[#10141d]" : "bg-background"} value="">Hoy / Sin cuaderno</option>
  {folders.map((folder: any) => (
- <option className="bg-[#10141d]" key={folder.id} value={folder.id}>{folder.name}</option>
+ <option className={isDarkMode ? "bg-[#10141d]" : "bg-background"} key={folder.id} value={folder.id}>{folder.name}</option>
  ))}
  </select>
  </div>
@@ -421,8 +451,8 @@ setSourceType('text');
  "flex flex-col items-center justify-center gap-1 rounded-[22px] font-black uppercase tracking-widest text-[9px] transition-all border",
  isMini ? "h-12" : "h-14",
  reviewImportance
- ? "bg-amber-500/20 text-amber-600 border-amber-500/50 shadow-lg shadow-amber-500/10"
- : "bg-surface text-muted-foreground border-outline-variant hover:bg-on-surface/5"
+  ? "bg-amber-500/20 text-amber-600 border-amber-500/50 shadow-lg shadow-amber-500/10"
+  : (isDarkMode ? "bg-surface text-muted-foreground border-outline-variant hover:bg-on-surface/5" : "bg-surface-container-low/70 text-muted-foreground border-outline-variant/20 hover:bg-surface-container-high/80")
  )}
  >
  IMPORTANTE
@@ -436,7 +466,7 @@ setSourceType('text');
  isMini ? "h-12" : "h-14",
  reviewUrgency
  ? "bg-red-500/20 text-red-600 border-red-500/50 shadow-lg shadow-red-500/10"
- : "bg-surface text-muted-foreground border-outline-variant hover:bg-on-surface/5"
+  : (isDarkMode ? "bg-surface text-muted-foreground border-outline-variant hover:bg-on-surface/5" : "bg-surface-container-low/70 text-muted-foreground border-outline-variant/20 hover:bg-surface-container-high/80")
  )}
  >
  URGENTE
@@ -452,7 +482,10 @@ setSourceType('text');
  }}
  disabled={!title.replace(/\s+$/g, '').trim() || (document.body.classList.contains('tutorial-active') && !document.body.classList.contains('tutorial-can-continue'))}
  className={cn(
- "w-full bg-primary text-primary-foreground rounded-[24px] font-black text-sm shadow-2xl shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-50 relative z-[100000] pointer-events-auto",
+ "w-full rounded-[24px] font-black text-sm shadow-2xl hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-50 relative z-[100000] pointer-events-auto",
+ isDarkMode
+   ? "bg-primary text-primary-foreground shadow-primary/20"
+   : "bg-primary text-primary-foreground shadow-primary/15",
  isMini ? "h-14" : "h-16"
  )}
  >

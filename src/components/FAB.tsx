@@ -24,7 +24,7 @@ const FAB = ({ onTextClick, onVoiceClick, onRecurrenceClick, onEventClick, conte
   ];
   if (onEventClick) {
     allOptions.push({
-      label: "Evento",
+      label: "Recordatorio",
       icon: <Calendar />,
       onClick: onEventClick,
     });

@@ -60,74 +60,18 @@ const stripHtml = (html: string): string => {
   return text.replace(/<[^>]*?>/g, '').trim()
 }
 
-const hue2rgb = (p: number, q: number, t: number) => {
-  if (t < 0) t += 1
-  if (t > 1) t -= 1
-  if (t < 1 / 6) return p + (q - p) * 6 * t
-  if (t < 1 / 2) return q
-  if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6
-  return p
-}
-
 const darkenColor = (hex: string): string => {
   if (!hex || !hex.startsWith('#')) return '#FFFFFF'
-  const isDarkMode = typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
-  if (isDarkMode) return '#FFFFFF'
-
   const clean = hex.replace('#', '')
   let r = parseInt(clean.substring(0, 2), 16)
   let g = parseInt(clean.substring(2, 4), 16)
   let b = parseInt(clean.substring(4, 6), 16)
   if (isNaN(r) || isNaN(g) || isNaN(b)) return '#FFFFFF'
-
-  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
-  let amount: number
-  if (luminance > 0.55) amount = 0.65
-  else if (luminance > 0.3) amount = 0.5
-  else amount = 0.35
-
-  r /= 255
-  g /= 255
-  b /= 255
-  const max = Math.max(r, g, b)
-  const min = Math.min(r, g, b)
-  const l = (max + min) / 2
-  let s = 0
-  let h = 0
-
-  if (max !== min) {
-    const d = max - min
-    s = l > 0.5 ? d / (2 - max - min) : d / (max + min)
-    switch (max) {
-      case r:
-        h = ((g - b) / d + (g < b ? 6 : 0)) / 6
-        break
-      case g:
-        h = ((b - r) / d + 2) / 6
-        break
-      case b:
-        h = ((r - g) / d + 4) / 6
-        break
-    }
-  }
-
-  s = Math.min(1, s * 1.5)
-  const newL = l * (1 - amount)
-
-  let rr: number
-  let gg: number
-  let bb: number
-  if (s === 0) {
-    rr = gg = bb = newL
-  } else {
-    const qq = newL < 0.5 ? newL * (1 + s) : newL + s - newL * s
-    const pp = 2 * newL - qq
-    rr = hue2rgb(pp, qq, h + 1 / 3)
-    gg = hue2rgb(pp, qq, h)
-    bb = hue2rgb(pp, qq, h - 1 / 3)
-  }
-
-  return `#${[rr, gg, bb].map(c => Math.round(c * 255).toString(16).padStart(2, '0')).join('')}`
+  const factor = 0.8
+  r = Math.max(0, Math.min(255, Math.round(r * factor)))
+  g = Math.max(0, Math.min(255, Math.round(g * factor)))
+  b = Math.max(0, Math.min(255, Math.round(b * factor)))
+  return `#${[r, g, b].map(c => c.toString(16).padStart(2, '0')).join('')}`
 }
 
 export const getEventLinks = (links?: string[]) => {
@@ -141,10 +85,11 @@ export const getEventStyles = (hexColor?: string) => {
   if (!hexColor.startsWith('#')) return {}
 
   if (isDarkMode) {
-    const bgColor = hexToRgba(hexColor, 0.3)
     return {
-      backgroundColor: bgColor,
+      backgroundColor: hexToRgba(hexColor, 0.22),
+      backgroundBlendMode: 'normal',
       color: '#FFFFFF',
+      isolation: 'isolate',
       borderLeft: `4px solid ${hexColor}`,
       borderRight: '1px solid rgba(255, 255, 255, 0.05)',
       borderTop: '1px solid rgba(255, 255, 255, 0.05)',
@@ -152,11 +97,12 @@ export const getEventStyles = (hexColor?: string) => {
     }
   }
 
-  const bgColor = hexToRgba(hexColor, 0.15)
   const textColor = darkenColor(hexColor)
   return {
-    backgroundColor: bgColor,
+    backgroundColor: hexToRgba(hexColor, 0.12),
+    backgroundBlendMode: 'normal',
     color: textColor,
+    isolation: 'isolate',
     borderLeft: `4px solid ${hexColor}`,
     borderRight: '1px solid rgba(0, 0, 0, 0.04)',
     borderTop: '1px solid rgba(0, 0, 0, 0.04)',

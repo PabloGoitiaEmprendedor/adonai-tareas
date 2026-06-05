@@ -52,8 +52,6 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { MonthView as SecondaryMonthView, ScheduleView as SecondaryScheduleView, YearView as SecondaryYearView } from "./event-manager-secondary-views"
 import { DEFAULT_EVENT_COLORS as SHARED_DEFAULT_EVENT_COLORS } from "./event-manager-types"
 
-const DESKTOP_SIDEBAR_COLLAPSED_KEY = 'adonai:calendar-desktop-sidebar-collapsed'
-
 export interface Event {
   id: string
   title: string
@@ -204,17 +202,14 @@ const stripHtml = (html: string): string => {
 
 const getTextColorForBg = (hex: string): string => {
   if (!hex || !hex.startsWith('#')) return '#FFFFFF';
+  const isDarkMode = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
+  if (isDarkMode) return '#FFFFFF';
   const clean = hex.replace('#', '');
   const r = parseInt(clean.substring(0, 2), 16);
   const g = parseInt(clean.substring(2, 4), 16);
   const b = parseInt(clean.substring(4, 6), 16);
   if (isNaN(r) || isNaN(g) || isNaN(b)) return '#FFFFFF';
-  
-  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-  const isDarkMode = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
-  const threshold = isDarkMode ? 0.65 : 0.55;
-  
-  return luminance > threshold ? '#0F172A' : '#FFFFFF';
+  return `#${[r, g, b].map((channel) => Math.max(0, Math.min(255, Math.round(channel * 0.8))).toString(16).padStart(2, '0')).join('')}`;
 };
 
 const getEventStyles = (hexColor?: string) => {
@@ -226,9 +221,10 @@ const getEventStyles = (hexColor?: string) => {
   
   if (isDarkMode) {
     return {
-      backgroundColor: hexColor,
+      backgroundColor: hexToRgba(hexColor, 0.22),
       backgroundBlendMode: 'normal',
-      color: getTextColorForBg(hexColor),
+      color: '#FFFFFF',
+      isolation: 'isolate',
       borderLeft: `4px solid ${hexColor}`,
       borderRight: '1px solid rgba(255, 255, 255, 0.05)',
       borderTop: '1px solid rgba(255, 255, 255, 0.05)',
@@ -236,9 +232,10 @@ const getEventStyles = (hexColor?: string) => {
     };
   } else {
     return {
-      backgroundColor: hexColor,
+      backgroundColor: hexToRgba(hexColor, 0.12),
       backgroundBlendMode: 'normal',
       color: getTextColorForBg(hexColor),
+      isolation: 'isolate',
       borderLeft: `4px solid ${hexColor}`,
       borderRight: '1px solid rgba(0, 0, 0, 0.04)',
       borderTop: '1px solid rgba(0, 0, 0, 0.04)',
@@ -323,7 +320,7 @@ export interface EventManagerProps {
   events?: Event[]
   onEventCreate?: (event: Omit<Event, "id">) => void
   onEventUpdate?: (id: string, event: Partial<Event>) => void
-  onEventDelete?: (id: string) => void
+  onEventDelete?: (id: string, scope?: 'single' | 'series') => void
   onCellClick?: (date: Date) => void
   categories?: string[]
   colors?: { name: string; value: string; bg: string; text: string }[]
@@ -867,10 +864,7 @@ export function EventManager({
   const [selectedDayForSheet, setSelectedDayForSheet] = useState<Date | null>(null)
   const [isSheetOpen, setIsSheetOpen] = useState(false)
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
-  const [isDesktopSidebarCollapsed, setIsDesktopSidebarCollapsed] = useState(() => {
-    if (typeof localStorage === 'undefined') return false
-    return localStorage.getItem(DESKTOP_SIDEBAR_COLLAPSED_KEY) === 'true'
-  });
+  const [isDesktopSidebarCollapsed, setIsDesktopSidebarCollapsed] = useState(false);
   const [sidebarView, setSidebarView] = useState<'list' | 'folders'>('folders');
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set(['Hoy']));
   const [sidebarReorderId, setSidebarReorderId] = useState<string | null>(null);
@@ -925,11 +919,6 @@ export function EventManager({
   useEffect(() => {
     window.dispatchEvent(new CustomEvent('adonai:draft-state-change', { detail: { active: !!draftEvent } }))
   }, [draftEvent])
-
-  useEffect(() => {
-    if (typeof localStorage === 'undefined') return
-    localStorage.setItem(DESKTOP_SIDEBAR_COLLAPSED_KEY, String(isDesktopSidebarCollapsed))
-  }, [isDesktopSidebarCollapsed])
 
   useEffect(() => {
     window.dispatchEvent(new CustomEvent('adonai:dialog-state-change', { detail: { active: isDialogOpen } }))
@@ -1714,6 +1703,12 @@ export function EventManager({
 
   const handleDeleteEvent = useCallback(
     (id: string) => {
+      const targetEvent = events.find((event) => event.id === id) || selectedEvent || quickPreviewEvent || null
+      const isRecurringEvent = !!targetEvent?.recurrence && targetEvent.recurrence !== 'none'
+      const deleteScope: 'single' | 'series' = isRecurringEvent
+        ? (window.confirm('Este recordatorio pertenece a una secuencia.\n\nAceptar: borrar todos.\nCancelar: borrar solo este.') ? 'series' : 'single')
+        : 'single'
+
       setLocallyDeletedEventIds((prev) => {
         const next = new Set(prev)
         next.add(id)
@@ -1727,12 +1722,17 @@ export function EventManager({
           return next
         })
       }, 10000)
-      setEvents((prev) => prev.filter((e) => e.id !== id))
-      onEventDelete?.(id)
+      setEvents((prev) => prev.filter((event) => {
+        if (deleteScope !== 'series') return event.id !== id
+        if (targetEvent?.recurrenceId) return event.recurrenceId !== targetEvent.recurrenceId
+        const targetSeriesId = id.replace(/-\d{4}-\d{2}-\d{2}$/, '')
+        return event.id.replace(/-\d{4}-\d{2}-\d{2}$/, '') !== targetSeriesId
+      }))
+      onEventDelete?.(id, deleteScope)
       setIsDialogOpen(false)
       setSelectedEvent(null)
     },
-    [onEventDelete],
+    [events, onEventDelete, quickPreviewEvent, selectedEvent],
   )
 
   const handleToggleComplete = useCallback(
@@ -2129,6 +2129,7 @@ export function EventManager({
   const currentDayNumber = format(currentDate, "d")
   const hasNotebookSidebar = !hideSidebar && !isDesktopSidebarCollapsed && (view === "day" || view === "week")
   const mobileWeekdayLabel = currentWeekdayLabel.slice(0, 3)
+  const currentDateLabel = `${currentWeekdayLabel} ${currentDayNumber}`
 
   useEffect(() => {
     const root = calendarRootRef.current
@@ -2183,7 +2184,7 @@ export function EventManager({
   }, [view])
 
   return (
-    <div ref={calendarRootRef} data-calendar-grid className={cn("relative flex w-full max-w-full flex-col gap-0", className)}>
+    <div ref={calendarRootRef} data-calendar-grid className={cn("relative flex w-full max-w-full flex-col gap-0 bg-card", className)}>
       {/* Sticky Header - Google-like */}
       <div className="sticky top-0 z-30 bg-background border-b border-outline-variant/10 px-2 sm:px-3 pb-2 pt-2 lg:px-2 lg:pt-2 -mx-0 mb-0 shadow-none">
         <div className="flex items-center gap-2 pl-2 pr-12 sm:hidden">
@@ -2243,7 +2244,7 @@ export function EventManager({
         {/* Single-line header: Month + Day + Nav + View tabs */}
         <div className={cn(
           "hidden sm:flex items-center gap-1.5 pl-12 lg:gap-2",
-          hasNotebookSidebar ? "lg:pl-[384px]" : "lg:pl-3"
+          hideSidebar ? "lg:pl-3" : hasNotebookSidebar ? "lg:pl-[436px]" : "lg:pl-20"
         )}>
           {/* Month name (opens date picker) */}
           <Popover>
@@ -2279,21 +2280,13 @@ export function EventManager({
             >
               Hoy
             </Button>
+            <span className="inline-flex h-7 items-center rounded-lg border border-primary/15 bg-primary/10 px-2.5 text-[10px] font-black uppercase tracking-widest text-primary">
+              {currentDateLabel}
+            </span>
             <Button variant="ghost" size="icon" onClick={() => navigateDate("next")} className="h-7 w-7 rounded-lg hover:bg-primary/10 hover:text-primary">
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
-
-          {(view === "day" || view === "week") && !hideSidebar && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setIsDesktopSidebarCollapsed((previous) => !previous)}
-              className="hidden lg:inline-flex h-7 rounded-lg px-3 text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:bg-primary/10 hover:text-primary"
-            >
-              {isDesktopSidebarCollapsed ? "Mostrar tareas" : "Ocultar tareas"}
-            </Button>
-          )}
 
           {/* Spacer */}
           <div className="flex-1 min-w-0" />
@@ -2337,8 +2330,8 @@ export function EventManager({
       </div>
 
       {/* Main Content */}
-      <div className={cn(containedScroll ? "flex-1 min-h-0" : "min-h-0", "relative")}>
-        <div className={containedScroll ? "h-full" : "min-h-0"}>
+      <div className={cn(containedScroll ? "flex-1 min-h-0" : "min-h-0", "relative bg-card")}>
+        <div className={cn(containedScroll ? "h-full" : "min-h-0", "bg-card")}>
             {view === "month" && (
               <SecondaryMonthView
                 currentDate={currentDate}
@@ -2369,15 +2362,48 @@ export function EventManager({
               />
             )}
             {(view === "week" || view === "day" || view === "3day") && (
-              <div className={cn("flex flex-col lg:flex-row min-h-0 gap-0 lg:gap-4 relative items-stretch", containedScroll ? "h-full" : "w-full", hasNotebookSidebar && "lg:pl-6 lg:pr-2")}>
-                {!hideSidebar && !isDesktopSidebarCollapsed && (view === "day" || view === "week") && (
-                  <Card 
+              <div className={cn(
+                "flex flex-col lg:flex-row min-h-0 relative items-stretch gap-0 transition-[gap] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]",
+                isDesktopSidebarCollapsed ? "lg:gap-0" : "lg:gap-4",
+                containedScroll ? "h-full" : "w-full",
+                !hideSidebar && (view === "day" || view === "week" || view === "3day") && "lg:pl-16"
+              )}>
+                {!hideSidebar && isDesktopSidebarCollapsed && (view === "day" || view === "week") && (
+                  <button
+                    type="button"
+                    onClick={() => setIsDesktopSidebarCollapsed(false)}
+                    className="fixed left-[58px] top-1/2 z-[70] hidden h-14 w-7 -translate-y-1/2 items-center justify-center rounded-r-full border border-l-0 border-outline-variant/16 bg-background text-muted-foreground shadow-[0_8px_22px_rgba(0,0,0,0.22)] transition-all hover:w-8 hover:text-primary lg:flex"
+                    aria-label="Mostrar tareas de hoy"
+                    title="Mostrar tareas"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                )}
+                {!hideSidebar && (view === "day" || view === "week") && (
+                  <motion.div
+                    className="hidden flex-shrink-0 overflow-hidden lg:block"
+                    initial={false}
+                    animate={{
+                      width: isDesktopSidebarCollapsed ? 0 : 344,
+                      opacity: isDesktopSidebarCollapsed ? 0 : 1,
+                    }}
+                    transition={{ type: "spring", stiffness: 260, damping: 34, mass: 0.8 }}
+                    aria-hidden={isDesktopSidebarCollapsed}
+                  >
+                  <motion.div 
                     data-sidebar-droptarget="true"
-
                     className={cn(
-                      "hidden lg:flex w-[23.5rem] flex-shrink-0 flex-col border-outline-variant/12 notebook-cream-bg shadow-sm overflow-hidden z-10 relative",
-                      "sticky top-[76px] max-h-[calc(100vh-120px)]"
+                      "fixed bottom-2 left-[74px] top-2 z-30 w-[21.5rem] will-change-transform",
+                      isDesktopSidebarCollapsed && "pointer-events-none"
                     )}
+                    initial={false}
+                    animate={{
+                      x: isDesktopSidebarCollapsed ? -36 : 0,
+                      opacity: isDesktopSidebarCollapsed ? 0 : 1,
+                      scale: isDesktopSidebarCollapsed ? 0.985 : 1,
+                    }}
+                    transition={{ type: "spring", stiffness: 240, damping: 30, mass: 0.72 }}
+                    style={{ transformOrigin: "left center" }}
                     onDragOver={(e) => {
                       e.preventDefault();
                       e.dataTransfer.dropEffect = "move";
@@ -2397,6 +2423,7 @@ export function EventManager({
                       }
                     }}
                   >
+                  <Card className="flex h-full w-full flex-col overflow-hidden border-outline-variant/12 notebook-cream-bg shadow-sm">
                     {/* Notebook spiral rings */}
                     <div className="absolute inset-y-4 left-2 flex flex-col justify-between pointer-events-none z-20">
                       {Array.from({ length: 10 }).map((_, ring) => (
@@ -2410,13 +2437,24 @@ export function EventManager({
                     {/* Vertical margin line */}
                     <div className="absolute top-[122px] bottom-8 left-9 w-px bg-rose-300/20 pointer-events-none z-20" />
 
-                    <div className="relative z-10 px-5 py-3 pl-11">
-                      <h2 className="text-lg font-bold font-headline tracking-tight notebook-handwriting text-foreground/70">
-                        Tareas de hoy
-                      </h2>
-                      <p className="text-[12px] leading-snug text-foreground/50 font-semibold mt-1 notebook-handwriting">
-                        {"Mant\u00e9n presionado para arrastrar al calendario"}
-                      </p>
+                    <div className="relative z-10 flex items-start justify-between gap-3 px-5 py-3 pl-11">
+                      <div className="min-w-0">
+                        <h2 className="text-[18px] font-black tracking-normal" style={{ color: '#18202e' }}>
+                          Tareas de hoy
+                        </h2>
+                        <p className="mt-1 text-[11px] font-medium leading-snug" style={{ color: '#5a6375' }}>
+                          {"Mant\u00e9n presionado para arrastrar al calendario"}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setIsDesktopSidebarCollapsed(true)}
+                        className="absolute right-3 top-4 z-30 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-outline-variant/16 bg-background text-muted-foreground shadow-[0_8px_22px_rgba(0,0,0,0.12)] transition-all hover:text-primary"
+                        aria-label="Ocultar tareas de hoy"
+                        title="Ocultar tareas"
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </button>
                     </div>
 
                     {/* Folder tab bar - matching DailyPage notebook style */}
@@ -2482,6 +2520,8 @@ export function EventManager({
                       )}
                     </div>
                   </Card>
+                  </motion.div>
+                  </motion.div>
                 )}
                 <div className={cn("flex-1 min-w-0 min-h-0", containedScroll ? "h-full" : "h-auto")}>
                   <TimeGridView
@@ -2514,7 +2554,7 @@ export function EventManager({
                     cancelDraft={cancelDraft}
                     updateDraftTime={updateDraftTime}
                     containedScroll={containedScroll}
-                    hideGridHeader={containedScroll && view === "day"}
+                    hideGridHeader={view === "day"}
                   />
                 </div>
               </div>
@@ -4623,7 +4663,7 @@ function TimeGridView({
   return (
     <Card
       className={cn(
-        "flex w-full flex-col rounded-none border-x-0 border-outline-variant/20 bg-card shadow-sm lg:rounded-xl lg:border-x",
+        "flex w-full flex-col rounded-none border-x-0 border-outline-variant/20 bg-card shadow-none lg:rounded-none lg:border-x-0",
         containedScroll ? "h-full" : "h-auto overflow-visible",
         className
       )}
@@ -4634,14 +4674,14 @@ function TimeGridView({
       {!hideGridHeader && (
         <div
           className={cn(
-            "sticky z-20 hidden overflow-x-auto border-b border-outline-variant/25 bg-surface-container shadow-[0_10px_26px_hsl(var(--background)/0.96)] sm:flex",
+            "sticky z-20 hidden overflow-x-auto border-b border-outline-variant/10 bg-background sm:flex",
             containedScroll ? "top-0" : "top-[57px] lg:top-[57px]"
           )}
         >
-          <div className="w-12 lg:w-16 flex-shrink-0 border-r border-outline-variant/25 bg-surface-container sticky left-0 z-30" />
+          <div className="w-12 lg:w-16 flex-shrink-0 border-r border-outline-variant/10 bg-background sticky left-0 z-30" />
           <div
             className={cn(
-              "flex-1 grid bg-surface-container min-w-0",
+              "flex-1 grid bg-background min-w-0",
               view === "week"
                 ? "grid-cols-7 md:min-w-[620px] lg:min-w-0"
                 : view === "3day"
@@ -4650,13 +4690,13 @@ function TimeGridView({
             )}
           >
             {days.map((day, idx) => (
-              <div key={idx} className="min-h-[58px] p-2.5 lg:p-3 text-center border-r border-outline-variant/25 last:border-r-0 bg-surface-container">
+              <div key={idx} className="min-h-[58px] p-2.5 lg:p-3 text-center border-r border-outline-variant/10 last:border-r-0 bg-background">
                 <span className="text-[11px] font-black uppercase tracking-wide text-muted-foreground block mb-1">
                   {format(day, "EEE", { locale: es }).toUpperCase().replace('.', '')}
                 </span>
                 <span className={cn(
                   "inline-flex items-center justify-center h-8 min-w-8 rounded-lg px-2 text-sm font-black transition-all",
-                  day.toDateString() === new Date().toDateString() ? "bg-primary text-primary-foreground shadow-md shadow-primary/20" : "text-on-surface bg-surface-container-low"
+                  day.toDateString() === new Date().toDateString() ? "bg-primary text-primary-foreground shadow-md shadow-primary/20" : "bg-transparent text-foreground/80"
                 )}>
                   {day.getDate()}
                 </span>
@@ -4678,10 +4718,10 @@ function TimeGridView({
       >
         <div className="relative flex w-full" style={{ height: `${24 * HOUR_HEIGHT}px` }}>
           {/* Time Labels - Sticky Left */}
-          <div className="w-12 lg:w-16 flex-shrink-0 border-r border-outline-variant/20 bg-card sticky left-0 z-20 shadow-[6px_0_18px_hsl(var(--background)/0.55)]">
+          <div className="w-12 lg:w-16 flex-shrink-0 border-r border-outline-variant/20 bg-card sticky left-0 z-20">
             {hours.map((hour) => (
               <div key={hour} className="relative" style={{ height: `${HOUR_HEIGHT}px` }}>
-                <span className="absolute -top-2 right-1.5 lg:right-2 text-[9px] lg:text-[11px] font-black text-foreground uppercase tracking-tighter drop-shadow-sm">
+                <span className="absolute -top-2 right-1.5 lg:right-2 text-[10px] lg:text-[12px] font-black text-foreground uppercase tracking-tighter drop-shadow-sm">
                   {hour === 0 ? "" : format(new Date().setHours(hour, 0, 0, 0), "h a", { locale: es })}
                 </span>
               </div>
@@ -4811,11 +4851,11 @@ function TimeGridView({
                     const eventTitleFontSize = isVeryShortEvent
                       ? (isMobileViewport ? '8.5px' : '10px')
                       : isMobileViewport
-                        ? (hourZoom >= 240 ? '11px' : hourZoom >= 120 ? '10px' : '9.5px')
-                        : (hourZoom >= 240 ? '13px' : hourZoom >= 120 ? '12px' : '11px')
+                        ? (hourZoom >= 240 ? '12px' : hourZoom >= 120 ? '11px' : '10.5px')
+                        : (hourZoom >= 240 ? '14.3px' : hourZoom >= 120 ? '13.2px' : '12.1px')
                     const eventMetaFontSize = isMobileViewport
-                      ? (hourZoom >= 160 ? '9px' : '8.5px')
-                      : (hourZoom >= 160 ? '10px' : '9px')
+                      ? (hourZoom >= 160 ? '9.9px' : '9.4px')
+                      : (hourZoom >= 160 ? '11px' : '9.9px')
                     const eventZIndex =
                       isResizing === event.id || isMoving === event.id
                         ? 50
@@ -4839,7 +4879,7 @@ function TimeGridView({
                             "transition-[opacity,transform] duration-200 ease-out",
                             isVeryShortEvent ? "px-1.5 py-0.5" : isMobileViewport ? "px-1.5 py-1" : "px-2 py-1.5",
                             duration < 0.35 ? "font-semibold" : "font-bold",
-                            event.color && !event.color.startsWith('#') && !event.color.startsWith('var') && getColorClasses(event.color).bg,
+                            event.color && !event.color.startsWith('#') && !event.color.startsWith('var') && cn(getColorClasses(event.color).bg, getColorClasses(event.color).text, "dark:text-white"),
                             !dragDisabled && "cursor-grab active:cursor-grabbing",
                             event.completed && "opacity-50 grayscale-[0.3]",
                             !(isMoving === event.id || isResizing === event.id || mobileEditEvent?.id === event.id) && "z-10",
@@ -4855,6 +4895,7 @@ function TimeGridView({
                             height: `${Math.max(isMobileViewport ? 22 : 18, duration * HOUR_HEIGHT - 4)}px`,
                             zIndex: eventZIndex,
                             userSelect: 'none',
+                            touchAction: 'none',
                             ...getEventStyles(event.color)
                           }}
                           onMouseDown={(e) => {
@@ -4909,7 +4950,7 @@ function TimeGridView({
                                 if (window.navigator && window.navigator.vibrate) {
                                   window.navigator.vibrate(50);
                                 }
-                              }, 1000);
+                              }, 650);
                             }
                           }}
                           onTouchEnd={() => {
@@ -4969,25 +5010,25 @@ function TimeGridView({
                             )} />
                           </div>
 
-                          <div className={cn("flex items-start h-full gap-1 px-0.5", isVeryShortEvent ? "flex-row items-center py-0" : "flex-row py-0.5")}>
+                          <div className={cn("flex items-start h-full gap-1 px-0.5", isVeryShortEvent ? "flex-row items-start py-0" : "flex-row py-0.5")}>
                             <div
-                              className="min-w-0 leading-tight"
+                              className="min-w-0 flex flex-1 flex-col items-start justify-start leading-tight"
                               style={{ width: `${layout.contentWidth}%` }}
                             >
                               <p
                                 className={cn(
-                                  "break-words",
-                                  isMobileViewport ? "leading-[1.18] drop-shadow-none" : "leading-[1.16] drop-shadow-sm",
+                                  "m-0 break-words text-left",
+                                  isMobileViewport ? "leading-[1.16] drop-shadow-none" : "leading-[1.14] drop-shadow-sm",
                                   isMobileViewport && (duration < 0.5 ? "line-clamp-2" : duration < 0.9 ? "line-clamp-3" : "line-clamp-4"),
                                   event.completed && "line-through"
                                 )}
-                                style={{ fontSize: eventTitleFontSize }}
+                                style={{ fontSize: eventTitleFontSize, color: 'inherit' }}
                               >
                                 {event.title}
                               </p>
                               {!event.isAllDay && duration > 0.3 && (
-                                <p className="opacity-85 mt-[1px] leading-tight drop-shadow-sm"
-                                  style={{ fontSize: eventMetaFontSize }}>
+                                <p className="mt-[1px] opacity-85 leading-tight drop-shadow-sm text-left"
+                                  style={{ fontSize: eventMetaFontSize, color: 'inherit' }}>
                                   {(() => {
                                     const totalMin = Math.round(duration * 60);
                                     if (totalMin < 60) return `${totalMin} min`;
@@ -5000,8 +5041,8 @@ function TimeGridView({
                               {event.description && duration > 0.6 && cleanDescription(event.description) && (
                                 <>
                                   <p
-                                    className={cn("mt-0.5 opacity-70 whitespace-pre-line", isMobileViewport ? "leading-[1.15] line-clamp-2" : "leading-snug line-clamp-3")}
-                                    style={{ fontSize: eventMetaFontSize }}
+                                    className={cn("mt-0.5 opacity-70 whitespace-pre-line text-left", isMobileViewport ? "leading-[1.15] line-clamp-2" : "leading-snug line-clamp-3")}
+                                    style={{ fontSize: eventMetaFontSize, color: 'inherit' }}
                                   >
                                     <span
                                       className="cursor-pointer hover:opacity-100 hover:underline hover:decoration-dotted hover:decoration-1 hover:underline-offset-2 transition-all inline"

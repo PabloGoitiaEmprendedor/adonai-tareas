@@ -515,10 +515,20 @@ function useDragWindow() {
  const isDraggingRef = useRef(false);
  const startRef = useRef({ x: 0, y: 0 });
  const hasMovedRef = useRef(false);
+ const clearMovedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
  useEffect(() => {
- const onUp = () => { 
+ const onUp = (event: MouseEvent | Event) => { 
  if (isDraggingRef.current) {
+ const movedX = 'screenX' in event ? Math.abs(event.screenX - startRef.current.x) : 0;
+ const movedY = 'screenY' in event ? Math.abs(event.screenY - startRef.current.y) : 0;
+ if (movedX > 5 || movedY > 5) {
+ hasMovedRef.current = true;
+ if (clearMovedTimerRef.current) clearTimeout(clearMovedTimerRef.current);
+ clearMovedTimerRef.current = setTimeout(() => {
+ hasMovedRef.current = false;
+ }, 180);
+ }
  isDraggingRef.current = false;
  window.electronAPI?.stopDrag?.();
  }
@@ -528,6 +538,7 @@ function useDragWindow() {
  return () => {
  window.removeEventListener('mouseup', onUp);
  window.removeEventListener('blur', onUp);
+ if (clearMovedTimerRef.current) clearTimeout(clearMovedTimerRef.current);
  };
  }, []);
 
@@ -535,6 +546,7 @@ function useDragWindow() {
  if (e.button!== 0) return;
  isDraggingRef.current = true;
  hasMovedRef.current = false;
+ startRef.current = { x: e.screenX, y: e.screenY };
  window.electronAPI?.startDrag?.();
  }, []);
 

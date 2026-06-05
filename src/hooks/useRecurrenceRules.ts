@@ -60,6 +60,15 @@ export const useRecurrenceRules = () => {
       if (rule.month_of_year != null) {
         insertData.month_of_year = rule.month_of_year;
       }
+      if (rule.start_time != null) {
+        insertData.start_time = rule.start_time;
+      }
+      if (rule.end_time != null) {
+        insertData.end_time = rule.end_time;
+      }
+      if (rule.estimated_minutes != null) {
+        insertData.estimated_minutes = rule.estimated_minutes;
+      }
 
       const { data, error } = await supabase
         .from('recurrence_rules')

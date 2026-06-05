@@ -1002,7 +1002,7 @@ const DailyPage = () => {
  <>
  {/* Task notebook tabs */}
   <div className="relative z-10 mb-1">
-    <h2 className="text-lg font-bold font-headline tracking-tight notebook-handwriting text-foreground/70">
+    <h2 className="text-[18px] font-black tracking-normal" style={{ color: '#18202e' }}>
       Tareas de hoy
     </h2>
     {renderDailySearch(false)}

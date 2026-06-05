@@ -48,7 +48,7 @@ export interface EventManagerProps {
   events?: Event[]
   onEventCreate?: (event: Omit<Event, "id">) => void
   onEventUpdate?: (id: string, event: Partial<Event>) => void
-  onEventDelete?: (id: string) => void
+  onEventDelete?: (id: string, scope?: 'single' | 'series') => void
   onCellClick?: (date: Date) => void
   categories?: string[]
   colors?: EventColorOption[]

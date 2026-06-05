@@ -129,7 +129,7 @@ export function MonthView({
                     className={cn(
                       "relative cursor-pointer rounded-md px-2 py-1 text-[9px] font-medium truncate transition-all duration-300 flex items-center gap-1",
                       "hover:scale-110 hover:z-50 hover:shadow-xl hover:text-[10px] hover:py-1.5",
-                      event.color && !event.color.startsWith('#') && !event.color.startsWith('var') && getColorClasses(event.color).bg,
+                      event.color && !event.color.startsWith('#') && !event.color.startsWith('var') && cn(getColorClasses(event.color).bg, getColorClasses(event.color).text, "dark:text-white"),
                       "shadow-sm",
                       event.completed && "opacity-40 line-through grayscale-[0.5]"
                     )}
@@ -233,6 +233,7 @@ export function ScheduleView({
   events,
   onEventClick,
   onToggleComplete: _onToggleComplete,
+  getColorClasses,
 }: {
   events: Event[]
   currentDate: Date
@@ -283,6 +284,7 @@ export function ScheduleView({
                     onClick={() => onEventClick(event)}
                     className={cn(
                       "group flex items-start gap-3 p-4 rounded-2xl hover:brightness-105 border transition-all cursor-pointer active:scale-[0.98]",
+                      event.color && !event.color.startsWith('#') && !event.color.startsWith('var') && cn(getColorClasses(event.color).bg, getColorClasses(event.color).text, "dark:text-white"),
                       event.completed && "opacity-60"
                     )}
                     style={{

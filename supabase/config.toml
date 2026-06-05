@@ -15,6 +15,9 @@ verify_jwt = false
 [functions.google-auth]
 verify_jwt = false
 
+[functions.google-risc-register]
+verify_jwt = false
+
 [functions.sync-calendar]
 verify_jwt = true
 

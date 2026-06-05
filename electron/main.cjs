@@ -1146,6 +1146,14 @@ const firedReminderKeys = new Set();
 const MAX_TIMER_DELAY_MS = 2_147_483_647;
 const STALE_REMINDER_GRACE_MS = 15 * 60 * 1000;
 
+function playReminderBeep() {
+  try {
+    shell.beep();
+  } catch (error) {
+    logToFile(`[Reminder] Failed to play beep: ${error?.message || error}`);
+  }
+}
+
 function clearScheduledReminder(id) {
   const key = String(id || '');
   const entry = reminderTimers.get(key);
@@ -1190,7 +1198,7 @@ function showNativeReminderFallback(data) {
   new Notification({
     title: 'Adonai',
     body: `Pablo, es hora de ${cleanTitle}`,
-    silent: true,
+    silent: false,
     icon: getAppIconPath(),
   }).show();
 }
@@ -1405,6 +1413,9 @@ function getToastHtml(data) {
         const Ctx = window.AudioContext || window.webkitAudioContext;
         if (!Ctx) return;
         const ctx = new Ctx();
+        if (ctx.state === 'suspended') {
+          ctx.resume().catch(() => {});
+        }
         const now = ctx.currentTime;
         const master = ctx.createGain();
         master.gain.setValueAtTime(0.0001, now);
@@ -1569,6 +1580,7 @@ function scheduleDesktopReminder(data) {
 
     firedReminderKeys.add(id);
     reminderTimers.delete(id);
+    playReminderBeep();
     createToastWindow(toastData);
     logToFile(`[Reminder] Fired desktop reminder: ${id}`);
   };
@@ -1592,6 +1604,7 @@ function scheduleDesktopReminder(data) {
 }
 
 ipcMain.on('show-notification', (event, data) => {
+  playReminderBeep();
   createToastWindow(data);
 });
 

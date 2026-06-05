@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Users, User, Calendar, Settings, Target, Trophy, BarChart3, Sun, History, Palette, X, Flame, MessageSquare, MoreVertical, Link2 } from 'lucide-react';
+import { Users, User, Calendar, Settings, Target, Trophy, Sun, History, Palette, X, Flame, MessageSquare, MoreVertical, Link2, Bell, BellOff } from 'lucide-react';
 import { toast } from 'sonner';
 
 
@@ -25,6 +25,8 @@ import { useNotionIntegration } from '@/hooks/useNotionIntegration';
 import { useFriendUnreadCount } from '@/hooks/useFriendChats';
 import { useRef, useCallback } from 'react';
 import { useStreaks } from '@/hooks/useStreaks';
+import { useRecurrenceRules } from '@/hooks/useRecurrenceRules';
+import { REMINDER_OPTIONS, type ReminderMinutes, buildReminderMetadata } from '@/lib/reminders';
 import { NavigationPilot } from './NavigationPilot';
 import ProfilePage from '@/pages/ProfilePage';
 import AchievementsPage from '@/pages/AchievementsPage';
@@ -41,6 +43,10 @@ const isElectronEnv: boolean =
     !!(window.process && window.process.versions && window.process.versions.electron));
 
 const SETTINGS_PATHS = ['/profile', '/achievements', '/settings', '/priority-settings', '/trash'];
+const REMINDER_CYCLE_VALUES: ReminderMinutes[] = [0, 5, 10, 15, 30, 60, 1440, 10080];
+const REMINDER_LABEL_BY_VALUE = new Map<number, string>(REMINDER_OPTIONS.map((option) => [option.value, option.label]));
+
+type EventRepeatMode = 'none' | 'daily' | 'weekdays' | 'weekly' | 'biweekly' | 'monthly' | 'yearly' | 'custom';
 
 const SETTINGS_DIALOG_ITEMS = [
   {
@@ -180,6 +186,15 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
         setEvMin(Math.ceil(now.getMinutes() / 30) * 30)
         setEvDuration(30)
         setEvColor('#5B7CFA')
+        setEvDescription('')
+        setEvIsEvent(true)
+        setEvLink('')
+        setEvReminderEnabled(true)
+        setEvReminderMinutes(0)
+        setEvRepeatEnabled(false)
+        setEvRepeatFrequency('weekly')
+        setEvRepeatDays([])
+        setEvRepeatEndType('never')
         setEventCreateOpen(true)
       }
     }
@@ -219,9 +234,99 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
   const [evMin, setEvMin] = useState(Math.ceil(new Date().getMinutes() / 30) * 30);
   const [evDuration, setEvDuration] = useState(30);
   const [evColor, setEvColor] = useState('#5B7CFA');
+  const [evDescription, setEvDescription] = useState('');
+  const [evIsEvent, setEvIsEvent] = useState(true);
+  const [evLink, setEvLink] = useState('');
+  const [evReminderEnabled, setEvReminderEnabled] = useState(true);
+  const [evReminderMinutes, setEvReminderMinutes] = useState<ReminderMinutes>(0);
+  const [evRepeatEnabled, setEvRepeatEnabled] = useState(false);
+  const [evRepeatFrequency, setEvRepeatFrequency] = useState<'daily' | 'weekly' | 'biweekly' | 'monthly' | 'yearly'>('weekly');
+  const [evRepeatDays, setEvRepeatDays] = useState<number[]>([]);
+  const [evRepeatEndType, setEvRepeatEndType] = useState<'never' | 'date' | 'count'>('never');
   const [targetContext, setTargetContext] = useState<{ goalId?: string; folderId?: string }>({});
   const [dailyFolderContext, setDailyFolderContext] = useState<{ folderId?: string; folderName?: string }>({});
   const captureModalRef = useRef<TaskCaptureModalHandle>(null);
+  const repeatDayLabels = [
+    { label: 'D', value: 0, full: 'Domingo' },
+    { label: 'L', value: 1, full: 'Lunes' },
+    { label: 'M', value: 2, full: 'Martes' },
+    { label: 'X', value: 3, full: 'Miércoles' },
+    { label: 'J', value: 4, full: 'Jueves' },
+    { label: 'V', value: 5, full: 'Viernes' },
+    { label: 'S', value: 6, full: 'Sábado' },
+  ];
+
+  const getReminderDisplayLabel = useCallback((enabled: boolean, minutes?: number) => {
+    if (!enabled) return 'Sin recordatorio';
+    return REMINDER_LABEL_BY_VALUE.get(minutes ?? 0) || 'En el momento';
+  }, []);
+
+  const getNextReminderState = useCallback((enabled: boolean, minutes?: number) => {
+    if (!enabled) {
+      return { reminderEnabled: true, reminderMinutesBefore: REMINDER_CYCLE_VALUES[0] };
+    }
+
+    const currentIndex = REMINDER_CYCLE_VALUES.indexOf((minutes ?? 0) as ReminderMinutes);
+    const nextIndex = currentIndex >= 0 ? currentIndex + 1 : 0;
+
+    if (nextIndex >= REMINDER_CYCLE_VALUES.length) {
+      return { reminderEnabled: false, reminderMinutesBefore: minutes ?? REMINDER_CYCLE_VALUES[0] };
+    }
+
+    return { reminderEnabled: true, reminderMinutesBefore: REMINDER_CYCLE_VALUES[nextIndex] };
+  }, []);
+
+  const resetEventCreateState = useCallback(() => {
+    const now = new Date();
+    setEvTitle('');
+    setEvDate(format(now, 'yyyy-MM-dd'));
+    setEvHour(now.getHours());
+    setEvMin(Math.ceil(now.getMinutes() / 30) * 30);
+    setEvDuration(30);
+    setEvColor('#5B7CFA');
+    setEvDescription('');
+    setEvIsEvent(true);
+    setEvLink('');
+    setEvReminderEnabled(true);
+    setEvReminderMinutes(0);
+    setEvRepeatEnabled(false);
+    setEvRepeatFrequency('weekly');
+    setEvRepeatDays([]);
+    setEvRepeatEndType('never');
+  }, []);
+
+  const getRepeatMode = useCallback((): EventRepeatMode => {
+    if (!evRepeatEnabled) return 'none';
+    const sortedDays = [...evRepeatDays].sort((a, b) => a - b);
+    if (evRepeatFrequency === 'weekly' && sortedDays.join(',') === '1,2,3,4,5') return 'weekdays';
+    return evRepeatFrequency;
+  }, [evRepeatDays, evRepeatEnabled, evRepeatFrequency]);
+
+  const applyRepeatMode = useCallback((mode: EventRepeatMode) => {
+    if (mode === 'none') {
+      setEvRepeatEnabled(false);
+      return;
+    }
+
+    setEvRepeatEnabled(true);
+
+    if (mode === 'weekdays') {
+      setEvRepeatFrequency('weekly');
+      setEvRepeatDays([1, 2, 3, 4, 5]);
+      return;
+    }
+
+    if (mode === 'custom') {
+      setEvRepeatFrequency('weekly');
+      setEvRepeatDays((current) => current.length > 0 ? current : [new Date(evDate).getDay()]);
+      return;
+    }
+
+    setEvRepeatFrequency(mode);
+    if (mode !== 'weekly' && mode !== 'biweekly') {
+      setEvRepeatDays([]);
+    }
+  }, [evDate]);
 
   const today = format(new Date(), 'yyyy-MM-dd');
   const [mobileIslandDate, setMobileIslandDate] = useState(new Date());
@@ -232,6 +337,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
     endDate: format(mobileMonthEnd, 'yyyy-MM-dd'),
   }), [mobileMonthStart, mobileMonthEnd]);
   const { tasks, createTask } = useTasks(mobileTasksFilter);
+  const { createRule } = useRecurrenceRules();
   const { folders } = useFolders();
   const notion = useNotionIntegration();
   const friendUnreadCount = useFriendUnreadCount();
@@ -302,8 +408,38 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
     { label: isAdmin ? 'Chat IA' : 'IA pronto', icon: MessageSquare, path: '/chat' },
     { label: 'Metas', icon: Target, path: '/goals' },
     { label: 'Amigos', icon: Users, path: '/friends', badge: friendUnreadCount },
-    { label: 'Ajustes', icon: Settings, path: '/settings', activePaths: SETTINGS_PATHS },
   ];
+
+  const moreItems = [
+    { label: 'Perfil', icon: User, path: '/profile' },
+    { label: 'Logros', icon: Trophy, path: '/achievements' },
+    { label: 'Configuracion', icon: Settings, path: '/settings' },
+    { label: 'Personalizar', icon: Palette, path: '/priority-settings' },
+    { label: 'Historial', icon: History, path: '/trash' },
+  ];
+
+  const toggleRepeatDay = (day: number) => {
+    setEvRepeatDays((previous) =>
+      previous.includes(day)
+        ? previous.filter((value) => value !== day)
+        : [...previous, day].sort((a, b) => a - b)
+    );
+  };
+
+  const getRepeatSummary = () => {
+    if (!evRepeatEnabled) return 'Sin repetición';
+    const selectedNames = evRepeatDays
+      .map((day) => repeatDayLabels.find((option) => option.value === day)?.label)
+      .filter(Boolean)
+      .join(', ');
+    const sortedDays = [...evRepeatDays].sort((a, b) => a - b).join(',');
+    if (evRepeatFrequency === 'daily') return 'Todos los días';
+    if (evRepeatFrequency === 'weekly' && sortedDays === '1,2,3,4,5') return 'Se repite de lunes a viernes';
+    if (evRepeatFrequency === 'weekly') return `Cada semana${selectedNames ? ` · ${selectedNames}` : ''}`;
+    if (evRepeatFrequency === 'biweekly') return `Cada 2 semanas${selectedNames ? ` · ${selectedNames}` : ''}`;
+    if (evRepeatFrequency === 'monthly') return `Cada mes · día ${new Date(evDate).getDate()}`;
+    return `Cada año · ${format(new Date(evDate), 'd MMM')}`;
+  };
 
   const handleNavigate = (path: string) => {
     if (path === '#') return;
@@ -595,6 +731,8 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
       {/* Navigation Pilot - floating hover menu (desktop only) */}
       <NavigationPilot
         menuItems={menuItems}
+        settingsItems={moreItems}
+        displayName={profile?.name?.trim() || user?.email?.split('@')[0] || 'Usuario'}
         showAdmin={user?.email === 'pablogoitiaemprendedor@gmail.com'}
         electronOffset={isElectronEnv}
         user={user}
@@ -624,14 +762,8 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
               onRecurrenceClick={() => setRecurrenceOpen(true)}
               contextLabel={dailyFolderContext.folderName}
                onEventClick={() => {
-                setEvTitle('')
-                setEvDate(format(new Date(), 'yyyy-MM-dd'))
-                const now = new Date()
-                setEvHour(now.getHours())
-                setEvMin(Math.ceil(now.getMinutes() / 30) * 30)
-                setEvDuration(30)
-                setEvColor('#5B7CFA')
-                window.dispatchEvent(new CustomEvent('adonai:open-create-event'))
+                resetEventCreateState()
+                setEventCreateOpen(true)
               }}
             />
           )}
@@ -646,14 +778,8 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
             onRecurrenceClick={() => setRecurrenceOpen(true)}
             contextLabel={dailyFolderContext.folderName}
               onEventClick={() => {
-                setEvTitle('')
-                setEvDate(format(new Date(), 'yyyy-MM-dd'))
-                const now = new Date()
-                setEvHour(now.getHours())
-                setEvMin(Math.ceil(now.getMinutes() / 30) * 30)
-                setEvDuration(30)
-                setEvColor('#5B7CFA')
-                window.dispatchEvent(new CustomEvent('adonai:open-create-event'))
+                resetEventCreateState()
+                setEventCreateOpen(true)
               }}
           />
         </div>
@@ -675,49 +801,68 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
       />
 
       <Dialog open={eventCreateOpen} onOpenChange={(open) => { if (!open) setEventCreateOpen(false) }}>
-        <DialogContent className="sm:max-w-md p-0 gap-0 overflow-hidden rounded-2xl">
-          <DialogTitle className="sr-only">Nuevo evento</DialogTitle>
-          <DialogDescription className="sr-only">Crea un evento con fecha, hora, duracion y color.</DialogDescription>
-          <div className="p-5 space-y-5">
-            <div className="flex items-center justify-between">
-              <h2 className="text-base font-black">Nuevo Evento</h2>
-              <button onClick={() => setEventCreateOpen(false)} className="p-1.5 rounded-xl hover:bg-surface-container transition-colors">
-                <X className="w-4 h-4" />
-              </button>
+        <DialogContent
+          className="left-0 top-0 flex h-[100dvh] max-h-[100dvh] w-screen translate-x-0 translate-y-0 flex-col overflow-hidden rounded-none border-0 bg-background p-4 shadow-2xl outline-none sm:left-[50%] sm:top-[50%] sm:h-auto sm:max-h-[min(560px,calc(100vh-48px))] sm:max-w-[430px] sm:translate-x-[-50%] sm:translate-y-[-50%] sm:rounded-[30px] sm:border sm:border-outline-variant/25 sm:p-5"
+          hideCloseButton={true}
+        >
+          <DialogTitle className="sr-only">Nuevo recordatorio</DialogTitle>
+          <DialogDescription className="sr-only">Crea un recordatorio rapido con color, repeticion y link opcional.</DialogDescription>
+
+          <button
+            type="button"
+            onClick={() => setEventCreateOpen(false)}
+            className="absolute left-5 top-5 z-20 rounded-xl p-1.5 text-muted-foreground transition-all hover:bg-black/5 hover:text-foreground focus:outline-none focus-visible:ring-0 dark:hover:bg-white/5"
+            aria-label="Cerrar"
+          >
+            <X className="h-4 w-4" />
+          </button>
+
+          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1 pt-11">
+
+            <div className="space-y-1.5">
+              <input
+                value={evTitle}
+                onChange={(e) => setEvTitle(e.target.value)}
+                placeholder="¿Qué tienes que hacer?"
+                className="w-full rounded-[22px] border border-outline-variant/25 bg-surface/70 px-4 py-3.5 text-[15px] font-bold text-foreground shadow-sm outline-none transition-all placeholder:text-muted-foreground/25 focus:ring-4 focus:ring-primary/10"
+                autoFocus
+              />
             </div>
 
-            <input
-              value={evTitle}
-              onChange={(e) => setEvTitle(e.target.value)}
-              placeholder={"T\u00edtulo del evento"}
-              className="w-full text-sm font-bold bg-surface-container/30 border border-outline-variant/20 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary/30"
-              autoFocus
-            />
+            <div className="space-y-1.5">
+              <textarea
+                value={evDescription}
+                onChange={(e) => setEvDescription(e.target.value)}
+                placeholder="Detalles adicionales..."
+                className="block min-h-[56px] max-h-[120px] w-full resize-none overflow-y-auto rounded-[22px] border border-outline-variant/10 bg-surface-container/30 p-4 text-sm font-medium leading-[1.5] text-foreground outline-none transition-all placeholder:text-muted-foreground/25 focus:ring-2 focus:ring-primary/30"
+              />
+            </div>
 
-            <div className="flex items-center gap-2">
+            <div className="hidden">
               <input
                 type="date"
                 value={evDate}
                 onChange={(e) => setEvDate(e.target.value)}
-                className="flex-1 h-10 text-xs font-bold bg-surface-container/30 border border-outline-variant/20 rounded-xl px-3 focus:outline-none focus:ring-2 focus:ring-primary/30"
+                className="h-10 rounded-[16px] border border-outline-variant/20 bg-surface/70 px-3.5 text-sm font-bold text-foreground outline-none transition-all focus:ring-4 focus:ring-primary/10"
               />
               <input
                 type="time"
                 value={`${String(evHour).padStart(2, '0')}:${String(evMin).padStart(2, '0')}`}
                 onChange={(e) => {
                   const [h, m] = e.target.value.split(':').map(Number);
-                  setEvHour(h); setEvMin(m);
+                  setEvHour(h);
+                  setEvMin(m);
                 }}
-                className="h-10 text-xs font-bold bg-surface-container/30 border border-outline-variant/20 rounded-xl px-3 focus:outline-none focus:ring-2 focus:ring-primary/30"
+                className="h-10 min-w-[100px] rounded-[16px] border border-outline-variant/20 bg-surface/70 px-3 text-sm font-bold text-foreground outline-none transition-all focus:ring-4 focus:ring-primary/10"
               />
             </div>
 
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-muted-foreground/60">{"Duraci\u00f3n:"}</span>
+            <div className="hidden">
+              <span className="text-xs font-bold text-muted-foreground/60">Duración</span>
               <select
                 value={evDuration}
                 onChange={(e) => setEvDuration(Number(e.target.value))}
-                className="flex-1 h-10 text-xs font-bold bg-surface-container/30 border border-outline-variant/20 rounded-xl px-3 focus:outline-none focus:ring-2 focus:ring-primary/30"
+                className="h-10 flex-1 rounded-[16px] border border-outline-variant/20 bg-surface/70 px-3.5 text-sm font-bold text-foreground outline-none transition-all focus:ring-4 focus:ring-primary/10"
               >
                 <option value={15}>15 min</option>
                 <option value={30}>30 min</option>
@@ -729,47 +874,211 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
             </div>
 
             <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-muted-foreground/60">Color:</span>
-              <div className="flex gap-1.5">
-                {['#5B7CFA', '#EB5757', '#F4B860', '#6FCF97'].map(c => (
+              <div className="flex flex-1 items-center gap-1.5 rounded-[18px] border border-outline-variant/15 bg-surface-container/25 px-2 py-2">
+                {['#5B7CFA', '#EB5757', '#F4B860', '#6FCF97'].map((c) => (
                   <button
                     key={c}
+                    type="button"
                     onClick={() => setEvColor(c)}
-                    className={`w-7 h-7 rounded-full transition-all ${evColor === c ? 'ring-2 ring-offset-2 ring-foreground scale-110' : ''}`}
+                    className={`h-[26px] w-[26px] rounded-full transition-all ${evColor === c ? 'scale-110 ring-2 ring-white/80 ring-offset-2 ring-offset-background' : 'hover:scale-105'}`}
                     style={{ backgroundColor: c }}
+                    aria-label={`Usar color ${c}`}
                   />
                 ))}
-                <label className="relative w-7 h-7 rounded-full flex items-center justify-center border-2 border-dashed border-muted-foreground/30 cursor-pointer">
-                  <span className="text-xs font-bold text-muted-foreground/50">+</span>
-                  <input type="color" value={evColor} onChange={(e) => setEvColor(e.target.value)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                <label className="flex h-[26px] w-[26px] items-center justify-center rounded-full border border-dashed border-outline-variant/30 text-muted-foreground/60 transition-colors hover:border-primary/30 hover:text-primary">
+                  <span className="text-sm font-black leading-none">+</span>
+                  <input
+                    type="color"
+                    value={evColor}
+                    onChange={(e) => setEvColor(e.target.value)}
+                    className="sr-only"
+                  />
                 </label>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  const nextReminder = getNextReminderState(evReminderEnabled, evReminderMinutes);
+                  setEvReminderEnabled(nextReminder.reminderEnabled);
+                  setEvReminderMinutes(nextReminder.reminderMinutesBefore as ReminderMinutes);
+                }}
+                className={`flex h-9 items-center justify-center gap-2 rounded-full border px-3 text-[10px] font-black transition-all whitespace-nowrap ${evReminderEnabled ? 'border-primary/25 bg-primary/15 text-primary shadow-sm' : 'border-outline-variant/15 bg-surface-container/30 text-muted-foreground hover:border-primary/30 hover:text-primary'}`}
+                aria-label={evReminderEnabled ? 'Cambiar recordatorio' : 'Activar recordatorio'}
+              >
+                {evReminderEnabled ? <Bell className="h-3 w-3" /> : <BellOff className="h-3 w-3" />}
+                <span>{getReminderDisplayLabel(evReminderEnabled, evReminderMinutes)}</span>
+              </button>
+            </div>
+
+            <div className="flex rounded-[18px] border border-outline-variant/20 bg-surface-container/25 p-1">
+              {[
+                { value: true, label: 'Solo calendario' },
+                { value: false, label: 'Tarea y calendario' },
+              ].map((option) => (
+                <button
+                  key={option.label}
+                  type="button"
+                  onClick={() => setEvIsEvent(option.value)}
+                  className={`h-9 flex-1 rounded-[14px] text-[9px] font-black uppercase tracking-tight transition-all ${evIsEvent === option.value ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-black/5 dark:hover:bg-white/5'}`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between px-1">
+                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">Repetición</label>
+              </div>
+              <div className="space-y-3 rounded-[22px] border border-outline-variant/15 bg-surface-container/25 p-3">
+                <div className="rounded-2xl border border-primary/15 bg-primary/10 px-4 py-3 text-[12px] font-bold leading-relaxed text-foreground">
+                  {getRepeatSummary()}
+                </div>
+
+                <div className="grid grid-cols-4 gap-1.5">
+                  {([
+                    { id: 'none', label: 'No' },
+                    { id: 'daily', label: 'Diario' },
+                    { id: 'weekdays', label: 'L-V' },
+                    { id: 'weekly', label: 'Semanal' },
+                    { id: 'biweekly', label: '2 sem' },
+                    { id: 'monthly', label: 'Mensual' },
+                    { id: 'yearly', label: 'Anual' },
+                    { id: 'custom', label: 'A medida' },
+                  ] as const).map((option) => {
+                    const active = getRepeatMode() === option.id;
+                    return (
+                      <button
+                        key={option.id}
+                        type="button"
+                        onClick={() => applyRepeatMode(option.id)}
+                        className={`h-9 rounded-xl border text-[10px] font-black transition-all ${active ? 'border-primary/30 bg-primary/15 text-primary' : 'border-outline-variant/15 bg-surface/50 text-muted-foreground hover:text-primary'}`}
+                      >
+                        {option.label}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {evRepeatEnabled && (evRepeatFrequency === 'weekly' || evRepeatFrequency === 'biweekly') && (
+                  <div className="grid grid-cols-7 gap-1.5">
+                    {repeatDayLabels.map((day) => {
+                      const active = evRepeatDays.includes(day.value);
+                      return (
+                        <button
+                          key={day.value}
+                          type="button"
+                          onClick={() => toggleRepeatDay(day.value)}
+                          className={`h-10 rounded-full border text-xs font-black transition-all ${active ? 'border-primary bg-primary text-primary-foreground shadow-lg shadow-primary/20' : 'border-outline-variant/20 bg-surface/60 text-muted-foreground hover:border-primary/30 hover:text-primary'}`}
+                          aria-label={`Repetir en ${day.full}`}
+                        >
+                          {day.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {evRepeatEnabled && (
+                  <div className="space-y-2 border-t border-outline-variant/10 pt-3">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground/70">Finaliza</span>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {([
+                        { id: 'never', label: 'Nunca' },
+                        { id: 'date', label: 'Fecha' },
+                        { id: 'count', label: 'Eventos' },
+                      ] as const).map((option) => (
+                        <button
+                          key={option.id}
+                          type="button"
+                          onClick={() => setEvRepeatEndType(option.id)}
+                          className={`h-9 rounded-xl border text-[10px] font-black transition-all ${evRepeatEndType === option.id ? 'border-primary/30 bg-primary/15 text-primary' : 'border-outline-variant/15 bg-surface/50 text-muted-foreground hover:text-primary'}`}
+                        >
+                          {option.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
-            <div className="flex gap-2 pt-2">
+            <div className="space-y-1.5">
+              <label className="ml-1 text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">Links o referencias</label>
+              <div className="relative">
+                <Link2 className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/35" />
+                <input
+                  value={evLink}
+                  onChange={(e) => setEvLink(e.target.value)}
+                  placeholder="https://..."
+                  className="h-11 w-full rounded-[18px] border border-outline-variant/15 bg-surface/70 pl-11 pr-4 text-sm font-semibold text-foreground outline-none transition-all placeholder:text-muted-foreground/25 focus:ring-4 focus:ring-primary/10"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-2">
               <button
-                onClick={() => setEventCreateOpen(false)}
-                className="flex-1 py-3 rounded-xl bg-surface-container text-xs font-bold hover:bg-surface-container-high transition-colors"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={() => {
+                onClick={async () => {
                   if (!evTitle.trim()) return;
                   const start = new Date(`${evDate}T${String(evHour).padStart(2, '0')}:${String(evMin).padStart(2, '0')}:00`);
                   const end = addMinutes(start, evDuration);
-                  const desc = `[T:${format(start, 'HH:mm')}-${format(end, 'HH:mm')}][C:${evColor}]`;
-                  createTask.mutate({
-                    title: evTitle.trim(),
-                    description: desc,
-                    due_date: evDate,
-                    status: 'pending',
-                  });
-                  setEventCreateOpen(false);
+                  const descParts = [`[T:${format(start, 'HH:mm')}-${format(end, 'HH:mm')}]`, `[C:${evColor}]`];
+                  const finalDescription = `${descParts.join('')}${evDescription.trim() ? `\n${evDescription.trim()}` : ''}`;
+
+                  try {
+                    let recurrenceId: string | null = null;
+
+                    if (evRepeatEnabled) {
+                      const selectedDays =
+                        (evRepeatFrequency === 'weekly' || evRepeatFrequency === 'biweekly')
+                          ? (evRepeatDays.length > 0 ? evRepeatDays : [start.getDay()])
+                          : undefined;
+
+                      const recurrenceRule = await createRule.mutateAsync({
+                        title: evTitle.trim(),
+                        description: evDescription.trim() || null,
+                        link: evLink.trim() || null,
+                        frequency: evRepeatFrequency === 'biweekly' ? 'weekly' : evRepeatFrequency,
+                        interval: evRepeatFrequency === 'biweekly' ? 2 : 1,
+                        days_of_week: selectedDays || null,
+                        day_of_month: evRepeatFrequency === 'monthly' || evRepeatFrequency === 'yearly' ? start.getDate() : null,
+                        month_of_year: evRepeatFrequency === 'yearly' ? start.getMonth() + 1 : null,
+                        start_date: evDate,
+                        end_date: null,
+                        start_time: format(start, 'HH:mm:ss'),
+                        end_time: format(end, 'HH:mm:ss'),
+                        estimated_minutes: evDuration,
+                      } as any);
+
+                      recurrenceId = recurrenceRule.id;
+                    }
+
+                    await createTask.mutateAsync({
+                      title: evTitle.trim(),
+                      description: finalDescription,
+                      due_date: evDate,
+                      status: 'pending',
+                      estimated_minutes: evDuration,
+                      recurrence_id: recurrenceId,
+                      link: evLink.trim() || null,
+                      source_type: 'text',
+                      creation_source: evIsEvent ? 'event' : 'fab',
+                      metadata: buildReminderMetadata({
+                        event_color: evColor,
+                        event_repeat_enabled: evRepeatEnabled,
+                        event_repeat_frequency: evRepeatEnabled ? evRepeatFrequency : 'none',
+                      }, evIsEvent ? 'event' : 'task', evReminderEnabled, evReminderMinutes),
+                    });
+
+                    setEventCreateOpen(false);
+                  } catch (error) {
+                    console.error('[NavigationWrapper] Error creating event:', error);
+                    toast.error('No se pudo crear el evento');
+                  }
                 }}
-                className="flex-1 py-3 rounded-xl bg-primary text-primary-foreground text-xs font-bold shadow-lg shadow-primary/20 hover:opacity-90 transition-opacity"
+                className="h-10 flex-1 rounded-[16px] bg-primary px-4 text-xs font-bold text-primary-foreground shadow-lg shadow-primary/20 transition-opacity hover:opacity-90"
               >
-                Crear Evento
+                Crear recordatorio
               </button>
             </div>
           </div>

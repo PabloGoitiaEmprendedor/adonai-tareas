@@ -219,6 +219,24 @@ const AdonaiCalendarView: React.FC<AdonaiCalendarViewProps> = ({ selectedDate, o
   const { colors: priorityColors } = usePriorityColors();
   const { rules: recurrenceRules, createRule, deleteRule } = useRecurrenceRules();
 
+  const blockRecurrenceExceptions = useMemo(() => {
+    const exceptions = new Set<string>();
+    timeBlocks?.forEach((block: any) => {
+      const deletedOccurrences = Array.isArray(block.metadata?.deleted_occurrences)
+        ? block.metadata.deleted_occurrences
+        : [];
+      deletedOccurrences.forEach((occurrenceDate: string) => {
+        exceptions.add(`block-${block.id}-${occurrenceDate}`);
+        exceptions.add(`block-${block.id}-rec-${occurrenceDate}`);
+      });
+    });
+    return exceptions;
+  }, [timeBlocks]);
+
+  const calendarRecurrenceExceptions = useMemo(() => {
+    return new Set([...Array.from(recurrenceExceptions), ...Array.from(blockRecurrenceExceptions)]);
+  }, [blockRecurrenceExceptions, recurrenceExceptions]);
+
   // Map everything to EventManager
   const calendarEvents = useMemo(() => {
     const events: Event[] = [];
@@ -286,6 +304,9 @@ const AdonaiCalendarView: React.FC<AdonaiCalendarViewProps> = ({ selectedDate, o
     timeBlocks?.forEach((block) => {
       const blockDays = block.days_of_week || [];
       const blockReminder = getReminderSettings(block.metadata, 'event');
+      const deletedBlockDates = Array.isArray((block.metadata as any)?.deleted_occurrences)
+        ? (block.metadata as any).deleted_occurrences
+        : [];
       
       // Determine recurrence type from time block data
       let recurrence: Event['recurrence'] = 'none';
@@ -312,6 +333,7 @@ const AdonaiCalendarView: React.FC<AdonaiCalendarViewProps> = ({ selectedDate, o
           rangeDays.forEach(day => {
             if (blockDays.includes(day.getDay())) {
               const dStr = format(day, 'yyyy-MM-dd');
+              if (deletedBlockDates.includes(dStr)) return;
               const s = parseISO(`${dStr}T${block.start_time}`);
               const e = parseISO(`${dStr}T${block.end_time}`);
               events.push({
@@ -338,6 +360,7 @@ const AdonaiCalendarView: React.FC<AdonaiCalendarViewProps> = ({ selectedDate, o
       }
       
       const start = anchorDate;
+      if (deletedBlockDates.includes(format(start, 'yyyy-MM-dd'))) return;
       const end = parseISO(`${format(anchorDate, 'yyyy-MM-dd')}T${block.end_time}`);
       
       events.push({
@@ -1194,12 +1217,16 @@ const AdonaiCalendarView: React.FC<AdonaiCalendarViewProps> = ({ selectedDate, o
     );
   };
 
-  const handleEventDelete = async (id: string) => {
+  const handleEventDelete = async (id: string, scope: 'single' | 'series' = 'single') => {
     // Check if this is a recurring instance (task-{id}-rec-{date})
     const recMatch = id.match(/^task-(.+)-rec-(\d{4}-\d{2}-\d{2})$/);
     if (recMatch) {
       const anchorTaskId = recMatch[1];
       const dueDate = recMatch[2];
+      if (scope === 'series') {
+        deleteTask.mutate(anchorTaskId);
+        return;
+      }
       let anchorTask = tasks?.find((t: any) => t.id === anchorTaskId);
       if (!anchorTask && user) {
         const { data } = await supabase
@@ -1266,7 +1293,24 @@ const AdonaiCalendarView: React.FC<AdonaiCalendarViewProps> = ({ selectedDate, o
       return;
     }
     if (id.startsWith('block-')) {
-      const blockId = id.replace(/^block-/, '').replace(/-\d{4}-\d{2}-\d{2}$/, '');
+      const blockMatch = id.match(/^block-(.+?)(?:-rec-(\d{4}-\d{2}-\d{2})|-(\d{4}-\d{2}-\d{2}))?$/);
+      const blockId = blockMatch?.[1] || id.replace(/^block-/, '').replace(/-\d{4}-\d{2}-\d{2}$/, '');
+      const occurrenceDate = blockMatch?.[2] || blockMatch?.[3] || null;
+      if (scope === 'single' && occurrenceDate) {
+        const block = timeBlocks?.find((item: any) => item.id === blockId);
+        const metadata = ((block?.metadata || {}) as Record<string, unknown>);
+        const currentDeletedOccurrences = Array.isArray((metadata as any).deleted_occurrences)
+          ? (metadata as any).deleted_occurrences
+          : [];
+        await updateBlock.mutateAsync({
+          id: blockId,
+          metadata: {
+            ...metadata,
+            deleted_occurrences: Array.from(new Set([...currentDeletedOccurrences, occurrenceDate])),
+          },
+        });
+        return;
+      }
       deleteBlock.mutate(blockId);
     } else if (id.startsWith('task-')) {
       const taskId = id.replace(/^task-/, '').replace(/-\d{4}-\d{2}-\d{2}$/, '');
@@ -1301,7 +1345,7 @@ const AdonaiCalendarView: React.FC<AdonaiCalendarViewProps> = ({ selectedDate, o
           onDateChange={onSelectDate}
           onViewChange={onViewModeChange}
           className={fillHeight ? "h-full min-h-0" : "min-h-[800px] sm:min-h-[640px] lg:min-h-[720px]"}
-          recurrenceExceptions={recurrenceExceptions}
+          recurrenceExceptions={calendarRecurrenceExceptions}
           dragDisabled={dragDisabled}
           hideSidebar={hideSidebar}
           containedScroll={fillHeight}
