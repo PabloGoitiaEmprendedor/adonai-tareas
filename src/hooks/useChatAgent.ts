@@ -10,12 +10,20 @@ export interface ToolResult {
   };
 }
 
+export interface AiUsage {
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+  estimated: boolean;
+}
+
 export interface StreamEvent {
-  type: 'content' | 'done' | 'tool_result' | 'followup' | 'error' | 'complete';
+  type: 'content' | 'done' | 'tool_result' | 'followup' | 'usage' | 'error' | 'complete';
   text?: string;
   content?: string;
   tool?: string;
   result?: ToolResult['result'];
+  usage?: AiUsage;
   error?: string;
 }
 
@@ -85,7 +93,7 @@ export function useChatAgent() {
             const event = JSON.parse(trimmed.slice(6)) as StreamEvent;
             onEvent?.(event);
 
-            if (event.type === 'content' && event.text) {
+            if ((event.type === 'content' || event.type === 'followup') && event.text) {
               setStreamedContent(prev => prev + event.text);
             } else if (event.type === 'done' && event.content) {
               setStreamedContent(event.content);

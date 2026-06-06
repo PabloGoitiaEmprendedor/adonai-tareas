@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageSquare, Plus, History, Trash2, Send, User, Mic, X, Clock, CheckCircle, AlertCircle, Loader2, StopCircle } from 'lucide-react';
+import { MessageSquare, Plus, History, Trash2, Send, User, Mic, X, Clock, Loader2, StopCircle } from 'lucide-react';
 import { useChatAgent, type StreamEvent, type ToolResult } from '@/hooks/useChatAgent';
 import { useIsAdmin } from '@/hooks/useAdminAnalytics';
 
@@ -23,6 +23,8 @@ interface Session {
 }
 
 const STORAGE_KEY = 'adonai_chat_sessions';
+const AI_USAGE_STORAGE_KEY = 'adonai_chat_ai_usage_daily';
+const AI_USAGE_DAILY_BUDGET = 100000;
 
 const loadSessions = (): Session[] => {
   try {
@@ -37,6 +39,28 @@ const saveSessions = (sessions: Session[]) => {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
 };
 
+const getUsageDateKey = () => new Date().toISOString().slice(0, 10);
+
+const loadDailyAiUsage = () => {
+  try {
+    const raw = localStorage.getItem(AI_USAGE_STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : null;
+    if (parsed?.date === getUsageDateKey() && typeof parsed.tokens === 'number') {
+      return Math.max(0, parsed.tokens);
+    }
+  } catch {
+    // ignore invalid local storage
+  }
+  return 0;
+};
+
+const saveDailyAiUsage = (tokens: number) => {
+  localStorage.setItem(AI_USAGE_STORAGE_KEY, JSON.stringify({
+    date: getUsageDateKey(),
+    tokens: Math.max(0, Math.round(tokens)),
+  }));
+};
+
 const generateId = () => `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 
 const ChatPage = () => {
@@ -47,6 +71,7 @@ const ChatPage = () => {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [streamingMsgId, setStreamingMsgId] = useState<string | null>(null);
   const [pendingToolResults, setPendingToolResults] = useState<ToolResult[]>([]);
+  const [dailyAiTokens, setDailyAiTokens] = useState(loadDailyAiUsage);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const { sendMessage, cancel, isStreaming } = useChatAgent();
@@ -69,6 +94,10 @@ const ChatPage = () => {
   useEffect(() => {
     saveSessions(sessions);
   }, [sessions]);
+
+  useEffect(() => {
+    saveDailyAiUsage(dailyAiTokens);
+  }, [dailyAiTokens]);
 
   useEffect(() => {
     if (!activeSessionId) return;
@@ -152,7 +181,7 @@ const ChatPage = () => {
       .map(m => ({ role: m.role, content: m.content }));
 
     sendMessage(trimmed, sessionId, sessionHistory, (event: StreamEvent) => {
-      if (event.type === 'content' && event.text) {
+      if ((event.type === 'content' || event.type === 'followup') && event.text) {
         updateSessionMessages(sessionId, msgs => {
           const existing = msgs.find(m => m.id === assistantMsgId);
           if (existing) {
@@ -164,7 +193,11 @@ const ChatPage = () => {
         updateSessionMessages(sessionId, msgs => {
           const existing = msgs.find(m => m.id === assistantMsgId);
           if (existing) {
-            return msgs.map(m => m.id === assistantMsgId ? { ...m, content: event.content!, toolResults: pendingToolResults.length > 0 ? [...pendingToolResults] : undefined } : m);
+            return msgs.map(m => m.id === assistantMsgId ? {
+              ...m,
+              content: event.content!,
+              toolResults: pendingToolResults.length > 0 ? [...pendingToolResults] : m.toolResults,
+            } : m);
           }
           return [...msgs, { id: assistantMsgId, role: 'assistant' as Role, content: event.content!, timestamp: Date.now(), toolResults: pendingToolResults.length > 0 ? [...pendingToolResults] : undefined }];
         });
@@ -187,6 +220,8 @@ const ChatPage = () => {
           });
           return newResults;
         });
+      } else if (event.type === 'usage' && event.usage) {
+        setDailyAiTokens(prev => prev + Math.max(0, event.usage?.totalTokens || 0));
       } else if (event.type === 'error') {
         updateSessionMessages(sessionId, msgs => [
           ...msgs,
@@ -232,8 +267,7 @@ const ChatPage = () => {
     return d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
   };
 
-  const hasToolResults = (msg: Message) => msg.toolResults && msg.toolResults.length > 0;
-
+  const usagePercent = Math.min(100, Math.round((dailyAiTokens / AI_USAGE_DAILY_BUDGET) * 100));
   if (!isAdmin) {
     return (
       <div className="min-h-screen bg-background px-6 pb-32 pt-24 text-foreground">
@@ -411,6 +445,21 @@ const ChatPage = () => {
                 </div>
               ) : (
                 <>
+                  <div className="sticky top-0 z-20 border-b border-outline-variant/10 bg-surface/95 px-4 py-2 backdrop-blur-xl lg:px-6">
+                    <div className="flex items-center gap-3">
+                      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-container-high">
+                        <motion.div
+                          className="h-full rounded-full bg-primary"
+                          initial={false}
+                          animate={{ width: `${usagePercent}%` }}
+                          transition={{ duration: 0.25, ease: 'easeOut' }}
+                        />
+                      </div>
+                      <span className="w-10 text-right text-[11px] font-black tabular-nums text-primary">
+                        {usagePercent}%
+                      </span>
+                    </div>
+                  </div>
                   <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-4 no-scrollbar">
                     {activeSession.messages.length === 0 && !streamingMsgId && (
                       <div className="hidden">
@@ -441,19 +490,6 @@ const ChatPage = () => {
                               : 'bg-surface-container-high text-foreground rounded-bl-[6px] border border-outline-variant/10'
                           }`}
                         >
-                          {/* Tool Results */}
-                          {hasToolResults(msg) && (
-                            <div className="mb-2 space-y-1">
-                              {msg.toolResults!.map((tr, i) => (
-                                <div key={i} className={`flex items-start gap-1.5 text-xs rounded-lg p-1.5 ${
-                                  tr.result.success ? 'bg-emerald-500/8 text-emerald-700 dark:text-emerald-400' : 'bg-red-500/8 text-red-600 dark:text-red-400'
-                                }`}>
-                                  {tr.result.success ? <CheckCircle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" /> : <AlertCircle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />}
-                                  <span className="font-medium">{tr.result.message}</span>
-                                </div>
-                              ))}
-                            </div>
-                          )}
                           <p className="whitespace-pre-wrap break-words">{msg.content}</p>
                           <p className={`text-[10px] mt-1.5 ${msg.role === 'user' ? 'text-primary-foreground/50' : 'text-on-surface-variant/35'}`}>
                             {formatTime(msg.timestamp)}
@@ -478,19 +514,6 @@ const ChatPage = () => {
                           <img src="/logo.png" alt="Adonai" className="w-5 h-5 object-contain" />
                         </div>
                         <div className="max-w-[85%] lg:max-w-[70%] rounded-[20px] px-4 py-3 bg-surface-container-high text-foreground rounded-bl-[6px] border border-outline-variant/10">
-                          {/* Pending tool results */}
-                          {pendingToolResults.length > 0 && (
-                            <div className="mb-2 space-y-1">
-                              {pendingToolResults.map((tr, i) => (
-                                <div key={i} className={`flex items-start gap-1.5 text-xs rounded-lg p-1.5 ${
-                                  tr.result.success ? 'bg-emerald-500/8 text-emerald-700 dark:text-emerald-400' : 'bg-red-500/8 text-red-600 dark:text-red-400'
-                                }`}>
-                                  {tr.result.success ? <CheckCircle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" /> : <AlertCircle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />}
-                                  <span className="font-medium">{tr.result.message}</span>
-                                </div>
-                              ))}
-                            </div>
-                          )}
                           <div className="flex items-center gap-2">
                             <Loader2 className="w-4 h-4 animate-spin text-primary" />
                             <span className="text-sm text-on-surface-variant/60 italic">Adonai está pensando...</span>

@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const GROQ_API_BASE = "https://api.groq.com/openai/v1";
+const DEFAULT_GROQ_MODEL = "llama-3.1-8b-instant";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -19,14 +20,18 @@ Ayudas al usuario a ejecutar mas con menos friccion. Cuando puedas tomar accion 
 
 ## Forma de responder
 - Responde siempre en el idioma del usuario.
-- Se directo, calido y preciso.
-- Respuestas conversacionales: maximo 3-4 lineas salvo que el usuario pida analisis o planificacion.
-- Usa listas cortas cuando haya varias cosas.
+- Habla como un coach-amigo inteligente: cercano, natural, con criterio, sin sonar corporativo ni robotico.
+- Se directo, calido y preciso. Puedes usar frases humanas cortas como "te entiendo", "vamos con esto" o "perfecto" cuando encaje.
+- Para saludos o mensajes simples, responde con naturalidad y abre la conversacion con una pregunta util.
+- Respuestas conversacionales: normalmente 2-5 lineas, salvo que el usuario pida analisis, planificacion o detalle.
+- Usa listas cortas solo cuando realmente ayuden.
 - Personaliza con el contexto disponible sin decir "accedi a tus datos".
 - Si el usuario esta frustrado, reconoce brevemente el estado y vuelve a una accion concreta.
 
 ## Memoria
-Aprende preferencias, habitos, objetivos, estilo de comunicacion, patrones de postergacion y metodos de productividad. Cuando detectes algo relevante, usa save_memory. No inventes datos: si no sabes algo, consultalo con herramientas o dilo claramente.
+Aprende preferencias, habitos, objetivos, estilo de comunicacion, patrones de postergacion, energia y metodos de productividad. A medida que conoces mas al usuario, adapta tono, nivel de empuje, sugerencias y prioridades.
+Cuando detectes algo relevante y estable, usa save_memory en silencio. Nunca respondas al usuario con "memoria guardada" ni menciones memorias internas salvo que el usuario pregunte.
+No inventes datos: si no sabes algo, consultalo con herramientas o dilo claramente.
 
 ## Acciones
 Puedes gestionar tareas, eventos, cuadernos, metas, contextos y mensajes de amigos/grupos usando herramientas. Nunca elimines ni hagas acciones irreversibles sin confirmacion explicita.
@@ -35,9 +40,56 @@ Puedes gestionar tareas, eventos, cuadernos, metas, contextos y mensajes de amig
 No des consejos genericos si tienes contexto. Prioriza ejecucion, claridad, siguiente paso y bajo ruido. Si el usuario pide organizar la semana, consultar pendientes o planificar, usa herramientas antes de responder.
 `;
 
+const ADONAI_CONVERSATIONAL_COACH_BEHAVIOR = `
+## Experiencia conversacional esperada
+La experiencia debe sentirse al nivel de un chat moderno tipo ChatGPT o Gemini, pero con identidad Adonai: un coach personal que conoce la vida operativa del usuario.
+
+Principios:
+- Conversa primero, opera despues. Si el usuario solo quiere hablar, conversa. Si pide una accion, ejecuta.
+- Responde con presencia: entiende la intencion emocional y practica, no solo las palabras.
+- Mantente cercano sin exagerar confianza. No uses frases motivacionales vacias.
+- Haz una pregunta de seguimiento solo cuando desbloquee una mejor ayuda. No cierres cada respuesta con preguntas genericas.
+- Si el usuario esta confundido, reduce friccion: propone el siguiente paso mas pequeno.
+- Si el usuario pide ideas o plan, actua como coach: prioriza, ordena, detecta bloqueo y sugiere una accion concreta.
+- Si hay memoria o contexto del usuario, usalo de forma natural, como si ya lo conocieras. No expliques que tienes memoria.
+- Si hay poco contexto, aprende con preguntas ligeras y utiles.
+- Evita respuestas frias como "Listo: ...". Convierte acciones y datos en lenguaje humano.
+`;
+
 const truncateForPrompt = (value: string | null | undefined, max = 1400) => {
   const text = String(value || "").trim();
   return text.length > max ? `${text.slice(0, max)}\n[recortado]` : text;
+};
+
+const formatMemoryProfileForPrompt = (profile: Record<string, unknown>): string => {
+  const lines: string[] = [];
+
+  for (const [category, value] of Object.entries(profile)) {
+    if (Array.isArray(value) && value.length > 0) {
+      const facts = value
+        .filter(item => typeof item === "string" && item.trim())
+        .slice(0, 8)
+        .map(item => `  - ${truncateForPrompt(String(item), 180)}`)
+        .join("\n");
+      if (facts) lines.push(`- ${category}:\n${facts}`);
+    } else if (typeof value === "string" && value.trim()) {
+      lines.push(`- ${category}: ${truncateForPrompt(value, 220)}`);
+    }
+  }
+
+  return lines.join("\n");
+};
+
+const getLearningStage = (memoryCount: number, profile: Record<string, unknown>) => {
+  const profileItems = Object.values(profile).reduce((total, value) => {
+    if (Array.isArray(value)) return total + value.length;
+    return total + (value ? 1 : 0);
+  }, 0);
+  const total = memoryCount + profileItems;
+
+  if (total >= 18) return "alto contexto: ya conoces bastantes preferencias y patrones; personaliza con decision.";
+  if (total >= 6) return "en crecimiento: ya hay senales utiles; adapta tono y sugerencias sin asumir de mas.";
+  return "inicial: conoce al usuario con preguntas ligeras cuando haga falta.";
 };
 
 interface Tool {
@@ -518,11 +570,18 @@ async function buildSystemPrompt(
   const sections: string[] = [];
 
   sections.push(ADONAI_CORE_BEHAVIOR);
+  sections.push(ADONAI_CONVERSATIONAL_COACH_BEHAVIOR);
+
+  if (globalPrompt) {
+    sections.push(`\n## Prompt global activo del admin\nEstas instrucciones vienen del panel de admin de Adonai y forman parte del comportamiento base del agente. Integralas con tu identidad de coach conversacional:\n${truncateForPrompt(globalPrompt, 2400)}`);
+  }
   sections.push(`Hoy es ${dayName} ${today}.`);
   sections.push(`Usuario: ${profile?.name || "Usuario"}`);
   sections.push(`Ocupación: ${userCtx?.occupation || "No especificada"}`);
   sections.push(`Estilo de trabajo: ${userCtx?.work_style || "No especificado"}`);
   sections.push(`Nivel de estrés: ${userCtx?.stress_level || "No especificado"}`);
+
+  sections.push(`Estado de aprendizaje del usuario: ${getLearningStage(memories.length, memoryProfile)}`);
 
   if (goals.length > 0) {
     sections.push(`\n## Metas activas\n${goals.map(g => `- ${g.title} [${g.horizon}]${g.description ? `: ${truncateForPrompt(g.description, 180)}` : ""} (id: ${g.id})`).join("\n")}`);
@@ -551,7 +610,10 @@ async function buildSystemPrompt(
   }
 
   if (Object.keys(memoryProfile).length > 0) {
-    sections.push(`\n## Perfil estructurado de memoria privada\n${truncateForPrompt(JSON.stringify(memoryProfile), 900)}`);
+    const formattedProfile = formatMemoryProfileForPrompt(memoryProfile);
+    if (formattedProfile) {
+      sections.push(`\n## Perfil aprendido del usuario\nUsa esto para adaptar tono, prioridades, sugerencias y nivel de detalle. No menciones que viene de memoria privada.\n${formattedProfile}`);
+    }
   }
 
   if (globalInsights.length > 0) {
@@ -578,11 +640,10 @@ Puedes ejecutar acciones directamente:
 4. Referencia las tareas por su título, no solo por ID.
 5. Si preguntas por "mi semana" o "mis pendientes", consulta las tareas automáticamente.
 6. Ofrece sugerencias proactivas basadas en el contexto del usuario.
-7. Usa lenguaje motivacional cuando completes tareas importantes.`);
-
-  if (globalPrompt) {
-    sections.push(`\n## Instrucciones adicionales del desarrollador\n${truncateForPrompt(globalPrompt, 1200)}`);
-  }
+7. Usa lenguaje motivacional cuando completes tareas importantes.
+8. Nunca respondas al usuario con resultados internos como "Memoria guardada".
+9. Si una herramienta se ejecuta, traduce el resultado a una respuesta humana, breve y clara.
+10. Cuando el usuario solo conversa, no fuerces acciones ni listas; responde como una conversacion natural.`);
 
   return sections.join("\n");
 }
@@ -618,6 +679,30 @@ async function extractAndStoreMemories(
   const timePattern = /(?:a las|desde las|hasta las|de\s+\d+\s+a\s+\d+)/gi;
   if (timePattern.test(message)) {
     facts.push({ fact: `Mencionó horario: "${message.slice(0, 80)}"`, category: "horario" });
+  }
+
+  const goalPatterns = [
+    /(?:quiero|necesito|estoy intentando|mi objetivo es|mi meta es)\s+(.+?)(?:\.|,|$)/gi,
+  ];
+  for (const pattern of goalPatterns) {
+    const matches = message.matchAll(pattern);
+    for (const match of matches) {
+      if (match[1] && match[1].trim().length > 8) {
+        facts.push({ fact: match[1].trim(), category: "objetivo" });
+      }
+    }
+  }
+
+  const communicationPatterns = [
+    /(?:hablame|respondeme|resp[oó]ndeme|prefiero que me hables|me gusta que me respondas)\s+(.+?)(?:\.|,|$)/gi,
+  ];
+  for (const pattern of communicationPatterns) {
+    const matches = message.matchAll(pattern);
+    for (const match of matches) {
+      if (match[1] && match[1].trim().length > 5) {
+        facts.push({ fact: match[1].trim(), category: "comunicacion" });
+      }
+    }
   }
 
   for (const f of facts) {
@@ -668,33 +753,209 @@ function summarizeToolResults(toolResults: Array<{ name: string; result: { succe
     .join("\n\n");
 }
 
+type GroqApiError = Error & { status?: number; details?: string };
+
+function isGroqRateLimitError(error: unknown): error is GroqApiError {
+  return error instanceof Error && (error as GroqApiError).status === 429;
+}
+
+function buildRateLimitReply(message: string): string {
+  const trimmed = message.trim().toLowerCase();
+  if (/^(hola|buenas|hey|hello|ola)\b/.test(trimmed)) {
+    return "Hola. Ahora mismo estoy con mucha carga, pero ya te leo. ¿Qué necesitas hacer?";
+  }
+
+  return "Ahora mismo estoy temporalmente limitado por el modelo y no quiero darte una respuesta a medias. Vuelve a intentarlo en unos minutos y seguimos.";
+}
+
+function buildMemoryOnlyReply(message: string): string {
+  const trimmed = message.trim().toLowerCase();
+  if (/^(hola|buenas|hey|hello|ola)\b/.test(trimmed)) {
+    return "Hola. ¿En qué te ayudo hoy?";
+  }
+
+  return "Listo. ¿Qué necesitas hacer ahora?";
+}
+
+function buildRateLimitReplySafe(message: string): string {
+  const trimmed = message.trim().toLowerCase();
+  if (/^(hola|buenas|hey|hello|ola)\b/.test(trimmed)) {
+    return "Hola. Ahora mismo estoy con mucha carga, pero ya te leo. Que necesitas hacer?";
+  }
+
+  return "Ahora mismo estoy temporalmente limitado por el modelo y no quiero darte una respuesta a medias. Vuelve a intentarlo en unos minutos y seguimos.";
+}
+
+function buildMemoryOnlyReplySafe(message: string): string {
+  const trimmed = message.trim().toLowerCase();
+  if (/^(hola|buenas|hey|hello|ola)\b/.test(trimmed)) {
+    return "Hola. En que te ayudo hoy?";
+  }
+
+  return "Listo. Que necesitas hacer ahora?";
+}
+
+type ChatMessage = { role: string; content: string };
+
+function estimateTokens(text: string): number {
+  return Math.max(1, Math.ceil(String(text || "").length / 4));
+}
+
+function estimateMessageTokens(messages: ChatMessage[]): number {
+  return messages.reduce((total, msg) => total + estimateTokens(msg.content) + 4, 0);
+}
+
+function buildUsagePayload(inputTokens: number, outputTokens: number) {
+  const safeInput = Math.max(0, Math.round(inputTokens));
+  const safeOutput = Math.max(0, Math.round(outputTokens));
+  return {
+    inputTokens: safeInput,
+    outputTokens: safeOutput,
+    totalTokens: safeInput + safeOutput,
+    estimated: true,
+  };
+}
+
+type ToolCall = { id: string; type: string; function: { name: string; arguments: string } };
+type ToolCallDelta = {
+  index?: number;
+  id?: string;
+  type?: string;
+  function?: {
+    name?: string;
+    arguments?: string;
+  };
+};
+
+async function buildDirectTaskReply(
+  supabase: ReturnType<typeof createClient>,
+  userId: string,
+  message: string,
+): Promise<string | null> {
+  const normalized = message.toLowerCase();
+  const asksTasks = /\b(tareas?|pendientes?|cosas por hacer|que tengo|qu[eé] tengo)\b/i.test(normalized);
+  if (!asksTasks) return null;
+
+  const asksToday = /\b(hoy|dia|d[ií]a)\b/i.test(normalized);
+  const asksPending = /\b(pendientes?|por hacer|sin completar)\b/i.test(normalized) || asksToday;
+  const today = new Date().toISOString().split("T")[0];
+
+  let query = supabase
+    .from("tasks")
+    .select("title,status,due_date,importance,urgency")
+    .eq("user_id", userId)
+    .limit(12);
+
+  if (asksPending) query = query.eq("status", "pending");
+  if (asksToday) query = query.eq("due_date", today);
+
+  const { data, error } = await query.order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("direct task query error:", error.message);
+    return "Ahora mismo no pude revisar tus tareas. Intentalo de nuevo en un momento.";
+  }
+
+  const tasks = data || [];
+  if (tasks.length === 0) {
+    return asksToday
+      ? "No tienes tareas pendientes para hoy."
+      : "No encontre tareas pendientes ahora mismo.";
+  }
+
+  const intro = asksToday
+    ? `Tienes ${tasks.length} tarea${tasks.length === 1 ? "" : "s"} pendiente${tasks.length === 1 ? "" : "s"} para hoy:`
+    : `Tienes ${tasks.length} tarea${tasks.length === 1 ? "" : "s"} pendiente${tasks.length === 1 ? "" : "s"}:`;
+
+  const list = tasks.map((task, index) => {
+    const flags = [];
+    if (task.importance) flags.push("importante");
+    if (task.urgency) flags.push("urgente");
+    const suffix = flags.length ? ` (${flags.join(", ")})` : "";
+    const due = !asksToday && task.due_date ? ` - ${task.due_date}` : "";
+    return `${index + 1}. ${task.title}${due}${suffix}`;
+  }).join("\n");
+
+  return `${intro}\n${list}`;
+}
+
+async function saveDirectChatTurn(
+  supabase: ReturnType<typeof createClient>,
+  userId: string,
+  sessionId: string | undefined,
+  userMessage: string,
+  assistantMessage: string,
+) {
+  if (!sessionId) return;
+
+  const { data: existingSession } = await supabase.from("chat_sessions")
+    .select("messages, title")
+    .eq("id", sessionId)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  const now = new Date().toISOString();
+  if (existingSession) {
+    const messages = [
+      ...(existingSession.messages as Array<unknown> || []),
+      { role: "user", content: userMessage, timestamp: now },
+      { role: "assistant", content: assistantMessage, timestamp: now },
+    ];
+    const title = existingSession.title || userMessage.slice(0, 60);
+    await supabase.from("chat_sessions").update({
+      messages,
+      title,
+      updated_at: now,
+    }).eq("id", sessionId);
+  } else {
+    await supabase.from("chat_sessions").insert({
+      id: sessionId,
+      user_id: userId,
+      title: userMessage.slice(0, 60),
+      messages: [
+        { role: "user", content: userMessage, timestamp: now },
+        { role: "assistant", content: assistantMessage, timestamp: now },
+      ],
+    });
+  }
+}
+
 async function* streamChatCompletion(
   groqKey: string,
-  messages: Array<{ role: string; content: string }>,
+  model: string,
+  messages: ChatMessage[],
   tools: Tool[],
   signal?: AbortSignal,
-): AsyncGenerator<string | { tool_calls: Array<{ id: string; type: string; function: { name: string; arguments: string } }> }> {
+): AsyncGenerator<string | { tool_calls: ToolCallDelta[] }> {
+  const body: Record<string, unknown> = {
+    model,
+    messages,
+    stream: true,
+    temperature: 0.7,
+    max_tokens: 500,
+  };
+
+  if (tools.length > 0) {
+    body.tools = tools.map(t => ({ type: t.type, function: t.function }));
+    body.tool_choice = "auto";
+  }
+
   const response = await fetch(`${GROQ_API_BASE}/chat/completions`, {
     method: "POST",
     headers: {
       "Authorization": `Bearer ${groqKey}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({
-      model: "llama-3.3-70b-versatile",
-      messages,
-      tools: tools.map(t => ({ type: t.type, function: t.function })),
-      tool_choice: "auto",
-      stream: true,
-      temperature: 0.7,
-      max_tokens: 900,
-    }),
+    body: JSON.stringify(body),
     signal,
   });
 
   if (!response.ok) {
     const text = await response.text();
-    throw new Error(`Groq API error ${response.status}: ${text}`);
+    const error = new Error(`Groq API error ${response.status}`) as GroqApiError;
+    error.status = response.status;
+    error.details = text;
+    throw error;
   }
 
   const reader = response.body?.getReader();
@@ -744,6 +1005,7 @@ serve(async (req) => {
   try {
     const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY");
     if (!GROQ_API_KEY) throw new Error("GROQ_API_KEY not configured");
+    const GROQ_MODEL = Deno.env.get("GROQ_MODEL") || DEFAULT_GROQ_MODEL;
 
     const authHeader = req.headers.get("Authorization");
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -772,9 +1034,35 @@ serve(async (req) => {
       });
     }
 
+    const directTaskReply = await buildDirectTaskReply(supabase, userId, message);
+    if (directTaskReply) {
+      await saveDirectChatTurn(supabase, userId, sessionId, message, directTaskReply);
+      const encoder = new TextEncoder();
+      const usage = buildUsagePayload(estimateTokens(message), estimateTokens(directTaskReply));
+
+      const stream = new ReadableStream({
+        start(controller) {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "content", text: directTaskReply })}\n\n`));
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "usage", usage })}\n\n`));
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "done", content: directTaskReply })}\n\n`));
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "complete" })}\n\n`));
+          controller.close();
+        },
+      });
+
+      return new Response(stream, {
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache",
+          "Connection": "keep-alive",
+        },
+      });
+    }
+
     const systemPrompt = await buildSystemPrompt(supabase, userId);
 
-    const groqMessages: Array<{ role: string; content: string }> = [
+    const groqMessages: ChatMessage[] = [
       { role: "system", content: systemPrompt },
     ];
 
@@ -784,9 +1072,9 @@ serve(async (req) => {
         .filter((msg: any) => msg?.role === "user" || msg?.role === "assistant")
         .map((msg: any) => ({
           role: msg.role,
-          content: truncateForPrompt(String(msg.content || "").replace(/Groq API error.*$/gis, "[error anterior omitido]"), 500),
+          content: truncateForPrompt(String(msg.content || "").replace(/Groq API error.*$/gis, "[error anterior omitido]"), 900),
         }))
-        .slice(-8);
+        .slice(-10);
       for (const msg of recent) {
         if (msg.role === "user" || msg.role === "assistant") {
           groqMessages.push({ role: msg.role, content: msg.content });
@@ -826,9 +1114,11 @@ serve(async (req) => {
     const stream = new ReadableStream({
       async start(controller) {
         try {
-          const generator = streamChatCompletion(GROQ_API_KEY, groqMessages, TOOLS);
+          let estimatedInputTokens = estimateMessageTokens(groqMessages);
+          let estimatedOutputTokens = 0;
+          const generator = streamChatCompletion(GROQ_API_KEY, GROQ_MODEL, groqMessages, TOOLS);
 
-          let accumulatedToolCalls: Array<{ id: string; type: string; function: { name: string; arguments: string } }> = [];
+          let accumulatedToolCalls: ToolCall[] = [];
 
           for await (const chunk of generator) {
             if (typeof chunk === "string") {
@@ -836,17 +1126,30 @@ serve(async (req) => {
               controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "content", text: chunk })}\n\n`));
             } else if (chunk.tool_calls) {
               for (const tc of chunk.tool_calls) {
-                const existing = accumulatedToolCalls.find(t => t.id === tc.id);
+                const index = typeof tc.index === "number" ? tc.index : accumulatedToolCalls.length;
+                const existing = accumulatedToolCalls[index] || (tc.id ? accumulatedToolCalls.find(t => t.id === tc.id) : undefined);
                 if (existing) {
+                  existing.id = tc.id || existing.id;
+                  existing.type = tc.type || existing.type;
+                  existing.function.name += tc.function?.name || "";
                   existing.function.arguments += tc.function?.arguments || "";
                 } else {
-                  accumulatedToolCalls.push(tc);
+                  accumulatedToolCalls[index] = {
+                    id: tc.id || `tool-call-${index}`,
+                    type: tc.type || "function",
+                    function: {
+                      name: tc.function?.name || "",
+                      arguments: tc.function?.arguments || "",
+                    },
+                  };
                 }
               }
             }
           }
 
           finalContent = collectedContent.join("");
+          estimatedOutputTokens += estimateTokens(finalContent);
+          accumulatedToolCalls = accumulatedToolCalls.filter(tc => tc?.function?.name);
 
           // Process tool calls if any
           if (accumulatedToolCalls.length > 0) {
@@ -866,41 +1169,59 @@ serve(async (req) => {
                 const result = await tool.handler(args, toolCtx);
                 toolResults.push({ name: tc.function.name, result });
 
-                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "tool_result", tool: tc.function.name, result })}\n\n`));
+                if (tc.function.name !== "save_memory") {
+                  controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "tool_result", tool: tc.function.name, result })}\n\n`));
+                }
               }
             }
 
             if (toolResults.length > 0) {
-              const toolSummary = summarizeToolResults(toolResults);
-              finalContent = finalContent ? `${finalContent}\n\n${toolSummary}` : toolSummary;
+              const toolSummary = summarizeToolResults(toolResults.filter(tr => tr.name !== "save_memory"));
+              finalContent = toolSummary
+                ? (finalContent ? `${finalContent}\n\n${toolSummary}` : toolSummary)
+                : finalContent;
             }
 
-            // If there were tool calls, get a follow-up response from Groq
-            if (false && toolResults.length > 0) {
+            const nonMemoryToolResults = toolResults.filter(tr => tr.name !== "save_memory");
+
+            // If there were non-memory tool calls, get a follow-up response from Groq
+            if (nonMemoryToolResults.length > 0) {
               groqMessages.push({ role: "assistant", content: finalContent || "" });
               groqMessages.push({
                 role: "user",
-                content: `Resultados de herramientas ejecutadas:\n${toolResults.map(tr => `- ${tr.name}: ${JSON.stringify(tr.result)}`).join("\n")}`,
+                content: `Resultados internos de acciones ya ejecutadas:\n${nonMemoryToolResults.map(tr => `- ${tr.name}: ${JSON.stringify(tr.result)}`).join("\n")}`,
               });
 
+              finalContent = "";
               // Simple follow-up without tool calls
               try {
-                const followUpGen = streamChatCompletion(GROQ_API_KEY, [
+                const followUpMessages = [
                   ...groqMessages,
-                  { role: "user", content: "Resume lo que acabo de hacer y confirma si hay algo más que necesite." },
-                ], [], new AbortController().signal);
+                  { role: "user", content: "Responde al usuario como Adonai: coach-amigo cercano, natural y util. Integra los resultados sin decir 'herramienta', sin JSON y sin mencionar save_memory ni memorias internas. Si hubo una accion, confirma en lenguaje humano y ofrece el siguiente paso mas util." },
+                ];
+                estimatedInputTokens += estimateMessageTokens(followUpMessages);
+                const followUpGen = streamChatCompletion(GROQ_API_KEY, GROQ_MODEL, followUpMessages, [], new AbortController().signal);
 
                 for await (const chunk of followUpGen) {
                   if (typeof chunk === "string") {
-                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "followup", text: chunk })}\n\n`));
+                    finalContent += chunk;
+                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "content", text: chunk })}\n\n`));
                   }
                 }
-              } catch {
-                // Follow-up is optional
+                estimatedOutputTokens += estimateTokens(finalContent);
+              } catch (err) {
+                console.error("chat-adonai follow-up error:", err instanceof Error ? err.message : err);
+                const visibleSummary = summarizeToolResults(nonMemoryToolResults);
+                finalContent = visibleSummary || "Hola. Ya estoy listo para ayudarte con tus tareas, agenda y prioridades.";
+                estimatedOutputTokens += estimateTokens(finalContent);
               }
+            } else if (!finalContent.trim()) {
+              finalContent = buildMemoryOnlyReplySafe(message);
+              estimatedOutputTokens += estimateTokens(finalContent);
             }
           }
 
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "usage", usage: buildUsagePayload(estimatedInputTokens, estimatedOutputTokens) })}\n\n`));
           controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "done", content: finalContent })}\n\n`));
 
           // Extract and store memories
@@ -936,6 +1257,15 @@ serve(async (req) => {
 
           controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "complete" })}\n\n`));
         } catch (err) {
+          if (isGroqRateLimitError(err)) {
+            const fallback = buildRateLimitReplySafe(message);
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "usage", usage: buildUsagePayload(estimateMessageTokens(groqMessages), estimateTokens(fallback)) })}\n\n`));
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "content", text: fallback })}\n\n`));
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "done", content: fallback })}\n\n`));
+            console.warn("chat-adonai rate limited by Groq; served fallback reply");
+            return;
+          }
+
           const errMsg = err instanceof Error ? err.message : "Unknown error";
           controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "error", error: errMsg })}\n\n`));
           console.error("chat-adonai stream error:", errMsg);
