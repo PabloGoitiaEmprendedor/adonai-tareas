@@ -591,6 +591,18 @@ const GoalsPage = () => {
                     </h3>
                   </div>
 
+                  {stats.deadlineDate && (
+                    <div className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-[#1f2937]/10 bg-white/35 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em]" style={{ color: '#4b5563' }}>
+                      <CalendarDays className="h-3.5 w-3.5" />
+                      <span>{stats.deadlineDate.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })}</span>
+                      {stats.daysLeft !== null && (
+                        <span className="text-[9px] font-black tracking-[0.12em] opacity-70">
+                          {stats.daysLeft <= 0 ? 'Hoy' : `En ${Math.max(0, stats.daysLeft)} d`}
+                        </span>
+                      )}
+                    </div>
+                  )}
+
                   {/* Pencil progress bar */}
                   {hasDeadline && (
                     <div className="mt-3 space-y-1">

@@ -42,9 +42,16 @@ Available skills:
 - fal-ai-media — AI image/video/audio generation via fal.ai
 - dmux-workflows — Multi-agent orchestration with dmux
 
+- higgsfield-generate - Higgsfield image/video generation through the authenticated CLI
+- higgsfield-product-photoshoot - Higgsfield product and marketplace visual generation
+- higgsfield-marketplace-cards - Higgsfield marketplace card asset generation
+- higgsfield-soul-id - Higgsfield Soul ID character/reference training
+
 ## MCP Servers
 
-Treat the project-local `.codex/config.toml` as the default Codex baseline for ECC. The current ECC baseline enables GitHub, Context7, Exa, Memory, Playwright, and Sequential Thinking; add heavier extras in `~/.codex/config.toml` only when a task actually needs them.
+Treat the project-local `.codex/config.toml` as the default Codex baseline for ECC. The current ECC baseline enables GitHub, Context7, Exa, Higgsfield, Memory, Playwright, and Sequential Thinking; add heavier extras in `~/.codex/config.toml` only when a task actually needs them.
+
+Use Higgsfield for design-media work when available: AI-generated images, cinematic product/media assets, video concepts, image-to-video, character/reference generation, and visual campaign assets. Before spending Higgsfield credits or launching remote generation jobs, confirm the exact asset request with the user.
 
 ECC's canonical Codex section name is `[mcp_servers.context7]`. The launcher package remains `@upstash/context7-mcp`; only the TOML section name is normalized for consistency with `codex mcp list` and the reference config.
 

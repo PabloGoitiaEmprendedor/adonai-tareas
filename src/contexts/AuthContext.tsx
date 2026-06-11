@@ -76,10 +76,30 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (mounted) setLoading(false);
     };
 
+    const restoreInternalSession = async () => {
+      try {
+        const { data, error } = await supabase.auth.getSession();
+        if (error) throw error;
+        if (!data.session?.user) return false;
+
+        if (!mounted) return true;
+        setSession(data.session);
+        setUser(data.session.user);
+        setHasAnonymousData(false);
+        setLoading(false);
+        return true;
+      } catch (error) {
+        console.warn('[Auth] Failed to restore internal Supabase session', error);
+        return false;
+      }
+    };
+
     const syncClerkToSupabase = async () => {
       if (!userLoaded || !sessionLoaded) return;
 
       if (!clerkUser) {
+        const restored = await restoreInternalSession();
+        if (restored) return;
         await clearInternalSession();
         return;
       }

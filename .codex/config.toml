@@ -31,34 +31,43 @@ persistent_instructions = "Follow project AGENTS.md guidelines. Prefer project-l
 # Keep the default project set lean. API-backed servers inherit credentials from
 # the launching environment or can be supplied by a user-level ~/.codex/config.toml.
 [mcp_servers.github]
-command = "npx"
+command = "npx.cmd"
 args = ["-y", "@modelcontextprotocol/server-github"]
-startup_timeout_sec = 30
+startup_timeout_sec = 120
 
 [mcp_servers.context7]
-command = "npx"
+command = "npx.cmd"
 # Canonical Codex section name is `context7`; the package itself remains
 # `@upstash/context7-mcp`.
 args = ["-y", "@upstash/context7-mcp@latest"]
-startup_timeout_sec = 30
+startup_timeout_sec = 120
 
 [mcp_servers.exa]
 url = "https://mcp.exa.ai/mcp"
 
+[mcp_servers.higgsfield]
+url = "https://mcp.higgsfield.ai/mcp"
+
+[mcp_servers.higgsfield.tools.show_marketing_studio]
+approval_mode = "approve"
+
+[mcp_servers.higgsfield.tools.generate_image]
+approval_mode = "approve"
+
 [mcp_servers.memory]
-command = "npx"
+command = "npx.cmd"
 args = ["-y", "@modelcontextprotocol/server-memory"]
-startup_timeout_sec = 30
+startup_timeout_sec = 120
 
 [mcp_servers.playwright]
-command = "npx"
+command = "npx.cmd"
 args = ["-y", "@playwright/mcp@latest", "--extension"]
-startup_timeout_sec = 30
+startup_timeout_sec = 120
 
 [mcp_servers.sequential-thinking]
-command = "npx"
+command = "npx.cmd"
 args = ["-y", "@modelcontextprotocol/server-sequential-thinking"]
-startup_timeout_sec = 30
+startup_timeout_sec = 120
 
 # Additional MCP servers (uncomment as needed):
 # [mcp_servers.supabase]
@@ -81,17 +90,6 @@ startup_timeout_sec = 30
 # Codex multi-agent collaboration is stable and on by default in current builds.
 # Keep the explicit toggle here so the repo documents its expectation clearly.
 multi_agent = true
-
-# Profiles — switch with `codex -p <name>`
-[profiles.strict]
-approval_policy = "on-request"
-sandbox_mode = "read-only"
-web_search = "cached"
-
-[profiles.yolo]
-approval_policy = "never"
-sandbox_mode = "workspace-write"
-web_search = "live"
 
 [agents]
 # Multi-agent role limits and local role definitions.

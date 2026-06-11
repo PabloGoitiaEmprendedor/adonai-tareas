@@ -11,8 +11,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTasks } from '@/hooks/useTasks';
 import { useFolders } from '@/hooks/useFolders';
 import { format, parseISO, addMinutes, startOfMonth, endOfMonth } from 'date-fns';
-import { Check, CalendarDays, Plus, Repeat, Paperclip, X } from 'lucide-react';
+import { Check, CalendarDays, Plus, Repeat, Paperclip, X, ChevronsLeft, Search, Music, Clock3, Pause, Play, Folder, ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useQuery } from '@tanstack/react-query';
 import TaskCaptureModal, { type TaskCaptureModalHandle } from '@/components/TaskCaptureModal';
 import TaskDetailModal from '@/components/TaskDetailModal';
 import QuickRecurrenceFlow from '@/components/QuickRecurrenceFlow';
@@ -27,7 +28,9 @@ import { useTheme } from '@/contexts/ThemeProvider';
 import AdonaiCalendarView from '@/components/calendar/AdonaiCalendarView';
 import { useCalendarEvents } from '@/hooks/useCalendarEvents';
 import { compareTasksWithinQuadrants, getTaskManualOrderGroupKey } from '@/lib/taskOrdering';
+import { buildTaskDateSections, getFutureTaskGroupLabel } from '@/lib/taskDateGroups';
 import { trackAnalyticsEvent } from '@/lib/analytics';
+import { supabase } from '@/integrations/supabase/client';
 import {
   readStoredCalendarDate,
   readStoredCalendarViewMode,
@@ -45,12 +48,17 @@ type MiniTask = {
  description?: string | null;
  due_date?: string | null;
  folder_id?: string | null;
+ parent_task_id?: string | null;
  urgency?: boolean | null;
  importance?: boolean | null;
  estimated_minutes?: number | null;
- actual_duration_seconds?: number | null;
- recurrence_id?: string | null;
- sort_order?: number | null;
+  actual_duration_seconds?: number | null;
+  recurrence_id?: string | null;
+  sort_order?: number | null;
+  subtasks?: unknown[] | null;
+  subtasks_count?: number | null;
+  subtask_count?: number | null;
+  children?: unknown[] | null;
 };
 
 type MiniTaskMutation = {
@@ -66,12 +74,13 @@ type MiniFolder = {
 
 const FOLDER_COLORS = ['#5B7CFA', '#4F6EE8', '#6FCF97', '#F4B860', '#EB5757', '#7C97FF', '#9CA3AF', '#E5E7EB'];
 
-const PANEL_W = 340;
-const PANEL_H = 500;
+const PANEL_W = 408;
+const PANEL_H = 550;
 const CALENDAR_W = 600;
-const PILL_W = 100;
-const PILL_H = 52;
-const PILL_TIMER_W = 130;
+const PILL_W = 24;
+const PILL_H = 104;
+const PILL_TIMER_W = 24;
+const MINI_FOLDER_TABS_STORAGE_KEY = 'adonai_mini_folder_tabs_open';
 const CURSOR_CLICK = 'var(--cursor-hand-point), pointer';
 const CURSOR_GRAB = 'var(--cursor-hand), grab';
 
@@ -172,11 +181,27 @@ const TaskRowRaw = ({ task, taskIdx, onToggle, onDetail, activeTimerId, onTimerT
  taskIdx?: number; onReorderPointerStart?: (idx: number, clientX: number, clientY: number) => void;
 }) => {
  const isDone = task.status === 'done';
- const [open, setOpen] = useState(false);
+ const visibleSubtasks = useMemo(() => {
+ const raw = Array.isArray(task.children) ? task.children : Array.isArray(task.subtasks) ? task.subtasks : [];
+ return raw.filter((item): item is MiniTask => Boolean(item && typeof item === 'object' && 'id' in item && 'title' in item));
+ }, [task.children, task.subtasks]);
+ const hasSubtasks = Boolean(
+   visibleSubtasks.length > 0 ||
+   (typeof task.subtasks_count === 'number' && task.subtasks_count > 0) ||
+   (typeof task.subtask_count === 'number' && task.subtask_count > 0)
+ );
+  const { createTask } = useTasks();
+  const [open, setOpen] = useState(false);
  const isTimerActive = activeTimerId === task.id;
  const [isEditing, setIsEditing] = useState(false);
  const [draftTitle, setDraftTitle] = useState(task.title);
- const editorRef = useRef<HTMLTextAreaElement | null>(null);
+  const [isSubtaskOpen, setIsSubtaskOpen] = useState(false);
+  const [subtaskTitle, setSubtaskTitle] = useState('');
+  const editorRef = useRef<HTMLTextAreaElement | null>(null);
+  const subtaskEditorRef = useRef<HTMLTextAreaElement | null>(null);
+  const reorderPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+ const reorderStartRef = useRef<{ x: number; y: number; type: string } | null>(null);
+ const suppressDetailClickRef = useRef(false);
 
  const resizeEditor = useCallback(() => {
  const editor = editorRef.current;
@@ -190,11 +215,11 @@ const TaskRowRaw = ({ task, taskIdx, onToggle, onDetail, activeTimerId, onTimerT
  resizeEditor();
  }, [draftTitle, isEditing, resizeEditor]);
 
- const submitEdit = () => {
- setIsEditing(false);
- const normalizedTitle = draftTitle.replace(/\r\n/g, '\n');
- if (normalizedTitle.trim() && normalizedTitle !== task.title) {
- updateTask.mutate({ id: task.id, title: normalizedTitle });
+  const submitEdit = () => {
+  setIsEditing(false);
+  const normalizedTitle = draftTitle.replace(/\r\n/g, '\n');
+  if (normalizedTitle.trim() && normalizedTitle !== task.title) {
+  updateTask.mutate({ id: task.id, title: normalizedTitle });
  } else {
  setDraftTitle(task.title);
  }
@@ -210,8 +235,7 @@ const TaskRowRaw = ({ task, taskIdx, onToggle, onDetail, activeTimerId, onTimerT
  const priorityColor = getTaskPriorityColor();
  const timerHoverColor = priorityColor === 'transparent'? 'rgba(31,41,55,0.075)': `${priorityColor}26`;
  const actualSeconds = task.actual_duration_seconds || 0;
-
- const buildCalendarEvent = useCallback(() => {
+  const buildCalendarEvent = useCallback(() => {
  const parsed = parseTimeFromDescription(task.description);
  const dateStr = task.due_date || format(currentDate, 'yyyy-MM-dd');
  const startTime = parsed? parseISO(`${dateStr}T${parsed.start}:00`): parseISO(`${dateStr}T08:00:00`);
@@ -316,13 +340,70 @@ const TaskRowRaw = ({ task, taskIdx, onToggle, onDetail, activeTimerId, onTimerT
  window.addEventListener('touchcancel', onEnd);
  }, [endExternalDrag, ensureCalendarOpen, moveExternalDrag, startExternalDrag]);
 
+ const clearReorderPressTimer = () => {
+ if (reorderPressTimerRef.current) {
+ clearTimeout(reorderPressTimerRef.current);
+ reorderPressTimerRef.current = null;
+ }
+ };
+
+ const handleRowPointerDown = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+ const target = event.target as HTMLElement;
+ if (
+ isDone ||
+ isEditing ||
+ taskIdx === undefined ||
+ !onReorderPointerStart ||
+ target.closest('button, a, input, textarea, select')
+ ) {
+ return;
+ }
+
+ reorderStartRef.current = { x: event.clientX, y: event.clientY, type: event.pointerType };
+ clearReorderPressTimer();
+ reorderPressTimerRef.current = setTimeout(() => {
+ const start = reorderStartRef.current;
+ if (!start) return;
+ suppressDetailClickRef.current = true;
+ if ('vibrate' in navigator) navigator.vibrate(18);
+ onReorderPointerStart(taskIdx, start.x, start.y);
+ }, event.pointerType === 'touch' ? 300 : 170);
+ }, [isDone, isEditing, onReorderPointerStart, taskIdx]);
+
+ const handleRowPointerMove = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+ const start = reorderStartRef.current;
+ if (!start || !reorderPressTimerRef.current || start.type !== 'touch') return;
+ if (Math.hypot(event.clientX - start.x, event.clientY - start.y) > 10) {
+ clearReorderPressTimer();
+ reorderStartRef.current = null;
+ }
+ }, []);
+
+ const handleRowPointerEnd = useCallback(() => {
+ clearReorderPressTimer();
+ reorderStartRef.current = null;
+ }, []);
+
+ const handleRowDetail = useCallback(() => {
+ if (suppressDetailClickRef.current) {
+ suppressDetailClickRef.current = false;
+ return;
+ }
+ onDetail(task);
+ }, [onDetail, task]);
+
  return (
  <motion.div layout initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
  exit={{ opacity: 0, scale: 0.95 }} style={{ marginBottom: 0 }}>
  <div 
- onClick={() => onDetail(task)}
- style={{
- display: 'flex', alignItems: 'flex-start', gap: 9, padding: '10px 0 10px 0',
+ className="group/task"
+ onClick={handleRowDetail}
+ onPointerDown={handleRowPointerDown}
+ onPointerMove={handleRowPointerMove}
+ onPointerUp={handleRowPointerEnd}
+ onPointerCancel={handleRowPointerEnd}
+  style={{
+  display: 'flex', alignItems: 'flex-start', gap: 9, padding: '10px 0 10px 0', flexWrap: 'wrap',
  borderRadius: 0, cursor: CURSOR_GRAB,
  background: 'transparent',
  borderTop: 'none',
@@ -331,55 +412,13 @@ const TaskRowRaw = ({ task, taskIdx, onToggle, onDetail, activeTimerId, onTimerT
  opacity: isDone? 0.45: 1,
  }}
  >
- {!isDone? (
- <div
- className="cursor-grab active:cursor-grabbing"
- onClick={(e) => e.stopPropagation()}
- onMouseDown={(event) => {
- event.preventDefault();
- event.stopPropagation();
- if (taskIdx === undefined) return;
- onReorderPointerStart?.(taskIdx, event.clientX, event.clientY);
- }}
- onTouchStart={(event) => {
- event.stopPropagation();
- const touch = event.touches[0];
- if (taskIdx === undefined || !touch) return;
- onReorderPointerStart?.(taskIdx, touch.clientX, touch.clientY);
- }}
- title="Arrastra para ordenar"
- aria-label="Arrastra para ordenar"
- style={{
- width: 18,
- height: 34,
- flexShrink: 0,
- borderRadius: 7,
- display: 'flex',
- alignItems: 'center',
- justifyContent: 'center',
- color: 'rgba(31,41,55,0.42)',
- opacity: 1,
- cursor: 'var(--cursor-hand), grab',
- touchAction: 'none',
- }}
- >
- <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
- <span style={{ width: 4, height: 4, borderRadius: 999, background: 'currentColor', opacity: 0.82 }} />
- <span style={{ width: 4, height: 4, borderRadius: 999, background: 'currentColor', opacity: 0.45 }} />
- <span style={{ width: 4, height: 4, borderRadius: 999, background: 'currentColor', opacity: 0.82 }} />
- </span>
- </div>
- ): (
- <div style={{ width: 16, flexShrink: 0 }} />
- )}
-
  <div 
  onClick={(e) => { e.stopPropagation(); onToggle(task); }} 
  style={{ flexShrink: 0 }}
  >
  <TaskCheckbox checked={isDone} priorityColor={priorityColor} size="sm" />
  </div>
- 
+
  <div style={{ flex: 1, minWidth: 0, paddingTop: 1 }}>
  {isEditing? (
  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
@@ -405,7 +444,7 @@ const TaskRowRaw = ({ task, taskIdx, onToggle, onDetail, activeTimerId, onTimerT
  onClick={e => e.stopPropagation()}
  rows={Math.max(2, draftTitle.split('\n').length)}
  style={{
- width: '100%', minHeight: 34, fontSize: 13, fontWeight: 650, lineHeight: 1.35,
+ width: '100%', minHeight: 34, fontSize: 15, fontWeight: 650, lineHeight: 1.34,
  color: C.text, background: 'transparent', border: 'none',
  borderBottom: `1px solid ${C.accent}`, outline: 'none', padding: 0,
  resize: 'none', overflow: 'hidden', whiteSpace: 'pre-wrap',
@@ -420,7 +459,7 @@ const TaskRowRaw = ({ task, taskIdx, onToggle, onDetail, activeTimerId, onTimerT
  width: 24, height: 24, borderRadius: 6, flexShrink: 0,
  background: C.accentSoft,
  border: `1px solid ${C.accentBorder}`,
- display: 'flex', alignItems: 'center', justifyContent: 'center',
+ display: 'none', alignItems: 'center', justifyContent: 'center',
  cursor: CURSOR_CLICK,
  }}
  title="Guardar"
@@ -450,7 +489,7 @@ const TaskRowRaw = ({ task, taskIdx, onToggle, onDetail, activeTimerId, onTimerT
  onClick={(e) => { e.stopPropagation(); setIsEditing(true); setDraftTitle(task.title); }}
  title="Haz clic para editar"
  style={{
- display: 'block', fontSize: 13, fontWeight: 650, lineHeight: 1.38,
+ display: 'block', fontSize: 15, fontWeight: 650, lineHeight: 1.34,
  color: isDone? C.muted: C.text,
  textDecoration: isDone? 'line-through': 'none',
  cursor: 'text',
@@ -463,9 +502,107 @@ const TaskRowRaw = ({ task, taskIdx, onToggle, onDetail, activeTimerId, onTimerT
  </span>
  )}
 
- </div>
+  </div>
 
- {/* Link / Timer / Duration Result */}
+  {isSubtaskOpen && !isDone && (
+    <div style={{ flexBasis: '100%', width: '100%', paddingLeft: 31, marginTop: 2 }} data-no-drag="true">
+      {visibleSubtasks.map((subtask) => {
+        const subtaskDone = subtask.status === 'done';
+        return (
+          <div
+            key={subtask.id}
+            onClick={(event) => event.stopPropagation()}
+            style={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: 8,
+              minHeight: 28,
+              padding: '4px 0',
+              borderTop: '1px solid rgba(31,41,55,0.055)',
+            }}
+          >
+            <TaskCheckbox
+              checked={subtaskDone}
+              priorityColor={priorityColor}
+              size="sm"
+              onClick={(event) => {
+                event.stopPropagation();
+                updateTask.mutate({ id: subtask.id, status: subtaskDone ? 'pending' : 'done' });
+              }}
+              ariaLabel="Completar subtarea"
+            />
+            <span
+              style={{
+                flex: 1,
+                minWidth: 0,
+                paddingTop: 1,
+                color: subtaskDone ? C.muted : C.text,
+                fontSize: 13.5,
+                fontWeight: 620,
+                lineHeight: 1.28,
+                textDecoration: subtaskDone ? 'line-through' : 'none',
+                overflowWrap: 'anywhere',
+                wordBreak: 'break-word',
+              }}
+            >
+              {subtask.title}
+            </span>
+          </div>
+        );
+      })}
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, minHeight: 30, padding: '4px 0' }}>
+        <TaskCheckbox checked={false} priorityColor={priorityColor} size="sm" onClick={() => subtaskEditorRef.current?.focus()} ariaLabel="Nueva subtarea" />
+        <textarea
+          ref={subtaskEditorRef}
+          value={subtaskTitle}
+          onChange={(event) => setSubtaskTitle(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' && !event.shiftKey) {
+              event.preventDefault();
+              const title = subtaskTitle.trim();
+              if (!title) return;
+              createTask.mutate({
+                title,
+                parent_task_id: task.id,
+                due_date: task.due_date || format(currentDate, 'yyyy-MM-dd'),
+                folder_id: task.folder_id || null,
+                urgency: task.urgency ?? undefined,
+                importance: task.importance ?? undefined,
+                estimated_minutes: task.estimated_minutes ?? undefined,
+                creation_source: 'subtask',
+              });
+              setSubtaskTitle('');
+              setIsSubtaskOpen(true);
+              window.setTimeout(() => subtaskEditorRef.current?.focus(), 0);
+            }
+            if (event.key === 'Escape') {
+              setIsSubtaskOpen(false);
+              setSubtaskTitle('');
+            }
+          }}
+          onClick={(event) => event.stopPropagation()}
+          placeholder="Nueva subtarea"
+          rows={1}
+          style={{
+            flex: 1,
+            minWidth: 0,
+            minHeight: 20,
+            resize: 'none',
+            background: 'transparent',
+            border: 'none',
+            outline: 'none',
+            color: C.text,
+            fontSize: 13.5,
+            fontWeight: 620,
+            lineHeight: 1.25,
+            overflow: 'hidden',
+          }}
+        />
+      </div>
+    </div>
+  )}
+
+  {/* Link / Timer / Duration Result */}
  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
  {isDone? (
  actualSeconds > 0 && (
@@ -509,6 +646,40 @@ const TaskRowRaw = ({ task, taskIdx, onToggle, onDetail, activeTimerId, onTimerT
  style={{ '--mini-task-timer-hover': timerHoverColor } as CSSProperties}
  onClick={(e) => { e.stopPropagation(); onTimerToggle(task.id, task.estimated_minutes || 30); }}
  />
+ {!isDone && (
+     <button
+       type="button"
+       onClick={(e) => {
+         e.stopPropagation();
+         setIsSubtaskOpen((value) => {
+           const next = !value;
+           if (next) window.setTimeout(() => subtaskEditorRef.current?.focus(), 0);
+           return next;
+         });
+       }}
+     aria-label={isSubtaskOpen ? 'Recoger subtarea' : 'Desplegar subtarea'}
+     style={{
+       minHeight: 22,
+       minWidth: 22,
+       padding: 0,
+       border: '1px solid rgba(31,41,55,0.08)',
+       borderRadius: 999,
+       background: hasSubtasks || isSubtaskOpen ? 'rgba(91,124,250,0.10)' : 'rgba(255,255,255,0.34)',
+       color: hasSubtasks || isSubtaskOpen ? 'hsl(var(--primary))' : 'rgba(75,85,99,0.46)',
+       display: 'flex',
+       alignItems: 'center',
+       justifyContent: 'center',
+       gap: 4,
+       cursor: CURSOR_CLICK,
+       flexShrink: 0,
+       opacity: hasSubtasks || isSubtaskOpen ? 1 : 0,
+       transition: 'opacity 120ms ease, color 120ms ease, background 120ms ease, border-color 120ms ease',
+     }}
+     className={!hasSubtasks ? 'group-hover/task:opacity-100' : undefined}
+   >
+     <ChevronDown style={{ width: 13, height: 13, strokeWidth: 2.5 }} />
+   </button>
+ )}
  </>
  ) : null}
  </div>
@@ -517,6 +688,73 @@ const TaskRowRaw = ({ task, taskIdx, onToggle, onDetail, activeTimerId, onTimerT
  );
 };
 const TaskRow = memo(TaskRowRaw);
+
+const snapCollapsedMiniToEdge = async () => {
+ const api = window.electronAPI;
+ if (!api?.getMiniPosition || !api?.setMiniBounds) return;
+ const pos = await api.getMiniPosition();
+ if (!pos || pos.w > 160 || pos.h > 140) return;
+
+ const distances = [
+ { edge: 'left', value: Math.abs(pos.x - pos.screenX) },
+ { edge: 'right', value: Math.abs(pos.screenX + pos.screenW - (pos.x + pos.w)) },
+ { edge: 'top', value: Math.abs(pos.y - pos.screenY) },
+ { edge: 'bottom', value: Math.abs(pos.screenY + pos.screenH - (pos.y + pos.h)) },
+ ].sort((a, b) => a.value - b.value);
+
+ let x = pos.x;
+ let y = pos.y;
+ const edge = distances[0]?.edge;
+ if (edge === 'left') x = pos.screenX;
+ if (edge === 'right') x = pos.screenX + pos.screenW - pos.w;
+ if (edge === 'top') y = pos.screenY;
+ if (edge === 'bottom') y = pos.screenY + pos.screenH - pos.h;
+
+ x = Math.max(pos.screenX, Math.min(x, pos.screenX + pos.screenW - pos.w));
+ y = Math.max(pos.screenY, Math.min(y, pos.screenY + pos.screenH - pos.h));
+ api.setMiniBounds({ x: Math.round(x), y: Math.round(y), w: pos.w, h: pos.h });
+};
+
+const MiniIconButton = ({
+ children,
+ title,
+ onClick,
+ disabled = false,
+}: {
+ children: React.ReactNode;
+ title: string;
+ onClick?: () => void;
+ disabled?: boolean;
+}) => (
+ <button
+ type="button"
+ title={title}
+ aria-label={title}
+ disabled={disabled}
+ onMouseDown={(event) => event.stopPropagation()}
+ onClick={(event) => {
+ event.stopPropagation();
+ if (!disabled) onClick?.();
+ }}
+ style={{
+ width: 32,
+ height: 32,
+ borderRadius: 999,
+ border: '1px solid rgba(31,41,55,0.11)',
+ background: disabled ? 'rgba(255,255,255,0.28)' : 'rgba(255,255,255,0.62)',
+ color: disabled ? 'rgba(31,41,55,0.22)' : 'rgba(31,41,55,0.74)',
+ boxShadow: disabled ? 'none' : '0 8px 18px rgba(31,41,55,0.10), inset 0 1px 0 rgba(255,255,255,0.78)',
+ display: 'flex',
+ alignItems: 'center',
+ justifyContent: 'center',
+ cursor: disabled ? 'default' : CURSOR_CLICK,
+ padding: 0,
+ flexShrink: 0,
+ }}
+ >
+ {children}
+ </button>
+);
 
 // â”€â”€â”€ Drag hook â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function useDragWindow() {
@@ -539,6 +777,9 @@ function useDragWindow() {
  }
  isDraggingRef.current = false;
  window.electronAPI?.stopDrag?.();
+ window.setTimeout(() => {
+ void snapCollapsedMiniToEdge();
+ }, 30);
  }
  };
  window.addEventListener('mouseup', onUp);
@@ -579,6 +820,7 @@ const MiniTaskList = () => {
   date: today, 
   excludeEvents: false
   });
+  const { tasks: allMiniTasks } = useTasks({ excludeEvents: false });
   const rangeStart = startOfMonth(viewDate);
   const rangeEnd = endOfMonth(viewDate);
   const { events: googleCalendarEvents } = useCalendarEvents(
@@ -599,9 +841,28 @@ const MiniTaskList = () => {
  is_electron: Boolean(window.electronAPI),
  });
  }, []);
- const [isExpanded, setIsExpanded] = useState(false);
+ const [isExpanded, setIsExpanded] = useState(() => !window.electronAPI);
  const [isReady, setIsReady] = useState(false);
- const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
+  const [showFolderTabs, setShowFolderTabs] = useState(() => {
+    try {
+      return localStorage.getItem(MINI_FOLDER_TABS_STORAGE_KEY) !== 'false';
+    } catch {
+      return true;
+    }
+  });
+ useEffect(() => {
+  try {
+    localStorage.setItem(MINI_FOLDER_TABS_STORAGE_KEY, showFolderTabs ? 'true' : 'false');
+  } catch {
+    // LocalStorage can be unavailable in restricted embedded contexts.
+  }
+ }, [showFolderTabs]);
+  const [miniSearchQuery, setMiniSearchQuery] = useState('');
+ const [miniSearchOpen, setMiniSearchOpen] = useState(false);
+  const [focusTimerMenuOpen, setFocusTimerMenuOpen] = useState(false);
+  const [focusTimerPaused, setFocusTimerPaused] = useState(false);
+ const [showUpcomingDays, setShowUpcomingDays] = useState(true);
  const [isCreatingFolder, setIsCreatingFolder] = useState(false);
  const [newFolderName, setNewFolderName] = useState('');
  const [newFolderColor, setNewFolderColor] = useState(FOLDER_COLORS[0]);
@@ -620,12 +881,48 @@ const MiniTaskList = () => {
  const sessionStartRef = useRef<number>(0);
  const captureModalRef = useRef<TaskCaptureModalHandle>(null);
 
- const openTextCapture = useCallback(() => {
- setCaptureMode('text');
- setCaptureCreationSource('mini_plus');
- setCaptureOpen(true);
- captureModalRef.current?.openInTextMode(today);
- }, [today]);
+  const openTextCapture = useCallback((date = today) => {
+  setCaptureMode('text');
+  setCaptureCreationSource('mini_plus');
+  setCaptureOpen(true);
+  captureModalRef.current?.openInTextMode(date);
+  }, [today]);
+
+ const startFocusTimer = useCallback((minutes: number) => {
+  if (!Number.isFinite(minutes) || minutes <= 0) return;
+  if (timerRef.current) clearInterval(timerRef.current);
+  setActiveTimerId('__focus_timer__');
+  setTimerSeconds(Math.round(minutes * 60));
+  setFocusTimerPaused(false);
+  setFocusTimerMenuOpen(false);
+  }, []);
+
+  useEffect(() => {
+  if (activeTimerId !== '__focus_timer__') return;
+  if (focusTimerPaused) {
+    if (timerRef.current) clearInterval(timerRef.current);
+    timerRef.current = null;
+    return;
+  }
+
+  if (timerRef.current) clearInterval(timerRef.current);
+  timerRef.current = setInterval(() => {
+    setTimerSeconds((seconds) => seconds - 1);
+  }, 1000);
+
+  return () => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    timerRef.current = null;
+  };
+  }, [activeTimerId, focusTimerPaused]);
+
+ const openFocusTimerPrompt = useCallback(() => {
+ const raw = window.prompt('Cuantos minutos quieres contar?', '25');
+ if (!raw) return;
+ const minutes = Number(raw.replace(',', '.'));
+ if (!Number.isFinite(minutes) || minutes <= 0) return;
+ startFocusTimer(minutes);
+ }, [startFocusTimer]);
 
  const { onMouseDown: onDragMouseDown, hasMovedRef, isDraggingRef: isDraggingWindowRef } = useDragWindow();
 
@@ -650,9 +947,9 @@ const MiniTaskList = () => {
  // Timer logic
  const handleTimerToggle = useCallback((taskId: string, estimatedMinutes: number = 30) => {
  // 1. If there's an active timer, stop it and save progress first
- if (activeTimerId) {
- if (timerRef.current) clearInterval(timerRef.current);
- timerRef.current = null;
+  if (activeTimerId) {
+  if (timerRef.current) clearInterval(timerRef.current);
+  timerRef.current = null;
 
  const activeTask = tasks.find((t: MiniTask) => t.id === activeTimerId);
  if (activeTask) {
@@ -661,12 +958,13 @@ const MiniTaskList = () => {
  updateTask.mutate({ id: activeTimerId, actual_duration_seconds: newTotal });
  }
 
- const wasSameTask = activeTimerId === taskId;
- setActiveTimerId(null);
- setTimerSeconds(0);
- 
- if (wasSameTask) return; // We just wanted to stop it
- }
+  const wasSameTask = activeTimerId === taskId;
+  setActiveTimerId(null);
+  setTimerSeconds(0);
+  setFocusTimerPaused(false);
+  
+  if (wasSameTask) return; // We just wanted to stop it
+  }
 
  // 2. Start the new timer
  const targetTask = tasks.find((t: MiniTask) => t.id === taskId);
@@ -719,22 +1017,32 @@ if (!isExpanded) {
 
  const pillCX = pos.x + pos.w / 2;
  const pillCY = pos.y + pos.h / 2;
+ const windowW = PANEL_W + 48;
+ const screenLeft = pos.screenX;
+ const screenTop = pos.screenY;
+ const screenRight = pos.screenX + pos.screenW;
+ const screenBottom = pos.screenY + pos.screenH;
+ const edge = [
+ { name: 'left', value: Math.abs(pos.x - screenLeft) },
+ { name: 'right', value: Math.abs(screenRight - (pos.x + pos.w)) },
+ { name: 'top', value: Math.abs(pos.y - screenTop) },
+ { name: 'bottom', value: Math.abs(screenBottom - (pos.y + pos.h)) },
+ ].sort((a, b) => a.value - b.value)[0]?.name;
 
- // Center panel on pill, then clamp to screen work area
- let panelX = pillCX - PANEL_W / 2;
+ let panelX = pillCX - windowW / 2;
  let panelY = pillCY - PANEL_H / 2;
 
- // Clamp X to screen
- const maxX = pos.screenX + pos.screenW - PANEL_W;
- panelX = Math.max(pos.screenX, Math.min(panelX, maxX));
+ if (edge === 'right') panelX = pos.x + pos.w - windowW;
+ if (edge === 'left') panelX = pos.x;
+ if (edge === 'bottom') panelY = pos.y + pos.h - PANEL_H;
+ if (edge === 'top') panelY = pos.y;
 
- // Clamp Y to screen
- const maxY = pos.screenY + pos.screenH - PANEL_H;
- panelY = Math.max(pos.screenY, Math.min(panelY, maxY));
+ const maxX = screenRight - windowW;
+ const maxY = screenBottom - PANEL_H;
+ panelX = Math.max(screenLeft, Math.min(panelX, maxX));
+ panelY = Math.max(screenTop, Math.min(panelY, maxY));
 
- // Add 32px buffer for the protruding calendar tab
- const WINDOW_W = PANEL_W + 32;
- api.setMiniBounds({ x: Math.round(panelX), y: Math.round(panelY), w: WINDOW_W, h: PANEL_H });
+ api.setMiniBounds({ x: Math.round(panelX), y: Math.round(panelY), w: windowW, h: PANEL_H });
  setIsExpanded(true);
  } else {
  // COLLAPSING — restore pill to original saved position
@@ -783,7 +1091,9 @@ if (!isExpanded) {
  // Only expand if not already wide enough
  const expandedWidth = PANEL_W + CALENDAR_W;
  if (pos && pos.w < expandedWidth) {
- api.setMiniBounds({ x: pos.x, y: pos.y, w: expandedWidth, h: pos.h });
+ const screenRight = pos.screenX + pos.screenW;
+ const nextX = Math.max(pos.screenX, Math.min(pos.x, screenRight - expandedWidth));
+ api.setMiniBounds({ x: nextX, y: pos.y, w: expandedWidth, h: pos.h });
  }
  }
  }, []);
@@ -868,7 +1178,8 @@ if (!isExpanded) {
  // Hide window until session is ready and user is authenticated
  useEffect(() => {
  if (!loading) {
- const ready =!!user;
+ const previewMode = !window.electronAPI;
+ const ready = previewMode || !!user;
  setIsReady(ready);
  
  // Initial state: ignore mouse events if collapsed so background is clickable
@@ -878,7 +1189,7 @@ if (!isExpanded) {
  window.electronAPI?.setIgnoreMouseEvents?.(false);
  }
  
- window.electronAPI?.miniReady?.({ hasSession: ready });
+ window.electronAPI?.miniReady?.({ hasSession: !!user });
 
  if (ready &&!hasInteractedRef.current) {
  setShowLedGlow(true);
@@ -909,11 +1220,12 @@ if (!isExpanded) {
  const newTotal = (activeTask.actual_duration_seconds || 0) + sessionElapsed;
  updateTask.mutate({ id: activeTimerId, actual_duration_seconds: newTotal });
 
- if (timerRef.current) clearInterval(timerRef.current);
- timerRef.current = null;
- setActiveTimerId(null);
- setTimerSeconds(0);
- }
+  if (timerRef.current) clearInterval(timerRef.current);
+  timerRef.current = null;
+  setActiveTimerId(null);
+  setTimerSeconds(0);
+  setFocusTimerPaused(false);
+  }
  }
  }, [tasks, activeTimerId, updateTask]);
 
@@ -921,13 +1233,78 @@ if (!isExpanded) {
  const todayTasks = tasks.filter((t: MiniTask) =>
  t.due_date === today || (t.due_date && t.due_date < today && t.status !== 'done')
  );
- if (!selectedFolderId) return todayTasks.filter((t: MiniTask) => !t.folder_id);
- return todayTasks.filter((t: MiniTask) => t.folder_id === selectedFolderId);
- }, [tasks, selectedFolderId, today]);
+ const folderTasks = !selectedFolderId
+ ? todayTasks.filter((t: MiniTask) => !t.folder_id)
+ : todayTasks.filter((t: MiniTask) => t.folder_id === selectedFolderId);
+ const query = miniSearchQuery.trim().toLowerCase();
+ if (!query) return folderTasks;
+ return folderTasks.filter((t: MiniTask) => {
+ const title = t.title?.toLowerCase() || '';
+ const link = t.link?.toLowerCase() || '';
+ return title.includes(query) || link.includes(query);
+ });
+ }, [tasks, selectedFolderId, today, miniSearchQuery]);
 
  const sortedTasks = useMemo(() => {
  return [...filteredTasks].sort(compareTasksWithinQuadrants);
  }, [filteredTasks]);
+
+ const upcomingTasksByDate = useMemo(() => {
+ const query = miniSearchQuery.trim().toLowerCase();
+ const futureTasks = allMiniTasks
+ .filter((task: MiniTask) => task.status !== 'deleted')
+ .filter((task: MiniTask) => task.due_date && task.due_date > today)
+ .filter((task: MiniTask) => (selectedFolderId ? task.folder_id === selectedFolderId : !task.folder_id))
+ .filter((task: MiniTask) => {
+ if (!query) return true;
+ const title = task.title?.toLowerCase() || '';
+ const link = task.link?.toLowerCase() || '';
+ return title.includes(query) || link.includes(query);
+ });
+
+  return buildTaskDateSections(futureTasks, new Date(today)).futureGroups.map((day) => ({
+  ...day,
+  tasks: [...day.tasks].sort(compareTasksWithinQuadrants),
+  }));
+ }, [allMiniTasks, miniSearchQuery, selectedFolderId, today]);
+
+ const miniParentTaskIds = useMemo(() => {
+ const ids = new Set<string>();
+ sortedTasks.forEach((task) => {
+ if (!task.id.startsWith('virtual-') && !task.id.startsWith('temp-')) ids.add(task.id);
+ });
+ upcomingTasksByDate.forEach((day) => {
+ day.tasks.forEach((task) => {
+ if (task.id && !task.id.startsWith('virtual-') && !task.id.startsWith('temp-')) ids.add(task.id);
+ });
+ });
+ return Array.from(ids);
+ }, [sortedTasks, upcomingTasksByDate]);
+
+ const { data: miniSubtasks = [] } = useQuery({
+ queryKey: ['tasks', user?.id, 'mini-subtasks', miniParentTaskIds],
+ enabled: Boolean(user?.id && miniParentTaskIds.length > 0),
+ queryFn: async () => {
+ const { data, error } = await supabase
+ .from('tasks')
+ .select('*')
+ .in('parent_task_id', miniParentTaskIds)
+ .neq('status', 'deleted')
+ .order('created_at', { ascending: true });
+ if (error) throw error;
+ return (data || []) as MiniTask[];
+ },
+ });
+
+ const subtasksByParent = useMemo(() => {
+ return miniSubtasks.reduce<Record<string, MiniTask[]>>((acc, task) => {
+ const parentId = (task as MiniTask & { parent_task_id?: string | null }).parent_task_id;
+ if (!parentId) return acc;
+ if (!acc[parentId]) acc[parentId] = [];
+ acc[parentId].push(task);
+ return acc;
+ }, {});
+ }, [miniSubtasks]);
 
  useEffect(() => {
  if (suppressOrderSyncRef.current) return;
@@ -1093,14 +1470,15 @@ if (!isExpanded) {
  let finalDuration = task.actual_duration_seconds || 0;
  const isTimerForThisTask = activeTimerId === task.id;
 
- if (isTimerForThisTask) {
- if (timerRef.current) clearInterval(timerRef.current);
- timerRef.current = null;
- const sessionElapsed = Math.floor((Date.now() - sessionStartRef.current) / 1000);
- finalDuration += sessionElapsed;
- setActiveTimerId(null);
- setTimerSeconds(0);
- }
+  if (isTimerForThisTask) {
+  if (timerRef.current) clearInterval(timerRef.current);
+  timerRef.current = null;
+  const sessionElapsed = Math.floor((Date.now() - sessionStartRef.current) / 1000);
+  finalDuration += sessionElapsed;
+  setActiveTimerId(null);
+  setTimerSeconds(0);
+  setFocusTimerPaused(false);
+  }
 
  const estimatedSeconds = (task.estimated_minutes || 0) * 60;
  const isOnTime = estimatedSeconds > 0 && finalDuration <= estimatedSeconds;
@@ -1146,7 +1524,7 @@ if (!isExpanded) {
  );
  }, 350);
  }
- }, [updateTask, tasks, checkAndUnlock, profile?.name, activeTimerId]);
+  }, [updateTask, tasks, checkAndUnlock, profile?.name, activeTimerId]);
 
  // ─── COLLAPSED PILL ───
  if (!isReady) {
@@ -1175,14 +1553,14 @@ if (!isExpanded) {
  }
  handleToggleExpand(e);
  }}
- style={{
- height: activeTimerId? 34: 32, borderRadius: 999,
- padding: activeTimerId? '0 8px 0 7px': '0',
- width: activeTimerId? 'auto': 64,
- minWidth: activeTimerId? 92: 64,
- background: activeTimerId? 'linear-gradient(180deg, rgba(9,18,34,0.99), rgba(5,10,20,0.98))': applePill.background,
- border: `1px solid ${activeTimerId? (timerSeconds < 0? 'rgba(255,122,122,0.34)': 'rgba(124,151,255,0.28)'): applePill.border}`,
- boxShadow: showLedGlow? `0 0 0 0 rgba(62, 92, 200, 0.16), 0 0 16px 2px ${C.accentGlow}, 0 0 28px 4px rgba(62, 92, 200, 0.07), inset 0 0 6px rgba(62, 92, 200, 0.06)`: activeTimerId? (timerSeconds < 0? '0 10px 26px rgba(0,0,0,0.4), 0 0 18px rgba(255,122,122,0.16), inset 0 1px 0 rgba(255,255,255,0.1)': '0 10px 26px rgba(0,0,0,0.4), 0 0 18px rgba(62,92,200,0.14), inset 0 1px 0 rgba(255,255,255,0.1), inset 0 -1px 0 rgba(0,0,0,0.24)'): applePill.shadow,
+  style={{
+  height: 120, borderRadius: 999,
+  padding: 0,
+  width: 20,
+  minWidth: 20,
+  background: 'rgba(8,12,18,0.80)',
+  border: '1px solid rgba(255,255,255,0.10)',
+  boxShadow: showLedGlow? `0 0 16px 2px ${C.accentGlow}, inset 0 1px 0 rgba(255,255,255,0.12)`: '0 12px 26px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.10)',
  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0,
  userSelect: 'none', cursor: CURSOR_GRAB,
  position: 'relative',
@@ -1198,12 +1576,56 @@ if (!isExpanded) {
  pointerEvents: 'none',
  }} />
  )}
- {activeTimerId? (
- <TimerText seconds={timerSeconds} />
- ): (
- <AppleDots size={5.5} isDarkMode={false} />
- )}
- </div>
+  {activeTimerId && (
+    <div style={{
+      position: 'absolute',
+      left: -76,
+      top: '50%',
+      transform: 'translateY(-50%)',
+      height: 30,
+      minWidth: activeTimerId === '__focus_timer__' ? 92 : 66,
+      padding: '0 10px',
+      borderRadius: 999,
+      border: '1px solid rgba(15,23,42,0.14)',
+      background: 'linear-gradient(180deg, rgba(17,24,39,0.97), rgba(7,10,18,0.95))',
+      color: '#F8FAFF',
+      boxShadow: '0 10px 24px rgba(15,23,42,0.22), inset 0 1px 0 rgba(255,255,255,0.08)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      pointerEvents: 'auto',
+    }}>
+      <TimerText seconds={timerSeconds} compact />
+      {activeTimerId === '__focus_timer__' && (
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            setFocusTimerPaused((value) => !value);
+          }}
+          style={{
+            width: 22,
+            height: 22,
+            borderRadius: '50%',
+            border: 'none',
+            background: 'rgba(255,255,255,0.12)',
+            color: '#F8FAFF',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: CURSOR_CLICK,
+          }}
+          aria-label={focusTimerPaused ? 'Reanudar contador' : 'Pausar contador'}
+          title={focusTimerPaused ? 'Reanudar contador' : 'Pausar contador'}
+        >
+          {focusTimerPaused ? <Play style={{ width: 11, height: 11 }} /> : <Pause style={{ width: 11, height: 11 }} />}
+        </button>
+      )}
+    </div>
+  )}
+  <div style={{ width: 6, height: 34, borderRadius: 999, background: 'rgba(255,255,255,0.10)' }} />
+  </div>
  </div>
  );
  }
@@ -1292,9 +1714,195 @@ if (!isExpanded) {
  {/* Left panel: tasks */}
  <div className="notebook-cream-bg" style={{ width: PANEL_W, display: 'flex', flexDirection: 'column', flexShrink: 0, position: 'relative', overflow: 'hidden' }}>
  <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', background: 'linear-gradient(180deg, rgba(255,255,255,0.035), transparent 54px)' }} />
+ <div onMouseDown={onDragMouseDown} style={{
+ padding: '12px 14px 8px',
+ flexShrink: 0,
+ cursor: CURSOR_GRAB,
+ userSelect: 'none',
+ position: 'relative',
+ zIndex: 3,
+ }}>
+ <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+ <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+ <MiniIconButton title="Agregar tarea" onClick={openTextCapture}>
+ <Plus style={{ width: 15, height: 15 }} />
+ </MiniIconButton>
+ <MiniIconButton title="Tarea recurrente" onClick={() => setRecurrenceFlowOpen(true)}>
+ <Repeat style={{ width: 14, height: 14 }} />
+ </MiniIconButton>
+ <MiniIconButton title="Musica (pronto)" disabled>
+ <Music style={{ width: 14, height: 14 }} />
+ </MiniIconButton>
+ <MiniIconButton title="Contador" onClick={() => setFocusTimerMenuOpen((value) => !value)}>
+ <Clock3 style={{ width: 14, height: 14 }} />
+ </MiniIconButton>
+ <MiniIconButton title="Buscar tareas" onClick={() => setMiniSearchOpen((value) => !value)}>
+ <Search style={{ width: 14, height: 14 }} />
+ </MiniIconButton>
+ </div>
+ <button
+ type="button"
+ onClick={(event) => { event.stopPropagation(); handleToggleExpand(); }}
+ style={{
+ height: 31,
+ minWidth: activeTimerId ? 86 : 36,
+ borderRadius: 14,
+ border: '1px solid rgba(31,41,55,0.12)',
+ background: activeTimerId ? 'linear-gradient(180deg, rgba(9,18,34,0.98), rgba(5,10,20,0.98))' : 'rgba(255,255,255,0.58)',
+ boxShadow: '0 8px 18px rgba(31,41,55,0.10), inset 0 1px 0 rgba(255,255,255,0.72)',
+ color: activeTimerId ? '#F8FAFF' : 'rgba(31,41,55,0.68)',
+ display: 'flex',
+ alignItems: 'center',
+ justifyContent: 'center',
+ cursor: CURSOR_CLICK,
+ padding: activeTimerId ? '0 10px' : 0,
+ }}
+ title="Recoger"
+ >
+ {activeTimerId ? <TimerText seconds={timerSeconds} compact /> : <ChevronsLeft style={{ width: 17, height: 17 }} />}
+ </button>
+ </div>
+
+ {focusTimerMenuOpen && (
+   <div style={{
+   marginTop: 10,
+   display: 'flex',
+   flexWrap: 'wrap',
+   gap: 8,
+   borderRadius: 18,
+   border: '1px solid rgba(31,41,55,0.10)',
+   background: 'rgba(255,255,255,0.64)',
+   padding: 10,
+   boxShadow: '0 10px 24px rgba(31,41,55,0.10)',
+   }}>
+     {[15, 25, 45, 60].map((minutes) => (
+       <button
+         key={minutes}
+         type="button"
+         onClick={() => startFocusTimer(minutes)}
+         style={{
+           borderRadius: 999,
+           border: '1px solid rgba(31,41,55,0.10)',
+           background: 'rgba(255,255,255,0.92)',
+           color: C.text,
+           padding: '7px 12px',
+           fontSize: 11,
+           fontWeight: 850,
+           cursor: CURSOR_CLICK,
+         }}
+       >
+         {minutes} min
+       </button>
+     ))}
+     <button
+       type="button"
+       onClick={openFocusTimerPrompt}
+       style={{
+         borderRadius: 999,
+         border: '1px solid rgba(31,41,55,0.10)',
+         background: 'rgba(17,24,39,0.92)',
+         color: '#F8FAFF',
+         padding: '7px 12px',
+         fontSize: 11,
+         fontWeight: 850,
+         cursor: CURSOR_CLICK,
+       }}
+     >
+       Personalizado
+     </button>
+   </div>
+ )}
+
+ {miniSearchOpen && (
+ <div style={{
+ marginTop: 10,
+ display: 'flex',
+ alignItems: 'center',
+ gap: 8,
+ borderRadius: 16,
+ border: '1px solid rgba(31,41,55,0.10)',
+ background: 'rgba(255,255,255,0.58)',
+ padding: '8px 10px',
+ cursor: 'text',
+ }}>
+ <Search style={{ width: 15, height: 15, color: 'rgba(31,41,55,0.44)', flexShrink: 0 }} />
+ <input
+ autoFocus
+ value={miniSearchQuery}
+ onChange={(event) => setMiniSearchQuery(event.target.value)}
+ onMouseDown={(event) => event.stopPropagation()}
+ placeholder="Buscar tareas..."
+ style={{
+ minWidth: 0,
+ flex: 1,
+ border: 'none',
+ outline: 'none',
+ background: 'transparent',
+ color: C.text,
+ fontSize: 12,
+ fontWeight: 750,
+ }}
+ />
+ {miniSearchQuery && (
+ <button type="button" onClick={() => setMiniSearchQuery('')} style={{ border: 'none', background: 'transparent', cursor: CURSOR_CLICK, color: 'rgba(31,41,55,0.48)', padding: 2 }}>
+ <X style={{ width: 14, height: 14 }} />
+ </button>
+ )}
+ </div>
+ )}
+
+ <div style={{ marginTop: 10, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+ <div style={{ minWidth: 0, display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+ <button
+   type="button"
+   onClick={(event) => {
+     event.stopPropagation();
+     setShowFolderTabs((value) => !value);
+   }}
+   aria-label={showFolderTabs ? 'Recoger cuadernos' : 'Mostrar cuadernos'}
+   style={{
+     width: 28,
+     height: 28,
+     marginTop: 5,
+     borderRadius: 999,
+     border: `1px solid ${showFolderTabs ? 'hsl(var(--primary) / 0.28)' : 'rgba(30,41,59,0.14)'}`,
+     background: showFolderTabs ? 'hsl(var(--primary) / 0.12)' : 'rgba(255,255,255,0.48)',
+     color: showFolderTabs ? 'hsl(var(--primary))' : 'rgba(31,41,55,0.58)',
+     display: 'flex',
+     alignItems: 'center',
+     justifyContent: 'center',
+     cursor: CURSOR_CLICK,
+     flexShrink: 0,
+     boxShadow: '0 4px 12px rgba(15,23,42,0.08)',
+   }}
+ >
+   <Folder style={{ width: 14, height: 14 }} />
+ </button>
+ <p style={{
+   margin: 0,
+   color: C.text,
+   fontSize: 38,
+   lineHeight: 0.96,
+   fontWeight: 850,
+   letterSpacing: '-0.02em',
+   fontFamily: 'var(--font-headline, ui-rounded, system-ui, sans-serif)',
+ }}>
+ Pendientes
+ </p>
+ </div>
+ <div style={{ color: C.text, marginTop: 2, textAlign: 'center' }}>
+   <div style={{ fontSize: 44, lineHeight: 0.88, fontWeight: 850, fontFamily: 'var(--font-headline, ui-rounded, system-ui, sans-serif)', fontVariantNumeric: 'tabular-nums' }}>
+     {format(new Date(), 'd')}
+   </div>
+   <div style={{ marginTop: 4, fontSize: 13, fontWeight: 800, letterSpacing: '0.18em', textTransform: 'uppercase', color: C.muted }}>
+     {format(new Date(), 'MMM')}
+   </div>
+ </div>
+ </div>
+ </div>
  {/* Top bar — fully draggable */}
  <div onMouseDown={onDragMouseDown} style={{
- display: 'flex', alignItems: 'center', justifyContent: 'center',
+ display: 'none', alignItems: 'center', justifyContent: 'center',
  padding: '12px 16px 10px', flexShrink: 0, cursor: CURSOR_GRAB, userSelect: 'none',
  position: 'relative', zIndex: 2,
  }}>
@@ -1373,137 +1981,165 @@ if (!isExpanded) {
  letterSpacing: 0,
  whiteSpace: 'nowrap',
  }}>
- Tareas de hoy
+  Pendientes
  </h2>
  </div>
- <AnimatePresence>
- {(
- <motion.div 
- initial={{ height: 0, opacity: 0 }}
- animate={{ height: 'auto', opacity: 1 }}
- exit={{ height: 0, opacity: 0 }}
- style={{ overflow: 'hidden', position: 'relative', zIndex: 2 }}
- >
- <div style={{ 
- display: 'flex', alignItems: 'center', gap: 6, 
- padding: '8px 16px 8px 26px', overflowX: 'auto',
- background: 'transparent'
- }} className="no-scrollbar">
- <button
- onClick={() => setSelectedFolderId(null)}
- style={{
- flexShrink: 0, padding: '6px 14px', borderRadius: 999,
- fontSize: 10, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.04em',
- background:!selectedFolderId? 'hsl(var(--primary) / 0.14)': 'rgba(255,255,255,0.40)',
- color:!selectedFolderId? 'hsl(var(--primary))': 'rgba(75,85,99,0.82)',
- border: `1px solid ${!selectedFolderId? 'hsl(var(--primary) / 0.34)': 'rgba(30,41,59,0.18)'}`,
- display: 'flex', alignItems: 'center',
- transition: 'all 0.2s ease'
- }}
- >
- Hoy
- </button>
- {visibleFolders.map(folder => (
- <div key={folder.id} style={{
- flexShrink: 0, display: 'flex', alignItems: 'center', borderRadius: 999,
- background: selectedFolderId === folder.id? 'hsl(var(--primary) / 0.14)': 'rgba(255,255,255,0.40)',
- border: `1px solid ${selectedFolderId === folder.id? 'hsl(var(--primary) / 0.34)': 'rgba(30,41,59,0.18)'}`,
- overflow: 'hidden',
- transition: 'all 0.2s ease'
- }}>
- <button
- onClick={() => setSelectedFolderId(selectedFolderId === folder.id ? null : folder.id)}
- style={{
- padding: '6px 12px',
- fontSize: 10, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.04em',
- color: selectedFolderId === folder.id? 'hsl(var(--primary))': 'rgba(75,85,99,0.82)',
- border: 'none', background: 'transparent', cursor: CURSOR_CLICK,
- display: 'flex', alignItems: 'center', fontFamily: 'var(--font-headline, ui-rounded, system-ui, sans-serif)'
- }}
- >
- {folder.name}
- </button>
- </div>
- ))}
- {isCreatingFolder? (
- <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0, background: 'rgba(0,0,0,0.15)', padding: 8, borderRadius: 12, border: `1px solid ${C.border}` }}>
- <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
- <input
- autoFocus
- value={newFolderName}
- onChange={(e) => setNewFolderName(e.target.value)}
- onKeyDown={(e) => {
- if (e.key === 'Enter' && newFolderName.trim()) {
- createFolder.mutate({ name: newFolderName.trim(), color: newFolderColor });
- setNewFolderName('');
- setNewFolderColor(FOLDER_COLORS[0]);
- setIsCreatingFolder(false);
- }
- if (e.key === 'Escape') {
- setIsCreatingFolder(false);
- setNewFolderName('');
- }
- }}
- placeholder="Nombre del proyecto"
- style={{
- padding: '4px 8px', borderRadius: 8, fontSize: 10, fontWeight: 600,
- background: 'rgba(0,0,0,0.2)', border: `1px solid ${C.border}`,
- color: C.text, outline: 'none', width: 120
- }}
- />
- <button
- onClick={() => {
- if (newFolderName.trim()) {
- createFolder.mutate({ name: newFolderName.trim(), color: newFolderColor });
- setNewFolderName('');
- setNewFolderColor(FOLDER_COLORS[0]);
- setIsCreatingFolder(false);
- }
- }}
- style={{ padding: 4, background: C.accentSoft, borderRadius: 6, border: `1px solid ${C.accentBorder}`, cursor: CURSOR_CLICK, color: C.accent }}
- title="Guardar"
- >
- <Check style={{ width: 12, height: 12 }} />
- </button>
- <button
- onClick={() => { setIsCreatingFolder(false); setNewFolderName(''); }}
- style={{ padding: 4, background: 'transparent', border: 'none', cursor: CURSOR_CLICK, color: C.muted }}
- title="Cancelar"
- >
- <X style={{ width: 12, height: 12 }} />
- </button>
- </div>
- <div style={{ display: 'flex', gap: 4, paddingBottom: 2 }}>
- {FOLDER_COLORS.map(c => (
- <button
- key={c}
- onClick={() => setNewFolderColor(c)}
- style={{
- width: 14, height: 14, borderRadius: '50%', background: c, border: 'none', cursor: CURSOR_CLICK,
- boxShadow: newFolderColor === c? `0 0 0 2px ${C.bg}, 0 0 0 4px ${c}`: 'none'
- }}
- />
- ))}
- </div>
- </div>
- ): (
- <button
- onClick={() => setIsCreatingFolder(true)}
- style={{
- flexShrink: 0, padding: '4px 12px', borderRadius: 8,
- fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em',
- background: 'transparent', color: C.muted, border: `1px dashed ${C.border}`,
- display: 'flex', alignItems: 'center', gap: 4, transition: 'all 0.2s ease', cursor: CURSOR_CLICK
- }}
- title="Crear nuevo cuaderno"
- >
- <Plus style={{ width: 10, height: 10 }} />
- </button>
- )}
- </div>
- </motion.div>
- )}
- </AnimatePresence>
+  <div
+    style={{
+      display: showFolderTabs ? 'flex' : 'none',
+      alignItems: 'center',
+      gap: 6,
+      padding: '4px 16px 8px 26px',
+      overflowX: 'auto',
+      background: 'transparent',
+    }}
+    className="no-scrollbar"
+  >
+    <button
+      onClick={() => setSelectedFolderId(null)}
+      style={{
+        flexShrink: 0,
+        padding: '6px 14px',
+        borderRadius: 999,
+        fontSize: 10,
+        fontWeight: 900,
+        textTransform: 'uppercase',
+        letterSpacing: '0.04em',
+        background: !selectedFolderId ? 'hsl(var(--primary) / 0.14)' : 'rgba(255,255,255,0.40)',
+        color: !selectedFolderId ? 'hsl(var(--primary))' : 'rgba(75,85,99,0.82)',
+        border: `1px solid ${!selectedFolderId ? 'hsl(var(--primary) / 0.34)' : 'rgba(30,41,59,0.18)'}`,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 6,
+        cursor: CURSOR_CLICK,
+      }}
+    >
+      General
+    </button>
+
+    {visibleFolders.map((folder) => (
+      <button
+        key={folder.id}
+        onClick={() => setSelectedFolderId(selectedFolderId === folder.id ? null : folder.id)}
+        style={{
+          flexShrink: 0,
+          padding: '6px 14px',
+          borderRadius: 999,
+          fontSize: 10,
+          fontWeight: 900,
+          textTransform: 'uppercase',
+          letterSpacing: '0.04em',
+          background: selectedFolderId === folder.id ? 'hsl(var(--primary) / 0.14)' : 'rgba(255,255,255,0.40)',
+          color: selectedFolderId === folder.id ? 'hsl(var(--primary))' : 'rgba(75,85,99,0.82)',
+          border: `1px solid ${selectedFolderId === folder.id ? 'hsl(var(--primary) / 0.34)' : 'rgba(30,41,59,0.18)'}`,
+          display: 'flex',
+          alignItems: 'center',
+          cursor: CURSOR_CLICK,
+          fontFamily: 'var(--font-headline, ui-rounded, system-ui, sans-serif)',
+        }}
+      >
+        {folder.name}
+      </button>
+    ))}
+
+    {isCreatingFolder ? (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0, background: 'rgba(0,0,0,0.15)', padding: 8, borderRadius: 12, border: `1px solid ${C.border}` }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <input
+            autoFocus
+            value={newFolderName}
+            onChange={(e) => setNewFolderName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && newFolderName.trim()) {
+                createFolder.mutate({ name: newFolderName.trim(), color: newFolderColor });
+                setNewFolderName('');
+                setNewFolderColor(FOLDER_COLORS[0]);
+                setIsCreatingFolder(false);
+              }
+              if (e.key === 'Escape') {
+                setIsCreatingFolder(false);
+                setNewFolderName('');
+              }
+            }}
+            placeholder="Nombre del proyecto"
+            style={{
+              padding: '4px 8px',
+              borderRadius: 8,
+              fontSize: 10,
+              fontWeight: 600,
+              background: 'rgba(0,0,0,0.2)',
+              border: `1px solid ${C.border}`,
+              color: C.text,
+              outline: 'none',
+              width: 120,
+            }}
+          />
+          <button
+            onClick={() => {
+              if (newFolderName.trim()) {
+                createFolder.mutate({ name: newFolderName.trim(), color: newFolderColor });
+                setNewFolderName('');
+                setNewFolderColor(FOLDER_COLORS[0]);
+                setIsCreatingFolder(false);
+              }
+            }}
+            style={{ padding: 4, background: C.accentSoft, borderRadius: 6, border: `1px solid ${C.accentBorder}`, cursor: CURSOR_CLICK, color: C.accent }}
+            title="Guardar"
+          >
+            <Check style={{ width: 12, height: 12 }} />
+          </button>
+          <button
+            onClick={() => { setIsCreatingFolder(false); setNewFolderName(''); }}
+            style={{ padding: 4, background: 'transparent', border: 'none', cursor: CURSOR_CLICK, color: C.muted }}
+            title="Cancelar"
+          >
+            <X style={{ width: 12, height: 12 }} />
+          </button>
+        </div>
+        <div style={{ display: 'flex', gap: 4, paddingBottom: 2 }}>
+          {FOLDER_COLORS.map((c) => (
+            <button
+              key={c}
+              onClick={() => setNewFolderColor(c)}
+              style={{
+                width: 14,
+                height: 14,
+                borderRadius: '50%',
+                background: c,
+                border: 'none',
+                cursor: CURSOR_CLICK,
+                boxShadow: newFolderColor === c ? `0 0 0 2px ${C.bg}, 0 0 0 4px ${c}` : 'none',
+              }}
+            />
+          ))}
+        </div>
+      </div>
+    ) : (
+      <button
+        onClick={() => setIsCreatingFolder(true)}
+        style={{
+          flexShrink: 0,
+          padding: '4px 12px',
+          borderRadius: 8,
+          fontSize: 10,
+          fontWeight: 800,
+          textTransform: 'uppercase',
+          letterSpacing: '0.05em',
+          background: 'transparent',
+          color: C.muted,
+          border: `1px dashed ${C.border}`,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 4,
+          transition: 'all 0.2s ease',
+          cursor: CURSOR_CLICK,
+        }}
+        title="Crear nuevo cuaderno"
+      >
+        <Plus style={{ width: 10, height: 10 }} />
+      </button>
+    )}
+  </div>
 
  <div
  style={{
@@ -1537,7 +2173,7 @@ if (!isExpanded) {
  </div>
  ):!user? (
  <p style={{ textAlign: 'center', fontSize: 12, color: C.muted, padding: 16 }}>Abre la app principal primero.</p>
- ): sortedTasks.length === 0? (
+ ): sortedTasks.length === 0 && upcomingTasksByDate.length === 0? (
  <div style={{ textAlign: 'center', padding: 24 }}>
  <span style={{ fontSize: 28 }}></span>
  <p style={{ fontSize: 11, fontWeight: 800, marginTop: 8, color: C.text, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
@@ -1562,7 +2198,7 @@ if (!isExpanded) {
  }}
  >
  <TaskRow
- task={completingId === task.id? {...task, status: 'done' }: task}
+ task={{ ...(completingId === task.id? {...task, status: 'done' }: task), children: subtasksByParent[task.id] || [], subtask_count: subtasksByParent[task.id]?.length || 0 }}
  taskIdx={task.status !== 'done' ? idx : undefined}
  onToggle={handleToggle}
  onDetail={handleDetail}
@@ -1577,6 +2213,148 @@ if (!isExpanded) {
  </div>
  ))}
  </AnimatePresence>
+  {upcomingTasksByDate.length > 0 && (
+    <div style={{ marginTop: 14 }}>
+      <button
+        type="button"
+        onClick={() => setShowUpcomingDays((value) => !value)}
+       style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 6,
+          border: 'none',
+          background: 'transparent',
+          padding: '5px 0',
+          cursor: CURSOR_CLICK,
+        }}
+      >
+       <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: '0.18em', textTransform: 'uppercase', color: C.muted }}>Siguientes días</span>
+        <span style={{ fontSize: 12, fontWeight: 900, color: 'rgba(31,41,55,0.42)' }}>{showUpcomingDays ? 'v' : '>'}</span>
+      </button>
+ 
+      <AnimatePresence initial={false}>
+        {showUpcomingDays && (
+          <motion.div
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 6 }}
+            style={{ marginTop: 2, borderTop: '1px solid rgba(31,41,55,0.075)' }}
+          >
+            {upcomingTasksByDate.map((day) => (
+              <details key={day.key} open style={{ borderBottom: '1px solid rgba(31,41,55,0.075)' }}>
+                <summary style={{ listStyle: 'none', display: 'flex', alignItems: 'center', gap: 8, cursor: CURSOR_CLICK, padding: '11px 0 8px' }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0, fontSize: 12.5, fontWeight: 760, letterSpacing: 0, color: 'rgba(31,41,55,0.54)' }}>
+                    <span style={{ fontSize: 16, lineHeight: 1, color: 'rgba(31,41,55,0.36)' }}>›</span>
+                    {day.label}
+                  </span>
+                  <span style={{ minWidth: 18, height: 18, borderRadius: 999, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800, color: 'rgba(31,41,55,0.36)' }}>{day.tasks.length}</span>
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      if (day.date) openTextCapture(format(day.date, 'yyyy-MM-dd'));
+                    }}
+                    style={{
+                      width: 23,
+                      height: 23,
+                      borderRadius: 999,
+                      border: '1px solid rgba(31,41,55,0.10)',
+                      background: 'rgba(255,255,255,0.54)',
+                      color: 'rgba(31,41,55,0.62)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: CURSOR_CLICK,
+                      fontSize: 14,
+                      fontWeight: 800,
+                      flexShrink: 0,
+                    }}
+                    title="Agregar tarea para este dia"
+                    aria-label="Agregar tarea para este dia"
+                  >
+                    +
+                  </button>
+                </summary>
+
+                <div className="notebook-task-list" style={{ paddingLeft: 18, paddingBottom: 5 }}>
+                  {document.documentElement.dataset.renderLegacyUpcomingDays === 'true' && (
+                    <details>
+                      <summary style={{ listStyle: 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, cursor: CURSOR_CLICK, padding: '2px 2px 6px' }}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 10, fontWeight: 900, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(31,41,55,0.45)' }}>
+                          <span style={{ fontSize: 16, lineHeight: 1, color: 'rgba(31,41,55,0.36)' }}>›</span>
+                          {getFutureTaskGroupLabel(day.date, new Date(today))}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            if (day.date) openTextCapture(format(day.date, 'yyyy-MM-dd'));
+                          }}
+                          style={{
+                            minWidth: 26,
+                            height: 26,
+                            borderRadius: 999,
+                            border: '1px solid rgba(31,41,55,0.10)',
+                            background: 'rgba(255,255,255,0.72)',
+                            color: C.text,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: CURSOR_CLICK,
+                            fontSize: 14,
+                            fontWeight: 900,
+                          }}
+                          title="Agregar tarea para este día"
+                          aria-label="Agregar tarea para este día"
+                        >
+                          +
+                        </button>
+                      </summary>
+
+                      <div className="notebook-task-list">
+                        {day.tasks.map((task) => (
+                          <TaskRow
+                            key={task.id}
+                            task={{ ...(completingId === task.id ? { ...task, status: 'done' } : task), children: subtasksByParent[task.id] || [], subtask_count: subtasksByParent[task.id]?.length || 0 }}
+                            taskIdx={undefined}
+                            onToggle={handleToggle}
+                            onDetail={handleDetail}
+                            activeTimerId={activeTimerId}
+                            onTimerToggle={handleTimerToggle}
+                            updateTask={updateTask}
+                            folders={visibleFolders}
+                            currentDate={viewDate}
+                            ensureCalendarOpen={openCalendarPanel}
+                            onReorderPointerStart={undefined}
+                          />
+                        ))}
+                      </div>
+                    </details>
+                  )}
+                  {day.tasks.map((task) => (
+                    <TaskRow
+                      key={task.id}
+                      task={{ ...(completingId === task.id ? { ...task, status: 'done' } : task), children: subtasksByParent[task.id] || [], subtask_count: subtasksByParent[task.id]?.length || 0 }}
+                      taskIdx={undefined}
+                      onToggle={handleToggle}
+                      onDetail={handleDetail}
+                      activeTimerId={activeTimerId}
+                      onTimerToggle={handleTimerToggle}
+                      updateTask={updateTask}
+                      folders={visibleFolders}
+                      currentDate={viewDate}
+                      ensureCalendarOpen={openCalendarPanel}
+                      onReorderPointerStart={undefined}
+                    />
+                  ))}
+                </div>
+              </details>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  )}
  {totalCount > 0 && completedCount === totalCount && (
  <motion.div 
  initial={{ opacity: 0, scale: 0.9 }} 

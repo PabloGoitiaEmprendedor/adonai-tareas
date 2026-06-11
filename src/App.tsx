@@ -50,6 +50,7 @@ import LandingPage from "./pages/LandingPage";
 import PricingPage from "./pages/PricingPage";
 import CaracteristicasPage from "./pages/CaracteristicasPage";
 import FAQPage from "./pages/FAQPage";
+import AppleInstallPage from "./pages/AppleInstallPage";
 import PrioritySettingsPage from "./pages/PrioritySettingsPage";
 import NotFound from "./pages/NotFound";
 import WelcomePage from "./pages/WelcomePage";
@@ -279,7 +280,7 @@ const AppRoutes = () => {
         <Route path="/invite/:inviterId" element={<FriendInvitePage />} />
         <Route path="/group-invite/:groupId" element={<GroupInvitePage />} />
         <Route path="/onboarding" element={<OnboardingPage />} />
-        <Route path="/calendar-callback" element={appRouteElement(<CalendarCallback />)} />
+        <Route path="/calendar-callback" element={<CalendarCallback />} />
         <Route path="/calendar-setup" element={appRouteElement(<CalendarSetupGuide />)} />
         <Route path="/sheets-callback" element={appRouteElement(<SheetsCallback />)} />
         
@@ -309,6 +310,7 @@ const AppRoutes = () => {
         <Route path="/precio" element={<PricingPage />} />
         <Route path="/caracteristicas" element={<CaracteristicasPage />} />
         <Route path="/faq" element={<FAQPage />} />
+        <Route path="/apple" element={<AppleInstallPage />} />
         <Route path="/politica-de-privacidad" element={<PrivacyPolicyPage />} />
         <Route path="/terminos-de-servicio" element={<TermsOfServicePage />} />
         <Route path="/codigos-de-retorno" element={<ExitCodesPage />} />

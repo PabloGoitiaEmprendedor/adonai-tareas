@@ -7,3 +7,12 @@ export const WIN_DOWNLOAD =
 
 export const MAC_DOWNLOAD =
   'https://github.com/PabloGoitiaEmprendedor/adonai-tareas/releases/latest/download/Adonai-Mac.dmg';
+
+export const ANDROID_DOWNLOAD = '/adonai.apk';
+
+const configuredAppleDownload = import.meta.env.VITE_APPLE_DOWNLOAD_URL as string | undefined;
+
+export const APPLE_DOWNLOAD =
+  configuredAppleDownload && configuredAppleDownload !== 'https://testflight.apple.com/join/adonai'
+    ? configuredAppleDownload
+    : '/apple';

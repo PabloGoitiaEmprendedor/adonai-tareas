@@ -7,12 +7,14 @@ import { toast } from 'sonner'
 
 import { supabase } from '@/integrations/supabase/client'
 import { useAuth } from '@/contexts/AuthContext'
+import { useProfile } from '@/hooks/useProfile'
 import { isGoogleOAuthDesktopState, validateGoogleOAuthState } from '@/lib/googleOAuthState'
 
 const CalendarCallback = () => {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
-  const { user } = useAuth()
+  const { user, loading } = useAuth()
+  const { profile } = useProfile()
   const queryClient = useQueryClient()
   const [status, setStatus] = useState<'loading' | 'success' | 'error' | 'redirecting'>('loading')
   const [errorDetails, setErrorDetails] = useState('')
@@ -34,7 +36,13 @@ const CalendarCallback = () => {
         return
       }
 
-      if (!user) return
+      if (!user) {
+        if (!loading) {
+          setStatus('error')
+          setErrorDetails('Inicia sesion en Adonai antes de conectar Google Calendar.')
+        }
+        return
+      }
 
       try {
         if (!validateGoogleOAuthState(state, 'calendar')) {
@@ -66,9 +74,11 @@ const CalendarCallback = () => {
 
         const isOnboardingFlow = localStorage.getItem('adonai_onboarding_calendar_pending') === 'true'
         localStorage.removeItem('adonai_onboarding_calendar_pending')
+        const shouldReturnToOnboarding =
+          isOnboardingFlow && !profile?.onboarding_completed && !profile?.name
 
         setTimeout(() => {
-          navigate(isOnboardingFlow ? '/onboarding?calendar_setup=1' : '/calendar-setup', { replace: true })
+          navigate(shouldReturnToOnboarding ? '/onboarding?calendar_setup=1' : '/daily', { replace: true })
         }, 1600)
       } catch (err) {
         console.error('Error en el callback de Google:', err)
@@ -79,7 +89,7 @@ const CalendarCallback = () => {
     }
 
     handleCallback()
-  }, [navigate, queryClient, searchParams, user])
+  }, [loading, navigate, profile?.name, profile?.onboarding_completed, queryClient, searchParams, user])
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center px-4 py-8">

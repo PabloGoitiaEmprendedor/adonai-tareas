@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, memo, type CSSProperties } from 'react';
 import { motion } from 'framer-motion';
-import { Paperclip } from 'lucide-react';
+import { ChevronDown, Paperclip } from 'lucide-react';
 import { useTasks } from '@/hooks/useTasks';
 import { usePriorityColors } from '@/hooks/usePriorityColors';
 import { TaskCheckbox } from './TaskCheckbox';
@@ -15,6 +15,13 @@ type TaskCardTask = {
   urgency?: boolean | null;
   importance?: boolean | null;
   status?: string | null;
+  due_date?: string | null;
+  folder_id?: string | null;
+  recurrence_id?: string | null;
+  subtasks?: unknown[] | null;
+  subtasks_count?: number | null;
+  subtask_count?: number | null;
+  children?: unknown[] | null;
 };
 
 interface TaskCardProps<TTask extends TaskCardTask> {
@@ -63,12 +70,18 @@ const TaskCardComponent = <TTask extends TaskCardTask,>({
   highlighted = false,
   notebookView = false
 }: TaskCardProps<TTask>) => {
-  const { updateTask } = useTasks();
+  const { updateTask, createTask } = useTasks();
   const [isEditing, setIsEditing] = useState(false);
   const [editedTitle, setEditedTitle] = useState(task.title || '');
+  const [isSubtaskOpen, setIsSubtaskOpen] = useState(false);
+  const [subtaskTitle, setSubtaskTitle] = useState('');
   const titleTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const subtaskTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pointerReorderTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pointerStartRef = useRef<{ x: number; y: number; type: string } | null>(null);
   const dragStartedRef = useRef(false);
+  const suppressNextClickRef = useRef(false);
   const cardBodyRef = useRef<HTMLDivElement | null>(null);
   const skipNextBlurSubmitRef = useRef(false);
 
@@ -116,10 +129,68 @@ const TaskCardComponent = <TTask extends TaskCardTask,>({
   };
 
   const openTaskDetails = (event: React.MouseEvent) => {
+    if (suppressNextClickRef.current) {
+      suppressNextClickRef.current = false;
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
     const target = event.target as HTMLElement;
     if (target.closest('[data-drag-handle], [data-no-drag], button, a, input, textarea, select')) return;
     if (isEditing || dragIdx === taskIdx || dragStartedRef.current) return;
     setSelectedTask(task);
+  };
+
+  const clearPointerReorderTimer = () => {
+    if (pointerReorderTimer.current) {
+      clearTimeout(pointerReorderTimer.current);
+      pointerReorderTimer.current = null;
+    }
+  };
+
+  const handleCardPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    const target = event.target as HTMLElement;
+    if (
+      isDone ||
+      isEditing ||
+      !handlePointerReorderStart ||
+      target.closest('[data-no-drag], button, a, input, textarea, select')
+    ) {
+      return;
+    }
+
+    pointerStartRef.current = { x: event.clientX, y: event.clientY, type: event.pointerType };
+    clearPointerReorderTimer();
+    pointerReorderTimer.current = setTimeout(() => {
+      const start = pointerStartRef.current;
+      if (!start) return;
+      dragStartedRef.current = true;
+      suppressNextClickRef.current = true;
+      if ('vibrate' in navigator) navigator.vibrate(18);
+      if (cardBodyRef.current) cardBodyRef.current.style.touchAction = 'none';
+      handlePointerReorderStart(taskIdx, start.x, start.y);
+    }, event.pointerType === 'touch' ? 320 : 180);
+  };
+
+  const handleCardPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    const start = pointerStartRef.current;
+    if (!start || !pointerReorderTimer.current || start.type !== 'touch') return;
+    const moved = Math.hypot(event.clientX - start.x, event.clientY - start.y);
+    if (moved > 10) {
+      clearPointerReorderTimer();
+      pointerStartRef.current = null;
+    }
+  };
+
+  const handleCardPointerEnd = () => {
+    clearPointerReorderTimer();
+    pointerStartRef.current = null;
+    if (dragStartedRef.current) {
+      window.setTimeout(() => {
+        dragStartedRef.current = false;
+        if (cardBodyRef.current) cardBodyRef.current.style.touchAction = '';
+      }, 120);
+    }
   };
 
   const handleBodyTouchStart = (e: React.TouchEvent) => {
@@ -161,16 +232,18 @@ const TaskCardComponent = <TTask extends TaskCardTask,>({
     return colors.p4; // Will be 'transparent' by default
   };
 
+  const hasSubtasks = Boolean(
+    (Array.isArray(task.subtasks) && task.subtasks.length > 0) ||
+    (Array.isArray(task.children) && task.children.length > 0) ||
+    (typeof task.subtasks_count === 'number' && task.subtasks_count > 0) ||
+    (typeof task.subtask_count === 'number' && task.subtask_count > 0)
+  );
+
   const priorityColor = getTaskPriorityColor();
   const cardStyle = {
     background: 'transparent',
     borderRadius: '18px 15px 20px 16px',
   } as CSSProperties;
-  const dragHandleStyle: CSSProperties & { WebkitTouchCallout?: string } = {
-    touchAction: 'none',
-    WebkitTouchCallout: 'none',
-    userSelect: 'none',
-  };
 
   return (
     <motion.div
@@ -182,11 +255,15 @@ const TaskCardComponent = <TTask extends TaskCardTask,>({
       data-task-id={task.id}
       onDragEnd={() => handleDragEnd?.()}
       onClick={openTaskDetails}
+      onPointerDown={handleCardPointerDown}
+      onPointerMove={handleCardPointerMove}
+      onPointerUp={handleCardPointerEnd}
+      onPointerCancel={handleCardPointerEnd}
       initial={view === 'daily' ? { opacity: 0 } : { opacity: 0, scale: 0.98 }}
       animate={{ opacity: 1 }}
       exit={view === 'daily' ? { opacity: 0, transition: { duration: 0.08 } } : undefined}
       onDragOver={(e) => handleDragOver?.(e, taskIdx)}
-      style={cardStyle}
+      style={{ ...cardStyle, flexWrap: 'wrap' }}
       className={`relative flex items-start gap-2 overflow-hidden border py-2 transition-all group/task select-none ${
         notebookView ? 'px-1' : 'px-1.5 md:px-2'
       } ${
@@ -197,81 +274,6 @@ const TaskCardComponent = <TTask extends TaskCardTask,>({
         dragIdx === taskIdx ? 'border-primary/55 bg-primary/5 ring-2 ring-primary/45 shadow-[0_0_18px_rgba(99,102,241,0.24)]' : ''
       } border-x-transparent border-t-transparent hover:border-primary/18 cursor-pointer`}
     >
-        {/* Drag handle (desktop + mobile): the only area that starts drag */}
-      {(
-        <div
-          data-drag-handle="true"
-          draggable={Boolean(handleDragStart) && !handlePointerReorderStart}
-          className="relative z-20 flex h-8 w-5 flex-shrink-0 items-center justify-center rounded-lg text-on-surface-variant/35 hover:bg-on-surface-variant/5 hover:text-on-surface-variant/60 cursor-grab active:cursor-grabbing select-none"
-          title="Arrastra para reordenar"
-          aria-label="Arrastrar tarea"
-          onClick={(e) => e.stopPropagation()}
-          onPointerDown={(event) => {
-            if (isDone || isEditing) return;
-            event.preventDefault();
-            event.stopPropagation();
-            dragStartedRef.current = true;
-            if (longPressTimer.current) {
-              clearTimeout(longPressTimer.current);
-              longPressTimer.current = null;
-            }
-            if (cardBodyRef.current) cardBodyRef.current.style.touchAction = 'none';
-            handlePointerReorderStart?.(taskIdx, event.clientX, event.clientY);
-          }}
-          onDragStart={(event) => {
-            if (handlePointerReorderStart) {
-              event.preventDefault();
-              return;
-            }
-            event.stopPropagation();
-            try {
-              event.dataTransfer?.setData('text/plain', String(task.id ?? taskIdx));
-              event.dataTransfer!.effectAllowed = 'move';
-            } catch {
-              // Ignore.
-            }
-            handleDragStart?.(taskIdx);
-          }}
-          onDragEnd={() => handleDragEnd?.()}
-          onTouchStart={(e) => {
-            if (handlePointerReorderStart) {
-              e.preventDefault();
-              e.stopPropagation();
-              return;
-            }
-            e.preventDefault();
-            e.stopPropagation();
-            dragStartedRef.current = false;
-            longPressTimer.current = setTimeout(() => {
-              dragStartedRef.current = true;
-              if ('vibrate' in navigator) navigator.vibrate(20);
-              handleTouchStart?.(taskIdx, e);
-            }, 1000);
-          }}
-          onTouchMove={(e) => {
-            if (!dragStartedRef.current) {
-              if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
-              return;
-            }
-            e.preventDefault();
-            handleTouchMove?.(e);
-          }}
-          onTouchEnd={() => {
-            if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
-            if (dragStartedRef.current) {
-              dragStartedRef.current = false;
-              handleTouchEnd?.();
-            }
-          }}
-          style={dragHandleStyle}
-        >
-          <span className="flex flex-col gap-0.5">
-            <span className="block h-1 w-1 rounded-full bg-current opacity-70" />
-            <span className="block h-1 w-1 rounded-full bg-current opacity-40" />
-            <span className="block h-1 w-1 rounded-full bg-current opacity-70" />
-          </span>
-        </div>
-      )}
       {!isDone && !hideTimer && (
         <div className="relative z-20 flex-shrink-0" data-no-drag="true">
           <TaskTimerButton
@@ -377,8 +379,72 @@ const TaskCardComponent = <TTask extends TaskCardTask,>({
           </div>
         </div>
       </div>
+
+      {isSubtaskOpen && !isDone && (
+        <div className={`mt-1 flex w-full items-start gap-2 ${notebookView ? 'pl-[28px]' : 'pl-[30px]'}`} data-no-drag="true">
+          <TaskCheckbox
+            checked={false}
+            priorityColor={priorityColor}
+            size="sm"
+            onClick={() => subtaskTextareaRef.current?.focus()}
+            ariaLabel="Subtarea"
+          />
+          <textarea
+            ref={subtaskTextareaRef}
+            value={subtaskTitle}
+            onChange={(event) => setSubtaskTitle(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                const title = subtaskTitle.trim();
+                if (!title) return;
+                createTask.mutate({
+                  title,
+                  parent_task_id: task.id,
+                  due_date: task.due_date || new Date().toISOString().slice(0, 10),
+                  folder_id: task.folder_id || null,
+                  urgency: task.urgency ?? undefined,
+                  importance: task.importance ?? undefined,
+                  recurrence_id: task.recurrence_id || null,
+                  estimated_minutes: task.estimated_minutes ?? undefined,
+                  creation_source: 'subtask',
+                });
+                setSubtaskTitle('');
+                setIsSubtaskOpen(true);
+                window.setTimeout(() => subtaskTextareaRef.current?.focus(), 0);
+              }
+              if (event.key === 'Escape') {
+                setIsSubtaskOpen(false);
+                setSubtaskTitle('');
+              }
+            }}
+            onClick={(event) => event.stopPropagation()}
+            placeholder="Escribe una subtarea..."
+            rows={1}
+            className="min-h-[1.35em] w-full resize-none bg-transparent px-1 text-[12.25px] font-medium leading-[1.25] text-foreground outline-none placeholder:text-on-surface-variant/35"
+            style={{ overflow: 'hidden' }}
+          />
+        </div>
+      )}
       
-      <div className="relative z-10 flex items-center gap-1.5 flex-shrink-0 flex-wrap justify-end max-w-[45%]">
+      <div className="relative z-10 ml-auto flex items-center gap-1.5 flex-shrink-0 flex-wrap justify-end max-w-[45%]">
+        {!isDone && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsSubtaskOpen((value) => !value);
+              window.setTimeout(() => subtaskTextareaRef.current?.focus(), 0);
+            }}
+            aria-label={isSubtaskOpen ? 'Recoger subtarea' : 'Desplegar subtarea'}
+            className={`flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border border-outline/10 bg-surface/35 text-primary/70 transition active:scale-90 ${
+              hasSubtasks || isSubtaskOpen ? 'opacity-100' : 'opacity-0 group-hover/task:opacity-100'
+            }`}
+            data-no-drag="true"
+          >
+            <ChevronDown className="h-3 w-3" strokeWidth={2.5} />
+          </button>
+        )}
       </div>
     </motion.div>
   );

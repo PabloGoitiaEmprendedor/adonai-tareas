@@ -22,6 +22,7 @@ import { playPageTurnSound } from '@/lib/soundEffects';
 import type { TaskLike } from '@/lib/taskTypes';
 import { useCalendarEvents, type CalendarEvent } from '@/hooks/useCalendarEvents';
 import { writeCalendarDate, writeCalendarViewMode } from '@/lib/calendarStateSync';
+import { buildTaskDateSections } from '@/lib/taskDateGroups';
 
 const NOTEBOOK_PAGE_COUNT = 30;
 const TASKS_PER_NOTEBOOK_PAGE = 10;
@@ -76,8 +77,10 @@ const DailyPage = () => {
  const { events: calendarSearchEvents } = useCalendarEvents(calendarSearchRange.start, calendarSearchRange.end);
  const { folders, createFolder, deleteFolder } = useFolders();
  const visibleFolders = useMemo<DailyFolder[]>(() => (folders as DailyFolder[]).filter((folder) => !folder.deleted_at), [folders]);
- const { profile } = useProfile();
- const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
+  const { profile } = useProfile();
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
+  const [showFolderTabs, setShowFolderTabs] = useState(true);
+  const [showUpcomingDays, setShowUpcomingDays] = useState(false);
  const { metrics, trackDayActive } = useStreaks();
  const { checkAndUnlock } = useGamification();
 
@@ -148,13 +151,38 @@ const DailyPage = () => {
   }, []);
 
  const sortedTasks = useMemo(() => {
- let filtered = tasks.filter((t: TaskLike) => t.due_date === today || (t.due_date && t.due_date < today && t.status !== 'done'));
- if (selectedFolderId!== 'all') {
- filtered =!selectedFolderId? filtered.filter((t: TaskLike) =>!t.folder_id): filtered.filter((t: TaskLike) => t.folder_id === selectedFolderId);
- }
- 
- return [...filtered].sort(compareTasksWithinQuadrants);
+  let filtered = tasks.filter((t: TaskLike) => t.due_date === today || (t.due_date && t.due_date < today && t.status !== 'done'));
+  if (selectedFolderId!== 'all') {
+  filtered =!selectedFolderId? filtered.filter((t: TaskLike) =>!t.folder_id): filtered.filter((t: TaskLike) => t.folder_id === selectedFolderId);
+  }
+  
+  return [...filtered].sort(compareTasksWithinQuadrants);
  }, [tasks, selectedFolderId, today]);
+
+  const upcomingTasksByDate = useMemo(() => {
+    const upcoming = allSearchTasks
+      .filter((t: TaskLike) => t.status !== 'deleted')
+      .filter((t: TaskLike) => !!t.due_date && t.due_date > today)
+      .filter((t: TaskLike) => (selectedFolderId ? t.folder_id === selectedFolderId : !t.folder_id));
+
+    return buildTaskDateSections(upcoming, new Date(today)).futureWeekGroups.map((week) => ({
+      ...week,
+      tasks: [...week.tasks].sort(compareTasksWithinQuadrants),
+      days: week.days.map((day) => ({
+        ...day,
+        tasks: [...day.tasks].sort(compareTasksWithinQuadrants),
+      })),
+      }));
+  }, [allSearchTasks, selectedFolderId, today]);
+
+  const openTaskCapture = useCallback((date?: string) => {
+    window.dispatchEvent(new CustomEvent('adonai:open-capture', {
+      detail: {
+        folderId: selectedFolderId || undefined,
+        date,
+      },
+    }));
+  }, [selectedFolderId]);
 
   const mobileSearchResults = useMemo<MobileSearchResult[]>(() => {
     const query = mobileSearchQuery.trim().toLowerCase();
@@ -178,7 +206,7 @@ const DailyPage = () => {
           kind: 'task' as const,
           id: `task-${task.id}`,
           title: task.title || 'Sin titulo',
-          subtitle: `${folder?.name || (task.folder_id ? 'Cuaderno' : 'Hoy')}${task.due_date ? ` · ${task.due_date}` : ''}`,
+          subtitle: `${folder?.name || (task.folder_id ? 'Cuaderno' : 'General')}${task.due_date ? ` · ${task.due_date}` : ''}`,
           task,
           sortDate: task.due_date || '9999-12-31',
         };
@@ -432,9 +460,9 @@ const DailyPage = () => {
   const shouldShowTaskPage = true;
 
   const currentFolderName = useMemo(() => {
-    if (selectedFolderId === null) return 'Hoy';
+    if (selectedFolderId === null) return 'General';
     const folder = visibleFolders.find((f) => f.id === selectedFolderId);
-    return folder?.name || 'Hoy';
+    return folder?.name || 'General';
   }, [selectedFolderId, visibleFolders]);
 
   useEffect(() => {
@@ -449,7 +477,7 @@ const DailyPage = () => {
 
   useEffect(() => {
     window.dispatchEvent(new CustomEvent('adonai:set-page-title', {
-      detail: { title: 'Tareas de hoy', meta: '' },
+      detail: { title: 'Pendientes', meta: '' },
     }));
   }, []);
 
@@ -548,17 +576,20 @@ const DailyPage = () => {
   const renderFolderTabs = (compact = false) => (
     <div className={`relative z-20 flex items-center gap-2 overflow-x-auto no-scrollbar ${compact ? 'py-2 pl-2 pr-3' : 'py-1 pb-1 mb-1 justify-start'}`}>
       <button
-        onClick={() => selectFolderWithSound(null)}
+        onClick={() => {
+          selectFolderWithSound(null);
+          setShowFolderTabs((value) => !value);
+        }}
         className={`flex-shrink-0 rounded-full border px-3 py-1.5 text-[10px] font-semibold tracking-tight transition-all md:px-4 ${
           selectedFolderId === null
             ? 'bg-foreground text-background border-foreground'
             : 'bg-white/40 text-on-surface-variant/80 border-outline-variant/40 hover:text-foreground hover:border-outline-variant/60'
         }`}
       >
-        Hoy
+        General {showFolderTabs ? '>' : '<'}
       </button>
 
-      {visibleFolders.map((folder) => {
+      {showFolderTabs && visibleFolders.map((folder) => {
         const isSelected = selectedFolderId === folder.id;
         const taskCount = countFolderTasks(folder.id);
         return (
@@ -998,67 +1029,156 @@ const DailyPage = () => {
  className="relative z-10 flex min-h-0 flex-1 flex-col"
  style={{ transformOrigin: pageTurnDirection > 0? 'right center': 'left center', transformStyle: 'preserve-3d' }}
  >
- {shouldShowTaskPage? (
- <>
- {/* Task notebook tabs */}
-  <div className="relative z-10 mb-1">
-    <h2 className="text-[18px] font-black tracking-normal" style={{ color: '#18202e' }}>
-      Tareas de hoy
-    </h2>
-    {renderDailySearch(false)}
-  </div>
-  {renderFolderTabs(false)}
+  {shouldShowTaskPage ? (
+    <>
+      {/* Task notebook tabs */}
+      <div className="relative z-10 mb-1">
+        <h2 className="text-[18px] font-black tracking-normal" style={{ color: "#18202e" }}>
+          Pendientes
+        </h2>
+        {renderDailySearch(false)}
+      </div>
+      {renderFolderTabs(false)}
 
-  {/* Task List - Inside Desktop Notebook */}
-  <div
-  className="relative z-10 mt-1.5 min-h-0 flex-1 overflow-y-auto pb-5 pr-1 pt-[2px]"
- >
- {isLoading? (
- <div className="space-y-6">
- {[1, 2, 3].map((i) => (
- <div key={i} className="h-24 bg-surface-container-highest/20 border border-outline-variant/10 rounded-[32px] animate-pulse" />
- ))}
- </div>
-   ): isMainNotebookComplete ? (
-   renderBlankNotebookPage(false)
-  ): visibleNotebookTasks.length > 0? (
-  <div className="notebook-task-list">
-  {visibleNotebookTasks.map((task, idx) => (
-  <TaskCard
-  key={task.id}
-  task={task}
-  taskIdx={idx}
-  isDone={task.status === 'done'}
-  completingTaskId={completingTaskId}
-  dragIdx={dragIdx}
-  handleDragStart={handleDragStart}
-  handleDragOver={handleDragOver}
-  handleDragEnd={handleDragEnd}
-  handleTouchStart={handleTouchStart}
-  handleTouchMove={handleTouchMove}
-  handleTouchEnd={handleTouchEnd}
-  handlePointerReorderStart={handlePointerReorderStart}
-  setSelectedTask={setSelectedTask}
-  handleComplete={handleComplete}
-  handleUncomplete={handleUncomplete}
-  handleStartTimer={handleStartTimer}
-    view="daily"
-    notebookView
-    highlighted={highlightedTaskId === task.id}
-  />
-  ))}
-  </div>
-  ) : null}
-   {!isMainNotebookComplete && visibleNotebookTasks.length === 0 && (
-   renderBlankNotebookPage(false)
-   )}
- </div>
- </>
- ): (
- <div className="relative z-10">
- {renderBlankNotebookPage(false)}
- </div>
- )}
+      {/* Task List - Inside Desktop Notebook */}
+      <div className="relative z-10 mt-1.5 min-h-0 flex-1 overflow-y-auto pb-5 pr-1 pt-[2px]">
+        {isLoading ? (
+          <div className="space-y-6">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-24 animate-pulse rounded-[32px] border border-outline-variant/10 bg-surface-container-highest/20" />
+            ))}
+          </div>
+        ) : isMainNotebookComplete ? (
+          renderBlankNotebookPage(false)
+        ) : visibleNotebookTasks.length > 0 ? (
+          <>
+            <div className="notebook-task-list">
+              {visibleNotebookTasks.map((task, idx) => (
+                <TaskCard
+                  key={task.id}
+                  task={task}
+                  taskIdx={idx}
+                  isDone={task.status === "done"}
+                  completingTaskId={completingTaskId}
+                  dragIdx={dragIdx}
+                  handleDragStart={handleDragStart}
+                  handleDragOver={handleDragOver}
+                  handleDragEnd={handleDragEnd}
+                  handleTouchStart={handleTouchStart}
+                  handleTouchMove={handleTouchMove}
+                  handleTouchEnd={handleTouchEnd}
+                  handlePointerReorderStart={handlePointerReorderStart}
+                  setSelectedTask={setSelectedTask}
+                  handleComplete={handleComplete}
+                  handleUncomplete={handleUncomplete}
+                  handleStartTimer={handleStartTimer}
+                  view="daily"
+                  notebookView
+                  highlighted={highlightedTaskId === task.id}
+                />
+              ))}
+            </div>
+
+            {upcomingTasksByDate.length > 0 && (
+              <div className="mt-6 space-y-3">
+                <button
+                  type="button"
+                  onClick={() => setShowUpcomingDays((value) => !value)}
+                  className="inline-flex items-center gap-2 rounded-full border border-outline-variant/10 bg-transparent px-1 py-0 text-left"
+                >
+                  <span className="text-[10px] font-black uppercase tracking-[0.18em] text-on-surface-variant/60">Siguientes d?as</span>
+                  <span className="text-[11px] font-black text-on-surface-variant/40">{showUpcomingDays ? '<' : '>'}</span>
+                </button>
+
+                <AnimatePresence initial={false}>
+                  {showUpcomingDays && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 8 }}
+                      className="space-y-4"
+                    >
+                      {upcomingTasksByDate.map((week) => (
+                        <details key={week.key} open className="rounded-[18px] border border-outline-variant/10 bg-white/24 px-2 py-2">
+                          <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-1 py-1">
+                            <span className="text-[10px] font-black uppercase tracking-[0.18em] text-on-surface-variant/50">
+                              {week.label}
+                            </span>
+                            <span className="text-[10px] font-black uppercase tracking-[0.16em] text-on-surface-variant/30">
+                              {week.days.length} d?
+                            </span>
+                          </summary>
+
+                          <div className="space-y-3">
+                            {week.days.map((day) => (
+                              <details key={day.key} open className="rounded-[14px] border border-outline-variant/10 bg-white/30 px-2 py-2">
+                                <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-1 py-1">
+                                  <span className="text-[10px] font-black uppercase tracking-[0.16em] text-on-surface-variant/45">
+                                    {day.label}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      if (day.date) {
+                                        openTaskCapture(format(day.date, 'yyyy-MM-dd'));
+                                      }
+                                    }}
+                                    className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-outline-variant/10 bg-white/65 text-[13px] font-black text-on-surface-variant/70 transition active:scale-95"
+                                    title="Agregar tarea para este d?a"
+                                    aria-label="Agregar tarea para este d?a"
+                                  >
+                                    +
+                                  </button>
+                                </summary>
+
+                                <div className="notebook-task-list">
+                                  {day.tasks.map((task) => (
+                                    <TaskCard
+                                      key={task.id}
+                                      task={task}
+                                      taskIdx={-1}
+                                      isDone={task.status === "done"}
+                                      completingTaskId={completingTaskId}
+                                      dragIdx={null}
+                                      handleDragStart={undefined}
+                                      handleDragOver={undefined}
+                                      handleDragEnd={undefined}
+                                      handleTouchStart={undefined}
+                                      handleTouchMove={undefined}
+                                      handleTouchEnd={undefined}
+                                      handlePointerReorderStart={undefined}
+                                      setSelectedTask={setSelectedTask}
+                                      handleComplete={handleComplete}
+                                      handleUncomplete={handleUncomplete}
+                                      handleStartTimer={handleStartTimer}
+                                      view="daily"
+                                      notebookView
+                                      highlighted={highlightedTaskId === task.id}
+                                    />
+                                  ))}
+                                </div>
+                              </details>
+                            ))}
+                          </div>
+                        </details>
+                      ))}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            )}
+          </>
+        ) : (
+          renderBlankNotebookPage(false)
+        )}
+      </div>
+    </>
+  ) : (
+    <div className="relative z-10">
+      {renderBlankNotebookPage(false)}
+    </div>
+  )}
  </motion.div>
  </AnimatePresence>
  </motion.div>
@@ -1164,9 +1284,9 @@ const DailyPage = () => {
            ? 'bg-foreground text-background border-foreground'
            : 'bg-white/40 text-on-surface-variant/80 border-outline-variant/40 hover:text-foreground hover:border-outline-variant/60'
        }`}
-     >
-       Hoy
-     </button>
+      >
+        General
+      </button>
     {folders.map((folder) => {
       const isSelected = selectedFolderId === folder.id;
       return (
@@ -1241,6 +1361,95 @@ const DailyPage = () => {
   />
   ))}
     </div>
+    {upcomingTasksByDate.length > 0 && (
+      <div className="mx-3 mt-4 space-y-3">
+        <button
+          type="button"
+          onClick={() => setShowUpcomingDays((value) => !value)}
+          className="inline-flex items-center gap-2 rounded-full border border-outline-variant/10 bg-transparent px-1 py-0 text-left"
+        >
+          <span className="text-[10px] font-black uppercase tracking-[0.18em] text-on-surface-variant/60">Siguientes días</span>
+          <span className="text-[11px] font-black text-on-surface-variant/40">{showUpcomingDays ? '<' : '>'}</span>
+        </button>
+
+        <AnimatePresence initial={false}>
+          {showUpcomingDays && (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 8 }}
+              className="space-y-4"
+            >
+              {upcomingTasksByDate.map((week) => (
+                <details key={week.key} open className="rounded-[18px] border border-outline-variant/10 bg-white/24 px-2 py-2">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-1 py-1">
+                    <span className="text-[10px] font-black uppercase tracking-[0.18em] text-on-surface-variant/50">
+                      {week.label}
+                    </span>
+                    <span className="text-[10px] font-black uppercase tracking-[0.16em] text-on-surface-variant/30">
+                      {week.days.length} días
+                    </span>
+                  </summary>
+
+                  <div className="space-y-3">
+                    {week.days.map((day) => (
+                      <details key={day.key} open className="rounded-[14px] border border-outline-variant/10 bg-white/30 px-2 py-2">
+                        <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-1 py-1">
+                          <span className="text-[10px] font-black uppercase tracking-[0.16em] text-on-surface-variant/45">
+                            {day.label}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              if (day.date) {
+                                openTaskCapture(format(day.date, 'yyyy-MM-dd'));
+                              }
+                            }}
+                            className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-outline-variant/10 bg-white/65 text-[13px] font-black text-on-surface-variant/70 transition active:scale-95"
+                            title="Agregar tarea para este día"
+                            aria-label="Agregar tarea para este día"
+                          >
+                            +
+                          </button>
+                        </summary>
+
+                        <div className="notebook-task-list">
+                          {day.tasks.map((task) => (
+                            <TaskCard
+                              key={task.id}
+                              task={task}
+                              taskIdx={-1}
+                              isDone={task.status === 'done'}
+                              completingTaskId={completingTaskId}
+                              dragIdx={null}
+                              handleDragStart={undefined}
+                              handleDragOver={undefined}
+                              handleDragEnd={undefined}
+                              handleTouchStart={undefined}
+                              handleTouchMove={undefined}
+                              handleTouchEnd={undefined}
+                              handlePointerReorderStart={undefined}
+                              setSelectedTask={setSelectedTask}
+                              handleComplete={handleComplete}
+                              handleUncomplete={handleUncomplete}
+                              handleStartTimer={handleStartTimer}
+                              view="daily"
+                              notebookView
+                              highlighted={highlightedTaskId === task.id}
+                            />
+                          ))}
+                        </div>
+                      </details>
+                    ))}
+                  </div>
+                </details>
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    )}
     </>
     ): (
     <>

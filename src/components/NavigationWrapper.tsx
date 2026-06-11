@@ -26,9 +26,10 @@ import { useNotionIntegration } from '@/hooks/useNotionIntegration';
 import { useFriendUnreadCount } from '@/hooks/useFriendChats';
 import { useRef, useCallback } from 'react';
 import { useStreaks } from '@/hooks/useStreaks';
-import { useRecurrenceRules } from '@/hooks/useRecurrenceRules';
+import { useRecurrenceRules, type RecurrenceRule } from '@/hooks/useRecurrenceRules';
 import { REMINDER_OPTIONS, type ReminderMinutes, buildReminderMetadata } from '@/lib/reminders';
 import { NavigationPilot } from './NavigationPilot';
+import { ANDROID_DOWNLOAD, APPLE_DOWNLOAD } from '@/lib/download-urls';
 import ProfilePage from '@/pages/ProfilePage';
 import AchievementsPage from '@/pages/AchievementsPage';
 import AppSettingsPage from '@/pages/SettingsPage';
@@ -219,7 +220,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
   }, [location.pathname]);
 
 
-  const PUBLIC_ROUTES = ['/auth', '/welcome', '/account-required', '/onboarding', '/auth/sso-callback'];
+  const PUBLIC_ROUTES = ['/auth', '/welcome', '/account-required', '/onboarding', '/auth/sso-callback', '/apple'];
   const isPublicRoute = PUBLIC_ROUTES.some(p => location.pathname.startsWith(p));
 
   const { user, loading } = useAuth();
@@ -359,21 +360,21 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
     return () => window.removeEventListener('adonai:calendar-selected-date-change', handler);
   }, []);
 
-  const openCapture = useCallback((context?: { goalId?: string; folderId?: string }) => {
+  const openCapture = useCallback((context?: { goalId?: string; folderId?: string; date?: string }) => {
     if (context) setTargetContext(context);
     else setTargetContext({});
     setCaptureInitialMode(null);
     setCaptureOpen(true);
   }, []);
 
-  const openCaptureInTextMode = useCallback((context?: { goalId?: string; folderId?: string }) => {
+  const openCaptureInTextMode = useCallback((context?: { goalId?: string; folderId?: string; date?: string }) => {
     if (context) setTargetContext(context);
     else setTargetContext({});
     setCaptureInitialMode('text');
     setCaptureOpen(true);
   }, []);
 
-  const openCaptureInVoiceMode = useCallback((context?: { goalId?: string; folderId?: string }) => {
+  const openCaptureInVoiceMode = useCallback((context?: { goalId?: string; folderId?: string; date?: string }) => {
     if (context) setTargetContext(context);
     else setTargetContext({});
     setCaptureInitialMode('text');
@@ -383,8 +384,8 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
   // Listen for global open-capture events
   useEffect(() => {
     const handleOpenCapture = (e: Event) => {
-      const { goalId, folderId } = (e as CustomEvent<{ goalId?: string; folderId?: string }>).detail || {};
-      openCaptureInTextMode({ goalId, folderId });
+      const { goalId, folderId, date } = (e as CustomEvent<{ goalId?: string; folderId?: string; date?: string }>).detail || {};
+      openCaptureInTextMode({ goalId, folderId, date });
     };
     window.addEventListener('adonai:open-capture', handleOpenCapture);
     return () => window.removeEventListener('adonai:open-capture', handleOpenCapture);
@@ -515,6 +516,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
   const isFaqPage = cleanPath === '/faq';
   const isPrecioPage = cleanPath === '/precio' || cleanPath === '/precios' || cleanPath === '/pricing';
   const isExitCodesPage = cleanPath === '/codigos-de-retorno';
+  const isAppleInstallPage = cleanPath === '/apple';
   const isOnboardingPage = cleanPath === '/onboarding';
   const isInvitePage = cleanPath.startsWith('/invite');
   const isGroupInvitePage = cleanPath.startsWith('/group-invite');
@@ -533,7 +535,8 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
     !isInvitePage && 
     !isGroupInvitePage && 
     !isPrecioPage &&
-    !isExitCodesPage;
+    !isExitCodesPage &&
+    !isAppleInstallPage;
 
   if (!showNavigation) {
     return <>{children}</>;
@@ -552,8 +555,8 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
     { label: 'Personalizar', icon: Palette, action: () => handleNavigate('/priority-settings') },
     { label: 'Historial', icon: History, action: () => handleNavigate('/trash') },
     ...(isMobileDevice ? [
-      { label: 'Android', icon: Smartphone, action: () => window.open('/adonai.apk', '_blank') },
-      { label: 'Apple', icon: Download, action: () => window.open('https://testflight.apple.com/join/adonai', '_blank') },
+      { label: 'Android', icon: Smartphone, action: () => window.open(ANDROID_DOWNLOAD, '_blank') },
+      { label: 'Apple', icon: Download, action: () => window.open(APPLE_DOWNLOAD, '_blank') },
     ] : []),
   ];
 
@@ -1048,7 +1051,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
                           ? (evRepeatDays.length > 0 ? evRepeatDays : [start.getDay()])
                           : undefined;
 
-                      const recurrenceRule = await createRule.mutateAsync({
+                      const recurrencePayload: Omit<RecurrenceRule, 'id' | 'user_id' | 'created_at'> = {
                         title: evTitle.trim(),
                         description: evDescription.trim() || null,
                         link: evLink.trim() || null,
@@ -1062,7 +1065,9 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
                         start_time: format(start, 'HH:mm:ss'),
                         end_time: format(end, 'HH:mm:ss'),
                         estimated_minutes: evDuration,
-                      } as any);
+                      };
+
+                      const recurrenceRule = await createRule.mutateAsync(recurrencePayload);
 
                       recurrenceId = recurrenceRule.id;
                     }

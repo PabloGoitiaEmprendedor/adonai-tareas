@@ -12,6 +12,20 @@ const GOOGLE_OAUTH_STATE_TTL_MS = 15 * 60 * 1000
 
 const storageKey = (service: GoogleOAuthService) => `${GOOGLE_OAUTH_STATE_PREFIX}:${service}`
 
+const writeStoredState = (key: string, payload: GoogleOAuthStatePayload) => {
+  const value = JSON.stringify(payload)
+  window.sessionStorage.setItem(key, value)
+  window.localStorage.setItem(key, value)
+}
+
+const readStoredState = (key: string) =>
+  window.sessionStorage.getItem(key) || window.localStorage.getItem(key)
+
+const clearStoredState = (key: string) => {
+  window.sessionStorage.removeItem(key)
+  window.localStorage.removeItem(key)
+}
+
 const encodePayload = (payload: GoogleOAuthStatePayload) =>
   window.btoa(JSON.stringify(payload)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "")
 
@@ -54,7 +68,7 @@ export const createGoogleOAuthState = (service: GoogleOAuthService, desktop: boo
     createdAt: Date.now(),
   }
 
-  window.sessionStorage.setItem(storageKey(service), JSON.stringify(payload))
+  writeStoredState(storageKey(service), payload)
   return encodePayload(payload)
 }
 
@@ -71,7 +85,7 @@ export const validateGoogleOAuthState = (state: string | null, expectedService: 
   if (!payload || payload.service !== expectedService) return false
 
   const key = storageKey(expectedService)
-  const storedRaw = window.sessionStorage.getItem(key)
+  const storedRaw = readStoredState(key)
   if (!storedRaw) return false
 
   try {
@@ -84,13 +98,11 @@ export const validateGoogleOAuthState = (state: string | null, expectedService: 
       stored.desktop === payload.desktop &&
       stored.createdAt === payload.createdAt
 
-    if (isValid || isExpired) {
-      window.sessionStorage.removeItem(key)
-    }
+    if (isValid || isExpired) clearStoredState(key)
 
     return isValid
   } catch {
-    window.sessionStorage.removeItem(key)
+    clearStoredState(key)
     return false
   }
 }

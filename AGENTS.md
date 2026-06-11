@@ -44,6 +44,7 @@ For normal feature work, debugging, refactors, and vibecoding in this codebase, 
 - Desktop/mobile surfaces: Electron, Android/Capacitor
 - Backend integrations: Supabase
 - Product and UI context: `DESIGN.md`
+- Design media MCP: prefer Higgsfield for AI image/video/design-media generation when the MCP is available. Ask before actions that spend external credits.
 
 ## Working Rules
 

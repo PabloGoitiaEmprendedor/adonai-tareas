@@ -12,7 +12,7 @@ interface TaskCheckboxProps {
 }
 
 const sizeClasses = {
-  sm: 'h-6 w-6',
+  sm: 'h-[22px] w-[22px]',
   md: 'h-7 w-7',
   lg: 'h-8 w-8',
 };
@@ -35,30 +35,25 @@ export const TaskCheckbox = memo(({
     ? 'hsl(var(--primary))'
     : priorityColor;
 
-  const checkedBg = `linear-gradient(135deg, ${color}dd, ${color}88)`;
-
   return (
     <button
       type="button"
       onClick={onClick}
       className={cn(
-        'group/check flex shrink-0 items-center justify-center transition-all active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
+        'group/check flex shrink-0 items-center justify-center rounded-full border-2 transition-all duration-150 active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
         sizeClasses[size],
         className,
       )}
       style={{
         background: checked
-          ? checkedBg
+          ? color
           : 'transparent',
         borderColor: checked
           ? color
-          : (!priorityColor || priorityColor === 'transparent' ? 'hsl(var(--outline) / 0.55)' : `${color}80`),
-        borderRadius: checked ? '10px 12px 9px 11px' : '11px 10px 12px 9px',
-        borderWidth: checked ? '2px' : '2.5px',
+          : (!priorityColor || priorityColor === 'transparent' ? 'hsl(var(--outline) / 0.52)' : `${color}95`),
         boxShadow: checked
-          ? `0 3px 8px color-mix(in srgb, ${color}, transparent 78%)`
-          : 'none',
-        transform: checked ? 'rotate(-2deg)' : 'rotate(0.8deg)',
+          ? `0 2px 8px color-mix(in srgb, ${color}, transparent 72%), inset 0 1px 0 rgba(255,255,255,0.36)`
+          : 'inset 0 1px 0 rgba(255,255,255,0.42)',
       }}
       aria-label={ariaLabel || (checked ? 'Marcar como pendiente' : 'Completar tarea')}
     >

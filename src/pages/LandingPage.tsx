@@ -19,6 +19,7 @@ import { PublicFooter } from "@/components/PublicFooter";
 import { PublicNav } from "@/components/PublicNav";
 import { useAuth } from '@/contexts/AuthContext';
 import { useProfile } from '@/hooks/useProfile';
+import { ANDROID_DOWNLOAD, APPLE_DOWNLOAD } from '@/lib/download-urls';
 
 const INTRO_VISIBLE_MS = 850;
 
@@ -110,7 +111,7 @@ function Hero() {
             <PrimaryCTA />
             <div className="flex gap-2">
               <a
-                href="/adonai.apk"
+                href={ANDROID_DOWNLOAD}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex h-14 items-center justify-center gap-2 rounded-full border-2 border-[#151820]/20 bg-white/80 px-5 text-sm font-bold text-[#151820] shadow-sm backdrop-blur transition hover:-translate-y-0.5 hover:bg-white active:translate-y-0"
@@ -119,7 +120,7 @@ function Hero() {
                 Android
               </a>
               <a
-                href="https://testflight.apple.com/join/adonai"
+                href={APPLE_DOWNLOAD}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex h-14 items-center justify-center gap-2 rounded-full border-2 border-[#151820]/20 bg-white/80 px-5 text-sm font-bold text-[#151820] shadow-sm backdrop-blur transition hover:-translate-y-0.5 hover:bg-white active:translate-y-0"
