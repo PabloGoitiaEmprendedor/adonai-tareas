@@ -50,10 +50,18 @@ type MiniTask = {
  estimated_minutes?: number | null;
  actual_duration_seconds?: number | null;
  recurrence_id?: string | null;
+ sort_order?: number | null;
 };
 
 type MiniTaskMutation = {
  mutate: (payload: { id: string } & Record<string, unknown>) => void;
+};
+
+type MiniFolder = {
+ id: string;
+ name?: string | null;
+ deleted_at?: string | null;
+ isShared?: boolean;
 };
 
 const FOLDER_COLORS = ['#5B7CFA', '#4F6EE8', '#6FCF97', '#F4B860', '#EB5757', '#7C97FF', '#9CA3AF', '#E5E7EB'];
@@ -566,9 +574,10 @@ const MiniTaskList = () => {
   const [viewMode, setViewMode] = useState<'day' | 'week' | 'month'>(() => {
     return readStoredCalendarViewMode('day');
   });
+  const today = useMemo(() => format(new Date(), 'yyyy-MM-dd'), []);
   const { tasks, updateTask, createTask, isLoading } = useTasks({ 
-  date: format(viewDate, 'yyyy-MM-dd'), 
-  excludeEvents: true
+  date: today, 
+  excludeEvents: false
   });
   const rangeStart = startOfMonth(viewDate);
   const rangeEnd = endOfMonth(viewDate);
@@ -577,6 +586,10 @@ const MiniTaskList = () => {
     rangeEnd.toISOString()
   );
   const { folders, createFolder } = useFolders();
+  const visibleFolders = useMemo<MiniFolder[]>(
+  () => (folders as MiniFolder[]).filter((folder) => !folder.deleted_at),
+  [folders]
+  );
  const { checkAndUnlock } = useGamification();
  const { profile } = useProfile();
  const [completingId, setCompletingId] = useState<string | null>(null);
@@ -611,8 +624,8 @@ const MiniTaskList = () => {
  setCaptureMode('text');
  setCaptureCreationSource('mini_plus');
  setCaptureOpen(true);
- captureModalRef.current?.openInTextMode(format(viewDate, 'yyyy-MM-dd'));
- }, [viewDate]);
+ captureModalRef.current?.openInTextMode(today);
+ }, [today]);
 
  const { onMouseDown: onDragMouseDown, hasMovedRef, isDraggingRef: isDraggingWindowRef } = useDragWindow();
 
@@ -905,11 +918,12 @@ if (!isExpanded) {
  }, [tasks, activeTimerId, updateTask]);
 
  const filteredTasks = useMemo(() => {
- if (!selectedFolderId) {
- return tasks.filter((t: MiniTask) => !t.folder_id);
- }
- return tasks.filter((t: MiniTask) => t.folder_id === selectedFolderId);
- }, [tasks, selectedFolderId]);
+ const todayTasks = tasks.filter((t: MiniTask) =>
+ t.due_date === today || (t.due_date && t.due_date < today && t.status !== 'done')
+ );
+ if (!selectedFolderId) return todayTasks.filter((t: MiniTask) => !t.folder_id);
+ return todayTasks.filter((t: MiniTask) => t.folder_id === selectedFolderId);
+ }, [tasks, selectedFolderId, today]);
 
  const sortedTasks = useMemo(() => {
  return [...filteredTasks].sort(compareTasksWithinQuadrants);
@@ -1389,7 +1403,7 @@ if (!isExpanded) {
  >
  Hoy
  </button>
- {folders.map(folder => (
+ {visibleFolders.map(folder => (
  <div key={folder.id} style={{
  flexShrink: 0, display: 'flex', alignItems: 'center', borderRadius: 999,
  background: selectedFolderId === folder.id? 'hsl(var(--primary) / 0.14)': 'rgba(255,255,255,0.40)',
@@ -1398,7 +1412,7 @@ if (!isExpanded) {
  transition: 'all 0.2s ease'
  }}>
  <button
- onClick={() => setSelectedFolderId(folder.id)}
+ onClick={() => setSelectedFolderId(selectedFolderId === folder.id ? null : folder.id)}
  style={{
  padding: '6px 12px',
  fontSize: 10, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.04em',
@@ -1555,7 +1569,7 @@ if (!isExpanded) {
  activeTimerId={activeTimerId}
  onTimerToggle={handleTimerToggle}
  updateTask={updateTask}
- folders={folders}
+ folders={visibleFolders}
  currentDate={viewDate}
  ensureCalendarOpen={openCalendarPanel}
  onReorderPointerStart={handleMiniReorderPointerStart}

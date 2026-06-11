@@ -2,6 +2,8 @@ import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { HelpCircle, Mail, Menu, X, LogIn, User, MessageCircle } from "lucide-react";
 import { BrandLogo } from "@/components/BrandLogo";
+import { ClerkAuthControls } from "@/components/ClerkAuthControls";
+import { hasClerkConfig } from "@/lib/clerkConfig";
 
 const NAV_LINKS = [
   { label: "Inicio", section: "inicio" },
@@ -11,7 +13,17 @@ const NAV_LINKS = [
   { label: "Soporte", href: "https://wa.me/message/KIUXTXD5QBPEJ1" },
 ];
 
-export function PublicNav({ user, profile }: { user?: any; profile?: any }) {
+interface PublicNavUser {
+  email?: string | null;
+  phone?: string | null;
+}
+
+interface PublicNavProfile {
+  avatar_url?: string | null;
+  name?: string | null;
+}
+
+export function PublicNav({ user, profile }: { user?: PublicNavUser | null; profile?: PublicNavProfile | null }) {
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -90,7 +102,20 @@ export function PublicNav({ user, profile }: { user?: any; profile?: any }) {
         </nav>
 
         <div className="hidden items-center gap-2 md:flex">
-          {user ? (
+          {hasClerkConfig ? (
+            <>
+              <ClerkAuthControls />
+              {user && (
+                <Link
+                  to="/daily"
+                  className="inline-flex items-center gap-1.5 rounded-full bg-[#151820] px-4 py-2 text-xs font-black text-white transition hover:bg-[#151820]/88"
+                >
+                  <LogIn className="h-3.5 w-3.5" />
+                  Abrir Adonai
+                </Link>
+              )}
+            </>
+          ) : user ? (
             <>
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/50 border border-[#151820]/10">
                 {profile?.avatar_url ? (
@@ -150,7 +175,21 @@ export function PublicNav({ user, profile }: { user?: any; profile?: any }) {
           )}
           {NAV_LINKS.map((item) => renderNavItem(item, true))}
           <div className="flex flex-col gap-2 pt-3">
-            {user ? (
+            {hasClerkConfig ? (
+              <>
+                <ClerkAuthControls mobile onAction={() => setMobileOpen(false)} />
+                {user && (
+                  <Link
+                    to="/daily"
+                    onClick={() => setMobileOpen(false)}
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#151820] px-5 py-3 text-sm font-black text-white transition hover:bg-[#151820]/90"
+                  >
+                    <LogIn className="h-4 w-4" />
+                    Abrir Adonai
+                  </Link>
+                )}
+              </>
+            ) : user ? (
               <Link
                 to="/daily"
                 onClick={() => setMobileOpen(false)}

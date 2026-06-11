@@ -1,0 +1,10 @@
+{
+  "android": {
+    "version": "1.0.0",
+    "apkUrl": "https://webadonai.com/adonai.apk"
+  },
+  "ios": {
+    "version": "1.0.0",
+    "testflightUrl": "https://testflight.apple.com/join/adonai"
+  }
+}

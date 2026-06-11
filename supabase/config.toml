@@ -53,3 +53,6 @@ verify_jwt = false
 
 [functions.task-reminders]
 verify_jwt = true
+
+[functions.clerk-supabase-token]
+verify_jwt = false

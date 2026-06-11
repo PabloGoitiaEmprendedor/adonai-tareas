@@ -2,9 +2,10 @@ import { useEffect, useRef, useState, type ClipboardEvent, type Dispatch, type K
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowRight, Bell, Calendar, Check, Clipboard, Clock, Download, ExternalLink, Link2, Loader2, Lock, Mail, Monitor, ShieldCheck, Smartphone, Sparkles, Trash2, User, UserPlus } from 'lucide-react';
+import { ArrowRight, Bell, Calendar, Check, Clock, Download, ExternalLink, Link2, Loader2, Lock, Monitor, ShieldCheck, Smartphone, Sparkles, Trash2, User, UserPlus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useProfile } from '@/hooks/useProfile';
 import { useCalendarIntegration } from '@/hooks/useCalendarIntegration';
 import { toast } from 'sonner';
 
@@ -13,16 +14,6 @@ const getUrlParam = (key: string): string | null => {
   const params = new URLSearchParams(search);
   return params.get(key);
 };
-import {
-  ensureAnonymousSession,
-  saveAnonymousUserId,
-  getPreviousAnonymousUserId,
-  migrateAnonymousData,
-  getCurrentAnonymousUserId,
-  migrateStoredAnonymousDataToUser,
-  beginAnonymousEmailUpgrade,
-  clearAnonymousEmailUpgrade,
-} from '@/lib/anonymousSession';
 import { startGuidedDownload } from '@/lib/downloadGuide';
 import { trackAnalyticsEvent } from '@/lib/analytics';
 import { queuePostOnboardingVideoTutorial } from '@/lib/videoTutorial';
@@ -53,10 +44,16 @@ const OnboardingPage = () => {
   const queryClient = useQueryClient();
   const { user } = useAuth();
 
-  const [currentStepIndex, setCurrentStepIndex] = useState(0);
+  const { profile, isLoading: profileLoading } = useProfile();
+  const [currentStepIndex, setCurrentStepIndex] = useState(() => {
+    const saved = typeof window !== 'undefined' ? localStorage.getItem('adonai_onboarding_step') : null;
+    if (saved) {
+      const idx = parseInt(saved, 10);
+      if (!isNaN(idx) && idx >= 0 && idx < steps.length) return idx;
+    }
+    return 0;
+  });
   const [isFinishing, setIsFinishing] = useState(false);
-  const [showWebChoiceModal, setShowWebChoiceModal] = useState(false);
-  const [showEmailAuthModal, setShowEmailAuthModal] = useState(false);
   const [pendingFriendInvite, setPendingFriendInvite] = useState<{ inviterId: string; inviterName: string; userId: string } | null>(null);
   const [isSendingFriendRequest, setIsSendingFriendRequest] = useState(false);
   const [navigateToDaily, setNavigateToDaily] = useState(false);
@@ -90,11 +87,6 @@ const OnboardingPage = () => {
   const preferredDownloadPlatform = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/i.test(navigator.platform) ? 'mac' : 'win';
   const calendarIntegration = useCalendarIntegration();
 
-  const [email, setEmail] = useState('');
-  const [otpCode, setOtpCode] = useState(['', '', '', '', '', '']);
-  const [authSubStep, setAuthSubStep] = useState<'email' | 'code'>('email');
-  const [isAuthenticating, setIsAuthenticating] = useState(false);
-  const otpInputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const urgentTaskTitleRefs = useRef<(HTMLInputElement | null)[]>([]);
   const recurringTaskTitleRefs = useRef<(HTMLInputElement | null)[]>([]);
 
@@ -121,6 +113,20 @@ const OnboardingPage = () => {
     const frame = window.requestAnimationFrame(focusTarget);
     return () => window.cancelAnimationFrame(frame);
   }, [currentStep]);
+
+  // Sync name from profile (synced from Clerk/Google)
+  useEffect(() => {
+    if (profile?.name && !name) {
+      setName(profile.name);
+    }
+  }, [profile?.name]);
+
+  // Skip name step if profile already has a name
+  useEffect(() => {
+    if (!profileLoading && profile?.name && currentStepIndex === 0 && steps[0] === 'name') {
+      setCurrentStepIndex(1);
+    }
+  }, [profileLoading, profile?.name, currentStepIndex]);
 
   // Restore state after Google Calendar OAuth redirect
   useEffect(() => {
@@ -169,35 +175,13 @@ const OnboardingPage = () => {
     localStorage.setItem('adonai_onboarding_calendar_pending', 'true');
   };
 
-  const ensureAnonymousUser = async (): Promise<string> => {
-    if (user) {
-      if (user.is_anonymous) saveAnonymousUserId(user.id);
-      return user.id;
-    }
-    const anonymousSession = await ensureAnonymousSession();
-    const oldUserId = getPreviousAnonymousUserId();
-    if (!anonymousSession.user?.id) throw new Error('No se pudo crear sesion anonima');
-    localStorage.setItem('adonai_had_session', 'true');
-    localStorage.setItem('adonai_session_type', 'anonymous');
-    saveAnonymousUserId(anonymousSession.user.id);
-    const newUserId = anonymousSession.user.id;
-    // Migrate data from previous expired anonymous session if needed
-    if (oldUserId && oldUserId !== newUserId) {
-      console.log('[onboarding] Migrating data from previous anonymous session');
-      migrateAnonymousData(oldUserId, newUserId).then((ok) => {
-        if (ok) console.log('[onboarding] Data migration complete');
-      });
-    }
-    return newUserId;
+  const ensureUserId = (): string => {
+    if (!user) throw new Error('Debes iniciar sesion para continuar');
+    return user.id;
   };
 
-  const next = async () => {
+  const next = () => {
     if (currentStep === 'commitment' || (isMobile && currentStep === 'recurring_tasks')) {
-      try {
-        await ensureAnonymousUser();
-      } catch (e: unknown) {
-        console.error('[onboarding] next ensureAnonymousUser error:', e);
-      }
       setCurrentStepIndex(steps.indexOf('ready'));
       window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
@@ -224,13 +208,11 @@ const OnboardingPage = () => {
   };
 
   const handleFinish = async (resolvedUserId?: string) => {
-    setShowWebChoiceModal(false);
-    setShowEmailAuthModal(false);
     let userId: string;
     try {
-      userId = resolvedUserId || await ensureAnonymousUser();
+      userId = resolvedUserId || ensureUserId();
     } catch (e: unknown) {
-      toast.error(`Error: ${getErrorMessage(e, 'No se pudo iniciar sesion anonima')}`);
+      toast.error(`Error: ${getErrorMessage(e, 'Debes iniciar sesion primero')}`);
       return;
     }
     setIsFinishing(true);
@@ -335,29 +317,20 @@ const OnboardingPage = () => {
     }
   };
 
-  // Called after recurring_tasks step: save anonymous data then prompt for email
-  const handleAfterActivities = async () => {
-    try {
-      await ensureAnonymousUser();
-    } catch (e: unknown) {
-      console.error('[onboarding] handleAfterActivities ensureAnonymousUser error:', e);
-    }
-    // If user already has a linked email account, skip the email prompt
-    if (user && !user.is_anonymous) {
-      void handleFinish();
+  const handleAfterActivities = () => {
+    if (!user) {
+      navigate('/welcome', { replace: true });
       return;
     }
-    setAuthSubStep('email');
-    setShowEmailAuthModal(true);
+    void handleFinish(user.id);
   };
 
-  const skipAfterActivities = async () => {
-    try {
-      await ensureAnonymousUser();
-    } catch (e: unknown) {
-      console.error('[onboarding] skipAfterActivities ensureAnonymousUser error:', e);
+  const skipAfterActivities = () => {
+    if (!user) {
+      navigate('/welcome', { replace: true });
+      return;
     }
-    void handleFinish();
+    void handleFinish(user.id);
   };
 
   const sendPendingFriendRequest = async () => {
@@ -396,119 +369,6 @@ const OnboardingPage = () => {
     localStorage.removeItem('adonai_pending_friend_invite_name');
     setPendingFriendInvite(null);
     navigate('/daily');
-  };
-
-  const handleSendOtp = async () => {
-    if (!email.trim() || !email.includes('@')) {
-        toast.error("Ingresa un email v\u00e1lido");
-        return;
-    }
-    setIsAuthenticating(true);
-    try {
-        const { error } = await supabase.auth.signInWithOtp({
-            email: email.trim().toLowerCase(),
-            options: { shouldCreateUser: true },
-        });
-        if (error) throw error;
-        setAuthSubStep('code');
-        toast.success("C\u00f3digo de seguridad enviado");
-    } catch (err: unknown) {
-        toast.error(getErrorMessage(err, 'Error al enviar codigo'));
-    } finally {
-        setIsAuthenticating(false);
-    }
-  };
-
-  const handleVerifyOtp = async (tokenOverride?: string) => {
-    const token = tokenOverride || otpCode.join('');
-    if (token.length !== 6) return;
-
-    // Capture anonymous user ID BEFORE verifyOtp replaces the session
-    const anonymousUserId =
-      getCurrentAnonymousUserId() ||
-      getPreviousAnonymousUserId();
-
-    console.log("[onboarding] OTP verify - anonymous user to migrate:", anonymousUserId);
-
-    setIsAuthenticating(true);
-    try {
-        // Mark upgrade so AuthContext knows not to auto-recover the anon session
-        beginAnonymousEmailUpgrade(anonymousUserId);
-
-        const { data, error } = await supabase.auth.verifyOtp({
-            email: email.trim().toLowerCase(),
-            token,
-            type: 'email',
-        });
-        if (error) throw error;
-
-        toast.success("\u00a1Acceso verificado!");
-        const emailUserId = data.session?.user?.id;
-        console.log("[onboarding] OTP verified - email user:", emailUserId);
-
-        // Migrate data from anonymous account to email account
-        if (anonymousUserId && emailUserId && !data.session?.user?.is_anonymous) {
-            console.log('[onboarding] Migrating from', anonymousUserId, 'to', emailUserId);
-            try {
-                const { error: rpcError } = await supabase.rpc('migrate_anonymous_data', {
-                    old_user_id: anonymousUserId,
-                    new_user_id: emailUserId,
-                });
-                if (rpcError) {
-                    console.error('[onboarding] RPC migrate_anonymous_data error:', rpcError);
-                } else {
-                    console.log('[onboarding] Migration successful');
-                    // Mark as migrated to prevent double-migration in AuthContext
-                    localStorage.setItem(`adonai_anonymous_migrated_${anonymousUserId}_${emailUserId}`, 'true');
-                    await queryClient.invalidateQueries();
-                }
-            } catch (rpcEx) {
-                console.error('[onboarding] RPC exception:', rpcEx);
-            }
-        }
-
-        clearAnonymousEmailUpgrade();
-        await handleFinish(emailUserId);
-    } catch (err: unknown) {
-        clearAnonymousEmailUpgrade();
-        toast.error(getErrorMessage(err, 'Codigo incorrecto'));
-        setOtpCode(['', '', '', '', '', '']);
-    } finally {
-        setIsAuthenticating(false);
-    }
-  };
-
-  const handleOtpChange = (index: number, value: string) => {
-    if (!/^\d*$/.test(value)) return;
-    const newCode = [...otpCode];
-    newCode[index] = value.slice(-1);
-    setOtpCode(newCode);
-
-    if (value && index < 5) {
-        otpInputRefs.current[index + 1]?.focus();
-    }
-
-    const fullToken = newCode.join('');
-    if (fullToken.length === 6 && !newCode.some(d => !d)) {
-        handleVerifyOtp(fullToken);
-    }
-  };
-
-  const handlePasteCode = async () => {
-    try {
-      const text = await navigator.clipboard.readText();
-      const digits = text.replace(/\D/g, '').slice(0, 6).split('');
-      const newCode = ['', '', '', '', '', ''];
-      digits.forEach((d, i) => { newCode[i] = d; });
-      setOtpCode(newCode);
-      if (digits.length === 6) {
-        handleVerifyOtp(newCode.join(''));
-      } else if (digits.length > 0) {
-        otpInputRefs.current[digits.length]?.focus();
-      }
-    } catch (error: unknown) {
-      console.debug('[onboarding] clipboard read failed', error);
-    }
   };
 
   const activateFloatingWindow = () => {
@@ -603,154 +463,6 @@ const OnboardingPage = () => {
       if (rankA !== rankB) return rankA - rankB;
       return a.index - b.index;
     });
-
-  const renderAccessChoiceModal = () => (
-    <div className="fixed inset-0 z-[110] flex items-end justify-center bg-black/55 px-4 py-4 backdrop-blur-md sm:items-center">
-      <motion.div
-        initial={{ opacity: 0, y: 16, scale: 0.98 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        className="w-full max-w-md overflow-hidden rounded-[28px] border border-outline-variant/15 bg-surface-container-low shadow-2xl"
-      >
-        <div className="relative overflow-hidden px-6 pb-6 pt-7 text-center">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(91,124,250,0.14),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(111,207,151,0.10),transparent_30%)]" />
-          <div className="relative space-y-4">
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-[22px] border border-primary/20 bg-primary/10">
-              <img src="/logo.png" alt="Adonai" className="h-9 w-9 rounded-[18px] object-contain" />
-            </div>
-            <div className="space-y-2">
-              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-on-surface-variant/45">Tu acceso en la web</p>
-              <h3 className="text-2xl font-black tracking-tight text-foreground">{"\u00bfQuieres tener tus tareas siempre contigo?"}</h3>
-              <p className="mx-auto max-w-sm text-sm leading-relaxed text-on-surface-variant/70">
-                Entra con correo para tenerlas en cualquier equipo. O sigue sin correo y usalas solo en este navegador.
-              </p>
-            </div>
-          </div>
-        </div>
-        <div className="space-y-3 px-4 pb-4">
-          <button
-            type="button"
-            onClick={() => {
-              setShowWebChoiceModal(false);
-              setAuthSubStep('email');
-              setShowEmailAuthModal(true);
-            }}
-            className="w-full rounded-[22px] border border-primary/20 bg-primary/10 px-4 py-4 text-left transition-colors hover:bg-primary/15"
-          >
-            <span className="block text-sm font-black text-primary">Entrar con correo <span className="text-[9px] font-black uppercase tracking-widest text-primary/60 ml-2">Recomendado</span></span>
-            <span className="mt-1 block text-xs font-semibold text-on-surface-variant/65">Tus tareas te siguen a cualquier equipo.</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setShowWebChoiceModal(false);
-              void handleFinish();
-            }}
-            className="w-full rounded-[22px] border border-outline-variant/20 bg-surface-container-high px-4 py-4 text-left transition-colors hover:bg-surface-container-highest"
-          >
-            <span className="block text-sm font-black text-foreground">Seguir sin correo</span>
-            <span className="mt-1 block text-xs font-semibold text-on-surface-variant/60">{"Empieza sin correo y decide despu\u00e9s."}</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setShowWebChoiceModal(false)}
-            className="mx-auto block px-3 py-2 text-[10px] font-black uppercase tracking-[0.22em] text-on-surface-variant/35 hover:text-on-surface-variant/70 transition-colors"
-          >
-            Volver
-          </button>
-        </div>
-      </motion.div>
-    </div>
-  );
-
-  const renderEmailAuthModal = () => (
-    <div className="fixed inset-0 z-[120] flex items-end justify-center bg-black/60 px-4 py-4 backdrop-blur-md sm:items-center">
-      <motion.div
-        initial={{ opacity: 0, y: 16, scale: 0.98 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        className="w-full max-w-md overflow-hidden rounded-[28px] border border-outline-variant/15 bg-surface-container-low shadow-2xl"
-      >
-        <div className="relative px-6 pb-6 pt-7 text-center">
-          <div className="space-y-3">
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-[22px] border border-primary/20 bg-primary/10">
-              <ShieldCheck className="w-7 h-7 text-primary" />
-            </div>
-            <div className="space-y-1">
-              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-on-surface-variant/45">{"Un paso m\u00e1s"}</p>
-              <h3 className="text-2xl font-black tracking-tight text-foreground">{"\u00bfA d\u00f3nde guardamos tus tareas?"}</h3>
-              <p className="mx-auto max-w-sm text-sm leading-relaxed text-on-surface-variant/70">
-                Ya tienes tus tareas listas. Ingresa tu correo para que no las pierdas si cierras el navegador o cambias de equipo.
-              </p>
-            </div>
-          </div>
-        </div>
-        <div className="space-y-4 px-4 pb-4">
-          {authSubStep === 'email' ? (
-            <div className="space-y-4">
-              <input
-                autoFocus
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleSendOtp()}
-                placeholder="tu@email.com"
-                className="w-full rounded-[24px] border-2 border-outline-variant/30 bg-surface-container-lowest px-5 h-16 outline-none transition-all text-base font-bold placeholder:text-on-surface-variant/50 focus:border-primary/70"
-              />
-              <button
-                onClick={handleSendOtp}
-                disabled={isAuthenticating || !email.includes('@')}
-                className="w-full h-16 primary-gradient text-primary-foreground rounded-[24px] font-black text-base flex items-center justify-center gap-3 shadow-2xl shadow-primary/30 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isAuthenticating ? "Enviando..." : "Proteger mis tareas"} <Mail className="w-5 h-5" />
-              </button>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <p className="text-center text-sm font-bold text-on-surface-variant/80">{"Ingresa el c\u00f3digo enviado a "}<br /><span className="text-primary">{email}</span></p>
-              <div className="flex gap-2 justify-center">
-                {otpCode.map((digit, i) => (
-                  <input
-                    key={i}
-                    ref={(el) => { otpInputRefs.current[i] = el; }}
-                    type="text"
-                    inputMode="numeric"
-                    maxLength={1}
-                    value={digit}
-                    onChange={(e) => handleOtpChange(i, e.target.value)}
-                    className="w-12 h-16 text-center text-2xl font-black bg-surface-container-lowest border-2 border-outline-variant/30 rounded-2xl text-foreground focus:outline-none focus:border-primary transition-all"
-                  />
-                ))}
-                <button
-                  onClick={handlePasteCode}
-                  className="w-12 h-16 flex items-center justify-center rounded-2xl border-2 border-dashed border-outline-variant/30 text-on-surface-variant/50 hover:text-primary hover:border-primary/40 transition-all"
-                  title={"Pegar c\u00f3digo"}
-                >
-                  <Clipboard className="w-5 h-5" />
-                </button>
-              </div>
-              <button
-                onClick={() => setAuthSubStep('email')}
-                className="w-full text-[10px] font-black uppercase tracking-widest text-on-surface-variant/70 hover:text-primary transition-colors"
-              >
-                Cambiar email
-              </button>
-            </div>
-          )}
-
-          <button
-            type="button"
-            onClick={() => {
-              setShowEmailAuthModal(false);
-              setAuthSubStep('email');
-              void handleFinish();
-            }}
-            className="mx-auto block px-3 py-2 text-[10px] font-black uppercase tracking-[0.22em] text-on-surface-variant/35 hover:text-on-surface-variant/70 transition-colors"
-          >
-            Entrar sin correo
-          </button>
-        </div>
-      </motion.div>
-    </div>
-  );
 
   const renderPendingFriendInviteModal = () => {
     if (!pendingFriendInvite) return null;
@@ -1463,8 +1175,6 @@ const OnboardingPage = () => {
           </motion.div>
         </AnimatePresence>
       </div>
-      {showWebChoiceModal && renderAccessChoiceModal()}
-      {showEmailAuthModal && renderEmailAuthModal()}
       {renderPendingFriendInviteModal()}
     </div>
   );

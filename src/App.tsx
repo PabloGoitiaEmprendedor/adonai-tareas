@@ -9,6 +9,26 @@ import { ThemeProvider, useTheme } from "@/contexts/ThemeProvider";
 import { useProfile } from "@/hooks/useProfile";
 
 import AuthPage from "./pages/AuthPage";
+import { HandleSSOCallback } from "@clerk/react";
+
+function SSOCallbackWithRouter() {
+  const navigate = useNavigate();
+  return (
+    <HandleSSOCallback
+      navigateToApp={({ decorateUrl }) => {
+        const destination = decorateUrl("/daily");
+        if (destination.startsWith("http")) {
+          window.location.href = destination;
+        } else {
+          navigate(destination);
+        }
+      }}
+      navigateToSignIn={() => navigate("/auth")}
+      navigateToSignUp={() => navigate("/auth")}
+    />
+  );
+}
+
 import OnboardingPage from "./pages/OnboardingPage";
 import DailyPage from "./pages/DailyPage";
 import DashboardPage from "./pages/DashboardPage";
@@ -33,6 +53,7 @@ import FAQPage from "./pages/FAQPage";
 import PrioritySettingsPage from "./pages/PrioritySettingsPage";
 import NotFound from "./pages/NotFound";
 import WelcomePage from "./pages/WelcomePage";
+import AccountRequiredPage from "./pages/AccountRequiredPage";
 import { supabase } from "@/integrations/supabase/client";
 import UpdateDialog from "@/components/UpdateDialog";
 
@@ -186,7 +207,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 };
 
 const AppRoutes = () => {
-  const { user, loading } = useAuth();
+  const { user, loading, hasAnonymousData } = useAuth();
   const location = useLocation();
   const browserPath = window.location.pathname.replace(/\/$/, '');
   
@@ -246,8 +267,12 @@ const AppRoutes = () => {
         <Route path="/mini" element={<MiniTasksPage />} />
         <Route path="/toast" element={<ToastPage />} />
         <Route path="/welcome" element={
-          loading ? <LoadingScreen message="Sincronizando Adonai" /> : user && !user.is_anonymous ? <Navigate to="/daily" replace /> : <WelcomePage />
+          loading ? <LoadingScreen message="Sincronizando Adonai" /> : user ? <Navigate to="/daily" replace /> : hasAnonymousData ? <Navigate to="/account-required" replace /> : <WelcomePage />
         } />
+        <Route path="/account-required" element={
+          loading ? <LoadingScreen message="Sincronizando Adonai" /> : user ? <Navigate to="/daily" replace /> : <AccountRequiredPage />
+        } />
+        <Route path="/auth/sso-callback" element={<SSOCallbackWithRouter />} />
         <Route path="/auth" element={
           loading ? <LoadingScreen message="Sincronizando Adonai" /> : user && !user.is_anonymous ? <Navigate to="/daily" replace /> : <AuthPage />
         } />

@@ -364,6 +364,27 @@ const SettingsPage = () => {
           <h1 className="text-xl font-black tracking-tight">Ajustes</h1>
         </div>
 
+        {/* Profile Section */}
+        <div className="bg-surface-container-low border border-outline-variant/10 rounded-2xl p-4 flex items-center gap-4">
+          <div className="w-12 h-12 rounded-full bg-surface-container-highest overflow-hidden shrink-0">
+            {profile?.avatar_url ? (
+              <img src={profile.avatar_url} alt="" className="w-full h-full object-cover" />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-sm font-black text-on-surface-variant/40">
+                {(profile?.name || currentUser?.email || '?').charAt(0).toUpperCase()}
+              </div>
+            )}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-bold text-foreground truncate">
+              {profile?.name || 'Usuario'}
+            </p>
+            <p className="text-xs text-on-surface-variant/50 truncate">
+              {currentUser?.email || ''}
+            </p>
+          </div>
+        </div>
+
         {/* Desktop Settings - Hide on mobile via CSS */}
         <div className="hidden md:block">
           <div className="bg-surface-container-low border border-outline-variant/10 rounded-2xl p-5 flex items-center justify-between">

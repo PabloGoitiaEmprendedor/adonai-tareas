@@ -1,5 +1,5 @@
 export default {
-  base: "",
+  base: process.env.ELECTRON_BUILD === "true" ? "" : "/",
   root: ".",
   build: {
     target: "es2015",

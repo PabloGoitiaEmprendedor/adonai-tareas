@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Users, User, Calendar, Settings, Target, Trophy, Sun, History, Palette, X, Flame, MessageSquare, MoreVertical, Link2, Bell, BellOff } from 'lucide-react';
+import { Users, User, Calendar, Settings, Target, Trophy, Sun, History, Palette, X, Flame, MessageSquare, MoreVertical, Link2, Bell, BellOff, Smartphone, Download } from 'lucide-react';
 import { toast } from 'sonner';
 
 
@@ -12,6 +12,7 @@ import AppTutorial from './AppTutorial';
 import TitleBar from './TitleBar';
 import { useProfile } from '@/hooks/useProfile';
 import AnonymousReminder from './AnonymousReminder';
+import MobileUpdateBanner from './MobileUpdateBanner';
 import FirstTaskSignupModal from './FirstTaskSignupModal';
 import ExitIntentModal from './ExitIntentModal';
 import PostOnboardingVideoTutorial from './PostOnboardingVideoTutorial';
@@ -217,6 +218,9 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
     setOpen(false);
   }, [location.pathname]);
 
+
+  const PUBLIC_ROUTES = ['/auth', '/welcome', '/account-required', '/onboarding', '/auth/sso-callback'];
+  const isPublicRoute = PUBLIC_ROUTES.some(p => location.pathname.startsWith(p));
 
   const { user, loading } = useAuth();
   const { profile } = useProfile();
@@ -539,6 +543,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
   const isCalendarRoute = location.pathname === '/week';
   const isFriendsRoute = location.pathname === '/friends';
   const hideMobileHeader = isCalendarRoute;
+  const isMobileDevice = typeof navigator !== 'undefined' && /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
   const mobileOverflowItems = [
     { label: 'Perfil', icon: User, action: () => handleNavigate('/profile') },
     { label: 'Metas', icon: Target, action: () => handleNavigate('/goals') },
@@ -546,11 +551,16 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
     { label: 'Configuracion', icon: Settings, action: () => handleNavigate('/settings') },
     { label: 'Personalizar', icon: Palette, action: () => handleNavigate('/priority-settings') },
     { label: 'Historial', icon: History, action: () => handleNavigate('/trash') },
+    ...(isMobileDevice ? [
+      { label: 'Android', icon: Smartphone, action: () => window.open('/adonai.apk', '_blank') },
+      { label: 'Apple', icon: Download, action: () => window.open('https://testflight.apple.com/join/adonai', '_blank') },
+    ] : []),
   ];
 
   return (
     <div className="min-h-screen bg-background">
       <TitleBar />
+      <MobileUpdateBanner />
       <AnonymousReminder />
       <FirstTaskSignupModal />
       <ExitIntentModal />
@@ -729,16 +739,18 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
       )}
 
       {/* Navigation Pilot - floating hover menu (desktop only) */}
-      <NavigationPilot
-        menuItems={menuItems}
-        settingsItems={moreItems}
-        displayName={profile?.name?.trim() || user?.email?.split('@')[0] || 'Usuario'}
-        showAdmin={user?.email === 'pablogoitiaemprendedor@gmail.com'}
-        electronOffset={isElectronEnv}
-        user={user}
-        onNavigate={handleNavigate}
-      />
-
+      {!isPublicRoute && (
+        <NavigationPilot
+          menuItems={menuItems}
+          settingsItems={moreItems}
+          displayName={profile?.name?.trim() || user?.email?.split('@')[0] || 'Usuario'}
+          showAdmin={user?.email === 'pablogoitiaemprendedor@gmail.com'}
+          electronOffset={isElectronEnv}
+          user={user}
+          onNavigate={handleNavigate}
+        />
+      )}
+ 
       <main
         id="main-content"
         className="flex-1 pb-24 lg:pb-12 min-h-screen bg-background"
@@ -751,9 +763,10 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
       {/* Universal Task Capture UI */}
       <div className="relative z-[60]">
         {/* Mobile: Bottom navigation island */}
-        {!islandHidden && !captureOpen && !recurrenceOpen && <MobileBottomIsland />}
+        {!isPublicRoute && !islandHidden && !captureOpen && !recurrenceOpen && <MobileBottomIsland />}
 
         {/* Mobile logic: FAB + task trigger on week page */}
+        {!isPublicRoute && (
         <div className="lg:hidden">
           {!fabHidden && !captureOpen && !recurrenceOpen && (
             <FAB 
@@ -768,9 +781,10 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
             />
           )}
         </div>
+        )}
 
         {/* Desktop logic: FAB visible unless draft or detail is open */}
-        {!fabHidden && !captureOpen && !recurrenceOpen && (
+        {!isPublicRoute && !fabHidden && !captureOpen && !recurrenceOpen && (
         <div className="hidden lg:block">
           <FAB 
             onTextClick={() => openCaptureInTextMode(dailyFolderContext.folderId ? { folderId: dailyFolderContext.folderId } : undefined)}

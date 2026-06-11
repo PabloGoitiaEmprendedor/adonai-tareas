@@ -4,6 +4,154 @@
 @tailwind components;
 @tailwind utilities;
 
+.auth-grid-surface {
+  background:
+    linear-gradient(90deg, rgba(21, 24, 32, 0.045) 1px, transparent 1px),
+    linear-gradient(rgba(21, 24, 32, 0.045) 1px, transparent 1px),
+    linear-gradient(135deg, rgba(91, 124, 250, 0.12), transparent 32%),
+    linear-gradient(315deg, rgba(111, 207, 151, 0.1), transparent 34%),
+    #f5f7fb;
+  background-size: 42px 42px, 42px 42px, 100% 100%, 100% 100%, auto;
+}
+
+.adonai-auth-screen .cl-rootBox,
+.adonai-auth-screen .cl-cardBox,
+.adonai-auth-screen .cl-card {
+  width: 100% !important;
+}
+
+.adonai-auth-screen .cl-cardBox,
+.adonai-auth-screen .cl-card {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+.adonai-auth-screen .cl-card {
+  padding: 0 !important;
+}
+
+.adonai-auth-screen .cl-header,
+.adonai-auth-screen .cl-logoBox,
+.adonai-auth-screen .cl-footer,
+.adonai-auth-screen .cl-footerAction,
+.adonai-auth-screen .cl-footerPages,
+.adonai-auth-screen .adonai-clerk-hidden {
+  display: none !important;
+}
+
+.adonai-auth-screen .cl-main {
+  gap: 18px !important;
+}
+
+.adonai-auth-screen .cl-socialButtons {
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  gap: 10px !important;
+}
+
+@media (min-width: 430px) {
+  .adonai-auth-screen .cl-socialButtons {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+.adonai-auth-screen .cl-socialButtonsBlockButton {
+  min-height: 52px !important;
+  border: 1px solid #d7deea !important;
+  border-radius: 16px !important;
+  background: #ffffff !important;
+  color: #151820 !important;
+  box-shadow: none !important;
+  font-size: 14px !important;
+  font-weight: 900 !important;
+}
+
+.adonai-auth-screen .cl-socialButtonsBlockButton:hover {
+  background: #f3f6ff !important;
+  border-color: #bdc9ff !important;
+}
+
+.adonai-auth-screen .cl-dividerRow {
+  margin: 16px 0 !important;
+}
+
+.adonai-auth-screen .cl-dividerLine {
+  background: #e2e7f0 !important;
+}
+
+.adonai-auth-screen .cl-dividerText {
+  color: #8a94a6 !important;
+  font-size: 12px !important;
+  font-weight: 900 !important;
+  text-transform: uppercase !important;
+}
+
+.adonai-auth-screen .cl-form {
+  gap: 18px !important;
+}
+
+.adonai-auth-screen .cl-formField {
+  gap: 8px !important;
+  text-align: left !important;
+}
+
+.adonai-auth-screen .cl-formFieldLabel {
+  color: #151820 !important;
+  font-size: 14px !important;
+  font-weight: 900 !important;
+}
+
+.adonai-auth-screen .cl-formFieldInput {
+  width: 100% !important;
+  min-height: 54px !important;
+  border: 1px solid #cfd8e8 !important;
+  border-radius: 16px !important;
+  background: #f8faff !important;
+  color: #151820 !important;
+  box-shadow: none !important;
+  font-size: 16px !important;
+  font-weight: 750 !important;
+  padding: 0 16px !important;
+}
+
+.adonai-auth-screen .cl-formFieldInput::placeholder {
+  color: #8a94a6 !important;
+  opacity: 1 !important;
+}
+
+.adonai-auth-screen .cl-formFieldInput:focus {
+  border-color: #5b7cfa !important;
+  box-shadow: 0 0 0 4px rgba(91, 124, 250, 0.16) !important;
+}
+
+.adonai-auth-screen .cl-formButtonPrimary {
+  min-height: 54px !important;
+  border-radius: 16px !important;
+  background: #5b7cfa !important;
+  color: #ffffff !important;
+  box-shadow: 0 16px 38px rgba(91, 124, 250, 0.26) !important;
+  font-size: 16px !important;
+  font-weight: 950 !important;
+}
+
+.adonai-auth-screen .cl-formButtonPrimary:hover {
+  background: #4f6ee8 !important;
+}
+
+.adonai-auth-screen .cl-formFieldErrorText,
+.adonai-auth-screen .cl-alertText {
+  color: #c2410c !important;
+  font-size: 12px !important;
+  font-weight: 800 !important;
+}
+
+.adonai-auth-screen .cl-alert {
+  border: 1px solid #fed7aa !important;
+  border-radius: 16px !important;
+  background: #fff7ed !important;
+}
+
 @keyframes adonaiLandingIntro {
   0%,
   62% {

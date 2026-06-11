@@ -1,40 +1,8 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { useAuth } from '@/contexts/AuthContext';
 import { BrandLogo } from '@/components/BrandLogo';
-import { toast } from 'sonner';
-import { trackAnalyticsEvent } from '@/lib/analytics';
+import { ClerkAuthControls } from '@/components/ClerkAuthControls';
 
 const WelcomePage = () => {
-  const navigate = useNavigate();
-  const { user, signInAnonymously } = useAuth();
-  const [loading, setLoading] = useState(false);
-
-  const handleStartAsGuest = async () => {
-    if (user) {
-      navigate('/onboarding', { replace: true });
-      return;
-    }
-
-    setLoading(true);
-    try {
-      await signInAnonymously();
-      trackAnalyticsEvent('guest_sign_in_completed', {
-        source: 'welcome',
-      });
-    } catch (error) {
-      console.error('[welcome] Anonymous sign in failed:', error);
-      trackAnalyticsEvent('guest_sign_in_failed', {
-        source: 'welcome',
-      });
-      toast.error('No se pudo entrar como invitado. Intenta de nuevo.');
-      setLoading(false);
-      return;
-    }
-    navigate('/onboarding', { replace: true });
-  };
-
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center px-6 selection:bg-primary/30 relative overflow-hidden">
       <div className="absolute inset-0 pointer-events-none">
@@ -67,29 +35,8 @@ const WelcomePage = () => {
           </p>
 
           <div className="space-y-3">
-            <button
-              onClick={handleStartAsGuest}
-              disabled={loading}
-              className="w-full h-16 rounded-[24px] bg-primary text-black font-black text-lg flex items-center justify-center gap-3 shadow-xl shadow-primary/20 hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-50"
-            >
-              {loading ? (
-                <div className="w-5 h-5 border-2 border-black/30 border-t-black rounded-full animate-spin" />
-              ) : (
-                'Empezar gratis'
-              )}
-            </button>
-
-            <button
-              onClick={() => navigate('/auth')}
-              className="w-full h-16 rounded-[24px] bg-surface-container text-foreground font-bold text-base flex items-center justify-center gap-3 border border-outline-variant/30 hover:bg-surface-container-high active:scale-[0.98] transition-all"
-            >
-              Ya tengo cuenta
-            </button>
+            <ClerkAuthControls mobile />
           </div>
-
-          <p className="text-center text-on-surface-variant/40 text-xs leading-relaxed max-w-sm mx-auto">
-            Empieza sin registro. Primero saca lo pendiente de tu cabeza; despues puedes protegerlo con tu correo.
-          </p>
         </div>
       </motion.div>
     </div>

@@ -7,7 +7,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 export default defineConfig(({ mode }) => ({
-  base: "",
+  base: process.env.ELECTRON_BUILD === "true" ? "" : "/",
   build: {
     target: "es2015",
     assetsDir: "assets",

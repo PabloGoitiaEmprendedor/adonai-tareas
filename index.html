@@ -3,6 +3,12 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
+    <meta name="theme-color" content="#151820" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Adonai" />
+    <link rel="apple-touch-icon" href="/icon.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
     <style>
       html,
       body,
@@ -281,20 +287,26 @@
     <!-- ═══════════════════════════════════════
          ONESIGNAL PUSH NOTIFICATIONS
     ═══════════════════════════════════════ -->
-    <script src="/OneSignalSDK.page.js" defer></script>
     <script>
-      window.OneSignalDeferred = window.OneSignalDeferred || [];
-      window.OneSignalDeferred.push(async function(OneSignal) {
-        await OneSignal.init({
-          appId: "%VITE_ONESIGNAL_APP_ID%",
-          safari_web_id: "%VITE_ONESIGNAL_SAFARI_WEB_ID%",
-          notifyButton: {
-            enable: false,
-          },
-          allowLocalhostAsSecureOrigin: true,
-          serviceWorkerPath: "/OneSignalSDKWorker.js",
+      if (location.hostname !== "localhost" && location.hostname !== "127.0.0.1") {
+        const oneSignalScript = document.createElement("script");
+        oneSignalScript.src = "/OneSignalSDK.page.js";
+        oneSignalScript.defer = true;
+        document.head.appendChild(oneSignalScript);
+
+        window.OneSignalDeferred = window.OneSignalDeferred || [];
+        window.OneSignalDeferred.push(async function(OneSignal) {
+          await OneSignal.init({
+            appId: "%VITE_ONESIGNAL_APP_ID%",
+            safari_web_id: "%VITE_ONESIGNAL_SAFARI_WEB_ID%",
+            notifyButton: {
+              enable: false,
+            },
+            allowLocalhostAsSecureOrigin: true,
+            serviceWorkerPath: "/OneSignalSDKWorker.js",
+          });
         });
-      });
+      }
     </script>
 
     <!-- ═══════════════════════════════════════

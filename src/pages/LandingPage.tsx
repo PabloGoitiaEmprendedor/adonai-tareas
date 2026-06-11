@@ -10,6 +10,7 @@ import {
   ChevronRight,
   MessageCircle,
   NotebookPen,
+  Smartphone,
   User,
   VolumeX,
   X,
@@ -105,8 +106,28 @@ function Hero() {
             Organiza tu vida y proyectos m&aacute;s f&aacute;cil. (En un solo lugar, no mas apps)
           </p>
 
-          <div className="mt-9 flex max-w-4xl flex-col items-start gap-3">
+          <div className="mt-9 flex max-w-4xl flex-col items-start gap-3 sm:flex-row sm:items-center">
             <PrimaryCTA />
+            <div className="flex gap-2">
+              <a
+                href="/adonai.apk"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex h-14 items-center justify-center gap-2 rounded-full border-2 border-[#151820]/20 bg-white/80 px-5 text-sm font-bold text-[#151820] shadow-sm backdrop-blur transition hover:-translate-y-0.5 hover:bg-white active:translate-y-0"
+              >
+                <Smartphone className="h-4 w-4" />
+                Android
+              </a>
+              <a
+                href="https://testflight.apple.com/join/adonai"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex h-14 items-center justify-center gap-2 rounded-full border-2 border-[#151820]/20 bg-white/80 px-5 text-sm font-bold text-[#151820] shadow-sm backdrop-blur transition hover:-translate-y-0.5 hover:bg-white active:translate-y-0"
+              >
+                <Smartphone className="h-4 w-4" />
+                Apple
+              </a>
+            </div>
           </div>
 
         </motion.div>
