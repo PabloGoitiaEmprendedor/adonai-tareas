@@ -20,7 +20,7 @@ const AppleInstallPage = () => (
             Usa Adonai como app desde Safari.
           </h1>
           <p className="max-w-2xl text-base font-semibold leading-relaxed text-[#667085]">
-            Apple no permite instalar archivos directos como Android. Mientras se habilita TestFlight/App Store, este flujo evita enlaces rotos y deja Adonai instalada en tu pantalla de inicio.
+            Apple no permite instalar archivos directos como Android. Mientras se habilita TestFlight/App Store, instala Adonai desde Safari en tu pantalla de inicio.
           </p>
         </div>
 

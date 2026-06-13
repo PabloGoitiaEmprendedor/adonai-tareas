@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Users, User, Calendar, Settings, Target, Trophy, Sun, History, Palette, X, Flame, MessageSquare, MoreVertical, Link2, Bell, BellOff, Smartphone, Download } from 'lucide-react';
+import { Users, User, Calendar, Settings, Target, Trophy, Sun, Moon, History, Palette, X, Flame, MessageSquare, MoreVertical, Link2, Bell, BellOff, Smartphone, Download, Folder, Music, Clock3, Search, Monitor, TimerReset, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 
 
@@ -36,6 +36,7 @@ import AppSettingsPage from '@/pages/SettingsPage';
 import PrioritySettingsPage from '@/pages/PrioritySettingsPage';
 import TrashPage from '@/pages/TrashPage';
 import { writeCalendarDate, writeCalendarViewMode } from '@/lib/calendarStateSync';
+import { useTheme } from '@/contexts/ThemeProvider';
 
 // Detect if running inside Electron (desktop app)
 const isElectronEnv: boolean =
@@ -97,6 +98,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
   const [tutorialRun, setTutorialRun] = useState(false);
   const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
   const [settingsPanelPath, setSettingsPanelPath] = useState('/profile');
+  const { theme, setTheme } = useTheme();
 
   const location = useLocation();
   const [draftActive, setDraftActive] = useState(false);
@@ -106,11 +108,12 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
 
   const [pageTitle, setPageTitle] = useState(() => {
     const map: Record<string, string> = {
-      '/daily': 'Tareas de hoy',
+      '/daily': '',
       '/week': '',
       '/friends': 'Amigos',
       '/chat': 'Chat IA',
       '/goals': 'Metas',
+      '/time': '',
       '/profile': 'Perfil',
       '/achievements': 'Logros',
       '/settings': 'Ajustes',
@@ -125,6 +128,11 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
   useEffect(() => {
     const handler = (e: Event) => {
       const detail = (e as CustomEvent<{ title?: string; meta?: string }>).detail || {};
+      if (window.location.pathname === '/daily') {
+        setPageTitle('');
+        setPageTitleMeta('');
+        return;
+      }
       setPageTitle(detail.title || '');
       setPageTitleMeta(detail.meta || '');
     };
@@ -134,11 +142,12 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
 
   useEffect(() => {
     const map: Record<string, string> = {
-      '/daily': 'Tareas de hoy',
+      '/daily': '',
       '/week': '',
       '/friends': 'Amigos',
       '/chat': 'Chat IA',
       '/goals': 'Metas',
+      '/time': '',
       '/profile': 'Perfil',
       '/achievements': 'Logros',
       '/settings': 'Ajustes',
@@ -152,7 +161,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
     }
   }, [location.pathname]);
 
-  const isPathFabHidden = ['/folders', '/goals', '/friends', '/profile', '/settings', '/priority-settings', '/trash', '/achievements', '/chat'].some(path => location.pathname.startsWith(path));
+  const isPathFabHidden = ['/folders', '/goals', '/time', '/friends', '/profile', '/settings', '/priority-settings', '/trash', '/achievements', '/chat'].some(path => location.pathname.startsWith(path));
   const fabHidden = draftActive || detailActive || eventCreateOpen || taskEditingActive || isPathFabHidden;
   const islandHidden = draftActive || detailActive || eventCreateOpen || taskEditingActive || settingsDialogOpen;
 
@@ -220,7 +229,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
   }, [location.pathname]);
 
 
-  const PUBLIC_ROUTES = ['/auth', '/welcome', '/account-required', '/onboarding', '/auth/sso-callback', '/apple'];
+  const PUBLIC_ROUTES = ['/auth', '/welcome', '/account-required', '/onboarding', '/auth/sso-callback', '/android', '/apple'];
   const isPublicRoute = PUBLIC_ROUTES.some(p => location.pathname.startsWith(p));
 
   const { user, loading } = useAuth();
@@ -412,6 +421,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
     { label: 'Calendario', icon: Calendar, path: '/week' },
     { label: isAdmin ? 'Chat IA' : 'IA pronto', icon: MessageSquare, path: '/chat' },
     { label: 'Metas', icon: Target, path: '/goals' },
+    { label: 'Tiempo', icon: TimerReset, path: '/time' },
     { label: 'Amigos', icon: Users, path: '/friends', badge: friendUnreadCount },
   ];
 
@@ -516,6 +526,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
   const isFaqPage = cleanPath === '/faq';
   const isPrecioPage = cleanPath === '/precio' || cleanPath === '/precios' || cleanPath === '/pricing';
   const isExitCodesPage = cleanPath === '/codigos-de-retorno';
+  const isAndroidDownloadPage = cleanPath === '/android';
   const isAppleInstallPage = cleanPath === '/apple';
   const isOnboardingPage = cleanPath === '/onboarding';
   const isInvitePage = cleanPath.startsWith('/invite');
@@ -536,6 +547,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
     !isGroupInvitePage && 
     !isPrecioPage &&
     !isExitCodesPage &&
+    !isAndroidDownloadPage &&
     !isAppleInstallPage;
 
   if (!showNavigation) {
@@ -545,14 +557,27 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
   const isDailyPage = location.pathname === '/daily';
   const isCalendarRoute = location.pathname === '/week';
   const isFriendsRoute = location.pathname === '/friends';
+  const isGoalsRoute = location.pathname === '/goals';
+  const isTimeRoute = location.pathname === '/time';
   const hideMobileHeader = isCalendarRoute;
   const isMobileDevice = typeof navigator !== 'undefined' && /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  const isDarkMode = theme === 'dark' || (theme === 'system' && typeof document !== 'undefined' && document.documentElement.classList.contains('dark'));
+  const toggleThemeMode = () => {
+    setTheme(isDarkMode ? 'light' : 'dark');
+    setOpen(false);
+  };
+  const dailyHeaderButtonClass = 'flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-black/[0.07] bg-white/55 text-[#5f6775] shadow-sm transition active:scale-95 disabled:opacity-35';
+  const dispatchDailyAction = (type: 'folders' | 'timer' | 'search' | 'mini') => {
+    window.dispatchEvent(new CustomEvent('adonai:daily-header-action', { detail: { type } }));
+  };
   const mobileOverflowItems = [
     { label: 'Perfil', icon: User, action: () => handleNavigate('/profile') },
     { label: 'Metas', icon: Target, action: () => handleNavigate('/goals') },
+    { label: 'Tiempo', icon: TimerReset, action: () => handleNavigate('/time') },
     { label: 'Logros', icon: Trophy, action: () => handleNavigate('/achievements') },
     { label: 'Configuracion', icon: Settings, action: () => handleNavigate('/settings') },
     { label: 'Personalizar', icon: Palette, action: () => handleNavigate('/priority-settings') },
+    { label: isDarkMode ? 'Modo claro' : 'Modo oscuro', icon: isDarkMode ? Sun : Moon, action: toggleThemeMode },
     { label: 'Historial', icon: History, action: () => handleNavigate('/trash') },
     ...(isMobileDevice ? [
       { label: 'Android', icon: Smartphone, action: () => window.open(ANDROID_DOWNLOAD, '_blank') },
@@ -636,7 +661,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
       <div
         className={`fixed left-0 right-0 z-[70] lg:hidden ${
           window.electronAPI ? 'top-10' : 'top-0'} ${
-          isDailyPage
+          isDailyPage || isTimeRoute
             ? 'bg-[#f7f3e9]'
             : isFriendsRoute
               ? 'border-b border-outline-variant/10 bg-surface'
@@ -646,7 +671,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
         <div className="flex h-14 items-center justify-between px-4">
           <div className={`min-w-0 flex-1 ${location.pathname === '/friends' ? 'pr-24' : 'pr-2'}`}>
               {pageTitle && (
-                <h1 className={`truncate text-lg font-black font-headline tracking-tight ${isDailyPage ? 'text-[#1f2633]' : 'text-foreground/85'}`}>
+                <h1 className={`truncate text-lg font-black font-headline tracking-tight ${isDailyPage || isTimeRoute ? 'text-[#1f2633]' : 'text-foreground/85'}`}>
                   {pageTitle}
                 </h1>
               )}
@@ -661,6 +686,55 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
           </div>
 
           <div className="relative flex items-center gap-1.5">
+            {isDailyPage && (
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  className={dailyHeaderButtonClass}
+                  onClick={() => dispatchDailyAction('folders')}
+                  aria-label="Cuadernos"
+                  title="Cuadernos"
+                >
+                  <Folder className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  type="button"
+                  className={dailyHeaderButtonClass}
+                  disabled
+                  aria-label="Musica"
+                  title="Musica"
+                >
+                  <Music className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  type="button"
+                  className={dailyHeaderButtonClass}
+                  onClick={() => dispatchDailyAction('timer')}
+                  aria-label="Contador"
+                  title="Contador"
+                >
+                  <Clock3 className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  type="button"
+                  className={dailyHeaderButtonClass}
+                  onClick={() => dispatchDailyAction('search')}
+                  aria-label="Buscar tareas"
+                  title="Buscar tareas"
+                >
+                  <Search className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  type="button"
+                  className={dailyHeaderButtonClass}
+                  onClick={() => dispatchDailyAction('mini')}
+                  aria-label="Mini cuaderno"
+                  title="Mini cuaderno"
+                >
+                  <Monitor className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            )}
             {location.pathname === '/friends' && (
               <div className="absolute right-11 top-0 flex items-center gap-1.5">
                 <button
@@ -681,6 +755,17 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
                 </button>
               </div>
             )}
+            {isGoalsRoute && (
+              <button
+                type="button"
+                onClick={() => window.dispatchEvent(new CustomEvent('adonai:goals-open-create'))}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#F4C542]/45 bg-[#FFF2B8] text-[#7A4A0A] shadow-sm transition active:scale-95"
+                aria-label="Crear meta"
+                title="Crear meta"
+              >
+                <Plus className="h-4 w-4" strokeWidth={3} />
+              </button>
+            )}
             {pageTitleMeta && (
               <span className={`rounded-full px-2 text-xs font-black tabular-nums ${isDailyPage ? 'text-[#6f7480]/65' : 'text-on-surface-variant/70'}`}>
                 {pageTitleMeta}
@@ -690,7 +775,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
               id="global-menu-trigger"
               onClick={() => setOpen((value) => !value)}
               aria-label={"Mostrar opciones"}
-              className={`relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-all hover:text-foreground active:scale-90 ${isDailyPage ? 'text-[#1f2633]/70' : 'text-on-surface-variant/70'}`}
+                className={`relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-all hover:text-foreground active:scale-90 ${isDailyPage || isTimeRoute ? 'text-[#1f2633]/70' : 'text-on-surface-variant/70'}`}
             >
               <MoreVertical className="w-5 h-5" />
               {friendUnreadCount > 0 && (
@@ -758,7 +843,7 @@ const NavigationWrapper = ({ children }: NavigationWrapperProps) => {
         id="main-content"
         className="flex-1 pb-24 lg:pb-12 min-h-screen bg-background"
       >
-        <div className={`w-full ${isCalendarRoute ? 'pt-0' : window.electronAPI ? 'pt-16' : 'pt-14'}`}>
+        <div className={`w-full ${isCalendarRoute ? 'pt-0' : window.electronAPI ? 'pt-16 lg:pt-0' : 'pt-14 lg:pt-0'}`}>
           {children}
         </div>
       </main>

@@ -66,7 +66,7 @@ const TaskCardComponent = <TTask extends TaskCardTask,>({
   handleUncomplete,
   handleStartTimer,
   view,
-  hideTimer = true,
+  hideTimer = false,
   highlighted = false,
   notebookView = false
 }: TaskCardProps<TTask>) => {
@@ -232,25 +232,31 @@ const TaskCardComponent = <TTask extends TaskCardTask,>({
     return colors.p4; // Will be 'transparent' by default
   };
 
+  const visibleSubtasks = (Array.isArray(task.children) ? task.children : Array.isArray(task.subtasks) ? task.subtasks : [])
+    .filter((item): item is TTask => Boolean(item && typeof item === 'object' && 'id' in item && 'title' in item));
+
   const hasSubtasks = Boolean(
-    (Array.isArray(task.subtasks) && task.subtasks.length > 0) ||
-    (Array.isArray(task.children) && task.children.length > 0) ||
+    visibleSubtasks.length > 0 ||
     (typeof task.subtasks_count === 'number' && task.subtasks_count > 0) ||
     (typeof task.subtask_count === 'number' && task.subtask_count > 0)
   );
 
   const priorityColor = getTaskPriorityColor();
   const cardStyle = {
-    background: 'transparent',
-    borderRadius: '18px 15px 20px 16px',
+    background: 'rgba(255,255,255,0.40)',
+    borderRadius: 16,
+    borderColor: 'rgba(30,41,59,0.12)',
+    boxShadow: highlighted
+      ? '0 0 0 2px rgba(195,245,60,0.30), 0 8px 20px rgba(17,24,39,0.08)'
+      : '0 4px 12px rgba(17,24,39,0.05)',
+    backdropFilter: 'blur(12px)',
   } as CSSProperties;
 
   return (
     <motion.div
       ref={cardBodyRef}
       layoutId={view === 'weekly' ? task.id : undefined}
-      layout={notebookView ? 'position' : false}
-      transition={{ layout: { duration: 0.08, ease: [0.2, 0.8, 0.2, 1] } }}
+      layout={false}
       data-task-idx={taskIdx}
       data-task-id={task.id}
       onDragEnd={() => handleDragEnd?.()}
@@ -263,28 +269,30 @@ const TaskCardComponent = <TTask extends TaskCardTask,>({
       animate={{ opacity: 1 }}
       exit={view === 'daily' ? { opacity: 0, transition: { duration: 0.08 } } : undefined}
       onDragOver={(e) => handleDragOver?.(e, taskIdx)}
-      style={{ ...cardStyle, flexWrap: 'wrap' }}
-      className={`relative flex items-start gap-2 overflow-hidden border py-2 transition-all group/task select-none ${
-        notebookView ? 'px-1' : 'px-1.5 md:px-2'
+      style={{ ...cardStyle, flexWrap: 'wrap', opacity: isDone ? 0.45 : 1 }}
+      className={`relative flex items-start gap-2.5 overflow-hidden border transition-[box-shadow,background,border-color,opacity] duration-150 group/task select-none ${
+        notebookView ? 'px-[13px] py-3' : 'px-[13px] py-3'
       } ${
-        notebookView ? 'notebook-task-row min-h-[42px]' : view === 'daily' ? 'min-h-[42px] border-b-transparent border-x-transparent border-t-transparent' : 'min-h-[42px] border-x-transparent border-t-transparent'
+        notebookView ? 'notebook-task-row min-h-[50px]' : 'min-h-[50px]'
       } ${
-        highlighted ? 'ring-2 ring-primary/40 bg-primary/5' : ''
+        highlighted ? 'ring-2 ring-primary/35' : ''
       } ${
-        dragIdx === taskIdx ? 'border-primary/55 bg-primary/5 ring-2 ring-primary/45 shadow-[0_0_18px_rgba(99,102,241,0.24)]' : ''
-      } border-x-transparent border-t-transparent hover:border-primary/18 cursor-pointer`}
+        dragIdx === taskIdx ? 'border-primary/55 ring-2 ring-primary/45 shadow-[0_0_18px_rgba(99,102,241,0.24)]' : ''
+      } hover:border-primary/18 cursor-grab active:cursor-grabbing`}
     >
       {!isDone && !hideTimer && (
-        <div className="relative z-20 flex-shrink-0" data-no-drag="true">
+        <div className="relative z-20 order-3 flex-shrink-0" data-no-drag="true">
           <TaskTimerButton
             size="sm"
+            priorityColor={priorityColor}
+            className="border-transparent bg-transparent text-on-surface-variant/65 shadow-none hover:bg-on-surface-variant/8 hover:text-foreground/75"
             onClick={(e) => handleStartTimer(task, e)}
           />
         </div>
       )}
 
       {task.link && (
-        <div className="relative z-20 flex flex-shrink-0 items-center gap-1" data-no-drag="true">
+        <div className="relative z-20 order-3 flex flex-shrink-0 items-center gap-1" data-no-drag="true">
           {task.link.split(/\s+/).filter(Boolean).map((url: string, i: number) => {
             const href = url.startsWith('http') ? url : `https://${url}`;
             return (
@@ -295,7 +303,7 @@ const TaskCardComponent = <TTask extends TaskCardTask,>({
                 rel="noopener noreferrer"
                 onClick={(e) => e.stopPropagation()}
                 draggable={false}
-                className="flex h-7 w-7 items-center justify-center rounded-[9px] border border-outline/35 bg-surface/35 shadow-sm transition-all hover:bg-surface/70 active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45"
+                className="flex h-6 w-6 items-center justify-center rounded-lg border border-outline/20 bg-surface/35 shadow-sm transition-all hover:bg-surface/70 active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45"
                 aria-label="Abrir link"
               >
                 <Paperclip
@@ -309,7 +317,7 @@ const TaskCardComponent = <TTask extends TaskCardTask,>({
       )}
 
       {/* Checkbox */}
-      <div className="relative z-20 flex-shrink-0 cursor-pointer" data-no-drag="true">
+      <div className="relative z-20 order-1 flex-shrink-0 cursor-pointer" data-no-drag="true">
         <TaskCheckbox
           checked={isDone || completingTaskId === task.id}
           priorityColor={priorityColor}
@@ -322,9 +330,9 @@ const TaskCardComponent = <TTask extends TaskCardTask,>({
         />
       </div>
 
-      <div className={`relative z-10 flex flex-1 min-w-0 flex-col justify-center ${notebookView ? 'pr-0.5' : 'pr-2'}`}>
+      <div className={`relative z-10 order-2 flex flex-1 min-w-0 flex-col justify-center ${notebookView ? 'pr-0.5' : 'pr-2'}`}>
         <div className="flex min-w-0 items-start gap-2">
-          <div className={`min-w-0 text-[12.5px] md:text-[14px] font-semibold tracking-normal transition-all flex flex-1 items-start gap-2 font-headline ${
+          <div className={`min-w-0 text-[15px] font-semibold tracking-normal transition-all flex flex-1 items-start gap-2 font-headline ${
             isDone || completingTaskId === task.id ? 'text-on-surface-variant/30 line-through' : 'text-foreground'
           }`}>
             {isEditing ? (
@@ -350,7 +358,7 @@ const TaskCardComponent = <TTask extends TaskCardTask,>({
                   onClick={e => e.stopPropagation()}
                   draggable={false}
                   data-no-drag="true"
-                  className="notebook-task-editor cursor-edit relative z-10 min-h-[1.35em] w-full min-w-0 bg-transparent px-1 focus:outline-none resize-none overflow-hidden leading-[1.2]"
+                  className="notebook-task-editor cursor-edit relative z-10 min-h-[20px] w-full min-w-0 bg-transparent p-0 focus:outline-none resize-none overflow-hidden leading-[1.34]"
                   rows={Math.max(1, editedTitle.split('\n').length)}
                   spellCheck={false}
                 />
@@ -358,7 +366,7 @@ const TaskCardComponent = <TTask extends TaskCardTask,>({
             ) : (
               <div className="min-w-0 flex-1">
                 <span 
-                  className="notebook-task-editor cursor-edit relative z-10 inline max-w-full rounded px-1 -ml-1 leading-[1.2] transition-colors hover:bg-on-surface-variant/5 hover:text-primary"
+                  className="notebook-task-editor cursor-edit relative z-10 inline max-w-full rounded p-0 leading-[1.34] transition-colors hover:text-primary"
                   onClick={(e) => { e.stopPropagation(); startTitleEdit(); }}
                   draggable={false}
                   data-no-drag="true"
@@ -381,7 +389,32 @@ const TaskCardComponent = <TTask extends TaskCardTask,>({
       </div>
 
       {isSubtaskOpen && !isDone && (
-        <div className={`mt-1 flex w-full items-start gap-2 ${notebookView ? 'pl-[28px]' : 'pl-[30px]'}`} data-no-drag="true">
+        <div className={`order-4 mt-1 flex w-[calc(100%-24px)] flex-col gap-1.5 ${notebookView ? 'ml-6 pl-2' : 'ml-6 pl-2'}`} data-no-drag="true">
+          {visibleSubtasks.map((subtask) => {
+            const subtaskDone = subtask.status === 'done';
+            return (
+              <div
+                key={subtask.id}
+                className="flex min-h-8 items-start gap-2 rounded-[10px] bg-[rgba(247,243,233,0.76)] px-2.5 py-1.5"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <TaskCheckbox
+                  checked={subtaskDone}
+                  priorityColor={priorityColor}
+                  size="sm"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    updateTask.mutate({ id: subtask.id, status: subtaskDone ? 'pending' : 'done' });
+                  }}
+                  ariaLabel="Completar subtarea"
+                />
+                <span className={`min-w-0 flex-1 break-words pt-px text-[13.5px] font-medium leading-[1.35] ${subtaskDone ? 'text-on-surface-variant/55 line-through' : 'text-foreground'}`}>
+                  {subtask.title}
+                </span>
+              </div>
+            );
+          })}
+          <div className="flex min-h-8 items-start gap-2 rounded-[10px] bg-[rgba(247,243,233,0.76)] px-2.5 py-1.5">
           <TaskCheckbox
             checked={false}
             priorityColor={priorityColor}
@@ -419,15 +452,16 @@ const TaskCardComponent = <TTask extends TaskCardTask,>({
               }
             }}
             onClick={(event) => event.stopPropagation()}
-            placeholder="Escribe una subtarea..."
+            placeholder="Nueva subtarea"
             rows={1}
-            className="min-h-[1.35em] w-full resize-none bg-transparent px-1 text-[12.25px] font-medium leading-[1.25] text-foreground outline-none placeholder:text-on-surface-variant/35"
+            className="min-h-[20px] w-full resize-none bg-transparent text-[13.5px] font-semibold leading-[1.25] text-foreground outline-none placeholder:text-on-surface-variant/35"
             style={{ overflow: 'hidden' }}
           />
+          </div>
         </div>
       )}
       
-      <div className="relative z-10 ml-auto flex items-center gap-1.5 flex-shrink-0 flex-wrap justify-end max-w-[45%]">
+      <div className="relative z-10 order-3 ml-auto flex max-w-[45%] flex-shrink-0 flex-wrap items-center justify-end gap-1.5">
         {!isDone && (
           <button
             type="button"
@@ -437,12 +471,12 @@ const TaskCardComponent = <TTask extends TaskCardTask,>({
               window.setTimeout(() => subtaskTextareaRef.current?.focus(), 0);
             }}
             aria-label={isSubtaskOpen ? 'Recoger subtarea' : 'Desplegar subtarea'}
-            className={`flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border border-outline/10 bg-surface/35 text-primary/70 transition active:scale-90 ${
-              hasSubtasks || isSubtaskOpen ? 'opacity-100' : 'opacity-0 group-hover/task:opacity-100'
+            className={`flex h-[22px] w-[22px] flex-shrink-0 items-center justify-center rounded-full border-none bg-transparent text-on-surface-variant/55 transition-[color,opacity] duration-100 active:scale-95 ${
+              hasSubtasks || isSubtaskOpen ? 'opacity-100' : 'opacity-100'
             }`}
             data-no-drag="true"
           >
-            <ChevronDown className="h-3 w-3" strokeWidth={2.5} />
+            <ChevronDown className="h-3.5 w-3.5 transition-transform duration-75" strokeWidth={2.6} style={{ transform: isSubtaskOpen ? 'rotate(180deg)' : 'rotate(0deg)' }} />
           </button>
         )}
       </div>

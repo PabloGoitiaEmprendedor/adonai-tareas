@@ -538,6 +538,7 @@ const AdonaiCalendarView: React.FC<AdonaiCalendarViewProps> = ({ selectedDate, o
             endTime: end,
             color: color,
             category: folderName,
+            folderId: task.folder_id || null,
              description: stripAllPrefixes(scheduledTime ? scheduledTime.cleanDescription : (task.description || '')) || undefined,
             metadata: task.metadata || {},
             urgency: urgency,

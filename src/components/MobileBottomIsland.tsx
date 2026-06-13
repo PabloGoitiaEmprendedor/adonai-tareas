@@ -1,13 +1,13 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Sun, Calendar, Users, Bot } from 'lucide-react';
+import { Sun, Calendar, MessageSquare, Users } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { writeCalendarDate, writeCalendarViewMode } from '@/lib/calendarStateSync';
 
 const navItems = [
   { icon: Sun, label: 'Hoy', path: '/daily', id: 'nav-island-today' },
   { icon: Calendar, label: 'Calendario', path: '/week', id: 'nav-island-calendar' },
+  { icon: MessageSquare, label: 'Chat IA', path: '/chat', id: 'nav-island-chat' },
   { icon: Users, label: 'Amigos', path: '/friends', id: 'nav-island-friends' },
-  { icon: Bot, label: 'Chat IA', path: '/chat', id: 'nav-island-chat' },
 ];
 
 export function MobileBottomIsland() {

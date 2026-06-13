@@ -35,6 +35,7 @@ import DashboardPage from "./pages/DashboardPage";
 import WeeklyPage from "./pages/WeeklyPage";
 import ChatPage from "./pages/ChatPage";
 import GoalsPage from "./pages/GoalsPage";
+import TimePage from "./pages/TimePage";
 import ProfilePage from "./pages/ProfilePage";
 import FriendsPage from "./pages/FriendsPage";
 import FriendInvitePage from "./pages/FriendInvitePage";
@@ -51,6 +52,7 @@ import PricingPage from "./pages/PricingPage";
 import CaracteristicasPage from "./pages/CaracteristicasPage";
 import FAQPage from "./pages/FAQPage";
 import AppleInstallPage from "./pages/AppleInstallPage";
+import AndroidDownloadPage from "./pages/AndroidDownloadPage";
 import PrioritySettingsPage from "./pages/PrioritySettingsPage";
 import NotFound from "./pages/NotFound";
 import WelcomePage from "./pages/WelcomePage";
@@ -294,6 +296,7 @@ const AppRoutes = () => {
         <Route path="/today" element={<Navigate to="/daily" replace />} />
         <Route path="/week" element={appRouteElement(<WeeklyPage />)} />
         <Route path="/goals" element={appRouteElement(<GoalsPage />)} />
+        <Route path="/time" element={appRouteElement(<TimePage />)} />
         <Route path="/folders" element={<Navigate to="/daily" replace />} />
         <Route path="/chat" element={appRouteElement(<ChatPage />)} />
         <Route path="/friends" element={appRouteElement(<FriendsPage />)} />
@@ -310,6 +313,7 @@ const AppRoutes = () => {
         <Route path="/precio" element={<PricingPage />} />
         <Route path="/caracteristicas" element={<CaracteristicasPage />} />
         <Route path="/faq" element={<FAQPage />} />
+        <Route path="/android" element={<AndroidDownloadPage />} />
         <Route path="/apple" element={<AppleInstallPage />} />
         <Route path="/politica-de-privacidad" element={<PrivacyPolicyPage />} />
         <Route path="/terminos-de-servicio" element={<TermsOfServicePage />} />

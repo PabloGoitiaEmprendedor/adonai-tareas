@@ -49,7 +49,9 @@ Available skills:
 
 ## MCP Servers
 
-Treat the project-local `.codex/config.toml` as the default Codex baseline for ECC. The current ECC baseline enables GitHub, Context7, Exa, Higgsfield, Memory, Playwright, and Sequential Thinking; add heavier extras in `~/.codex/config.toml` only when a task actually needs them.
+Treat the project-local `.codex/config.toml` as the default Codex baseline for ECC. The current ECC baseline enables GitHub, Context7, Exa, Higgsfield, Stitch, Memory, Playwright, and Sequential Thinking; add heavier extras in `~/.codex/config.toml` only when a task actually needs them.
+
+Use Stitch first for UI/product design work: page layouts, app screens, component concepts, visual redesigns, design-system extraction, and high-fidelity screen references. When the user provides a Stitch project, screen ID, export ZIP, or clipboard instructions, consult Stitch or the exported `code.html`/`screen.png` before implementing UI.
 
 Use Higgsfield for design-media work when available: AI-generated images, cinematic product/media assets, video concepts, image-to-video, character/reference generation, and visual campaign assets. Before spending Higgsfield credits or launching remote generation jobs, confirm the exact asset request with the user.
 

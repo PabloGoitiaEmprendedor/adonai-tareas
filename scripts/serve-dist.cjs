@@ -11,6 +11,7 @@ const mimeTypes = {
   ".ico": "image/x-icon",
   ".js": "application/javascript; charset=utf-8",
   ".json": "application/json; charset=utf-8",
+  ".apk": "application/vnd.android.package-archive",
   ".svg": "image/svg+xml",
   ".txt": "text/plain; charset=utf-8",
   ".woff": "font/woff",
@@ -20,12 +21,16 @@ const mimeTypes = {
 function sendFile(res, filePath) {
   const ext = path.extname(filePath).toLowerCase();
   const contentType = mimeTypes[ext] || "application/octet-stream";
-  res.writeHead(200, {
+  const headers = {
     "Content-Type": contentType,
     "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
     Pragma: "no-cache",
     Expires: "0",
-  });
+  };
+  if (ext === ".apk") {
+    headers["Content-Disposition"] = `attachment; filename="${path.basename(filePath)}"`;
+  }
+  res.writeHead(200, headers);
   fs.createReadStream(filePath).pipe(res);
 }
 
@@ -37,6 +42,17 @@ http
     fs.stat(candidate, (err, stats) => {
       if (!err && stats.isFile()) {
         return sendFile(res, candidate);
+      }
+
+      if (path.extname(urlPath)) {
+        res.writeHead(404, {
+          "Content-Type": "text/plain; charset=utf-8",
+          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+          Pragma: "no-cache",
+          Expires: "0",
+        });
+        res.end("File not found");
+        return;
       }
 
       const fallback = path.join(root, "index.html");

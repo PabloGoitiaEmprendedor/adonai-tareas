@@ -1,6 +1,6 @@
-#:schema https://developers.openai.com/codex/config-schema.json
+﻿#:schema https://developers.openai.com/codex/config-schema.json
 
-# Everything Claude Code (ECC) — Codex Reference Configuration
+# Everything Claude Code (ECC) â€” Codex Reference Configuration
 #
 # Copy this file to ~/.codex/config.toml for global defaults, or keep it in
 # the project root as .codex/config.toml for project-local settings.
@@ -48,6 +48,12 @@ url = "https://mcp.exa.ai/mcp"
 [mcp_servers.higgsfield]
 url = "https://mcp.higgsfield.ai/mcp"
 
+[mcp_servers.stitch]
+url = "https://stitch.googleapis.com/mcp"
+
+[mcp_servers.stitch.http_headers]
+"X-Goog-Api-Key" = "${STITCH_API_KEY}"
+
 [mcp_servers.higgsfield.tools.show_marketing_studio]
 approval_mode = "approve"
 
@@ -63,6 +69,9 @@ startup_timeout_sec = 120
 command = "npx.cmd"
 args = ["-y", "@playwright/mcp@latest", "--extension"]
 startup_timeout_sec = 120
+
+[mcp_servers.playwright.tools.browser_navigate]
+approval_mode = "approve"
 
 [mcp_servers.sequential-thinking]
 command = "npx.cmd"

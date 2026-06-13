@@ -4,8 +4,9 @@ import { useTasks } from '@/hooks/useTasks';
 import { useFolders } from '@/hooks/useFolders';
 import { useProfile } from '@/hooks/useProfile';
 import { useStreaks } from '@/hooks/useStreaks';
-import { format, differenceInDays, parseISO, addDays } from 'date-fns';
-import { Flame, Monitor, Apple, Trophy, Snowflake, ChevronLeft, ChevronRight, Search, X, Plus, Settings } from 'lucide-react';
+import { format, differenceInDays, parseISO, addDays, addMonths, endOfMonth, isSameMonth, startOfDay, startOfMonth, startOfWeek } from 'date-fns';
+import { es } from 'date-fns/locale';
+import { Flame, Monitor, Apple, Trophy, Snowflake, ChevronLeft, ChevronRight, Search, X, Plus, Settings, Folder, Music, Clock3, ChevronDown, Pause, Play, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -27,8 +28,87 @@ import { buildTaskDateSections } from '@/lib/taskDateGroups';
 const NOTEBOOK_PAGE_COUNT = 30;
 const TASKS_PER_NOTEBOOK_PAGE = 10;
 const NOTEBOOK_PAGE_STORAGE_KEY = 'adonai_daily_notebook_page';
+const DAILY_FOLDER_TABS_STORAGE_KEY = 'adonai_daily_folder_tabs_open';
+const DAILY_UPCOMING_ROOT_STORAGE_KEY = 'adonai_daily_upcoming_root_open';
+const DAILY_UPCOMING_DAYS_STORAGE_KEY = 'adonai_daily_upcoming_days_open';
+const DAILY_UPCOMING_WEEKS_STORAGE_KEY = 'adonai_daily_upcoming_weeks_open';
+const DAILY_UPCOMING_MONTHS_STORAGE_KEY = 'adonai_daily_upcoming_months_open';
+const DAILY_FOCUS_TIMER_STORAGE_KEY = 'adonai_daily_focus_timer_state';
 
 const clampNotebookPage = (page: number) => Math.min(NOTEBOOK_PAGE_COUNT, Math.max(1, page || 1));
+
+const capitalizeLabel = (value: string) => value.charAt(0).toUpperCase() + value.slice(1);
+
+const readStoredBoolean = (key: string, fallback: boolean) => {
+  try {
+    const value = localStorage.getItem(key);
+    if (value === null) return fallback;
+    return value === 'true';
+  } catch {
+    return fallback;
+  }
+};
+
+const readStoredOpenMap = (key: string): Record<string, boolean> => {
+  try {
+    const value = localStorage.getItem(key);
+    if (!value) return {};
+    const parsed = JSON.parse(value);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+    return Object.fromEntries(
+      Object.entries(parsed).filter((entry): entry is [string, boolean] => typeof entry[0] === 'string' && typeof entry[1] === 'boolean')
+    );
+  } catch {
+    return {};
+  }
+};
+
+const writeStoredValue = (key: string, value: unknown) => {
+  try {
+    localStorage.setItem(key, typeof value === 'boolean' ? String(value) : JSON.stringify(value));
+  } catch {
+    // LocalStorage can be unavailable in restricted embedded contexts.
+  }
+};
+
+const formatDailyUpcomingLabel = (date?: Date | null, today = new Date()) => {
+  if (!date) return 'Siguientes';
+  const todayStart = startOfDay(today);
+  const day = startOfDay(date);
+  const diffDays = Math.round((day.getTime() - todayStart.getTime()) / 86400000);
+  const weekday = format(day, 'EEEE', { locale: es });
+  const capitalizedWeekday = capitalizeLabel(weekday);
+
+  if (diffDays === 1) return 'Mañana';
+  if (diffDays >= 2 && diffDays <= 6) return capitalizedWeekday;
+  if (diffDays >= 7 && diffDays <= 13) return `Próximo ${weekday}`;
+  if (isSameMonth(day, todayStart)) return `${capitalizedWeekday} ${format(day, 'd')}`;
+  return format(day, 'd MMMM', { locale: es });
+};
+
+const formatStopwatch = (seconds: number) => {
+  const safeSeconds = Math.max(0, seconds);
+  const minutes = Math.floor(safeSeconds / 60);
+  const remainder = safeSeconds % 60;
+  return `${minutes}:${String(remainder).padStart(2, '0')}`;
+};
+
+const readStoredFocusTimer = () => {
+  try {
+    const value = localStorage.getItem(DAILY_FOCUS_TIMER_STORAGE_KEY);
+    if (!value) return { active: false, paused: false, seconds: 0 };
+    const parsed = JSON.parse(value);
+    if (!parsed || typeof parsed !== 'object') return { active: false, paused: false, seconds: 0 };
+    const active = parsed.active === true;
+    const paused = parsed.paused === true;
+    const storedSeconds = typeof parsed.seconds === 'number' ? Math.max(0, Math.floor(parsed.seconds)) : 0;
+    const updatedAt = typeof parsed.updatedAt === 'number' ? parsed.updatedAt : Date.now();
+    const seconds = active && !paused ? storedSeconds + Math.max(0, Math.floor((Date.now() - updatedAt) / 1000)) : storedSeconds;
+    return { active, paused, seconds };
+  } catch {
+    return { active: false, paused: false, seconds: 0 };
+  }
+};
 
 type MobileSearchResult =
   | {
@@ -58,6 +138,7 @@ type DailyFolder = {
 
 const DailyPage = () => {
  const today = useMemo(() => format(new Date(), 'yyyy-MM-dd'), []);
+ const upcomingRangeEnd = useMemo(() => format(endOfMonth(addMonths(new Date(`${today}T00:00:00`), 1)), 'yyyy-MM-dd'), [today]);
  const tasksFilter = useMemo(() => ({ date: today, excludeEvents: false }), [today]);
  const navigate = useNavigate();
  const getInitialNotebookPage = () => {
@@ -67,6 +148,7 @@ const DailyPage = () => {
 
  const { tasks, updateTask, deleteTask, isLoading } = useTasks(tasksFilter);
  const { tasks: allSearchTasks } = useTasks();
+ const { tasks: upcomingRangeTasks } = useTasks({ startDate: today, endDate: upcomingRangeEnd, excludeEvents: false });
  const calendarSearchRange = useMemo(() => {
    const now = new Date();
    return {
@@ -79,8 +161,11 @@ const DailyPage = () => {
  const visibleFolders = useMemo<DailyFolder[]>(() => (folders as DailyFolder[]).filter((folder) => !folder.deleted_at), [folders]);
   const { profile } = useProfile();
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
-  const [showFolderTabs, setShowFolderTabs] = useState(true);
-  const [showUpcomingDays, setShowUpcomingDays] = useState(false);
+  const [showFolderTabs, setShowFolderTabs] = useState(() => readStoredBoolean(DAILY_FOLDER_TABS_STORAGE_KEY, true));
+  const [showUpcomingDays, setShowUpcomingDays] = useState(() => readStoredBoolean(DAILY_UPCOMING_ROOT_STORAGE_KEY, true));
+  const [openUpcomingDays, setOpenUpcomingDays] = useState<Record<string, boolean>>(() => readStoredOpenMap(DAILY_UPCOMING_DAYS_STORAGE_KEY));
+  const [openUpcomingWeeks, setOpenUpcomingWeeks] = useState<Record<string, boolean>>(() => readStoredOpenMap(DAILY_UPCOMING_WEEKS_STORAGE_KEY));
+  const [openUpcomingMonths, setOpenUpcomingMonths] = useState<Record<string, boolean>>(() => readStoredOpenMap(DAILY_UPCOMING_MONTHS_STORAGE_KEY));
  const { metrics, trackDayActive } = useStreaks();
  const { checkAndUnlock } = useGamification();
 
@@ -94,8 +179,13 @@ const DailyPage = () => {
  }, [metrics?.last_active_date]);
  const [selectedTask, setSelectedTask] = useState<TaskLike | null>(null);
  const [mobileSearchQuery, setMobileSearchQuery] = useState('');
+ const [dailySearchOpen, setDailySearchOpen] = useState(false);
  const [folderManageMode, setFolderManageMode] = useState(false);
  const [timerTask, setTimerTask] = useState<TaskLike | null>(null);
+ const initialFocusTimer = useMemo(() => readStoredFocusTimer(), []);
+ const [focusTimerActive, setFocusTimerActive] = useState(initialFocusTimer.active);
+ const [focusTimerPaused, setFocusTimerPaused] = useState(initialFocusTimer.paused);
+ const [focusTimerSeconds, setFocusTimerSeconds] = useState(initialFocusTimer.seconds);
  const [dragIdx, setDragIdx] = useState<number | null>(null);
  const dragIdxRef = useRef<number | null>(null);
  const [orderedTasks, setOrderedTasks] = useState<TaskLike[]>([]);
@@ -119,10 +209,47 @@ const DailyPage = () => {
   useEffect(() => {
  if (window.electronAPI) {
  window.electronAPI.onMiniWindowClosed(() => {
- setMiniWidgetOpen(false);
- });
- }
- }, []);
+  setMiniWidgetOpen(false);
+  });
+  }
+  }, []);
+
+  useEffect(() => {
+    writeStoredValue(DAILY_FOLDER_TABS_STORAGE_KEY, showFolderTabs);
+  }, [showFolderTabs]);
+
+  useEffect(() => {
+    writeStoredValue(DAILY_UPCOMING_ROOT_STORAGE_KEY, showUpcomingDays);
+  }, [showUpcomingDays]);
+
+  useEffect(() => {
+    writeStoredValue(DAILY_UPCOMING_DAYS_STORAGE_KEY, openUpcomingDays);
+  }, [openUpcomingDays]);
+
+  useEffect(() => {
+    writeStoredValue(DAILY_UPCOMING_WEEKS_STORAGE_KEY, openUpcomingWeeks);
+  }, [openUpcomingWeeks]);
+
+  useEffect(() => {
+    writeStoredValue(DAILY_UPCOMING_MONTHS_STORAGE_KEY, openUpcomingMonths);
+  }, [openUpcomingMonths]);
+
+  useEffect(() => {
+    if (!focusTimerActive || focusTimerPaused) return;
+    const interval = window.setInterval(() => {
+      setFocusTimerSeconds((seconds) => seconds + 1);
+    }, 1000);
+    return () => window.clearInterval(interval);
+  }, [focusTimerActive, focusTimerPaused]);
+
+  useEffect(() => {
+    writeStoredValue(DAILY_FOCUS_TIMER_STORAGE_KEY, {
+      active: focusTimerActive,
+      paused: focusTimerPaused,
+      seconds: focusTimerSeconds,
+      updatedAt: Date.now(),
+    });
+  }, [focusTimerActive, focusTimerPaused, focusTimerSeconds]);
 
 
  useEffect(() => {
@@ -160,20 +287,79 @@ const DailyPage = () => {
  }, [tasks, selectedFolderId, today]);
 
   const upcomingTasksByDate = useMemo(() => {
-    const upcoming = allSearchTasks
+    const upcoming = upcomingRangeTasks
+      .filter((t: TaskLike) => t.status !== 'deleted')
+      .filter((t: TaskLike) => !!t.due_date && t.due_date > today)
+      .filter((t: TaskLike) => (selectedFolderId ? t.folder_id === selectedFolderId : !t.folder_id));
+
+    return buildTaskDateSections(upcoming, new Date(today)).futureGroups.map((day) => ({
+      ...day,
+      tasks: [...day.tasks].sort(compareTasksWithinQuadrants),
+    }));
+  }, [upcomingRangeTasks, selectedFolderId, today]);
+
+  const legacyUpcomingWeekGroups = useMemo(() => {
+    const upcoming = upcomingRangeTasks
       .filter((t: TaskLike) => t.status !== 'deleted')
       .filter((t: TaskLike) => !!t.due_date && t.due_date > today)
       .filter((t: TaskLike) => (selectedFolderId ? t.folder_id === selectedFolderId : !t.folder_id));
 
     return buildTaskDateSections(upcoming, new Date(today)).futureWeekGroups.map((week) => ({
       ...week,
-      tasks: [...week.tasks].sort(compareTasksWithinQuadrants),
       days: week.days.map((day) => ({
         ...day,
         tasks: [...day.tasks].sort(compareTasksWithinQuadrants),
       })),
-      }));
-  }, [allSearchTasks, selectedFolderId, today]);
+    }));
+  }, [upcomingRangeTasks, selectedFolderId, today]);
+
+  const currentMonthStart = useMemo(() => startOfMonth(new Date(`${today}T00:00:00`)), [today]);
+
+  const upcomingMonthGroups = useMemo(() => {
+    const groups: Array<{
+      key: string;
+      label: string;
+      isCurrentMonth: boolean;
+      weeks: Array<{ key: string; label: string; days: typeof upcomingTasksByDate }>;
+    }> = [];
+
+    upcomingTasksByDate.forEach((day) => {
+      if (!day.date) return;
+      const monthStart = startOfMonth(day.date);
+      const monthKey = format(monthStart, 'yyyy-MM');
+      let month = groups.find((item) => item.key === monthKey);
+      if (!month) {
+        month = {
+          key: monthKey,
+          label: capitalizeLabel(format(monthStart, 'MMMM', { locale: es })),
+          isCurrentMonth: isSameMonth(monthStart, currentMonthStart),
+          weeks: [],
+        };
+        groups.push(month);
+      }
+
+      const weekStart = startOfWeek(day.date, { weekStartsOn: 1 });
+      const weekKey = format(weekStart, 'yyyy-MM-dd');
+      let week = month.weeks.find((item) => item.key === weekKey);
+      if (!week) {
+        const label = isSameMonth(monthStart, currentMonthStart) && month.weeks.length === 0
+          ? 'Esta semana'
+          : `Semana del ${format(weekStart, 'd MMM', { locale: es })}`;
+        week = { key: weekKey, label, days: [] };
+        month.weeks.push(week);
+      }
+      week.days.push(day);
+    });
+
+    return groups;
+  }, [currentMonthStart, upcomingTasksByDate]);
+
+  const toggleUpcomingDay = useCallback((key: string) => {
+    setOpenUpcomingDays((current) => ({
+      ...current,
+      [key]: !(current[key] ?? false),
+    }));
+  }, []);
 
   const openTaskCapture = useCallback((date?: string) => {
     window.dispatchEvent(new CustomEvent('adonai:open-capture', {
@@ -573,12 +759,13 @@ const DailyPage = () => {
     </div>
   );
 
-  const renderFolderTabs = (compact = false) => (
-    <div className={`relative z-20 flex items-center gap-2 overflow-x-auto no-scrollbar ${compact ? 'py-2 pl-2 pr-3' : 'py-1 pb-1 mb-1 justify-start'}`}>
+  const renderFolderTabs = (compact = false) => {
+    if (!showFolderTabs) return null;
+    return (
+    <div className={`relative z-20 flex items-center gap-2 overflow-x-auto no-scrollbar ${compact ? 'px-4 py-2' : 'py-1 pb-1 mb-1 justify-start'}`}>
       <button
         onClick={() => {
           selectFolderWithSound(null);
-          setShowFolderTabs((value) => !value);
         }}
         className={`flex-shrink-0 rounded-full border px-3 py-1.5 text-[10px] font-semibold tracking-tight transition-all md:px-4 ${
           selectedFolderId === null
@@ -586,10 +773,10 @@ const DailyPage = () => {
             : 'bg-white/40 text-on-surface-variant/80 border-outline-variant/40 hover:text-foreground hover:border-outline-variant/60'
         }`}
       >
-        General {showFolderTabs ? '>' : '<'}
+        General
       </button>
 
-      {showFolderTabs && visibleFolders.map((folder) => {
+      {visibleFolders.map((folder) => {
         const isSelected = selectedFolderId === folder.id;
         const taskCount = countFolderTasks(folder.id);
         return (
@@ -644,6 +831,7 @@ const DailyPage = () => {
       </button>
     </div>
   );
+  };
 
  const handleComplete = useCallback(async (task: TaskLike, e: React.MouseEvent) => {
  e.stopPropagation();
@@ -708,10 +896,274 @@ const DailyPage = () => {
  setTimerTask(task);
  }, []);
 
+  const handleFocusTimerToggle = useCallback(() => {
+    if (!focusTimerActive) {
+      setFocusTimerSeconds(0);
+      setFocusTimerPaused(false);
+      setFocusTimerActive(true);
+      return;
+    }
+    setFocusTimerPaused((value) => !value);
+  }, [focusTimerActive]);
+
+  const handleFocusTimerDone = useCallback(() => {
+    setFocusTimerActive(false);
+    setFocusTimerPaused(false);
+    setFocusTimerSeconds(0);
+  }, []);
+
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const action = (event as CustomEvent<{ type?: string }>).detail?.type;
+      if (action === 'folders') setShowFolderTabs((value) => !value);
+      if (action === 'timer') handleFocusTimerToggle();
+      if (action === 'search') setDailySearchOpen((value) => !value);
+      if (action === 'mini') toggleMiniWidget();
+    };
+
+    window.addEventListener('adonai:daily-header-action', handler);
+    return () => window.removeEventListener('adonai:daily-header-action', handler);
+  }, [handleFocusTimerToggle, toggleMiniWidget]);
+
   const selectFolderWithSound = useCallback((folderId: string | null) => {
     playPageTurnSound();
     setSelectedFolderId(folderId);
   }, []);
+
+  const dailyIconButtonClass = 'inline-flex h-9 w-9 items-center justify-center rounded-full border border-black/[0.07] bg-white/50 text-[#5f6775] shadow-sm transition hover:bg-white/80 hover:text-[#18202e] active:scale-95 disabled:opacity-35 disabled:hover:bg-white/50';
+  const dailyMobileIconButtonClass = 'inline-flex h-8 w-8 items-center justify-center rounded-full border border-black/[0.07] bg-white/55 text-[#5f6775] shadow-sm transition active:scale-95 disabled:opacity-35';
+  const dailyPillButtonClass = 'inline-flex h-9 items-center gap-2 rounded-full border border-black/[0.07] bg-white/55 px-3 text-[10px] font-black uppercase tracking-[0.12em] text-[#5f6775] shadow-sm transition hover:bg-white/85 hover:text-[#18202e] active:scale-95';
+
+  const renderUpcomingDay = (day: (typeof upcomingTasksByDate)[number], nested = false) => {
+    const dayOpen = openUpcomingDays[day.key] ?? false;
+    return (
+      <motion.div
+        key={day.key}
+        layout={false}
+        style={{
+          borderRadius: nested ? 13 : 15,
+          border: nested ? 'none' : '1px solid rgba(30,41,59,0.10)',
+          background: 'rgba(255,255,255,0.40)',
+          boxShadow: nested ? 'none' : '0 4px 12px rgba(17,24,39,0.05)',
+          overflow: 'hidden',
+        }}
+      >
+        <button
+          type="button"
+          onClick={() => toggleUpcomingDay(day.key)}
+          className="flex w-full items-center gap-2 border-0 bg-transparent text-left"
+          style={{
+            minHeight: nested ? 40 : 44,
+            padding: nested ? '8px 9px' : '9px 10px 9px 13px',
+            color: '#18202e',
+          }}
+        >
+          <ChevronDown
+            style={{
+              width: nested ? 13 : 14,
+              height: nested ? 13 : 14,
+              flexShrink: 0,
+              color: 'rgba(31,41,55,0.46)',
+              transform: dayOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+              transition: 'transform 60ms linear',
+            }}
+          />
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-[13.5px] font-[760] leading-[18px]">
+              {formatDailyUpcomingLabel(day.date, new Date(today))}
+            </span>
+            {!nested && day.date && (
+              <span className="block text-[10.5px] font-bold uppercase leading-[14px] tracking-[0.04em] text-[#1f2937]/45">
+                {format(day.date, 'd MMM', { locale: es })}
+              </span>
+            )}
+          </span>
+        </button>
+
+        <AnimatePresence initial={false}>
+          {dayOpen && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.06, ease: 'linear' }}
+              className="notebook-task-list"
+              style={{ padding: nested ? '4px 0 10px' : '4px 10px 11px', overflow: 'hidden', display: 'flex', flexDirection: 'column', gap: 12 }}
+            >
+              {day.tasks.map((task) => (
+                <TaskCard
+                  key={task.id}
+                  task={task}
+                  taskIdx={-1}
+                  isDone={task.status === 'done'}
+                  completingTaskId={completingTaskId}
+                  dragIdx={null}
+                  handleDragStart={undefined}
+                  handleDragOver={undefined}
+                  handleDragEnd={undefined}
+                  handleTouchStart={undefined}
+                  handleTouchMove={undefined}
+                  handleTouchEnd={undefined}
+                  handlePointerReorderStart={undefined}
+                  setSelectedTask={setSelectedTask}
+                  handleComplete={handleComplete}
+                  handleUncomplete={handleUncomplete}
+                  handleStartTimer={handleStartTimer}
+                  view="daily"
+                  notebookView
+                  hideTimer
+                  highlighted={highlightedTaskId === task.id}
+                />
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </motion.div>
+    );
+  };
+
+  const renderUpcomingSection = (compact = false) => (
+    <div
+      className={compact ? 'mx-4 mt-4' : 'm-0 h-full'}
+      style={{
+        padding: compact ? '14px 14px 18px' : '16px 18px 20px',
+        background: 'rgba(246,243,244,0.94)',
+        borderTop: '1px solid rgba(30,41,59,0.08)',
+        borderRadius: compact ? 0 : 18,
+      }}
+    >
+      <button
+        type="button"
+        onClick={() => setShowUpcomingDays((value) => !value)}
+        className="flex w-full items-center gap-2 border-0 bg-transparent p-0 pb-3 text-left"
+        style={{ color: 'rgba(85,68,45,0.78)' }}
+      >
+        <ChevronDown
+          style={{
+            width: 15,
+            height: 15,
+            strokeWidth: 2.6,
+            transform: showUpcomingDays ? 'rotate(180deg)' : 'rotate(0deg)',
+            transition: 'transform 60ms linear',
+          }}
+        />
+        <span className="flex-1 text-[11px] font-[850] uppercase leading-4 tracking-[0.05em]">Siguientes</span>
+      </button>
+
+      <AnimatePresence initial={false}>
+        {showUpcomingDays && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.06, ease: 'linear' }}
+            style={{ display: 'flex', flexDirection: 'column', gap: 10, overflow: 'hidden' }}
+          >
+            {upcomingMonthGroups.length === 0 ? (
+              <div className="rounded-[15px] border border-black/[0.06] bg-white/35 px-3 py-3 text-[12px] font-bold text-[#5f6775]/65">
+                No hay tareas siguientes.
+              </div>
+            ) : (
+              upcomingMonthGroups.map((month) => {
+                const monthOpen = openUpcomingMonths[month.key] ?? month.isCurrentMonth;
+                return (
+                  <motion.div key={month.key} layout={false} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <button
+                      type="button"
+                      onClick={() => setOpenUpcomingMonths((current) => ({ ...current, [month.key]: !(current[month.key] ?? month.isCurrentMonth) }))}
+                      className="flex w-full items-center gap-2 border-0 text-left"
+                      style={{
+                        minHeight: 39,
+                        borderRadius: month.isCurrentMonth ? 8 : 14,
+                        background: month.isCurrentMonth ? 'transparent' : 'rgba(255,255,255,0.34)',
+                        padding: month.isCurrentMonth ? '2px 2px 1px' : '8px 11px',
+                        border: month.isCurrentMonth ? 'none' : '1px solid rgba(30,41,59,0.10)',
+                      }}
+                    >
+                      <ChevronDown
+                        style={{
+                          width: 14,
+                          height: 14,
+                          flexShrink: 0,
+                          color: 'rgba(31,41,55,0.46)',
+                          transform: monthOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                          transition: 'transform 60ms linear',
+                        }}
+                      />
+                      <span
+                        className="min-w-0 flex-1 text-[12px] font-[850] tracking-[0.02em]"
+                        style={{ color: month.isCurrentMonth ? 'rgba(85,68,45,0.52)' : 'rgba(85,68,45,0.62)' }}
+                      >
+                        {month.label}
+                      </span>
+                    </button>
+
+                    <AnimatePresence initial={false}>
+                      {monthOpen && (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          exit={{ opacity: 0, height: 0 }}
+                          transition={{ duration: 0.06, ease: 'linear' }}
+                          style={{ display: 'flex', flexDirection: 'column', gap: 8, overflow: 'hidden' }}
+                        >
+                          {month.weeks.map((week) => {
+                            const weekOpen = openUpcomingWeeks[week.key] ?? month.isCurrentMonth;
+                            return (
+                              <motion.div
+                                key={week.key}
+                                layout={false}
+                                style={{ borderRadius: 15, border: '1px solid rgba(30,41,59,0.10)', background: 'rgba(255,255,255,0.36)', boxShadow: '0 4px 12px rgba(17,24,39,0.05)', overflow: 'hidden' }}
+                              >
+                                <button
+                                  type="button"
+                                  onClick={() => setOpenUpcomingWeeks((current) => ({ ...current, [week.key]: !(current[week.key] ?? month.isCurrentMonth) }))}
+                                  className="flex w-full items-center gap-2 border-0 bg-transparent text-left"
+                                  style={{ minHeight: 43, padding: '9px 10px 9px 13px', color: '#18202e' }}
+                                >
+                                  <ChevronDown
+                                    style={{
+                                      width: 14,
+                                      height: 14,
+                                      flexShrink: 0,
+                                      color: 'rgba(31,41,55,0.46)',
+                                      transform: weekOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                                      transition: 'transform 60ms linear',
+                                    }}
+                                  />
+                                  <span className="min-w-0 flex-1 text-[12px] font-[850] uppercase leading-4 tracking-[0.04em] text-[#55442d]/80">
+                                    {week.label}
+                                  </span>
+                                </button>
+
+                                <AnimatePresence initial={false}>
+                                  {weekOpen && (
+                                    <motion.div
+                                      initial={{ opacity: 0, height: 0 }}
+                                      animate={{ opacity: 1, height: 'auto' }}
+                                      exit={{ opacity: 0, height: 0 }}
+                                      transition={{ duration: 0.06, ease: 'linear' }}
+                                      style={{ padding: '0 10px 11px', overflow: 'hidden', display: 'flex', flexDirection: 'column', gap: 10 }}
+                                    >
+                                      {week.days.map((day) => renderUpcomingDay(day, true))}
+                                    </motion.div>
+                                  )}
+                                </AnimatePresence>
+                              </motion.div>
+                            );
+                          })}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </motion.div>
+                );
+              })
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
 
   const turnNotebookPage = useCallback((direction: 1 | -1) => {
     setPageTurnDirection(direction);
@@ -850,7 +1302,7 @@ const DailyPage = () => {
 
  return (
   <div className="min-h-screen text-foreground selection:bg-primary/20 md:bg-background">
-    <div data-daily-swipe className="mx-auto w-full max-w-full px-0 pt-0 pb-0 md:max-w-[980px] md:px-6 md:pt-6 md:pb-8 relative">
+    <div data-daily-swipe className="mx-auto w-full max-w-full px-0 pt-0 pb-0 md:max-w-none md:py-4 md:pl-[92px] md:pr-4 relative">
 
  {showStats && (
  <motion.div 
@@ -984,29 +1436,16 @@ const DailyPage = () => {
  </motion.div>
  )}
 
-  {/* Mini notebook button (outside notebook, top-right) */}
-  <div className="hidden md:flex justify-end mb-2">
-    <button
-      id="mini-window-btn"
-      onClick={toggleMiniWidget}
-      className="inline-flex items-center gap-2 rounded-full border border-outline-variant/16 bg-background/55 px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-on-surface-variant/65 shadow-sm transition-all hover:border-primary/25 hover:text-primary active:scale-95"
-    >
-      <Monitor className="h-3.5 w-3.5" />
-      Mini cuaderno
-      <span className={`h-2 w-2 rounded-full ${miniWidgetOpen? 'bg-primary': 'bg-on-surface-variant/30'}`} />
-    </button>
-  </div>
-
   {/* Desktop Task Notebook */}
   <motion.div 
   initial={{ opacity: 0, y: 20 }}
   animate={{ opacity: 1, y: 0 }}
-  className="relative hidden min-h-[min(740px,calc(100vh-8rem))] w-full md:flex flex-col overflow-hidden rounded-[36px] notebook-cream-bg border border-black/[0.07] pt-3 pb-3 pl-24 pr-10 backdrop-blur-xl"
- style={{
- borderRadius: '36px 34px 38px 35px',
- }}
- >
- <div className="absolute inset-y-3 left-5 flex flex-col justify-between">
+  className="relative ml-0 mr-auto hidden h-[calc(100vh-3rem)] min-h-[640px] w-full max-w-[min(1280px,calc(100vw-7rem))] md:flex flex-col overflow-hidden notebook-cream-bg border border-black/[0.07] px-8 py-7 backdrop-blur-xl"
+  style={{
+  borderRadius: 24,
+  }}
+  >
+  <div className="hidden">
  {Array.from({ length: 18 }).map((_, ring) => (
  <span
  key={ring}
@@ -1032,143 +1471,141 @@ const DailyPage = () => {
   {shouldShowTaskPage ? (
     <>
       {/* Task notebook tabs */}
-      <div className="relative z-10 mb-1">
-        <h2 className="text-[18px] font-black tracking-normal" style={{ color: "#18202e" }}>
-          Pendientes
-        </h2>
-        {renderDailySearch(false)}
+      <div className="relative z-10 mb-2">
+        <div className="mb-4 flex items-start justify-between gap-6">
+          <div className="min-w-0">
+            <h2 className="text-[48px] font-black leading-[52px] tracking-[-0.03em]" style={{ color: "#18202e", fontFamily: '"Plus Jakarta Sans", var(--font-headline, ui-rounded, system-ui, sans-serif)' }}>
+              Pendientes
+            </h2>
+          </div>
+          <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+            <button
+              type="button"
+              className={dailyIconButtonClass}
+              onClick={() => setShowFolderTabs((value) => !value)}
+              title="Cuadernos"
+              aria-label="Cuadernos"
+            >
+              <Folder className="h-[15px] w-[15px]" />
+            </button>
+            <button
+              type="button"
+              className={dailyIconButtonClass}
+              disabled
+              title="Musica"
+              aria-label="Musica"
+            >
+              <Music className="h-[14px] w-[14px]" />
+            </button>
+            <button
+              type="button"
+              className={dailyIconButtonClass}
+              onClick={handleFocusTimerToggle}
+              title={focusTimerActive ? (focusTimerPaused ? 'Reanudar contador' : 'Pausar contador') : 'Contador'}
+              aria-label={focusTimerActive ? (focusTimerPaused ? 'Reanudar contador' : 'Pausar contador') : 'Contador'}
+            >
+              <Clock3 className="h-[14px] w-[14px]" />
+            </button>
+            {focusTimerActive && (
+              <div className="inline-flex h-9 items-center gap-1 rounded-full border border-black/[0.07] bg-[#111827]/90 px-2.5 text-white shadow-[0_10px_24px_rgba(17,24,39,0.22)]">
+                <span className="min-w-[43px] text-center text-[12px] font-black tabular-nums leading-none">{formatStopwatch(focusTimerSeconds)}</span>
+                <button
+                  type="button"
+                  onClick={handleFocusTimerToggle}
+                  className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/10 text-white/85 transition hover:bg-white/18 active:scale-95"
+                  title={focusTimerPaused ? 'Reanudar contador' : 'Pausar contador'}
+                  aria-label={focusTimerPaused ? 'Reanudar contador' : 'Pausar contador'}
+                >
+                  {focusTimerPaused ? <Play className="h-3 w-3" /> : <Pause className="h-3 w-3" />}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleFocusTimerDone}
+                  className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/10 text-white/85 transition hover:bg-white/18 active:scale-95"
+                  title="Finalizar contador"
+                  aria-label="Finalizar contador"
+                >
+                  <Check className="h-3 w-3" />
+                </button>
+              </div>
+            )}
+            <button
+              type="button"
+              className={dailyIconButtonClass}
+              onClick={() => setDailySearchOpen((value) => !value)}
+              title="Buscar tareas"
+              aria-label="Buscar tareas"
+            >
+              <Search className="h-[15px] w-[15px]" />
+            </button>
+            <button
+              id="mini-window-btn"
+              type="button"
+              onClick={toggleMiniWidget}
+              className={dailyPillButtonClass}
+              title="Mini cuaderno"
+              aria-label="Mini cuaderno"
+            >
+              <Monitor className="h-3.5 w-3.5" />
+              Mini cuaderno
+              <span className={`h-2 w-2 rounded-full ${miniWidgetOpen ? 'bg-primary' : 'bg-[#5f6775]/30'}`} />
+            </button>
+          </div>
+        </div>
+        {dailySearchOpen && renderDailySearch(false)}
       </div>
       {renderFolderTabs(false)}
 
       {/* Task List - Inside Desktop Notebook */}
-      <div className="relative z-10 mt-1.5 min-h-0 flex-1 overflow-y-auto pb-5 pr-1 pt-[2px]">
+      <div className="relative z-10 mt-3 min-h-0 flex-1 overflow-hidden pb-2 pt-[2px]">
         {isLoading ? (
           <div className="space-y-6">
             {[1, 2, 3].map((i) => (
               <div key={i} className="h-24 animate-pulse rounded-[32px] border border-outline-variant/10 bg-surface-container-highest/20" />
             ))}
           </div>
-        ) : isMainNotebookComplete ? (
+        ) : isMainNotebookComplete && upcomingMonthGroups.length === 0 ? (
           renderBlankNotebookPage(false)
-        ) : visibleNotebookTasks.length > 0 ? (
-          <>
-            <div className="notebook-task-list">
-              {visibleNotebookTasks.map((task, idx) => (
-                <TaskCard
-                  key={task.id}
-                  task={task}
-                  taskIdx={idx}
-                  isDone={task.status === "done"}
-                  completingTaskId={completingTaskId}
-                  dragIdx={dragIdx}
-                  handleDragStart={handleDragStart}
-                  handleDragOver={handleDragOver}
-                  handleDragEnd={handleDragEnd}
-                  handleTouchStart={handleTouchStart}
-                  handleTouchMove={handleTouchMove}
-                  handleTouchEnd={handleTouchEnd}
-                  handlePointerReorderStart={handlePointerReorderStart}
-                  setSelectedTask={setSelectedTask}
-                  handleComplete={handleComplete}
-                  handleUncomplete={handleUncomplete}
-                  handleStartTimer={handleStartTimer}
-                  view="daily"
-                  notebookView
-                  highlighted={highlightedTaskId === task.id}
-                />
-              ))}
+        ) : visibleNotebookTasks.length > 0 || upcomingMonthGroups.length > 0 ? (
+          <div className="grid h-full min-h-0 grid-cols-[minmax(0,1fr)_minmax(360px,430px)] gap-5">
+            <div className="min-h-0 overflow-y-auto pr-1">
+              {visibleNotebookTasks.length > 0 ? (
+                <div className="notebook-task-list">
+                  {visibleNotebookTasks.map((task, idx) => (
+                    <TaskCard
+                      key={task.id}
+                      task={task}
+                      taskIdx={idx}
+                      isDone={task.status === "done"}
+                      completingTaskId={completingTaskId}
+                      dragIdx={dragIdx}
+                      handleDragStart={handleDragStart}
+                      handleDragOver={handleDragOver}
+                      handleDragEnd={handleDragEnd}
+                      handleTouchStart={handleTouchStart}
+                      handleTouchMove={handleTouchMove}
+                      handleTouchEnd={handleTouchEnd}
+                      handlePointerReorderStart={handlePointerReorderStart}
+                      setSelectedTask={setSelectedTask}
+                      handleComplete={handleComplete}
+                      handleUncomplete={handleUncomplete}
+                      handleStartTimer={handleStartTimer}
+                      view="daily"
+                      notebookView
+                      highlighted={highlightedTaskId === task.id}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="flex h-full items-center justify-center">
+                  {renderBlankNotebookPage(false)}
+                </div>
+              )}
             </div>
-
-            {upcomingTasksByDate.length > 0 && (
-              <div className="mt-6 space-y-3">
-                <button
-                  type="button"
-                  onClick={() => setShowUpcomingDays((value) => !value)}
-                  className="inline-flex items-center gap-2 rounded-full border border-outline-variant/10 bg-transparent px-1 py-0 text-left"
-                >
-                  <span className="text-[10px] font-black uppercase tracking-[0.18em] text-on-surface-variant/60">Siguientes d?as</span>
-                  <span className="text-[11px] font-black text-on-surface-variant/40">{showUpcomingDays ? '<' : '>'}</span>
-                </button>
-
-                <AnimatePresence initial={false}>
-                  {showUpcomingDays && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: 8 }}
-                      className="space-y-4"
-                    >
-                      {upcomingTasksByDate.map((week) => (
-                        <details key={week.key} open className="rounded-[18px] border border-outline-variant/10 bg-white/24 px-2 py-2">
-                          <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-1 py-1">
-                            <span className="text-[10px] font-black uppercase tracking-[0.18em] text-on-surface-variant/50">
-                              {week.label}
-                            </span>
-                            <span className="text-[10px] font-black uppercase tracking-[0.16em] text-on-surface-variant/30">
-                              {week.days.length} d?
-                            </span>
-                          </summary>
-
-                          <div className="space-y-3">
-                            {week.days.map((day) => (
-                              <details key={day.key} open className="rounded-[14px] border border-outline-variant/10 bg-white/30 px-2 py-2">
-                                <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-1 py-1">
-                                  <span className="text-[10px] font-black uppercase tracking-[0.16em] text-on-surface-variant/45">
-                                    {day.label}
-                                  </span>
-                                  <button
-                                    type="button"
-                                    onClick={(event) => {
-                                      event.stopPropagation();
-                                      if (day.date) {
-                                        openTaskCapture(format(day.date, 'yyyy-MM-dd'));
-                                      }
-                                    }}
-                                    className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-outline-variant/10 bg-white/65 text-[13px] font-black text-on-surface-variant/70 transition active:scale-95"
-                                    title="Agregar tarea para este d?a"
-                                    aria-label="Agregar tarea para este d?a"
-                                  >
-                                    +
-                                  </button>
-                                </summary>
-
-                                <div className="notebook-task-list">
-                                  {day.tasks.map((task) => (
-                                    <TaskCard
-                                      key={task.id}
-                                      task={task}
-                                      taskIdx={-1}
-                                      isDone={task.status === "done"}
-                                      completingTaskId={completingTaskId}
-                                      dragIdx={null}
-                                      handleDragStart={undefined}
-                                      handleDragOver={undefined}
-                                      handleDragEnd={undefined}
-                                      handleTouchStart={undefined}
-                                      handleTouchMove={undefined}
-                                      handleTouchEnd={undefined}
-                                      handlePointerReorderStart={undefined}
-                                      setSelectedTask={setSelectedTask}
-                                      handleComplete={handleComplete}
-                                      handleUncomplete={handleUncomplete}
-                                      handleStartTimer={handleStartTimer}
-                                      view="daily"
-                                      notebookView
-                                      highlighted={highlightedTaskId === task.id}
-                                    />
-                                  ))}
-                                </div>
-                              </details>
-                            ))}
-                          </div>
-                        </details>
-                      ))}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-            )}
-          </>
+            <aside className="min-h-0 overflow-y-auto rounded-[22px] border border-black/[0.06] bg-white/20">
+              {renderUpcomingSection(false)}
+            </aside>
+          </div>
         ) : (
           renderBlankNotebookPage(false)
         )}
@@ -1183,18 +1620,6 @@ const DailyPage = () => {
  </AnimatePresence>
  </motion.div>
 
-  {/* Mini notebook button (outside mobile notebook) */}
-  <div className="md:hidden flex justify-end mb-2">
-    <button
-      id="mini-window-btn-mobile"
-      onClick={toggleMiniWidget}
-      className="inline-flex items-center gap-1.5 rounded-full border border-outline-variant/16 bg-background/65 px-2 py-1 text-[8px] font-black uppercase tracking-[0.1em] text-on-surface-variant/60 shadow-sm transition-all active:scale-95"
-    >
-      <Monitor className="h-3 w-3" />
-      Mini
-    </button>
-  </div>
-
   {/* Mobile Task Island - fixed full-screen notebook */}
   <motion.div 
   initial={{ opacity: 0, y: 4 }}
@@ -1203,7 +1628,35 @@ const DailyPage = () => {
    className="fixed inset-x-0 bottom-[72px] top-14 z-30 md:hidden flex flex-col overflow-hidden notebook-cream-bg daily-mobile-notebook"
   >
   
-  {renderDailySearch(true)}
+  <div className="relative z-20 px-4 pb-2 pt-3">
+    <h2 className="min-w-0 text-[34px] font-black leading-[36px] tracking-[-0.03em]" style={{ color: "#18202e", fontFamily: '"Plus Jakarta Sans", var(--font-headline, ui-rounded, system-ui, sans-serif)' }}>
+      Pendientes
+    </h2>
+  </div>
+  {focusTimerActive && (
+    <div className="relative z-20 mx-4 mb-2 inline-flex h-9 w-fit items-center gap-1 rounded-full border border-black/[0.07] bg-[#111827]/90 px-2.5 text-white shadow-[0_10px_24px_rgba(17,24,39,0.22)]">
+      <span className="min-w-[43px] text-center text-[12px] font-black tabular-nums leading-none">{formatStopwatch(focusTimerSeconds)}</span>
+      <button
+        type="button"
+        onClick={handleFocusTimerToggle}
+        className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/10 text-white/85 transition active:scale-95"
+        title={focusTimerPaused ? 'Reanudar contador' : 'Pausar contador'}
+        aria-label={focusTimerPaused ? 'Reanudar contador' : 'Pausar contador'}
+      >
+        {focusTimerPaused ? <Play className="h-3 w-3" /> : <Pause className="h-3 w-3" />}
+      </button>
+      <button
+        type="button"
+        onClick={handleFocusTimerDone}
+        className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/10 text-white/85 transition active:scale-95"
+        title="Finalizar contador"
+        aria-label="Finalizar contador"
+      >
+        <Check className="h-3 w-3" />
+      </button>
+    </div>
+  )}
+  {dailySearchOpen && renderDailySearch(true)}
   {renderFolderTabs(true)}
   
   <div className="hidden">
@@ -1331,11 +1784,12 @@ const DailyPage = () => {
   <div key={i} className="h-20 bg-surface-container-highest/10 border border-outline-variant/10 rounded-2xl animate-pulse" />
   ))}
   </div>
-    ): isMainNotebookComplete ? (
+    ): isMainNotebookComplete && upcomingMonthGroups.length === 0 ? (
   renderBlankNotebookPage(true)
-  ): visibleNotebookTasks.length > 0? (
+  ): visibleNotebookTasks.length > 0 || upcomingMonthGroups.length > 0 ? (
   <>
-   <div className="notebook-task-list ml-0 mr-3 my-1">
+   {visibleNotebookTasks.length > 0 && (
+   <div className="notebook-task-list mx-4 my-1">
    {visibleNotebookTasks.map((task, idx) => (
    <TaskCard
    key={task.id}
@@ -1361,7 +1815,9 @@ const DailyPage = () => {
   />
   ))}
     </div>
-    {upcomingTasksByDate.length > 0 && (
+   )}
+    {renderUpcomingSection(true)}
+    {false && legacyUpcomingWeekGroups.length > 0 && (
       <div className="mx-3 mt-4 space-y-3">
         <button
           type="button"
@@ -1380,7 +1836,7 @@ const DailyPage = () => {
               exit={{ opacity: 0, y: 8 }}
               className="space-y-4"
             >
-              {upcomingTasksByDate.map((week) => (
+              {legacyUpcomingWeekGroups.map((week) => (
                 <details key={week.key} open className="rounded-[18px] border border-outline-variant/10 bg-white/24 px-2 py-2">
                   <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-1 py-1">
                     <span className="text-[10px] font-black uppercase tracking-[0.18em] text-on-surface-variant/50">
@@ -1436,6 +1892,7 @@ const DailyPage = () => {
                               handleStartTimer={handleStartTimer}
                               view="daily"
                               notebookView
+                              hideTimer
                               highlighted={highlightedTaskId === task.id}
                             />
                           ))}

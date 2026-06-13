@@ -100,6 +100,19 @@ components:
 
 Clean, minimal task management app inspired by Notioneers aesthetics and Google Material Design surface system. The UI uses a warm off-white background (#F8F9FA), pure white cards, and a vibrant lime green (#C3F53C) as the primary accent. Typography combines Fraunces (serif, bold) for headlines with Inter (sans-serif) for body text. The design feels premium, calm, and productivity-focused.
 
+## Current Premium Standard: Vellum
+
+New product surfaces should follow the Vellum direction used by the Time and install screens: tactile ivory minimalism, paper-like backgrounds, soft translucent cards, deep charcoal ink, restrained blue actions, and generous rounded geometry. The interface should feel like Apple/Google productivity software: calm, readable, premium, and low-noise.
+
+- **Paper workspace:** `#F5F0E1` or `#F7F3E9` for warm ivory surfaces.
+- **Desk/background:** `#E5E2E3` for neutral outer space on desktop.
+- **Main surface:** `#FCF8FA` with subtle transparency and blur.
+- **Ink:** `#111827` / near-black for primary copy, not harsh pure black unless used intentionally.
+- **Action blue:** `#2A50CD` / `#5B7CFA` for links, CTAs, and active indicators.
+- **Typography:** heavy geometric headlines, compact uppercase labels with modest tracking, clean sans-serif body text.
+- **Motion:** minimal, fast, and calm. Avoid decorative or excessive animation.
+- **Cards:** soft borders, low shadows, glass/paper layering, and rounded 14-32px corners depending on scale.
+
 ## Colors
 
 The palette is built around Google Material's surface system with a Notioneers-inspired lime accent.

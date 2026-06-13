@@ -1,5 +1,5 @@
 "use client"
-import { format, addHours, addMinutes, addDays, isSameDay, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns"
+import { format, addHours, addMinutes, addDays, isSameDay, isSameMonth, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns"
 import { es } from "date-fns/locale"
 
 import { useState, useCallback, useMemo, useEffect, useRef } from "react"
@@ -22,6 +22,7 @@ import { Badge } from "@/components/ui/badge"
 import { motion, AnimatePresence } from "framer-motion"
 import { Calendar, Clock, LayoutGrid, List, Plus, Minus, Filter, X, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Check, MoreHorizontal, Link as LinkIcon, Trash2, Repeat, Zap, Menu, GripHorizontal, GripVertical, Bell, BellOff, Palette, Pencil, ExternalLink, Settings, Paperclip } from "lucide-react"
 import { usePriorityColors, getPriorityKey } from "@/hooks/usePriorityColors"
+import { useFolders } from "@/hooks/useFolders"
 import { cn } from "@/lib/utils"
 import { REMINDER_OPTIONS, type ReminderMinutes } from "@/lib/reminders"
 import { TaskCard } from "@/components/TaskCard"
@@ -60,6 +61,7 @@ export interface Event {
   endTime: Date
   color: string
   category?: string
+  folderId?: string | null
   attendees?: string[]
   tags?: string[]
   priority?: number
@@ -88,6 +90,59 @@ export interface Event {
 
 const REMINDER_CYCLE_VALUES: ReminderMinutes[] = [0, 5, 10, 15, 30, 60, 1440, 10080]
 const REMINDER_LABEL_BY_VALUE = new Map<number, string>(REMINDER_OPTIONS.map((option) => [option.value, option.label]))
+const CALENDAR_UPCOMING_ROOT_STORAGE_KEY = 'adonai_calendar_upcoming_root_open'
+const CALENDAR_UPCOMING_DAYS_STORAGE_KEY = 'adonai_calendar_upcoming_days_open'
+const CALENDAR_UPCOMING_WEEKS_STORAGE_KEY = 'adonai_calendar_upcoming_weeks_open'
+const CALENDAR_UPCOMING_MONTHS_STORAGE_KEY = 'adonai_calendar_upcoming_months_open'
+
+const capitalizeCalendarLabel = (value: string) => value.charAt(0).toUpperCase() + value.slice(1)
+
+const readStoredBoolean = (key: string, fallback: boolean) => {
+  try {
+    const value = localStorage.getItem(key)
+    if (value === null) return fallback
+    return value === 'true'
+  } catch {
+    return fallback
+  }
+}
+
+const readStoredOpenMap = (key: string): Record<string, boolean> => {
+  try {
+    const value = localStorage.getItem(key)
+    if (!value) return {}
+    const parsed = JSON.parse(value)
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {}
+    return Object.fromEntries(
+      Object.entries(parsed).filter((entry): entry is [string, boolean] => typeof entry[0] === 'string' && typeof entry[1] === 'boolean')
+    )
+  } catch {
+    return {}
+  }
+}
+
+const writeStoredValue = (key: string, value: unknown) => {
+  try {
+    localStorage.setItem(key, typeof value === 'boolean' ? String(value) : JSON.stringify(value))
+  } catch {
+    // localStorage can be unavailable in restricted embedded contexts.
+  }
+}
+
+const formatCalendarUpcomingLabel = (date?: Date | null, today = new Date()) => {
+  if (!date) return 'Siguientes'
+  const todayStart = startOfDay(today)
+  const day = startOfDay(date)
+  const diffDays = Math.round((day.getTime() - todayStart.getTime()) / 86400000)
+  const weekday = format(day, 'EEEE', { locale: es })
+  const capitalizedWeekday = capitalizeCalendarLabel(weekday)
+
+  if (diffDays === 1) return 'Mañana'
+  if (diffDays >= 2 && diffDays <= 6) return capitalizedWeekday
+  if (diffDays >= 7 && diffDays <= 13) return `Próximo ${weekday}`
+  if (isSameMonth(day, todayStart)) return `${capitalizedWeekday} ${format(day, 'd')}`
+  return format(day, 'd MMMM', { locale: es })
+}
 
 const getReminderDisplayLabel = (enabled: boolean, minutes?: number) => {
   if (!enabled) return "Sin recordatorio"
@@ -844,18 +899,12 @@ export function EventManager({
     reminderMinutesBefore: 0,
   })
 
-  const [selectedCategory, setSelectedCategory] = useState<string>('Hoy');
-
-  const uniqueCategories = useMemo(() => {
-    const cats = new Set<string>();
-    events.forEach(e => {
-      if (e.isEvent || e.id.startsWith('block-')) return;
-      const catName = e.category || 'Hoy';
-      cats.add(catName);
-    });
-    const sorted = Array.from(cats).filter(c => c !== 'Hoy').sort();
-    return ['Hoy', ...sorted];
-  }, [events]);
+  const { folders } = useFolders();
+  const visibleFolders = useMemo(
+    () => (folders as Array<{ id: string; name: string; deleted_at?: string | null }>).filter((folder) => !folder.deleted_at),
+    [folders]
+  );
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
 
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedColors, setSelectedColors] = useState<string[]>([])
@@ -869,12 +918,32 @@ export function EventManager({
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set(['Hoy']));
   const [sidebarReorderId, setSidebarReorderId] = useState<string | null>(null);
   const [sidebarDragIdx, setSidebarDragIdx] = useState<number | null>(null);
+  const [showSidebarUpcoming, setShowSidebarUpcoming] = useState(() => readStoredBoolean(CALENDAR_UPCOMING_ROOT_STORAGE_KEY, true));
+  const [openSidebarUpcomingDays, setOpenSidebarUpcomingDays] = useState<Record<string, boolean>>(() => readStoredOpenMap(CALENDAR_UPCOMING_DAYS_STORAGE_KEY));
+  const [openSidebarUpcomingWeeks, setOpenSidebarUpcomingWeeks] = useState<Record<string, boolean>>(() => readStoredOpenMap(CALENDAR_UPCOMING_WEEKS_STORAGE_KEY));
+  const [openSidebarUpcomingMonths, setOpenSidebarUpcomingMonths] = useState<Record<string, boolean>>(() => readStoredOpenMap(CALENDAR_UPCOMING_MONTHS_STORAGE_KEY));
   const sidebarDragIdxRef = useRef<number | null>(null);
   const [recurrenceEditorOpen, setRecurrenceEditorOpen] = useState(true)
   const [pendingCustomColor, setPendingCustomColor] = useState('#5B7CFA')
   const [draftEvent, setDraftEvent] = useState<Event | null>(null)
   const [draftTitle, setDraftTitle] = useState('')
   const draftInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    writeStoredValue(CALENDAR_UPCOMING_ROOT_STORAGE_KEY, showSidebarUpcoming)
+  }, [showSidebarUpcoming])
+
+  useEffect(() => {
+    writeStoredValue(CALENDAR_UPCOMING_DAYS_STORAGE_KEY, openSidebarUpcomingDays)
+  }, [openSidebarUpcomingDays])
+
+  useEffect(() => {
+    writeStoredValue(CALENDAR_UPCOMING_WEEKS_STORAGE_KEY, openSidebarUpcomingWeeks)
+  }, [openSidebarUpcomingWeeks])
+
+  useEffect(() => {
+    writeStoredValue(CALENDAR_UPCOMING_MONTHS_STORAGE_KEY, openSidebarUpcomingMonths)
+  }, [openSidebarUpcomingMonths])
 
   const startDraft = useCallback((startTime: Date, endTime?: Date) => {
     const end = endTime || addMinutes(startTime, 30)
@@ -1243,7 +1312,7 @@ export function EventManager({
   }, [getSidebarTaskDateRank, getSidebarTaskRank]);
 
   const getSidebarTaskGroupKey = useCallback((event: Event) => {
-    return `${event.category || 'Hoy'}:${getSidebarTaskRank(event)}:${getSidebarTaskDateRank(event)}`;
+    return `${event.folderId || 'general'}:${getSidebarTaskRank(event)}:${getSidebarTaskDateRank(event)}`;
   }, [getSidebarTaskDateRank, getSidebarTaskRank]);
 
   const canReorderSidebarTask = useCallback((event: Event) => {
@@ -1315,15 +1384,13 @@ export function EventManager({
       if (e.isEvent || e.id.startsWith('block-')) return false;
       const inTimeRange = (isSameDay(e.startTime, currentDate)) ||
         (currentDateStr === todayStr && e.startTime < startOfDay(currentDate) && !e.completed);
-      const taskCat = e.category || 'Hoy';
-      // 'Hoy' tab shows tasks with no category or category === 'Hoy'
-      const matchesCategory = selectedCategory === 'Hoy' ? true : taskCat === selectedCategory;
-      return inTimeRange && matchesCategory;
+      const matchesFolder = selectedFolderId ? e.folderId === selectedFolderId : !e.folderId;
+      return inTimeRange && matchesFolder;
     });
     const grouped: Record<string, Event[]> = {};
     
     tasks.forEach(task => {
-      const folder = task.category || 'Hoy';
+      const folder = task.folderId || 'general';
       if (!grouped[folder]) grouped[folder] = [];
       grouped[folder].push(task);
     });
@@ -1333,9 +1400,75 @@ export function EventManager({
     });
 
     return grouped;
-  }, [compareSidebarTasks, filteredEvents, currentDate, selectedCategory]);
+  }, [compareSidebarTasks, filteredEvents, currentDate, selectedFolderId]);
 
   const sidebarVisibleTasks = useMemo(() => Object.values(tasksByFolder).flat(), [tasksByFolder]);
+
+  const sidebarUpcomingDays = useMemo(() => {
+    const currentDayEnd = endOfDay(currentDate);
+    const rangeEnd = endOfDay(addDays(currentDate, 14));
+    const grouped = new Map<string, Event[]>();
+
+    events
+      .filter((event) => {
+        if (event.isEvent || event.id.startsWith('block-')) return false;
+        if (event.completed) return false;
+        if (event.startTime <= currentDayEnd || event.startTime > rangeEnd) return false;
+        return selectedFolderId ? event.folderId === selectedFolderId : !event.folderId;
+      })
+      .sort((a, b) => a.startTime.getTime() - b.startTime.getTime() || compareSidebarTasks(a, b))
+      .forEach((event) => {
+        const key = format(event.startTime, 'yyyy-MM-dd');
+        const dayTasks = grouped.get(key) || [];
+        dayTasks.push(event);
+        grouped.set(key, dayTasks);
+      });
+
+    return Array.from(grouped.entries()).slice(0, 6).map(([key, dayTasks]) => ({
+      key,
+      date: dayTasks[0]?.startTime || new Date(key),
+      tasks: dayTasks.sort(compareSidebarTasks),
+    }));
+  }, [compareSidebarTasks, currentDate, events, selectedFolderId]);
+
+  const sidebarCurrentMonthStart = useMemo(() => startOfMonth(currentDate), [currentDate]);
+  const sidebarUpcomingMonthGroups = useMemo(() => {
+    const groups: Array<{
+      key: string;
+      label: string;
+      isCurrentMonth: boolean;
+      weeks: Array<{ key: string; label: string; days: typeof sidebarUpcomingDays }>;
+    }> = [];
+
+    sidebarUpcomingDays.forEach((day) => {
+      const monthStart = startOfMonth(day.date);
+      const monthKey = format(monthStart, 'yyyy-MM');
+      let month = groups.find((item) => item.key === monthKey);
+      if (!month) {
+        month = {
+          key: monthKey,
+          label: capitalizeCalendarLabel(format(monthStart, 'MMMM', { locale: es })),
+          isCurrentMonth: isSameMonth(monthStart, sidebarCurrentMonthStart),
+          weeks: [],
+        };
+        groups.push(month);
+      }
+
+      const weekStart = startOfWeek(day.date, { weekStartsOn: 1 });
+      const weekKey = format(weekStart, 'yyyy-MM-dd');
+      let week = month.weeks.find((item) => item.key === weekKey);
+      if (!week) {
+        const label = isSameMonth(monthStart, sidebarCurrentMonthStart) && month.weeks.length === 0
+          ? 'Esta semana'
+          : `Semana del ${format(weekStart, 'd MMM', { locale: es })}`;
+        week = { key: weekKey, label, days: [] };
+        month.weeks.push(week);
+      }
+      week.days.push(day);
+    });
+
+    return groups;
+  }, [sidebarCurrentMonthStart, sidebarUpcomingDays]);
 
   const handleSidebarCardDragStart = useCallback((idx: number) => {
     const task = sidebarVisibleTasks[idx];
@@ -2423,9 +2556,9 @@ export function EventManager({
                       }
                     }}
                   >
-                  <Card className="flex h-full w-full flex-col overflow-hidden border-outline-variant/12 notebook-cream-bg shadow-sm">
+                    <Card className="flex h-full w-full flex-col overflow-hidden border-outline-variant/12 notebook-cream-bg shadow-sm">
                     {/* Notebook spiral rings */}
-                    <div className="absolute inset-y-4 left-2 flex flex-col justify-between pointer-events-none z-20">
+                    <div className="hidden absolute inset-y-4 left-2 flex-col justify-between pointer-events-none z-20">
                       {Array.from({ length: 10 }).map((_, ring) => (
                         <span
                           key={ring}
@@ -2435,15 +2568,15 @@ export function EventManager({
                     </div>
 
                     {/* Vertical margin line */}
-                    <div className="absolute top-[122px] bottom-8 left-9 w-px bg-rose-300/20 pointer-events-none z-20" />
+                    <div className="hidden absolute top-[122px] bottom-8 left-9 w-px bg-rose-300/20 pointer-events-none z-20" />
 
-                    <div className="relative z-10 flex items-start justify-between gap-3 px-5 py-3 pl-11">
+                    <div className="relative z-10 flex items-start justify-between gap-3 px-5 py-4">
                       <div className="min-w-0">
-                        <h2 className="text-[18px] font-black tracking-normal" style={{ color: '#18202e' }}>
-                          Tareas de hoy
+                        <h2 className="text-[24px] font-black leading-[28px] tracking-[-0.03em]" style={{ color: '#18202e', fontFamily: '"Plus Jakarta Sans", var(--font-headline, ui-rounded, system-ui, sans-serif)' }}>
+                          Pendientes
                         </h2>
-                        <p className="mt-1 text-[11px] font-medium leading-snug" style={{ color: '#5a6375' }}>
-                          {"Mant\u00e9n presionado para arrastrar al calendario"}
+                        <p className="mt-1 text-[10.5px] font-bold leading-snug" style={{ color: '#5a6375' }}>
+                          Arrastra tareas al calendario
                         </p>
                       </div>
                       <button
@@ -2458,26 +2591,38 @@ export function EventManager({
                     </div>
 
                     {/* Folder tab bar - matching DailyPage notebook style */}
-                    <div className="relative z-10 flex items-center gap-2 overflow-x-auto no-scrollbar px-5 py-1 pb-1 mb-1 justify-start pl-11">
-                      {uniqueCategories.map(cat => {
-                        const isSelected = selectedCategory === cat;
+                    <div className="relative z-10 flex items-center gap-2 overflow-x-auto no-scrollbar px-5 py-1 pb-1 mb-1 justify-start">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedFolderId(null)}
+                        className={`flex-shrink-0 px-4 py-1.5 rounded-full text-[10px] font-semibold tracking-tight transition-all border ${
+                          selectedFolderId === null
+                            ? 'bg-primary/15 text-primary border-primary/35 shadow-sm'
+                            : 'bg-white/40 text-on-surface-variant/80 border-outline-variant/40 hover:text-foreground hover:border-outline-variant/60'
+                        }`}
+                      >
+                        General
+                      </button>
+                      {visibleFolders.map((folder) => {
+                        const isSelected = selectedFolderId === folder.id;
                         return (
                           <button
-                            key={cat}
-                            onClick={() => setSelectedCategory(cat)}
+                            key={folder.id}
+                            type="button"
+                            onClick={() => setSelectedFolderId(isSelected ? null : folder.id)}
                             className={`flex-shrink-0 px-4 py-1.5 rounded-full text-[10px] font-semibold tracking-tight transition-all border ${
                               isSelected
                                 ? 'bg-primary/15 text-primary border-primary/35 shadow-sm'
                                 : 'bg-white/40 text-on-surface-variant/80 border-outline-variant/40 hover:text-foreground hover:border-outline-variant/60'
                             }`}
                           >
-                            {cat}
+                            {folder.name}
                           </button>
                         );
                       })}
                     </div>
 
-                    <div ref={sidebarScrollRef} className="relative z-10 flex-1 overflow-y-auto custom-scrollbar px-2 py-3 pl-8 pr-2 focus:outline-none focus:ring-2 focus:ring-primary/20" data-sidebar-scroll="true" tabIndex={0}>
+                    <div ref={sidebarScrollRef} className="relative z-10 flex-1 overflow-y-auto custom-scrollbar px-5 py-3 focus:outline-none focus:ring-2 focus:ring-primary/20" data-sidebar-scroll="true" tabIndex={0}>
                       {sidebarVisibleTasks.length > 0 ? (
                         <div className="notebook-task-list">
                           {sidebarVisibleTasks.map((event, idx) => (
@@ -2505,10 +2650,11 @@ export function EventManager({
                                 setSelectedTask={handleSidebarTaskSelect}
                                 handleComplete={handleSidebarTaskComplete}
                                 handleUncomplete={handleSidebarTaskUncomplete}
-                                handleStartTimer={handleSidebarTaskTimer}
-                                view="daily"
-                                notebookView
-                              />
+                                 handleStartTimer={handleSidebarTaskTimer}
+                                 view="daily"
+                                 notebookView
+                                 hideTimer
+                               />
                             </div>
                           ))}
                         </div>
@@ -2518,6 +2664,217 @@ export function EventManager({
                           <p className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant/50">Sin tareas para hoy</p>
                         </div>
                       )}
+                      <div
+                        className="mt-5"
+                        style={{
+                          padding: '14px 14px 16px',
+                          background: 'rgba(246,243,244,0.94)',
+                          borderTop: '1px solid rgba(30,41,59,0.08)',
+                          borderRadius: 0,
+                        }}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => setShowSidebarUpcoming((value) => !value)}
+                          className="flex w-full items-center gap-2 border-0 bg-transparent p-0 pb-3 text-left"
+                          style={{ color: 'rgba(85,68,45,0.78)' }}
+                        >
+                          <ChevronDown
+                            style={{
+                              width: 15,
+                              height: 15,
+                              strokeWidth: 2.6,
+                              transform: showSidebarUpcoming ? 'rotate(180deg)' : 'rotate(0deg)',
+                              transition: 'transform 60ms linear',
+                            }}
+                          />
+                          <span className="flex-1 text-[11px] font-[850] uppercase leading-4 tracking-[0.05em]">Siguientes</span>
+                        </button>
+
+                        <AnimatePresence initial={false}>
+                          {showSidebarUpcoming && (
+                            <motion.div
+                              initial={{ opacity: 0, height: 0 }}
+                              animate={{ opacity: 1, height: 'auto' }}
+                              exit={{ opacity: 0, height: 0 }}
+                              transition={{ duration: 0.06, ease: 'linear' }}
+                              style={{ display: 'flex', flexDirection: 'column', gap: 10, overflow: 'hidden' }}
+                            >
+                              {sidebarUpcomingMonthGroups.length === 0 ? (
+                                <div className="rounded-[15px] border border-black/[0.06] bg-white/35 px-3 py-3 text-[12px] font-bold text-[#5f6775]/65">
+                                  No hay tareas siguientes.
+                                </div>
+                              ) : (
+                                sidebarUpcomingMonthGroups.map((month) => {
+                                  const monthOpen = openSidebarUpcomingMonths[month.key] ?? month.isCurrentMonth;
+                                  return (
+                                    <motion.div key={month.key} layout={false} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                      <button
+                                        type="button"
+                                        onClick={() => setOpenSidebarUpcomingMonths((current) => ({ ...current, [month.key]: !(current[month.key] ?? month.isCurrentMonth) }))}
+                                        className="flex w-full items-center gap-2 border-0 text-left"
+                                        style={{
+                                          minHeight: 39,
+                                          borderRadius: month.isCurrentMonth ? 8 : 14,
+                                          background: month.isCurrentMonth ? 'transparent' : 'rgba(255,255,255,0.34)',
+                                          padding: month.isCurrentMonth ? '2px 2px 1px' : '8px 11px',
+                                          border: month.isCurrentMonth ? 'none' : '1px solid rgba(30,41,59,0.10)',
+                                        }}
+                                      >
+                                        <ChevronDown
+                                          style={{
+                                            width: 14,
+                                            height: 14,
+                                            flexShrink: 0,
+                                            color: 'rgba(31,41,55,0.46)',
+                                            transform: monthOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                                            transition: 'transform 60ms linear',
+                                          }}
+                                        />
+                                        <span
+                                          className="min-w-0 flex-1 text-[12px] font-[850] tracking-[0.02em]"
+                                          style={{ color: month.isCurrentMonth ? 'rgba(85,68,45,0.52)' : 'rgba(85,68,45,0.62)' }}
+                                        >
+                                          {month.label}
+                                        </span>
+                                      </button>
+
+                                      <AnimatePresence initial={false}>
+                                        {monthOpen && (
+                                          <motion.div
+                                            initial={{ opacity: 0, height: 0 }}
+                                            animate={{ opacity: 1, height: 'auto' }}
+                                            exit={{ opacity: 0, height: 0 }}
+                                            transition={{ duration: 0.06, ease: 'linear' }}
+                                            style={{ display: 'flex', flexDirection: 'column', gap: 8, overflow: 'hidden' }}
+                                          >
+                                            {month.weeks.map((week) => {
+                                              const weekOpen = openSidebarUpcomingWeeks[week.key] ?? month.isCurrentMonth;
+                                              return (
+                                                <motion.div
+                                                  key={week.key}
+                                                  layout={false}
+                                                  style={{ borderRadius: 15, border: '1px solid rgba(30,41,59,0.10)', background: 'rgba(255,255,255,0.36)', boxShadow: '0 4px 12px rgba(17,24,39,0.05)', overflow: 'hidden' }}
+                                                >
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => setOpenSidebarUpcomingWeeks((current) => ({ ...current, [week.key]: !(current[week.key] ?? month.isCurrentMonth) }))}
+                                                    className="flex w-full items-center gap-2 border-0 bg-transparent text-left"
+                                                    style={{ minHeight: 43, padding: '9px 10px 9px 13px', color: '#18202e' }}
+                                                  >
+                                                    <ChevronDown
+                                                      style={{
+                                                        width: 14,
+                                                        height: 14,
+                                                        flexShrink: 0,
+                                                        color: 'rgba(31,41,55,0.46)',
+                                                        transform: weekOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                                                        transition: 'transform 60ms linear',
+                                                      }}
+                                                    />
+                                                    <span className="min-w-0 flex-1 text-[12px] font-[850] uppercase leading-4 tracking-[0.04em] text-[#55442d]/80">
+                                                      {week.label}
+                                                    </span>
+                                                  </button>
+
+                                                  <AnimatePresence initial={false}>
+                                                    {weekOpen && (
+                                                      <motion.div
+                                                        initial={{ opacity: 0, height: 0 }}
+                                                        animate={{ opacity: 1, height: 'auto' }}
+                                                        exit={{ opacity: 0, height: 0 }}
+                                                        transition={{ duration: 0.06, ease: 'linear' }}
+                                                        style={{ padding: '0 10px 11px', overflow: 'hidden', display: 'flex', flexDirection: 'column', gap: 10 }}
+                                                      >
+                                                        {week.days.map((day) => {
+                                                          const dayOpen = openSidebarUpcomingDays[day.key] ?? false;
+                                                          return (
+                                                            <motion.div
+                                                              key={day.key}
+                                                              layout={false}
+                                                              style={{ borderRadius: 14, border: '1px solid rgba(30,41,59,0.08)', background: 'rgba(255,255,255,0.34)', overflow: 'hidden' }}
+                                                            >
+                                                              <button
+                                                                type="button"
+                                                                onClick={() => setOpenSidebarUpcomingDays((current) => ({ ...current, [day.key]: !(current[day.key] ?? false) }))}
+                                                                className="flex w-full items-center gap-2 border-0 bg-transparent text-left"
+                                                                style={{ minHeight: 39, padding: '8px 9px', color: '#18202e' }}
+                                                              >
+                                                                <ChevronDown
+                                                                  style={{
+                                                                    width: 13,
+                                                                    height: 13,
+                                                                    flexShrink: 0,
+                                                                    color: 'rgba(31,41,55,0.42)',
+                                                                    transform: dayOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                                                                    transition: 'transform 60ms linear',
+                                                                  }}
+                                                                />
+                                                                <span className="min-w-0 flex-1 text-[12px] font-[850] leading-4 text-[#18202e]">
+                                                                  {formatCalendarUpcomingLabel(day.date, currentDate)}
+                                                                </span>
+                                                              </button>
+
+                                                              <AnimatePresence initial={false}>
+                                                                {dayOpen && (
+                                                                  <motion.div
+                                                                    initial={{ opacity: 0, height: 0 }}
+                                                                    animate={{ opacity: 1, height: 'auto' }}
+                                                                    exit={{ opacity: 0, height: 0 }}
+                                                                    transition={{ duration: 0.06, ease: 'linear' }}
+                                                                    className="notebook-task-list"
+                                                                    style={{ padding: '4px 0 10px', overflow: 'hidden', display: 'flex', flexDirection: 'column', gap: 12 }}
+                                                                  >
+                                                                    {day.tasks.map((event) => (
+                                                                      <div
+                                                                        key={event.id}
+                                                                        onMouseDown={(e) => handleSidebarMouseDown(e, event)}
+                                                                        onTouchStart={(e) => handleSidebarTouchStart(e, event)}
+                                                                        className="touch-none"
+                                                                      >
+                                                                        <TaskCard
+                                                                          task={event}
+                                                                          taskIdx={-1}
+                                                                          isDone={!!event.completed}
+                                                                          completingTaskId={null}
+                                                                          dragIdx={null}
+                                                                          handleDragStart={undefined}
+                                                                          handleDragOver={undefined}
+                                                                          handleDragEnd={undefined}
+                                                                          handlePointerReorderStart={undefined}
+                                                                          setSelectedTask={handleSidebarTaskSelect}
+                                                                          handleComplete={handleSidebarTaskComplete}
+                                                                          handleUncomplete={handleSidebarTaskUncomplete}
+                                                                          handleStartTimer={handleSidebarTaskTimer}
+                                                                          view="daily"
+                                                                          notebookView
+                                                                          hideTimer
+                                                                        />
+                                                                      </div>
+                                                                    ))}
+                                                                  </motion.div>
+                                                                )}
+                                                              </AnimatePresence>
+                                                            </motion.div>
+                                                          );
+                                                        })}
+                                                      </motion.div>
+                                                    )}
+                                                  </AnimatePresence>
+                                                </motion.div>
+                                              );
+                                            })}
+                                          </motion.div>
+                                        )}
+                                      </AnimatePresence>
+                                    </motion.div>
+                                  );
+                                })
+                              )}
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
                     </div>
                   </Card>
                   </motion.div>

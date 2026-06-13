@@ -71,6 +71,25 @@ interface Window {
     authStorageClear?: () => Promise<void>;
     getAppVersion?: () => Promise<string>;
     getReadyUpdate?: () => Promise<{ version?: string } | null>;
+    getTimeUsage?: (options?: { range?: 'day' | 'week' | 'month' | 'year' }) => Promise<{
+      source?: string;
+      generatedAt?: string;
+      range?: 'day' | 'week' | 'month' | 'year';
+      devices?: Array<{
+        id: 'mobile' | 'desktop';
+        title?: string;
+        subtitle?: string;
+        totalMinutes?: number;
+        previousDelta?: number;
+        recommendation?: string;
+        items?: Array<{
+          name: string;
+          minutes: number;
+          change?: number;
+          tone?: 'ink' | 'blue' | 'amber' | 'red';
+        }>;
+      }>;
+    }>;
     openUrl?: (url: string) => void;
   };
   process?: {

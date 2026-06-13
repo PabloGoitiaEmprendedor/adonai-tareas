@@ -39,9 +39,10 @@ interface TaskDetailModalProps {
   task: TaskLike | null;
   open: boolean;
   onClose: () => void;
+  variant?: 'modal' | 'side';
 }
 
-const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
+const TaskDetailModal = ({ task, open, onClose, variant = 'modal' }: TaskDetailModalProps) => {
   const { updateTask, deleteTask, createTask } = useTasks();
   const { createRule, deleteRule } = useRecurrenceRules();
 
@@ -194,6 +195,7 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
   };
 
   if (!open || !task) return null;
+  const isSide = variant === 'side';
 
   const weekDayLabels = [
     { label: 'L', value: 1 }, { label: 'M', value: 2 }, { label: 'X', value: 3 },
@@ -211,15 +213,17 @@ const TaskDetailModal = ({ task, open, onClose }: TaskDetailModalProps) => {
       <AnimatePresence>
         {open && !timerOpen && (
           <>
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/80 backdrop-blur-2xl z-[60]" onClick={handleSaveAndClose} />
+            {!isSide && (
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/80 backdrop-blur-2xl z-[60]" onClick={handleSaveAndClose} />
+            )}
             <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 10 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 10 }}
-              transition={{ type: 'spring', damping: 22, stiffness: 260 }}
-              className="fixed inset-0 z-[70] flex items-stretch justify-center p-0 sm:items-center sm:p-4 pointer-events-none"
+              initial={isSide ? { opacity: 0 } : { opacity: 0, scale: 0.95, y: 10 }}
+              animate={isSide ? { opacity: 1 } : { opacity: 1, scale: 1, y: 0 }}
+              exit={isSide ? { opacity: 0 } : { opacity: 0, scale: 0.95, y: 10 }}
+              transition={isSide ? { duration: 0.06, ease: 'linear' } : { type: 'spring', damping: 22, stiffness: 260 }}
+              className={isSide ? "relative z-10 flex h-full w-full items-stretch pointer-events-none" : "fixed inset-0 z-[70] flex items-stretch justify-center p-0 sm:items-center sm:p-4 pointer-events-none"}
             >
-              <div className="relative mx-auto h-[100dvh] w-full max-w-none max-h-[100dvh] overflow-y-auto pointer-events-auto rounded-none border-0 bg-background no-scrollbar shadow-[0_20px_60px_-10px_hsla(140,95%,8%,0.15)] sm:h-auto sm:max-w-[440px] sm:max-h-[90vh] sm:rounded-[32px] sm:border sm:border-border">
+              <div className={isSide ? "relative h-full w-full overflow-y-auto pointer-events-auto rounded-none border-l border-border bg-background no-scrollbar shadow-[-18px_0_44px_-26px_rgba(15,23,42,0.55)]" : "relative mx-auto h-[100dvh] w-full max-w-none max-h-[100dvh] overflow-y-auto pointer-events-auto rounded-none border-0 bg-background no-scrollbar shadow-[0_20px_60px_-10px_hsla(140,95%,8%,0.15)] sm:h-auto sm:max-w-[440px] sm:max-h-[90vh] sm:rounded-[32px] sm:border sm:border-border"}>
                 
                 <div className="flex flex-col gap-5 p-4 pb-6 sm:gap-6 sm:p-6">
                   {/* Top bar / Header Actions */}

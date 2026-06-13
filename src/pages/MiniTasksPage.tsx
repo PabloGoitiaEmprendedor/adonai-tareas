@@ -10,7 +10,8 @@ import type { CSSProperties } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTasks } from '@/hooks/useTasks';
 import { useFolders } from '@/hooks/useFolders';
-import { format, parseISO, addMinutes, startOfMonth, endOfMonth } from 'date-fns';
+import { format, parseISO, addMinutes, startOfMonth, endOfMonth, startOfDay, isSameMonth, addMonths, startOfWeek } from 'date-fns';
+import { es } from 'date-fns/locale';
 import { Check, CalendarDays, Plus, Repeat, Paperclip, X, ChevronsLeft, Search, Music, Clock3, Pause, Play, Folder, ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useQuery } from '@tanstack/react-query';
@@ -28,7 +29,7 @@ import { useTheme } from '@/contexts/ThemeProvider';
 import AdonaiCalendarView from '@/components/calendar/AdonaiCalendarView';
 import { useCalendarEvents } from '@/hooks/useCalendarEvents';
 import { compareTasksWithinQuadrants, getTaskManualOrderGroupKey } from '@/lib/taskOrdering';
-import { buildTaskDateSections, getFutureTaskGroupLabel } from '@/lib/taskDateGroups';
+import { buildTaskDateSections } from '@/lib/taskDateGroups';
 import { trackAnalyticsEvent } from '@/lib/analytics';
 import { supabase } from '@/integrations/supabase/client';
 import {
@@ -74,13 +75,18 @@ type MiniFolder = {
 
 const FOLDER_COLORS = ['#5B7CFA', '#4F6EE8', '#6FCF97', '#F4B860', '#EB5757', '#7C97FF', '#9CA3AF', '#E5E7EB'];
 
-const PANEL_W = 408;
-const PANEL_H = 550;
+const PANEL_W = 450;
+const PANEL_H = 650;
 const CALENDAR_W = 600;
+const DETAIL_W = 430;
 const PILL_W = 24;
 const PILL_H = 104;
 const PILL_TIMER_W = 24;
 const MINI_FOLDER_TABS_STORAGE_KEY = 'adonai_mini_folder_tabs_open';
+const MINI_UPCOMING_ROOT_STORAGE_KEY = 'adonai_mini_upcoming_root_open';
+const MINI_UPCOMING_DAYS_STORAGE_KEY = 'adonai_mini_upcoming_days_open';
+const MINI_UPCOMING_WEEKS_STORAGE_KEY = 'adonai_mini_upcoming_weeks_open';
+const MINI_UPCOMING_MONTHS_STORAGE_KEY = 'adonai_mini_upcoming_months_open';
 const CURSOR_CLICK = 'var(--cursor-hand-point), pointer';
 const CURSOR_GRAB = 'var(--cursor-hand), grab';
 
@@ -105,7 +111,7 @@ const getMiniThemeVars = (_isDarkMode: boolean): MiniThemeVars => ({
  '--mini-bg': '#F5F0E1',
  '--mini-border': 'rgba(30, 41, 59, 0.12)',
  '--mini-text': '#1F2937',
- '--mini-muted': 'rgba(75, 85, 99, 0.58)',
+ '--mini-muted': 'rgba(69, 70, 76, 0.66)',
  '--mini-accent': '#111827',
  '--mini-accent-bg': 'rgba(255, 255, 255, 0.34)',
  '--mini-accent-soft': '#111827',
@@ -113,7 +119,7 @@ const getMiniThemeVars = (_isDarkMode: boolean): MiniThemeVars => ({
  '--mini-accent-glow': 'rgba(17, 24, 39, 0.14)',
  '--mini-task-bg': 'rgba(255, 255, 255, 0.34)',
  '--mini-task-border': 'rgba(30, 41, 59, 0.12)',
- '--mini-sub-bg': 'rgba(255, 255, 255, 0.42)',
+ '--mini-sub-bg': 'rgba(247, 243, 233, 0.76)',
 });
 
 const getApplePillStyles = (isDarkMode: boolean) => ({
@@ -172,13 +178,62 @@ const parseTimeFromDescription = (desc: string | null) => {
  return { start: match[1], end: match[2] };
 };
 
+const capitalizeLabel = (value: string) => value.charAt(0).toUpperCase() + value.slice(1);
+
+const readStoredBoolean = (key: string, fallback: boolean) => {
+ try {
+ const value = localStorage.getItem(key);
+ if (value === null) return fallback;
+ return value === 'true';
+ } catch {
+ return fallback;
+ }
+};
+
+const readStoredOpenMap = (key: string): Record<string, boolean> => {
+ try {
+ const value = localStorage.getItem(key);
+ if (!value) return {};
+ const parsed = JSON.parse(value);
+ if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+ return Object.fromEntries(
+ Object.entries(parsed).filter((entry): entry is [string, boolean] => typeof entry[0] === 'string' && typeof entry[1] === 'boolean')
+ );
+ } catch {
+ return {};
+ }
+};
+
+const writeStoredValue = (key: string, value: unknown) => {
+ try {
+ localStorage.setItem(key, typeof value === 'boolean' ? String(value) : JSON.stringify(value));
+ } catch {
+ // LocalStorage can be unavailable in restricted embedded contexts.
+ }
+};
+
+const formatMiniUpcomingLabel = (date?: Date | null, today = new Date()) => {
+ if (!date) return 'Siguientes';
+ const todayStart = startOfDay(today);
+ const day = startOfDay(date);
+ const diffDays = Math.round((day.getTime() - todayStart.getTime()) / 86400000);
+ const weekday = format(day, 'EEEE', { locale: es });
+ const capitalizedWeekday = capitalizeLabel(weekday);
+
+ if (diffDays === 1) return 'Mañana';
+ if (diffDays >= 2 && diffDays <= 6) return capitalizedWeekday;
+ if (diffDays >= 7 && diffDays <= 13) return `Próximo ${weekday}`;
+ if (isSameMonth(day, todayStart)) return `${capitalizedWeekday} ${format(day, 'd')}`;
+ return format(day, 'd MMMM', { locale: es });
+};
+
 
 // â”€â”€â”€ Task Row â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-const TaskRowRaw = ({ task, taskIdx, onToggle, onDetail, activeTimerId, onTimerToggle, updateTask, folders, currentDate, ensureCalendarOpen, onReorderPointerStart }: {
+const TaskRowRaw = ({ task, taskIdx, onToggle, onDetail, activeTimerId, onTimerToggle, updateTask, folders, currentDate, ensureCalendarOpen, onReorderPointerStart, hideTimer = false }: {
  task: MiniTask; onToggle: (task: MiniTask) => void; onDetail: (task: MiniTask) => void;
  activeTimerId: string | null; onTimerToggle: (taskId: string, estimatedMinutes?: number) => void;
  updateTask: MiniTaskMutation; folders: Array<{ id: string; name?: string }>; currentDate: Date; ensureCalendarOpen?: () => void;
- taskIdx?: number; onReorderPointerStart?: (idx: number, clientX: number, clientY: number) => void;
+ taskIdx?: number; onReorderPointerStart?: (idx: number, clientX: number, clientY: number) => void; hideTimer?: boolean;
 }) => {
  const isDone = task.status === 'done';
  const visibleSubtasks = useMemo(() => {
@@ -393,8 +448,8 @@ const TaskRowRaw = ({ task, taskIdx, onToggle, onDetail, activeTimerId, onTimerT
  }, [onDetail, task]);
 
  return (
- <motion.div layout initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
- exit={{ opacity: 0, scale: 0.95 }} style={{ marginBottom: 0 }}>
+  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+  exit={{ opacity: 0 }} transition={{ duration: 0.06, ease: 'linear' }} style={{ marginBottom: 0 }}>
  <div 
  className="group/task"
  onClick={handleRowDetail}
@@ -403,28 +458,32 @@ const TaskRowRaw = ({ task, taskIdx, onToggle, onDetail, activeTimerId, onTimerT
  onPointerUp={handleRowPointerEnd}
  onPointerCancel={handleRowPointerEnd}
   style={{
-  display: 'flex', alignItems: 'flex-start', gap: 9, padding: '10px 0 10px 0', flexWrap: 'wrap',
- borderRadius: 0, cursor: CURSOR_GRAB,
- background: 'transparent',
- borderTop: 'none',
- borderRight: 'none',
- borderLeft: 'none',
+  display: 'flex', alignItems: 'flex-start', gap: 10, padding: '12px 12px 12px 13px', flexWrap: 'wrap',
+ borderRadius: 16, cursor: CURSOR_GRAB,
+ background: C.taskBg,
+ border: `1px solid ${C.taskBorder}`,
+ boxShadow: '0 4px 12px rgba(17,24,39,0.05)',
+ backdropFilter: 'blur(12px)',
+ position: 'relative',
  opacity: isDone? 0.45: 1,
- }}
+  transition: 'box-shadow 160ms ease, background 160ms ease, border-color 160ms ease, opacity 160ms ease',
+  userSelect: 'none',
+  WebkitUserSelect: 'none',
+  touchAction: 'manipulation',
+  }}
  >
  <div 
  onClick={(e) => { e.stopPropagation(); onToggle(task); }} 
- style={{ flexShrink: 0 }}
+ style={{ flexShrink: 0, order: 1 }}
  >
  <TaskCheckbox checked={isDone} priorityColor={priorityColor} size="sm" />
  </div>
 
- <div style={{ flex: 1, minWidth: 0, paddingTop: 1 }}>
- {isEditing? (
- <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
- <textarea
- ref={editorRef}
- autoFocus
+  <div style={{ flex: 1, minWidth: 0, paddingTop: 1, order: 2 }}>
+  {isEditing? (
+  <textarea
+  ref={editorRef}
+  autoFocus
  value={draftTitle}
  onChange={e => {
  setDraftTitle(e.target.value);
@@ -432,67 +491,37 @@ const TaskRowRaw = ({ task, taskIdx, onToggle, onDetail, activeTimerId, onTimerT
  }}
  onInput={resizeEditor}
  onKeyDown={e => {
- if (e.key === 'Enter' && !e.shiftKey) {
- e.preventDefault();
- submitEdit();
+  if (e.key === 'Enter' && !e.shiftKey) {
+  e.preventDefault();
+  submitEdit();
  }
  if (e.key === 'Escape') {
  setDraftTitle(task.title);
  setIsEditing(false);
- }
- }}
- onClick={e => e.stopPropagation()}
- rows={Math.max(2, draftTitle.split('\n').length)}
- style={{
- width: '100%', minHeight: 34, fontSize: 15, fontWeight: 650, lineHeight: 1.34,
- color: C.text, background: 'transparent', border: 'none',
- borderBottom: `1px solid ${C.accent}`, outline: 'none', padding: 0,
- resize: 'none', overflow: 'hidden', whiteSpace: 'pre-wrap',
- overflowWrap: 'anywhere', wordBreak: 'break-word'
- }}
- />
- <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
- <button
- type="button"
- onClick={(e) => { e.stopPropagation(); submitEdit(); }}
- style={{
- width: 24, height: 24, borderRadius: 6, flexShrink: 0,
- background: C.accentSoft,
- border: `1px solid ${C.accentBorder}`,
- display: 'none', alignItems: 'center', justifyContent: 'center',
- cursor: CURSOR_CLICK,
- }}
- title="Guardar"
- aria-label="Guardar"
- >
- <Check style={{ width: 12, height: 12, color: '#ffffff', strokeWidth: 3 }} />
- </button>
- <button
- type="button"
- onClick={(e) => { e.stopPropagation(); setDraftTitle(task.title); setIsEditing(false); }}
- style={{
- width: 24, height: 24, borderRadius: 6, flexShrink: 0,
- background: 'rgba(0,0,0,0.04)',
- border: '1px solid rgba(0,0,0,0.08)',
- display: 'flex', alignItems: 'center', justifyContent: 'center',
- cursor: CURSOR_CLICK,
- }}
- title="Cancelar"
- aria-label="Cancelar"
- >
- <X style={{ width: 12, height: 12, color: '#6b7280', strokeWidth: 2 }} />
- </button>
- </div>
- </div>
- ): (
- <span 
- onClick={(e) => { e.stopPropagation(); setIsEditing(true); setDraftTitle(task.title); }}
+  }
+  }}
+  onClick={e => e.stopPropagation()}
+  onBlur={submitEdit}
+  rows={1}
+  style={{
+  width: '100%', minHeight: 20, fontSize: 15, fontWeight: 650, lineHeight: 1.34,
+  color: C.text, background: 'transparent', border: 'none',
+  outline: 'none', padding: 0, margin: 0,
+  resize: 'none', overflow: 'hidden', whiteSpace: 'pre-wrap',
+  overflowWrap: 'anywhere', wordBreak: 'break-word'
+  }}
+  />
+  ): (
+  <span 
+  onClick={(e) => { e.stopPropagation(); setIsEditing(true); setDraftTitle(task.title); }}
  title="Haz clic para editar"
  style={{
- display: 'block', fontSize: 15, fontWeight: 650, lineHeight: 1.34,
+  display: 'inline', fontSize: 15, fontWeight: 650, lineHeight: 1.34,
  color: isDone? C.muted: C.text,
  textDecoration: isDone? 'line-through': 'none',
  cursor: 'text',
+ userSelect: 'none',
+ WebkitUserSelect: 'none',
  whiteSpace: 'pre-wrap',
  overflowWrap: 'anywhere',
  wordBreak: 'break-word'
@@ -504,8 +533,28 @@ const TaskRowRaw = ({ task, taskIdx, onToggle, onDetail, activeTimerId, onTimerT
 
   </div>
 
+  <AnimatePresence initial={false}>
   {isSubtaskOpen && !isDone && (
-    <div style={{ flexBasis: '100%', width: '100%', paddingLeft: 31, marginTop: 2 }} data-no-drag="true">
+    <motion.div
+      initial={{ opacity: 0, height: 0 }}
+      animate={{ opacity: 1, height: 'auto' }}
+      exit={{ opacity: 0, height: 0 }}
+      transition={{ duration: 0.06, ease: 'linear' }}
+      style={{
+        flexBasis: '100%',
+        width: 'calc(100% - 24px)',
+        marginLeft: 24,
+        marginTop: 6,
+        paddingLeft: 8,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 6,
+        position: 'relative',
+        overflow: 'hidden',
+        order: 4,
+      }}
+      data-no-drag="true"
+    >
       {visibleSubtasks.map((subtask) => {
         const subtaskDone = subtask.status === 'done';
         return (
@@ -516,9 +565,11 @@ const TaskRowRaw = ({ task, taskIdx, onToggle, onDetail, activeTimerId, onTimerT
               display: 'flex',
               alignItems: 'flex-start',
               gap: 8,
-              minHeight: 28,
-              padding: '4px 0',
-              borderTop: '1px solid rgba(31,41,55,0.055)',
+              minHeight: 32,
+              padding: '7px 10px',
+              borderTop: 'none',
+              borderRadius: 10,
+              background: C.subBg,
             }}
           >
             <TaskCheckbox
@@ -538,8 +589,8 @@ const TaskRowRaw = ({ task, taskIdx, onToggle, onDetail, activeTimerId, onTimerT
                 paddingTop: 1,
                 color: subtaskDone ? C.muted : C.text,
                 fontSize: 13.5,
-                fontWeight: 620,
-                lineHeight: 1.28,
+                fontWeight: 560,
+                lineHeight: 1.35,
                 textDecoration: subtaskDone ? 'line-through' : 'none',
                 overflowWrap: 'anywhere',
                 wordBreak: 'break-word',
@@ -550,7 +601,7 @@ const TaskRowRaw = ({ task, taskIdx, onToggle, onDetail, activeTimerId, onTimerT
           </div>
         );
       })}
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, minHeight: 30, padding: '4px 0' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, minHeight: 32, padding: '7px 10px', borderRadius: 10, background: C.subBg }}>
         <TaskCheckbox checked={false} priorityColor={priorityColor} size="sm" onClick={() => subtaskEditorRef.current?.focus()} ariaLabel="Nueva subtarea" />
         <textarea
           ref={subtaskEditorRef}
@@ -599,11 +650,12 @@ const TaskRowRaw = ({ task, taskIdx, onToggle, onDetail, activeTimerId, onTimerT
           }}
         />
       </div>
-    </div>
+    </motion.div>
   )}
+  </AnimatePresence>
 
   {/* Link / Timer / Duration Result */}
- <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+ <div style={{ display: 'flex', alignItems: 'center', gap: 5, order: 3, alignSelf: 'flex-start', flexShrink: 0 }}>
  {isDone? (
  actualSeconds > 0 && (
  <TaskDurationBadge seconds={actualSeconds} estimatedMinutes={task.estimated_minutes} compact />
@@ -638,14 +690,16 @@ const TaskRowRaw = ({ task, taskIdx, onToggle, onDetail, activeTimerId, onTimerT
  );
  })}
  
+ {!hideTimer && (
  <TaskTimerButton
- active={isTimerActive}
- priorityColor={priorityColor}
- size="sm"
+  active={isTimerActive}
+  priorityColor={priorityColor}
+  size="sm"
  className="border-transparent bg-transparent text-on-surface-variant/65 shadow-none hover:bg-[var(--mini-task-timer-hover)] hover:text-foreground/75"
- style={{ '--mini-task-timer-hover': timerHoverColor } as CSSProperties}
- onClick={(e) => { e.stopPropagation(); onTimerToggle(task.id, task.estimated_minutes || 30); }}
- />
+  style={{ '--mini-task-timer-hover': timerHoverColor } as CSSProperties}
+  onClick={(e) => { e.stopPropagation(); onTimerToggle(task.id, task.estimated_minutes || 30); }}
+  />
+ )}
  {!isDone && (
      <button
        type="button"
@@ -657,27 +711,31 @@ const TaskRowRaw = ({ task, taskIdx, onToggle, onDetail, activeTimerId, onTimerT
            return next;
          });
        }}
-     aria-label={isSubtaskOpen ? 'Recoger subtarea' : 'Desplegar subtarea'}
+     aria-label={isSubtaskOpen ? 'Recoger subtareas' : hasSubtasks ? 'Desplegar subtareas' : 'Agregar subtarea'}
      style={{
        minHeight: 22,
        minWidth: 22,
        padding: 0,
-       border: '1px solid rgba(31,41,55,0.08)',
+       border: 'none',
        borderRadius: 999,
-       background: hasSubtasks || isSubtaskOpen ? 'rgba(91,124,250,0.10)' : 'rgba(255,255,255,0.34)',
-       color: hasSubtasks || isSubtaskOpen ? 'hsl(var(--primary))' : 'rgba(75,85,99,0.46)',
+       background: 'transparent',
+       color: 'rgba(31,41,55,0.46)',
        display: 'flex',
        alignItems: 'center',
        justifyContent: 'center',
        gap: 4,
        cursor: CURSOR_CLICK,
        flexShrink: 0,
-       opacity: hasSubtasks || isSubtaskOpen ? 1 : 0,
-       transition: 'opacity 120ms ease, color 120ms ease, background 120ms ease, border-color 120ms ease',
+       opacity: 1,
+       transition: 'opacity 120ms ease, color 120ms ease',
      }}
-     className={!hasSubtasks ? 'group-hover/task:opacity-100' : undefined}
+     title={isSubtaskOpen ? 'Recoger subtareas' : hasSubtasks ? 'Desplegar subtareas' : 'Agregar subtarea'}
    >
-     <ChevronDown style={{ width: 13, height: 13, strokeWidth: 2.5 }} />
+      {isSubtaskOpen || hasSubtasks ? (
+        <ChevronDown style={{ width: 14, height: 14, strokeWidth: 2.6, transform: isSubtaskOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 140ms ease' }} />
+      ) : (
+       <Plus style={{ width: 12, height: 12, strokeWidth: 2.6 }} />
+     )}
    </button>
  )}
  </>
@@ -739,11 +797,11 @@ const MiniIconButton = ({
  style={{
  width: 32,
  height: 32,
- borderRadius: 999,
- border: '1px solid rgba(31,41,55,0.11)',
- background: disabled ? 'rgba(255,255,255,0.28)' : 'rgba(255,255,255,0.62)',
- color: disabled ? 'rgba(31,41,55,0.22)' : 'rgba(31,41,55,0.74)',
- boxShadow: disabled ? 'none' : '0 8px 18px rgba(31,41,55,0.10), inset 0 1px 0 rgba(255,255,255,0.78)',
+ borderRadius: 10,
+ border: '1px solid transparent',
+ background: disabled ? 'transparent' : 'transparent',
+ color: disabled ? 'rgba(31,41,55,0.25)' : 'rgba(17,24,39,0.88)',
+ boxShadow: 'none',
  display: 'flex',
  alignItems: 'center',
  justifyContent: 'center',
@@ -816,11 +874,16 @@ const MiniTaskList = () => {
     return readStoredCalendarViewMode('day');
   });
   const today = useMemo(() => format(new Date(), 'yyyy-MM-dd'), []);
+  const upcomingRangeEnd = useMemo(() => format(endOfMonth(addMonths(new Date(`${today}T00:00:00`), 1)), 'yyyy-MM-dd'), [today]);
   const { tasks, updateTask, createTask, isLoading } = useTasks({ 
   date: today, 
   excludeEvents: false
   });
-  const { tasks: allMiniTasks } = useTasks({ excludeEvents: false });
+  const { tasks: upcomingRangeTasks } = useTasks({
+  startDate: today,
+  endDate: upcomingRangeEnd,
+  excludeEvents: false
+  });
   const rangeStart = startOfMonth(viewDate);
   const rangeEnd = endOfMonth(viewDate);
   const { events: googleCalendarEvents } = useCalendarEvents(
@@ -857,12 +920,27 @@ const MiniTaskList = () => {
   } catch {
     // LocalStorage can be unavailable in restricted embedded contexts.
   }
- }, [showFolderTabs]);
+  }, [showFolderTabs]);
   const [miniSearchQuery, setMiniSearchQuery] = useState('');
  const [miniSearchOpen, setMiniSearchOpen] = useState(false);
   const [focusTimerMenuOpen, setFocusTimerMenuOpen] = useState(false);
   const [focusTimerPaused, setFocusTimerPaused] = useState(false);
- const [showUpcomingDays, setShowUpcomingDays] = useState(true);
+  const [showUpcomingDays, setShowUpcomingDays] = useState(() => readStoredBoolean(MINI_UPCOMING_ROOT_STORAGE_KEY, true));
+  const [openUpcomingDays, setOpenUpcomingDays] = useState<Record<string, boolean>>(() => readStoredOpenMap(MINI_UPCOMING_DAYS_STORAGE_KEY));
+  const [openUpcomingWeeks, setOpenUpcomingWeeks] = useState<Record<string, boolean>>(() => readStoredOpenMap(MINI_UPCOMING_WEEKS_STORAGE_KEY));
+  const [openUpcomingMonths, setOpenUpcomingMonths] = useState<Record<string, boolean>>(() => readStoredOpenMap(MINI_UPCOMING_MONTHS_STORAGE_KEY));
+ useEffect(() => {
+ writeStoredValue(MINI_UPCOMING_ROOT_STORAGE_KEY, showUpcomingDays);
+ }, [showUpcomingDays]);
+ useEffect(() => {
+ writeStoredValue(MINI_UPCOMING_DAYS_STORAGE_KEY, openUpcomingDays);
+ }, [openUpcomingDays]);
+ useEffect(() => {
+ writeStoredValue(MINI_UPCOMING_WEEKS_STORAGE_KEY, openUpcomingWeeks);
+ }, [openUpcomingWeeks]);
+ useEffect(() => {
+ writeStoredValue(MINI_UPCOMING_MONTHS_STORAGE_KEY, openUpcomingMonths);
+ }, [openUpcomingMonths]);
  const [isCreatingFolder, setIsCreatingFolder] = useState(false);
  const [newFolderName, setNewFolderName] = useState('');
  const [newFolderColor, setNewFolderColor] = useState(FOLDER_COLORS[0]);
@@ -875,8 +953,16 @@ const MiniTaskList = () => {
  const [captureCreationSource, setCaptureCreationSource] = useState<'mini_plus' | 'mini_voice'>('mini_plus');
  const [selectedTask, setSelectedTask] = useState<MiniTask | null>(null);
  const [detailOpen, setDetailOpen] = useState(false);
- const [recurrenceFlowOpen, setRecurrenceFlowOpen] = useState(false);
- const handleDetail = useCallback((t: MiniTask) => { setSelectedTask(t); setDetailOpen(true); }, []);
+  const [recurrenceFlowOpen, setRecurrenceFlowOpen] = useState(false);
+  const handleDetail = useCallback((t: MiniTask) => {
+  if (detailOpen && selectedTask?.id === t.id) {
+  setDetailOpen(false);
+  return;
+  }
+  setSelectedTask(t);
+  setDetailOpen(true);
+  }, [detailOpen, selectedTask?.id]);
+ const closeDetailPanel = useCallback(() => setDetailOpen(false), []);
  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
  const sessionStartRef = useRef<number>(0);
  const captureModalRef = useRef<TaskCaptureModalHandle>(null);
@@ -888,11 +974,10 @@ const MiniTaskList = () => {
   captureModalRef.current?.openInTextMode(date);
   }, [today]);
 
- const startFocusTimer = useCallback((minutes: number) => {
-  if (!Number.isFinite(minutes) || minutes <= 0) return;
+  const startFocusTimer = useCallback(() => {
   if (timerRef.current) clearInterval(timerRef.current);
   setActiveTimerId('__focus_timer__');
-  setTimerSeconds(Math.round(minutes * 60));
+  setTimerSeconds(0);
   setFocusTimerPaused(false);
   setFocusTimerMenuOpen(false);
   }, []);
@@ -907,7 +992,7 @@ const MiniTaskList = () => {
 
   if (timerRef.current) clearInterval(timerRef.current);
   timerRef.current = setInterval(() => {
-    setTimerSeconds((seconds) => seconds - 1);
+    setTimerSeconds((seconds) => seconds + 1);
   }, 1000);
 
   return () => {
@@ -916,13 +1001,14 @@ const MiniTaskList = () => {
   };
   }, [activeTimerId, focusTimerPaused]);
 
- const openFocusTimerPrompt = useCallback(() => {
- const raw = window.prompt('Cuantos minutos quieres contar?', '25');
- if (!raw) return;
- const minutes = Number(raw.replace(',', '.'));
- if (!Number.isFinite(minutes) || minutes <= 0) return;
- startFocusTimer(minutes);
- }, [startFocusTimer]);
+ const finishFocusTimer = useCallback(() => {
+ if (timerRef.current) clearInterval(timerRef.current);
+ timerRef.current = null;
+ setActiveTimerId(null);
+ setTimerSeconds(0);
+ setFocusTimerPaused(false);
+ setFocusTimerMenuOpen(false);
+ }, []);
 
  const { onMouseDown: onDragMouseDown, hasMovedRef, isDraggingRef: isDraggingWindowRef } = useDragWindow();
 
@@ -938,6 +1024,10 @@ const MiniTaskList = () => {
  const [reorderIdx, setReorderIdx] = useState<number | null>(null);
  const reorderIdxRef = useRef<number | null>(null);
  const orderedTasksRef = useRef<MiniTask[]>([]);
+ const [orderedUpcomingTasksByKey, setOrderedUpcomingTasksByKey] = useState<Record<string, MiniTask[]>>({});
+ const orderedUpcomingTasksByKeyRef = useRef<Record<string, MiniTask[]>>({});
+ const [upcomingReorder, setUpcomingReorder] = useState<{ dayKey: string; idx: number } | null>(null);
+ const upcomingReorderRef = useRef<{ dayKey: string; idx: number } | null>(null);
  const suppressOrderSyncRef = useRef(false);
  const suppressOrderSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
  const calendarTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1251,7 +1341,7 @@ if (!isExpanded) {
 
  const upcomingTasksByDate = useMemo(() => {
  const query = miniSearchQuery.trim().toLowerCase();
- const futureTasks = allMiniTasks
+ const futureTasks = upcomingRangeTasks
  .filter((task: MiniTask) => task.status !== 'deleted')
  .filter((task: MiniTask) => task.due_date && task.due_date > today)
  .filter((task: MiniTask) => (selectedFolderId ? task.folder_id === selectedFolderId : !task.folder_id))
@@ -1262,11 +1352,63 @@ if (!isExpanded) {
  return title.includes(query) || link.includes(query);
  });
 
-  return buildTaskDateSections(futureTasks, new Date(today)).futureGroups.map((day) => ({
+ return buildTaskDateSections(futureTasks, new Date(today)).futureGroups.map((day) => ({
   ...day,
   tasks: [...day.tasks].sort(compareTasksWithinQuadrants),
   }));
- }, [allMiniTasks, miniSearchQuery, selectedFolderId, today]);
+ }, [upcomingRangeTasks, miniSearchQuery, selectedFolderId, today]);
+
+ const currentMonthStart = useMemo(() => startOfMonth(new Date(`${today}T00:00:00`)), [today]);
+
+ const upcomingMonthGroups = useMemo(() => {
+ const groups: Array<{
+ key: string;
+ label: string;
+ isCurrentMonth: boolean;
+ weeks: Array<{ key: string; label: string; days: typeof upcomingTasksByDate }>;
+ }> = [];
+
+ upcomingTasksByDate.forEach((day) => {
+ if (!day.date) return;
+ const monthStart = startOfMonth(day.date);
+ const monthKey = format(monthStart, 'yyyy-MM');
+ let month = groups.find((item) => item.key === monthKey);
+ if (!month) {
+ month = {
+ key: monthKey,
+ label: capitalizeLabel(format(monthStart, 'MMMM', { locale: es })),
+ isCurrentMonth: isSameMonth(monthStart, currentMonthStart),
+ weeks: [],
+ };
+ groups.push(month);
+ }
+
+ const weekStart = startOfWeek(day.date, { weekStartsOn: 1 });
+ const weekKey = format(weekStart, 'yyyy-MM-dd');
+ let week = month.weeks.find((item) => item.key === weekKey);
+ if (!week) {
+ const label = isSameMonth(monthStart, currentMonthStart) && month.weeks.length === 0
+ ? 'Esta semana'
+ : `Semana del ${format(weekStart, 'd MMM', { locale: es })}`;
+ week = { key: weekKey, label, days: [] };
+ month.weeks.push(week);
+ }
+ week.days.push(day);
+ });
+
+ return groups;
+ }, [currentMonthStart, upcomingTasksByDate]);
+
+ const isUpcomingDayOpen = useCallback((key: string, index: number) => {
+ return openUpcomingDays[key] ?? false;
+ }, [openUpcomingDays]);
+
+ const toggleUpcomingDay = useCallback((key: string, index: number) => {
+ setOpenUpcomingDays((current) => ({
+ ...current,
+ [key]: !(current[key] ?? false),
+ }));
+ }, []);
 
  const miniParentTaskIds = useMemo(() => {
  const ids = new Set<string>();
@@ -1307,6 +1449,23 @@ if (!isExpanded) {
  }, [miniSubtasks]);
 
  useEffect(() => {
+ if (upcomingReorderRef.current) return;
+ setOrderedUpcomingTasksByKey((current) => {
+ const next: Record<string, MiniTask[]> = {};
+ upcomingTasksByDate.forEach((day) => {
+ const currentIds = (current[day.key] || []).map((task) => task.id).join('|');
+ const nextIds = day.tasks.map((task) => task.id).join('|');
+ next[day.key] = currentIds === nextIds ? current[day.key] : day.tasks;
+ });
+ return next;
+ });
+ }, [upcomingTasksByDate]);
+
+ useEffect(() => {
+ orderedUpcomingTasksByKeyRef.current = orderedUpcomingTasksByKey;
+ }, [orderedUpcomingTasksByKey]);
+
+ useEffect(() => {
  if (suppressOrderSyncRef.current) return;
  setOrderedTasks(sortedTasks);
  }, [sortedTasks]);
@@ -1326,6 +1485,97 @@ if (!isExpanded) {
  }
  });
  }, [updateTask]);
+
+ const persistUpcomingOrder = useCallback((nextOrder: MiniTask[]) => {
+ nextOrder.forEach((task, idx) => {
+ if (task.status !== 'done' && (task.sort_order ?? 0) !== idx) {
+ updateTask.mutate({ id: task.id, sort_order: idx });
+ }
+ });
+ }, [updateTask]);
+
+ const reorderUpcomingDay = useCallback((dayKey: string, fromIdx: number, toIdx: number) => {
+ if (fromIdx === toIdx) return;
+ const currentList = orderedUpcomingTasksByKeyRef.current[dayKey] || upcomingTasksByDate.find((day) => day.key === dayKey)?.tasks || [];
+ const dragged = currentList[fromIdx];
+ const target = currentList[toIdx];
+ if (!dragged || !target || dragged.status === 'done' || target.status === 'done') return;
+ if (getTaskManualOrderGroupKey(dragged) !== getTaskManualOrderGroupKey(target)) return;
+
+ const nextList = [...currentList];
+ const [moved] = nextList.splice(fromIdx, 1);
+ nextList.splice(toIdx, 0, moved);
+ orderedUpcomingTasksByKeyRef.current = { ...orderedUpcomingTasksByKeyRef.current, [dayKey]: nextList };
+ setOrderedUpcomingTasksByKey(orderedUpcomingTasksByKeyRef.current);
+ upcomingReorderRef.current = { dayKey, idx: toIdx };
+ setUpcomingReorder({ dayKey, idx: toIdx });
+ }, [upcomingTasksByDate]);
+
+ const finishUpcomingReorder = useCallback(() => {
+ const active = upcomingReorderRef.current;
+ if (active) {
+ const finalOrder = orderedUpcomingTasksByKeyRef.current[active.dayKey] || [];
+ persistUpcomingOrder(finalOrder);
+ setOrderedUpcomingTasksByKey((current) => ({
+ ...current,
+ [active.dayKey]: finalOrder.map((task, idx) => ({ ...task, sort_order: idx })),
+ }));
+ }
+ upcomingReorderRef.current = null;
+ setUpcomingReorder(null);
+ }, [persistUpcomingOrder]);
+
+ const moveUpcomingReorderToPoint = useCallback((dayKey: string, clientX: number, clientY: number) => {
+ const active = upcomingReorderRef.current;
+ if (!active || active.dayKey !== dayKey) return;
+ const rows = Array.from(document.querySelectorAll<HTMLElement>('[data-mini-upcoming-task-idx]'))
+ .filter((row) => row.dataset.miniUpcomingDay === dayKey);
+ const targetEl = rows.find((row) => {
+ const rect = row.getBoundingClientRect();
+ return clientY >= rect.top && clientY <= rect.bottom && clientX >= rect.left - 36 && clientX <= rect.right + 36;
+ });
+ if (!targetEl) return;
+ const targetIdx = Number(targetEl.dataset.miniUpcomingTaskIdx);
+ if (Number.isNaN(targetIdx) || targetIdx === active.idx) return;
+ reorderUpcomingDay(dayKey, active.idx, targetIdx);
+ }, [reorderUpcomingDay]);
+
+ const handleUpcomingReorderPointerStart = useCallback((dayKey: string, idx: number, clientX: number, clientY: number) => {
+ const list = orderedUpcomingTasksByKeyRef.current[dayKey] || upcomingTasksByDate.find((day) => day.key === dayKey)?.tasks || [];
+ if (list[idx]?.status === 'done') return;
+ upcomingReorderRef.current = { dayKey, idx };
+ setUpcomingReorder({ dayKey, idx });
+ document.body.style.cursor = 'var(--cursor-hand-grabbing), grabbing';
+ document.body.style.userSelect = 'none';
+ moveUpcomingReorderToPoint(dayKey, clientX, clientY);
+
+ const onMove = (event: MouseEvent) => {
+ event.preventDefault();
+ moveUpcomingReorderToPoint(dayKey, event.clientX, event.clientY);
+ };
+ const onTouchMove = (event: TouchEvent) => {
+ const touch = event.touches[0];
+ if (!touch) return;
+ if (event.cancelable) event.preventDefault();
+ moveUpcomingReorderToPoint(dayKey, touch.clientX, touch.clientY);
+ };
+ const finish = () => {
+ window.removeEventListener('mousemove', onMove);
+ window.removeEventListener('mouseup', finish);
+ window.removeEventListener('touchmove', onTouchMove);
+ window.removeEventListener('touchend', finish);
+ window.removeEventListener('touchcancel', finish);
+ document.body.style.cursor = '';
+ document.body.style.userSelect = '';
+ finishUpcomingReorder();
+ };
+
+ window.addEventListener('mousemove', onMove);
+ window.addEventListener('mouseup', finish);
+ window.addEventListener('touchmove', onTouchMove, { passive: false });
+ window.addEventListener('touchend', finish);
+ window.addEventListener('touchcancel', finish);
+ }, [finishUpcomingReorder, moveUpcomingReorderToPoint, orderedUpcomingTasksByKey, upcomingTasksByDate]);
 
  const handleMiniReorderStart = useCallback((idx: number) => {
  if (orderedTasksRef.current[idx]?.status === 'done') return;
@@ -1409,6 +1659,7 @@ if (!isExpanded) {
  reorderIdxRef.current = idx;
  setReorderIdx(idx);
  document.body.style.cursor = 'var(--cursor-hand-grabbing), grabbing';
+ document.body.style.userSelect = 'none';
  moveMiniReorderToPoint(clientX, clientY);
 
  const onMove = (event: MouseEvent) => {
@@ -1428,6 +1679,7 @@ if (!isExpanded) {
  window.removeEventListener('touchend', finish);
  window.removeEventListener('touchcancel', finish);
  document.body.style.cursor = '';
+ document.body.style.userSelect = '';
  if (reorderIdxRef.current !== null) {
  const finalOrder = orderedTasksRef.current;
  persistMiniOrder(finalOrder);
@@ -1452,8 +1704,11 @@ if (!isExpanded) {
  window.addEventListener('touchcancel', finish);
  }, [moveMiniReorderToPoint, persistMiniOrder]);
 
- const completedCount = filteredTasks.filter((t: MiniTask) => t.status === 'done').length;
- const totalCount = filteredTasks.length;
+  const completedCount = filteredTasks.filter((t: MiniTask) => t.status === 'done').length;
+  const totalCount = filteredTasks.length;
+  const activeTimerTask = activeTimerId && activeTimerId !== '__focus_timer__'
+  ? tasks.find((task: MiniTask) => task.id === activeTimerId)
+  : null;
 
  const handleToggle = useCallback((task: MiniTask, e?: React.MouseEvent) => {
  if (e) e.stopPropagation();
@@ -1526,6 +1781,113 @@ if (!isExpanded) {
  }
   }, [updateTask, tasks, checkAndUnlock, profile?.name, activeTimerId]);
 
+  const handleActiveTimerCheck = useCallback((event: React.MouseEvent) => {
+  event.stopPropagation();
+  if (activeTimerId === '__focus_timer__') {
+  finishFocusTimer();
+  return;
+  }
+  if (activeTimerTask) handleToggle(activeTimerTask);
+  }, [activeTimerId, activeTimerTask, finishFocusTimer, handleToggle]);
+
+  const renderUpcomingDay = (day: (typeof upcomingTasksByDate)[number], index: number, nested = false) => {
+  const dayOpen = isUpcomingDayOpen(day.key, index);
+  const dayTasks = orderedUpcomingTasksByKey[day.key] || day.tasks;
+  return (
+    <motion.div key={day.key} layout data-mini-upcoming-day-container={day.key} style={{ borderRadius: nested ? 13 : 15, border: nested ? 'none' : '1px solid rgba(30,41,59,0.10)', background: nested ? 'rgba(255,255,255,0.40)' : 'rgba(255,255,255,0.40)', boxShadow: nested ? 'none' : '0 4px 12px rgba(17,24,39,0.05)', overflow: 'hidden' }}>
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={() => toggleUpcomingDay(day.key, index)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            toggleUpcomingDay(day.key, index);
+          }
+        }}
+        style={{
+          width: '100%',
+          minHeight: nested ? 40 : 44,
+          padding: nested ? '8px 9px' : '9px 10px 9px 13px',
+          border: 'none',
+          background: dayOpen ? 'rgba(255,255,255,0.54)' : 'transparent',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          color: C.text,
+          cursor: CURSOR_CLICK,
+        }}
+      >
+        <ChevronDown style={{ width: nested ? 13 : 14, height: nested ? 13 : 14, flexShrink: 0, color: 'rgba(31,41,55,0.46)', transform: dayOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 60ms linear' }} />
+        <span style={{ flex: 1, minWidth: 0, textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 1 }}>
+          <span style={{ fontSize: 13.5, fontWeight: 760, lineHeight: '18px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {formatMiniUpcomingLabel(day.date, new Date(today))}
+          </span>
+          {!nested && day.date && (
+            <span style={{ fontSize: 10.5, fontWeight: 760, color: 'rgba(31,41,55,0.46)', lineHeight: '14px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              {format(day.date, 'd MMM')}
+            </span>
+          )}
+        </span>
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            if (day.date) openTextCapture(format(day.date, 'yyyy-MM-dd'));
+          }}
+          style={{ width: 25, height: 25, borderRadius: 999, border: '1px solid rgba(31,41,55,0.10)', background: 'rgba(255,255,255,0.72)', color: C.text, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: CURSOR_CLICK, flexShrink: 0 }}
+          title="Agregar tarea para este dia"
+          aria-label="Agregar tarea para este dia"
+        >
+          <Plus style={{ width: 13, height: 13, strokeWidth: 2.7 }} />
+        </button>
+      </div>
+      <AnimatePresence initial={false}>
+        {dayOpen && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.06, ease: 'linear' }}
+            className="notebook-task-list"
+            style={{ padding: nested ? '4px 0 10px' : '4px 10px 11px 10px', overflow: 'hidden', display: 'flex', flexDirection: 'column', gap: 12 }}
+          >
+            {dayTasks.map((task, taskIndex) => (
+              <div
+                key={task.id}
+                data-mini-upcoming-day={day.key}
+                data-mini-upcoming-task-idx={taskIndex}
+                style={{
+                  cursor: task.status === 'done' ? 'default' : CURSOR_GRAB,
+                  opacity: upcomingReorder?.dayKey === day.key && upcomingReorder.idx === taskIndex ? 0.72 : 1,
+                  outline: upcomingReorder?.dayKey === day.key && upcomingReorder.idx === taskIndex ? '2px solid rgba(91,124,250,0.30)' : 'none',
+                  outlineOffset: -2,
+                  transition: 'opacity 120ms ease',
+                }}
+              >
+                <TaskRow
+                  task={{ ...(completingId === task.id ? { ...task, status: 'done' } : task), children: subtasksByParent[task.id] || [], subtask_count: subtasksByParent[task.id]?.length || 0 }}
+                  taskIdx={task.status !== 'done' ? taskIndex : undefined}
+                  onToggle={handleToggle}
+                  onDetail={handleDetail}
+                  activeTimerId={activeTimerId}
+                  onTimerToggle={handleTimerToggle}
+                  updateTask={updateTask}
+                  folders={visibleFolders}
+                  currentDate={day.date || viewDate}
+                  ensureCalendarOpen={openCalendarPanel}
+                  onReorderPointerStart={(idx, clientX, clientY) => handleUpcomingReorderPointerStart(day.key, idx, clientX, clientY)}
+                  hideTimer
+                />
+              </div>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
+  );
+  };
+
  // ─── COLLAPSED PILL ───
  if (!isReady) {
  return <div style={{ width: '100%', height: '100%' }} />;
@@ -1554,13 +1916,15 @@ if (!isExpanded) {
  handleToggleExpand(e);
  }}
   style={{
-  height: 120, borderRadius: 999,
-  padding: 0,
-  width: 20,
-  minWidth: 20,
-  background: 'rgba(8,12,18,0.80)',
-  border: '1px solid rgba(255,255,255,0.10)',
-  boxShadow: showLedGlow? `0 0 16px 2px ${C.accentGlow}, inset 0 1px 0 rgba(255,255,255,0.12)`: '0 12px 26px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.10)',
+   height: 118, borderRadius: 999,
+   padding: 0,
+   width: 14,
+   minWidth: 14,
+   background: 'rgba(8,12,18,0.58)',
+   border: '1px solid rgba(255,255,255,0.08)',
+   boxShadow: showLedGlow? `0 0 16px 2px ${C.accentGlow}, inset 0 1px 0 rgba(255,255,255,0.10)`: '0 14px 30px rgba(0,0,0,0.24), inset 0 1px 0 rgba(255,255,255,0.10)',
+  backdropFilter: 'blur(18px) saturate(1.25)',
+  WebkitBackdropFilter: 'blur(18px) saturate(1.25)',
  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0,
  userSelect: 'none', cursor: CURSOR_GRAB,
  position: 'relative',
@@ -1579,12 +1943,12 @@ if (!isExpanded) {
   {activeTimerId && (
     <div style={{
       position: 'absolute',
-      left: -76,
+      right: 24,
       top: '50%',
       transform: 'translateY(-50%)',
       height: 30,
-      minWidth: activeTimerId === '__focus_timer__' ? 92 : 66,
-      padding: '0 10px',
+      minWidth: activeTimerId === '__focus_timer__' ? 108 : 92,
+      padding: '0 7px 0 10px',
       borderRadius: 999,
       border: '1px solid rgba(15,23,42,0.14)',
       background: 'linear-gradient(180deg, rgba(17,24,39,0.97), rgba(7,10,18,0.95))',
@@ -1596,7 +1960,7 @@ if (!isExpanded) {
       gap: 8,
       pointerEvents: 'auto',
     }}>
-      <TimerText seconds={timerSeconds} compact />
+       <TimerText seconds={timerSeconds} compact />
       {activeTimerId === '__focus_timer__' && (
         <button
           type="button"
@@ -1622,16 +1986,36 @@ if (!isExpanded) {
           {focusTimerPaused ? <Play style={{ width: 11, height: 11 }} /> : <Pause style={{ width: 11, height: 11 }} />}
         </button>
       )}
+      <button
+        type="button"
+        onClick={handleActiveTimerCheck}
+        style={{
+          width: 22,
+          height: 22,
+          borderRadius: '50%',
+          border: 'none',
+          background: 'rgba(255,255,255,0.13)',
+          color: '#F8FAFF',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          cursor: CURSOR_CLICK,
+        }}
+        aria-label="Completar contador"
+        title="Completar contador"
+      >
+        <Check style={{ width: 12, height: 12, strokeWidth: 3 }} />
+      </button>
     </div>
   )}
-  <div style={{ width: 6, height: 34, borderRadius: 999, background: 'rgba(255,255,255,0.10)' }} />
-  </div>
+   </div>
  </div>
  );
  }
 
  // Detect if running in browser (not Electron) for preview mode
  const isElectron =!!window.electronAPI;
+ const expandedContentWidth = PANEL_W + (detailOpen ? DETAIL_W : 0) + (calendarOpen ? CALENDAR_W : 0);
 
  // ─── EXPANDED PANEL ───
  // In browser: render inside a preview shell that simulates the floating window
@@ -1652,7 +2036,7 @@ if (!isExpanded) {
  style={{...miniThemeVars,
  position: isElectron? 'fixed': 'relative',
  inset: isElectron? 0: undefined,
- width: isElectron? undefined: (calendarOpen? PANEL_W + CALENDAR_W: PANEL_W + 32),
+ width: isElectron? undefined: expandedContentWidth + 32,
  height: isElectron? undefined: '100%',
  fontFamily: 'system-ui, -apple-system, sans-serif',
  color: C.text,
@@ -1672,7 +2056,7 @@ if (!isExpanded) {
  boxShadow: `0 0 20px ${C.accentGlow}`,
  borderColor: C.accentBorder
  }}
- transition={{ type: 'spring', stiffness: 420, damping: 30, mass: 0.8 }}
+ transition={{ duration: 0.08, ease: 'linear' }}
  style={{
  position: 'absolute',
  left: PANEL_W - 12,
@@ -1685,7 +2069,7 @@ if (!isExpanded) {
  border: '1px solid rgba(31,41,55,0.16)',
  borderLeft: 'none',
  boxShadow: '8px 0 18px rgba(0,0,0,0.14)',
- display: 'flex', alignItems: 'center', justifyContent: 'center',
+ display: 'none', alignItems: 'center', justifyContent: 'center',
  cursor: CURSOR_CLICK, 
  pointerEvents: calendarOpen? 'none': 'auto',
  }}
@@ -1698,13 +2082,13 @@ if (!isExpanded) {
  <div style={{
  position: 'absolute',
  left: 0, top: 0, bottom: 0,
- width: calendarOpen? PANEL_W + CALENDAR_W: PANEL_W,
+ width: expandedContentWidth,
  background: C.bg,
  backgroundImage: 'radial-gradient(circle at 20% 22%, rgba(255,255,255,0.10) 0 1px, transparent 1.6px), radial-gradient(circle at 78% 62%, rgba(0,0,0,0.045) 0 1px, transparent 1.7px)',
  backgroundPosition: '0 17px',
  borderRadius: isElectron? 20: 18,
  border: `1px solid ${C.border}`,
- boxShadow: '0 18px 45px rgba(0,0,0,0.22)',
+ boxShadow: '0 20px 50px rgba(17,24,39,0.14)',
  display: 'flex', flexDirection: 'row',
  zIndex: 2,
  overflow: 'hidden',
@@ -1712,18 +2096,21 @@ if (!isExpanded) {
  transition: 'width 0.34s cubic-bezier(0.16, 1, 0.3, 1)',
  }}>
  {/* Left panel: tasks */}
- <div className="notebook-cream-bg" style={{ width: PANEL_W, display: 'flex', flexDirection: 'column', flexShrink: 0, position: 'relative', overflow: 'hidden' }}>
+ <div className="notebook-cream-bg" style={{ width: PANEL_W, display: 'flex', flexDirection: 'column', flexShrink: 0, position: 'relative', overflow: 'hidden', fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>
  <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', background: 'linear-gradient(180deg, rgba(255,255,255,0.035), transparent 54px)' }} />
  <div onMouseDown={onDragMouseDown} style={{
- padding: '12px 14px 8px',
+ padding: '18px 24px 22px',
  flexShrink: 0,
  cursor: CURSOR_GRAB,
  userSelect: 'none',
  position: 'relative',
  zIndex: 3,
  }}>
- <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
- <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+ <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+ <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+ <MiniIconButton title="Cuadernos" onClick={() => setShowFolderTabs((value) => !value)}>
+ <Folder style={{ width: 15, height: 15 }} />
+ </MiniIconButton>
  <MiniIconButton title="Agregar tarea" onClick={openTextCapture}>
  <Plus style={{ width: 15, height: 15 }} />
  </MiniIconButton>
@@ -1733,34 +2120,86 @@ if (!isExpanded) {
  <MiniIconButton title="Musica (pronto)" disabled>
  <Music style={{ width: 14, height: 14 }} />
  </MiniIconButton>
- <MiniIconButton title="Contador" onClick={() => setFocusTimerMenuOpen((value) => !value)}>
- <Clock3 style={{ width: 14, height: 14 }} />
- </MiniIconButton>
+  <MiniIconButton title={activeTimerId === '__focus_timer__' ? (focusTimerPaused ? 'Reanudar contador' : 'Pausar contador') : 'Contador'} onClick={() => {
+  if (activeTimerId === '__focus_timer__') {
+  setFocusTimerPaused((value) => !value);
+  return;
+  }
+  startFocusTimer();
+  }}>
+  <Clock3 style={{ width: 14, height: 14 }} />
+  </MiniIconButton>
  <MiniIconButton title="Buscar tareas" onClick={() => setMiniSearchOpen((value) => !value)}>
  <Search style={{ width: 14, height: 14 }} />
  </MiniIconButton>
  </div>
+ <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+ {activeTimerId && (
+   <div style={{
+     height: 31,
+     minWidth: 118,
+     borderRadius: 14,
+     border: '1px solid rgba(124,151,255,0.22)',
+     background: 'linear-gradient(180deg, rgba(9,18,34,0.98), rgba(5,10,20,0.98))',
+     boxShadow: '0 8px 18px rgba(31,41,55,0.16), inset 0 1px 0 rgba(255,255,255,0.08)',
+     color: '#F8FAFF',
+     display: 'flex',
+     alignItems: 'center',
+     justifyContent: 'center',
+     gap: 6,
+     padding: '0 6px 0 10px',
+   }}>
+     <TimerText seconds={timerSeconds} compact />
+     <button
+       type="button"
+       onClick={(event) => {
+         event.stopPropagation();
+         if (activeTimerId === '__focus_timer__') {
+           setFocusTimerPaused((value) => !value);
+           return;
+         }
+         handleTimerToggle(activeTimerId);
+       }}
+       style={{ width: 21, height: 21, borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,0.13)', color: '#F8FAFF', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: CURSOR_CLICK, padding: 0 }}
+       title={focusTimerPaused ? 'Reanudar contador' : 'Pausar contador'}
+       aria-label={focusTimerPaused ? 'Reanudar contador' : 'Pausar contador'}
+     >
+       {focusTimerPaused ? <Play style={{ width: 10.5, height: 10.5 }} /> : <Pause style={{ width: 10.5, height: 10.5 }} />}
+     </button>
+     <button
+       type="button"
+       onClick={handleActiveTimerCheck}
+       style={{ width: 21, height: 21, borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,0.13)', color: '#F8FAFF', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: CURSOR_CLICK, padding: 0 }}
+       title="Completar contador"
+       aria-label="Completar contador"
+     >
+       <Check style={{ width: 11, height: 11, strokeWidth: 3 }} />
+     </button>
+   </div>
+ )}
  <button
  type="button"
  onClick={(event) => { event.stopPropagation(); handleToggleExpand(); }}
  style={{
  height: 31,
- minWidth: activeTimerId ? 86 : 36,
+ width: 36,
  borderRadius: 14,
  border: '1px solid rgba(31,41,55,0.12)',
- background: activeTimerId ? 'linear-gradient(180deg, rgba(9,18,34,0.98), rgba(5,10,20,0.98))' : 'rgba(255,255,255,0.58)',
+ background: 'rgba(255,255,255,0.58)',
  boxShadow: '0 8px 18px rgba(31,41,55,0.10), inset 0 1px 0 rgba(255,255,255,0.72)',
- color: activeTimerId ? '#F8FAFF' : 'rgba(31,41,55,0.68)',
+ color: 'rgba(31,41,55,0.68)',
  display: 'flex',
  alignItems: 'center',
  justifyContent: 'center',
  cursor: CURSOR_CLICK,
- padding: activeTimerId ? '0 10px' : 0,
+ padding: 0,
+ flexShrink: 0,
  }}
  title="Recoger"
  >
- {activeTimerId ? <TimerText seconds={timerSeconds} compact /> : <ChevronsLeft style={{ width: 17, height: 17 }} />}
+ <ChevronsLeft style={{ width: 17, height: 17 }} />
  </button>
+ </div>
  </div>
 
  {focusTimerMenuOpen && (
@@ -1779,7 +2218,7 @@ if (!isExpanded) {
        <button
          key={minutes}
          type="button"
-         onClick={() => startFocusTimer(minutes)}
+          onClick={() => startFocusTimer()}
          style={{
            borderRadius: 999,
            border: '1px solid rgba(31,41,55,0.10)',
@@ -1796,7 +2235,7 @@ if (!isExpanded) {
      ))}
      <button
        type="button"
-       onClick={openFocusTimerPrompt}
+        onClick={startFocusTimer}
        style={{
          borderRadius: 999,
          border: '1px solid rgba(31,41,55,0.10)',
@@ -1808,7 +2247,7 @@ if (!isExpanded) {
          cursor: CURSOR_CLICK,
        }}
      >
-       Personalizado
+        Iniciar
      </button>
    </div>
  )}
@@ -1851,52 +2290,46 @@ if (!isExpanded) {
  </div>
  )}
 
- <div style={{ marginTop: 10, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
- <div style={{ minWidth: 0, display: 'flex', alignItems: 'flex-start', gap: 8 }}>
- <button
-   type="button"
-   onClick={(event) => {
-     event.stopPropagation();
-     setShowFolderTabs((value) => !value);
-   }}
-   aria-label={showFolderTabs ? 'Recoger cuadernos' : 'Mostrar cuadernos'}
-   style={{
-     width: 28,
-     height: 28,
-     marginTop: 5,
-     borderRadius: 999,
-     border: `1px solid ${showFolderTabs ? 'hsl(var(--primary) / 0.28)' : 'rgba(30,41,59,0.14)'}`,
-     background: showFolderTabs ? 'hsl(var(--primary) / 0.12)' : 'rgba(255,255,255,0.48)',
-     color: showFolderTabs ? 'hsl(var(--primary))' : 'rgba(31,41,55,0.58)',
-     display: 'flex',
-     alignItems: 'center',
-     justifyContent: 'center',
-     cursor: CURSOR_CLICK,
-     flexShrink: 0,
-     boxShadow: '0 4px 12px rgba(15,23,42,0.08)',
-   }}
- >
-   <Folder style={{ width: 14, height: 14 }} />
- </button>
- <p style={{
-   margin: 0,
-   color: C.text,
-   fontSize: 38,
-   lineHeight: 0.96,
-   fontWeight: 850,
-   letterSpacing: '-0.02em',
-   fontFamily: 'var(--font-headline, ui-rounded, system-ui, sans-serif)',
- }}>
- Pendientes
- </p>
+ <div style={{ marginTop: 12, display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12 }}>
+ <div style={{ minWidth: 0, display: 'flex', alignItems: 'flex-end', gap: 10 }}>
+ <div style={{ display: 'flex', alignItems: 'baseline', gap: 9 }}>
+   <span style={{
+     color: C.text,
+     fontSize: 42,
+     lineHeight: '46px',
+     fontWeight: 850,
+     letterSpacing: '-0.03em',
+     fontFamily: '"Plus Jakarta Sans", var(--font-headline, ui-rounded, system-ui, sans-serif)',
+   }}>
+     Pendientes
+   </span>
  </div>
- <div style={{ color: C.text, marginTop: 2, textAlign: 'center' }}>
-   <div style={{ fontSize: 44, lineHeight: 0.88, fontWeight: 850, fontFamily: 'var(--font-headline, ui-rounded, system-ui, sans-serif)', fontVariantNumeric: 'tabular-nums' }}>
-     {format(new Date(), 'd')}
-   </div>
-   <div style={{ marginTop: 4, fontSize: 13, fontWeight: 800, letterSpacing: '0.18em', textTransform: 'uppercase', color: C.muted }}>
-     {format(new Date(), 'MMM')}
-   </div>
+ </div>
+ <div style={{ color: C.text, marginTop: 6, display: 'flex', alignItems: 'center', gap: 10 }}>
+   <button
+     type="button"
+     onClick={openCalendarPanel}
+     style={{
+       height: 34,
+       padding: '0 13px',
+       borderRadius: 999,
+       border: '1px solid rgba(30,41,59,0.12)',
+       background: 'rgba(255,255,255,0.42)',
+       boxShadow: '0 4px 12px rgba(17,24,39,0.05)',
+       color: C.text,
+       fontSize: 11,
+       fontWeight: 800,
+       letterSpacing: '0.05em',
+       textTransform: 'uppercase',
+       display: 'inline-flex',
+       alignItems: 'center',
+       gap: 7,
+       cursor: CURSOR_CLICK,
+     }}
+   >
+     Hoy
+     <span style={{ fontSize: 16, lineHeight: 1 }}>›</span>
+   </button>
  </div>
  </div>
  </div>
@@ -2145,8 +2578,9 @@ if (!isExpanded) {
  style={{
  flex: 1,
  overflowY: 'auto',
- padding: '8px 18px 10px 26px',
+ padding: '20px 24px 18px',
  }}
+ className="mini-window-scroll"
  data-sidebar-droptarget="true"
  tabIndex={0}
  >
@@ -2181,7 +2615,7 @@ if (!isExpanded) {
  </p>
  </div>
  ): (
-  <div key="task-list-items" className="notebook-task-list">
+  <div key="task-list-items" className="mini-vellum-list">
  <AnimatePresence mode="popLayout">
  {orderedTasks.map((task: MiniTask, idx: number) => (
  <div
@@ -2213,8 +2647,13 @@ if (!isExpanded) {
  </div>
  ))}
  </AnimatePresence>
-  {upcomingTasksByDate.length > 0 && (
-    <div style={{ marginTop: 14 }}>
+  {document.documentElement.dataset.renderLegacyUpcomingDays === 'true' && upcomingTasksByDate.length > 0 && (
+    <div style={{
+      margin: '0 -24px -18px',
+      padding: '18px 24px 22px',
+      background: 'rgba(246,243,244,0.92)',
+      borderTop: '1px solid rgba(30,41,59,0.08)',
+    }}>
       <button
         type="button"
         onClick={() => setShowUpcomingDays((value) => !value)}
@@ -2224,30 +2663,31 @@ if (!isExpanded) {
           gap: 6,
           border: 'none',
           background: 'transparent',
-          padding: '5px 0',
+          padding: '5px 0 11px',
           cursor: CURSOR_CLICK,
         }}
       >
-       <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: '0.18em', textTransform: 'uppercase', color: C.muted }}>Siguientes días</span>
+       <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: '0.18em', textTransform: 'uppercase', color: C.muted }}>Siguientes</span>
         <span style={{ fontSize: 12, fontWeight: 900, color: 'rgba(31,41,55,0.42)' }}>{showUpcomingDays ? 'v' : '>'}</span>
       </button>
  
       <AnimatePresence initial={false}>
         {showUpcomingDays && (
           <motion.div
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 6 }}
-            style={{ marginTop: 2, borderTop: '1px solid rgba(31,41,55,0.075)' }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.06, ease: 'linear' }}
+            style={{ marginTop: 0, display: 'flex', flexDirection: 'column', gap: 10 }}
           >
             {upcomingTasksByDate.map((day) => (
-              <details key={day.key} open style={{ borderBottom: '1px solid rgba(31,41,55,0.075)' }}>
-                <summary style={{ listStyle: 'none', display: 'flex', alignItems: 'center', gap: 8, cursor: CURSOR_CLICK, padding: '11px 0 8px' }}>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0, fontSize: 12.5, fontWeight: 760, letterSpacing: 0, color: 'rgba(31,41,55,0.54)' }}>
+              <details key={day.key} open style={{ borderBottom: 'none' }}>
+                <summary style={{ listStyle: 'none', display: 'flex', alignItems: 'center', gap: 8, cursor: CURSOR_CLICK, padding: '9px 13px', minHeight: 40, borderRadius: 14, border: '1px solid rgba(30,41,59,0.12)', background: 'rgba(255,255,255,0.42)', boxShadow: '0 4px 12px rgba(17,24,39,0.05)' }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0, fontSize: 13, fontWeight: 650, letterSpacing: 0, color: C.text }}>
                     <span style={{ fontSize: 16, lineHeight: 1, color: 'rgba(31,41,55,0.36)' }}>›</span>
                     {day.label}
                   </span>
-                  <span style={{ minWidth: 18, height: 18, borderRadius: 999, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800, color: 'rgba(31,41,55,0.36)' }}>{day.tasks.length}</span>
+                  <span style={{ minWidth: 22, height: 22, borderRadius: 8, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: C.text, background: 'rgba(30,41,59,0.08)' }}>{day.tasks.length}</span>
                   <button
                     type="button"
                     onClick={(event) => {
@@ -2282,7 +2722,7 @@ if (!isExpanded) {
                       <summary style={{ listStyle: 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, cursor: CURSOR_CLICK, padding: '2px 2px 6px' }}>
                         <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 10, fontWeight: 900, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(31,41,55,0.45)' }}>
                           <span style={{ fontSize: 16, lineHeight: 1, color: 'rgba(31,41,55,0.36)' }}>›</span>
-                          {getFutureTaskGroupLabel(day.date, new Date(today))}
+                          {formatMiniUpcomingLabel(day.date, new Date(today))}
                         </span>
                         <button
                           type="button"
@@ -2355,6 +2795,122 @@ if (!isExpanded) {
       </AnimatePresence>
     </div>
   )}
+ {upcomingTasksByDate.length > 0 && (
+   <div style={{
+     margin: '0 -24px -18px',
+     padding: '16px 24px 22px',
+      background: 'rgba(246,243,244,0.94)',
+      borderTop: '1px solid rgba(30,41,59,0.08)',
+      flex: '1 1 auto',
+      minHeight: 170,
+   }}>
+     <button
+       type="button"
+       onClick={() => setShowUpcomingDays((value) => !value)}
+       style={{
+         width: '100%',
+         border: 'none',
+         background: 'transparent',
+         padding: '0 2px 12px',
+         display: 'flex',
+         alignItems: 'center',
+         gap: 9,
+         color: 'rgba(85,68,45,0.78)',
+         cursor: CURSOR_CLICK,
+       }}
+     >
+       <ChevronDown style={{ width: 15, height: 15, strokeWidth: 2.6, transform: showUpcomingDays ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 60ms linear' }} />
+       <span style={{ flex: 1, textAlign: 'left', fontSize: 11, lineHeight: '16px', fontWeight: 850, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+          Siguientes
+        </span>
+      </button>
+     <AnimatePresence initial={false}>
+       {showUpcomingDays && (
+         <motion.div
+           initial={{ opacity: 0, height: 0 }}
+           animate={{ opacity: 1, height: 'auto' }}
+           exit={{ opacity: 0, height: 0 }}
+           transition={{ duration: 0.06, ease: 'linear' }}
+           style={{ display: 'flex', flexDirection: 'column', gap: 10, overflow: 'hidden' }}
+         >
+            {upcomingMonthGroups.map((month) => {
+              const monthOpen = openUpcomingMonths[month.key] ?? month.isCurrentMonth;
+              return (
+                 <motion.div key={month.key} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => setOpenUpcomingMonths((current) => ({ ...current, [month.key]: !(current[month.key] ?? month.isCurrentMonth) }))}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        setOpenUpcomingMonths((current) => ({ ...current, [month.key]: !(current[month.key] ?? month.isCurrentMonth) }));
+                      }
+                    }}
+                    style={{ minHeight: 39, borderRadius: month.isCurrentMonth ? 8 : 14, border: month.isCurrentMonth ? 'none' : '1px solid rgba(30,41,59,0.10)', background: month.isCurrentMonth ? 'transparent' : 'rgba(255,255,255,0.34)', display: 'flex', alignItems: 'center', gap: 8, padding: month.isCurrentMonth ? '2px 2px 1px' : '8px 11px', cursor: CURSOR_CLICK }}
+                  >
+                    <ChevronDown style={{ width: 14, height: 14, flexShrink: 0, color: 'rgba(31,41,55,0.46)', transform: monthOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 60ms linear' }} />
+                    <span style={{ flex: 1, minWidth: 0, fontSize: 12, fontWeight: 850, letterSpacing: '0.02em', color: month.isCurrentMonth ? 'rgba(85,68,45,0.52)' : 'rgba(85,68,45,0.62)' }}>
+                      {month.label}
+                    </span>
+                  </div>
+                  <AnimatePresence initial={false}>
+                    {monthOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, height: month.isCurrentMonth ? 'auto' : 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.06, ease: 'linear' }}
+                        style={{ display: 'flex', flexDirection: 'column', gap: 8, overflow: 'hidden' }}
+                      >
+                        {month.weeks.map((week) => {
+                          const weekOpen = openUpcomingWeeks[week.key] ?? month.isCurrentMonth;
+                          return (
+                            <motion.div key={week.key} style={{ borderRadius: 15, border: '1px solid rgba(30,41,59,0.10)', background: 'rgba(255,255,255,0.36)', boxShadow: '0 4px 12px rgba(17,24,39,0.05)', overflow: 'hidden' }}>
+                              <div
+                                role="button"
+                                tabIndex={0}
+                                onClick={() => setOpenUpcomingWeeks((current) => ({ ...current, [week.key]: !(current[week.key] ?? month.isCurrentMonth) }))}
+                                onKeyDown={(event) => {
+                                  if (event.key === 'Enter' || event.key === ' ') {
+                                    event.preventDefault();
+                                    setOpenUpcomingWeeks((current) => ({ ...current, [week.key]: !(current[week.key] ?? month.isCurrentMonth) }));
+                                  }
+                                }}
+                                style={{ width: '100%', minHeight: 43, padding: '9px 10px 9px 13px', display: 'flex', alignItems: 'center', gap: 8, color: C.text, cursor: CURSOR_CLICK }}
+                              >
+                                <ChevronDown style={{ width: 14, height: 14, flexShrink: 0, color: 'rgba(31,41,55,0.46)', transform: weekOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 60ms linear' }} />
+                                <span style={{ flex: 1, minWidth: 0, textAlign: 'left', fontSize: 12, lineHeight: '16px', fontWeight: 850, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'rgba(85,68,45,0.78)' }}>
+                                  {week.label}
+                                </span>
+                              </div>
+                              <AnimatePresence initial={false}>
+                                {weekOpen && (
+                                  <motion.div
+                                    initial={{ opacity: 0, height: 0 }}
+                                    animate={{ opacity: 1, height: 'auto' }}
+                                    exit={{ opacity: 0, height: 0 }}
+                                    transition={{ duration: 0.06, ease: 'linear' }}
+                                    style={{ padding: '0 10px 11px', overflow: 'hidden', display: 'flex', flexDirection: 'column', gap: 10 }}
+                                  >
+                                    {week.days.map((day, index) => renderUpcomingDay(day, index, true))}
+                                  </motion.div>
+                                )}
+                              </AnimatePresence>
+                            </motion.div>
+                          );
+                        })}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </motion.div>
+              );
+            })}
+          </motion.div>
+       )}
+     </AnimatePresence>
+   </div>
+ )}
  {totalCount > 0 && completedCount === totalCount && (
  <motion.div 
  initial={{ opacity: 0, scale: 0.9 }} 
@@ -2371,12 +2927,35 @@ if (!isExpanded) {
  </div> {/* close Left content area */}
 
  <AnimatePresence>
+ {detailOpen && selectedTask && (
+ <motion.div
+ initial={{ width: 0, opacity: 0 }}
+ animate={{ width: DETAIL_W, opacity: 1 }}
+ exit={{ width: 0, opacity: 0 }}
+ transition={{ duration: 0.08, ease: 'linear' }}
+ style={{
+ flexShrink: 0,
+ width: DETAIL_W,
+ height: '100%',
+ overflow: 'hidden',
+ background: 'hsl(var(--background))',
+ borderLeft: '1px solid rgba(30,41,59,0.10)',
+ }}
+ >
+ <div style={{ width: DETAIL_W, height: '100%' }}>
+ <TaskDetailModal task={selectedTask} open={detailOpen} onClose={closeDetailPanel} variant="side" />
+ </div>
+ </motion.div>
+ )}
+ </AnimatePresence>
+
+ <AnimatePresence>
  {calendarOpen && (
  <motion.div
- initial={{ width: 0, opacity: 0, x: 28, scale: 0.985, filter: 'blur(6px)' }}
- animate={{ width: CALENDAR_W, opacity: 1, x: 0, scale: 1, filter: 'blur(0px)' }}
- exit={{ width: 0, opacity: 0, x: 24, scale: 0.985, filter: 'blur(6px)' }}
- transition={{ type: 'spring', stiffness: 360, damping: 34, mass: 0.85 }}
+  initial={{ width: 0, opacity: 0 }}
+  animate={{ width: CALENDAR_W, opacity: 1 }}
+  exit={{ width: 0, opacity: 0 }}
+  transition={{ duration: 0.08, ease: 'linear' }}
  style={{ 
  flexShrink: 0, 
  borderLeft: `1px solid rgba(255,255,255,0.06)`, 
@@ -2431,7 +3010,6 @@ if (!isExpanded) {
  creationSource={captureCreationSource}
  folderId={selectedFolderId || undefined}
  />
- <TaskDetailModal task={selectedTask} open={detailOpen} onClose={() => setDetailOpen(false)} />
  <QuickRecurrenceFlow open={recurrenceFlowOpen} onClose={() => setRecurrenceFlowOpen(false)} />
  <FirstTaskSignupModal />
  </>
@@ -2459,7 +3037,7 @@ if (!isExpanded) {
 
  {/* Simulated window â€” overflow visible so tab protrudes */}
  <div style={{
- width: PANEL_W + (calendarOpen? CALENDAR_W + 16: 0),
+ width: PANEL_W + (detailOpen ? DETAIL_W : 0) + (calendarOpen? CALENDAR_W: 0) + 16,
  height: PANEL_H,
  position: 'relative',
  transition: 'width 0.3s ease',

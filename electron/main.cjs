@@ -1,5 +1,5 @@
 const { app, BrowserWindow, ipcMain, shell, dialog, session, Menu, MenuItem, globalShortcut, screen, clipboard, Tray, Notification } = require('electron');
-const { exec, spawn } = require('child_process');
+const { exec, spawn, execFile } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const https = require('https');
@@ -194,6 +194,275 @@ const configPath = path.join(app.getPath('userData'), 'window-state.json');
 const authStoragePath = path.join(app.getPath('userData'), 'supabase-auth.json');
 const authStorageBackupPath = `${authStoragePath}.bak`;
 const authStorageTempPath = `${authStoragePath}.tmp`;
+const timeUsagePath = path.join(app.getPath('userData'), 'time-usage.json');
+const timeUsageTempPath = `${timeUsagePath}.tmp`;
+const TIME_USAGE_SAMPLE_MS = 15000;
+let timeUsageCache = null;
+let timeUsageSaveTimer = null;
+let timeUsageSampleTimer = null;
+let timeUsageLastSampleAt = Date.now();
+
+const WINDOWS_ACTIVE_APP_SCRIPT = `
+Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+public class AdonaiActiveWindow {
+  [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
+  [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
+}
+"@
+$hwnd = [AdonaiActiveWindow]::GetForegroundWindow()
+[uint32]$processId = 0
+[AdonaiActiveWindow]::GetWindowThreadProcessId($hwnd, [ref]$processId) | Out-Null
+$p = Get-Process -Id $processId -ErrorAction SilentlyContinue
+if ($p) {
+  [pscustomobject]@{
+    name = $p.ProcessName
+    title = $p.MainWindowTitle
+  } | ConvertTo-Json -Compress
+}
+`;
+
+function createEmptyTimeUsageStore() {
+  return { version: 1, days: {} };
+}
+
+function readTimeUsageStore() {
+  if (timeUsageCache) return timeUsageCache;
+  try {
+    if (!fs.existsSync(timeUsagePath)) {
+      timeUsageCache = createEmptyTimeUsageStore();
+      return timeUsageCache;
+    }
+    const raw = fs.readFileSync(timeUsagePath, 'utf8');
+    const parsed = raw.trim() ? JSON.parse(raw) : createEmptyTimeUsageStore();
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      throw new Error('Usage storage is not an object');
+    }
+    timeUsageCache = {
+      version: 1,
+      days: parsed.days && typeof parsed.days === 'object' ? parsed.days : {},
+    };
+  } catch (error) {
+    logToFile(`Failed to read time usage store: ${error.message || error}`);
+    timeUsageCache = createEmptyTimeUsageStore();
+  }
+  return timeUsageCache;
+}
+
+function flushTimeUsageStore() {
+  if (!timeUsageCache) return;
+  try {
+    fs.writeFileSync(timeUsageTempPath, JSON.stringify(timeUsageCache), 'utf8');
+    if (fs.existsSync(timeUsagePath)) fs.rmSync(timeUsagePath, { force: true });
+    fs.renameSync(timeUsageTempPath, timeUsagePath);
+  } catch (error) {
+    logToFile(`Failed to write time usage store: ${error.message || error}`);
+    try {
+      fs.writeFileSync(timeUsagePath, JSON.stringify(timeUsageCache), 'utf8');
+    } catch (_) {}
+  } finally {
+    try {
+      if (fs.existsSync(timeUsageTempPath)) fs.rmSync(timeUsageTempPath, { force: true });
+    } catch (_) {}
+  }
+}
+
+function scheduleTimeUsageSave() {
+  if (timeUsageSaveTimer) clearTimeout(timeUsageSaveTimer);
+  timeUsageSaveTimer = setTimeout(() => {
+    timeUsageSaveTimer = null;
+    flushTimeUsageStore();
+  }, 2500);
+  if (typeof timeUsageSaveTimer.unref === 'function') timeUsageSaveTimer.unref();
+}
+
+function localDayKey(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function addDays(date, amount) {
+  const next = new Date(date);
+  next.setDate(next.getDate() + amount);
+  return next;
+}
+
+function getRangeDays(range) {
+  if (range === 'week') return 7;
+  if (range === 'month') return 31;
+  if (range === 'year') return 365;
+  return 1;
+}
+
+function getRangeDayKeys(range = 'day', offset = 0) {
+  const days = getRangeDays(range);
+  const end = addDays(new Date(), -(days * offset));
+  const keys = [];
+  for (let index = days - 1; index >= 0; index -= 1) {
+    keys.push(localDayKey(addDays(end, -index)));
+  }
+  return keys;
+}
+
+function normalizeAppName(rawName) {
+  const value = String(rawName || '').trim();
+  if (!value) return '';
+  const lower = value.toLowerCase();
+  const known = [
+    ['chrome', 'Chrome'],
+    ['msedge', 'Edge'],
+    ['opera', 'Opera'],
+    ['firefox', 'Firefox'],
+    ['brave', 'Brave'],
+    ['code', 'VS Code'],
+    ['cursor', 'Cursor'],
+    ['notion', 'Notion'],
+    ['whatsapp', 'WhatsApp'],
+    ['slack', 'Slack'],
+    ['discord', 'Discord'],
+    ['spotify', 'Spotify'],
+    ['telegram', 'Telegram'],
+    ['youtube', 'YouTube'],
+    ['electron', 'Adonai'],
+    ['adonai', 'Adonai'],
+    ['explorer', 'Windows'],
+    ['powershell', 'PowerShell'],
+    ['cmd', 'Terminal'],
+    ['windowsterminal', 'Terminal'],
+  ];
+  const match = known.find(([needle]) => lower.includes(needle));
+  if (match) return match[1];
+  return value
+    .replace(/\.exe$/i, '')
+    .replace(/[-_]+/g, ' ')
+    .replace(/\b\w/g, (letter) => letter.toUpperCase())
+    .slice(0, 48);
+}
+
+function usageToneForApp(appName) {
+  const lower = appName.toLowerCase();
+  if (lower.includes('youtube') || lower.includes('tiktok') || lower.includes('instagram')) return 'red';
+  if (lower.includes('whatsapp') || lower.includes('discord') || lower.includes('telegram')) return 'amber';
+  if (lower.includes('chrome') || lower.includes('edge') || lower.includes('opera') || lower.includes('firefox') || lower.includes('brave')) return 'blue';
+  return 'ink';
+}
+
+function getActiveDesktopApp() {
+  if (process.platform !== 'win32') return Promise.resolve(null);
+  return new Promise((resolve) => {
+    execFile(
+      'powershell.exe',
+      ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', WINDOWS_ACTIVE_APP_SCRIPT],
+      { timeout: 5000, windowsHide: true },
+      (error, stdout) => {
+        if (error || !stdout || !stdout.trim()) {
+          resolve(null);
+          return;
+        }
+        try {
+          const parsed = JSON.parse(stdout.trim());
+          resolve(parsed && parsed.name ? parsed : null);
+        } catch {
+          resolve(null);
+        }
+      },
+    );
+  });
+}
+
+function recordDesktopUsage(activeApp, elapsedSeconds) {
+  const appName = normalizeAppName(activeApp && activeApp.name);
+  if (!appName || elapsedSeconds <= 0) return;
+  const store = readTimeUsageStore();
+  const dayKey = localDayKey();
+  const day = store.days[dayKey] || {};
+  const current = day[appName] || { appName, seconds: 0, lastTitle: '' };
+  current.seconds = Math.max(0, Number(current.seconds) || 0) + elapsedSeconds;
+  current.lastTitle = String((activeApp && activeApp.title) || '').slice(0, 120);
+  current.updatedAt = new Date().toISOString();
+  day[appName] = current;
+  store.days[dayKey] = day;
+  scheduleTimeUsageSave();
+}
+
+async function sampleDesktopUsage() {
+  const now = Date.now();
+  const elapsedSeconds = Math.min(90, Math.max(1, Math.round((now - timeUsageLastSampleAt) / 1000)));
+  timeUsageLastSampleAt = now;
+  try {
+    const activeApp = await getActiveDesktopApp();
+    recordDesktopUsage(activeApp, elapsedSeconds);
+  } catch (error) {
+    logToFile(`Failed to sample desktop usage: ${error.message || error}`);
+  }
+}
+
+function startDesktopUsageTracking() {
+  if (timeUsageSampleTimer) return;
+  timeUsageLastSampleAt = Date.now();
+  sampleDesktopUsage();
+  timeUsageSampleTimer = setInterval(sampleDesktopUsage, TIME_USAGE_SAMPLE_MS);
+  if (typeof timeUsageSampleTimer.unref === 'function') timeUsageSampleTimer.unref();
+}
+
+function aggregateDesktopUsage(range = 'day', offset = 0) {
+  const store = readTimeUsageStore();
+  const appSeconds = new Map();
+  getRangeDayKeys(range, offset).forEach((dayKey) => {
+    const day = store.days[dayKey] || {};
+    Object.entries(day).forEach(([appName, entry]) => {
+      const seconds = Math.max(0, Number(entry && entry.seconds) || 0);
+      appSeconds.set(appName, (appSeconds.get(appName) || 0) + seconds);
+    });
+  });
+  return appSeconds;
+}
+
+function secondsMapToMinutes(map) {
+  return Array.from(map.entries())
+    .map(([name, seconds]) => ({
+      name,
+      minutes: seconds > 0 ? Math.max(1, Math.round(seconds / 60)) : 0,
+    }))
+    .filter((item) => item.minutes > 0)
+    .sort((a, b) => b.minutes - a.minutes);
+}
+
+function getTimeUsagePayload(range = 'day') {
+  const safeRange = ['day', 'week', 'month', 'year'].includes(range) ? range : 'day';
+  const currentMap = aggregateDesktopUsage(safeRange, 0);
+  const previousMap = aggregateDesktopUsage(safeRange, 1);
+  const previousItems = new Map(secondsMapToMinutes(previousMap).map((item) => [item.name, item.minutes]));
+  const items = secondsMapToMinutes(currentMap).map((item) => ({
+    ...item,
+    change: item.minutes - (previousItems.get(item.name) || 0),
+    tone: usageToneForApp(item.name),
+  }));
+  const currentTotal = items.reduce((sum, item) => sum + item.minutes, 0);
+  const previousTotal = secondsMapToMinutes(previousMap).reduce((sum, item) => sum + item.minutes, 0);
+  const firstApp = items[0];
+  return {
+    source: process.platform === 'win32' ? 'electron-active-window' : 'unsupported-desktop',
+    generatedAt: new Date().toISOString(),
+    range: safeRange,
+    devices: [
+      {
+        id: 'desktop',
+        title: 'PC',
+        subtitle: 'Actividad real de escritorio',
+        totalMinutes: currentTotal,
+        previousDelta: currentTotal - previousTotal,
+        recommendation: firstApp
+          ? `${firstApp.name} concentra mas tiempo. Usa esa pista para separar foco real de pausa.`
+          : 'Adonai esta recolectando actividad real de tu PC. Mantener la app abierta mejora la precision.',
+        items,
+      },
+    ],
+  };
+}
 
 function readAuthStorage() {
   const readJsonFile = (filePath) => {
@@ -721,6 +990,7 @@ app.whenReady().then(() => {
 
   const isAutostart = process.argv.includes('--autostart');
   createTray();
+  startDesktopUsageTracking();
   
   // Check for deep link URL in process.argv on initial launch
   const deepLinkArg = process.argv.find(arg => arg.startsWith('adonai-tasks://'));
@@ -919,6 +1189,10 @@ ipcMain.handle('get-app-version', () => {
 ipcMain.handle('get-ready-update', () => {
   if (!downloadedUpdateVersion) return null;
   return { version: downloadedUpdateVersion };
+});
+
+ipcMain.handle('time-usage:get', (_event, options = {}) => {
+  return getTimeUsagePayload(options.range);
 });
 
 ipcMain.on('open-external', (event, url) => {
@@ -1126,6 +1400,7 @@ app.whenReady().then(() => {
 });
 
 app.on('will-quit', () => {
+  flushTimeUsageStore();
   globalShortcut.unregisterAll();
 });
 

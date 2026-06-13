@@ -1,4 +1,4 @@
-import { useMemo, useState, useRef, useCallback } from 'react';
+import { useEffect, useMemo, useState, useRef, useCallback } from 'react';
 import { useGoals } from '@/hooks/useGoals';
 import { useProfile } from '@/hooks/useProfile';
 import { useTasks } from '@/hooks/useTasks';
@@ -341,18 +341,43 @@ const GoalsPage = () => {
     updateGoal.mutate({ id: goal.id, description: JSON.stringify(d) });
   };
 
+  const openGoalWizard = useCallback(() => {
+    setWizardData({ title: '', deadline: '', meaningful: '', obstacle: '', taskTitle: '' });
+    setWizardStep(0);
+    setWizardOpen(true);
+  }, []);
+
+  useEffect(() => {
+    window.addEventListener('adonai:goals-open-create', openGoalWizard);
+    return () => window.removeEventListener('adonai:goals-open-create', openGoalWizard);
+  }, [openGoalWizard]);
+
   return (
-    <div className="min-h-screen bg-background pb-32">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-8 sm:pt-12">
+    <div
+      className="min-h-screen overflow-x-hidden pb-32"
+      style={{
+        backgroundColor: 'var(--goals-board-bg, #F7F1E4)',
+        backgroundImage: 'var(--goals-board-gradient, linear-gradient(135deg, rgba(255,255,255,0.72), rgba(231,219,194,0.62)))',
+        backgroundSize: '100% 100%',
+      }}
+    >
+      <style>{`
+        .dark {
+          --goals-board-bg: #f7f3e9;
+          --goals-board-gradient: radial-gradient(ellipse 80% 50% at 12% 8%, rgba(255,252,240,0.70) 0%, transparent 65%), radial-gradient(ellipse 60% 40% at 88% 92%, rgba(210,195,165,0.22) 0%, transparent 60%);
+        }
+      `}</style>
+      <div className="relative mx-auto max-w-6xl px-4 pt-5 sm:px-6 sm:pt-0">
 
         {/* Header */}
-        <div className="text-center mb-12">
-          <div className="inline-flex items-center gap-3">
-            <h1 className="text-[30px] sm:text-[34px] font-black tracking-tight text-foreground drop-shadow-sm">Metas</h1>
+        <div className="mb-5 hidden sm:pointer-events-none sm:absolute sm:inset-x-0 sm:top-7 sm:z-40 sm:mb-0 sm:block">
+          <div className="mx-auto flex w-full max-w-[390px] items-center justify-between sm:max-w-none sm:justify-center sm:gap-3">
+            <h1 className="text-[34px] font-black leading-none tracking-[-0.04em] text-[#24170c] drop-shadow-[0_1px_0_rgba(255,255,255,0.5)] dark:text-[#24170c] sm:text-[42px]">Metas</h1>
             <button
               onClick={() => { setWizardData({ title: '', deadline: '', meaningful: '', obstacle: '', taskTitle: '' }); setWizardStep(0); setWizardOpen(true); }}
-              className="w-9 h-9 rounded-lg flex items-center justify-center transition-all hover:scale-110 active:scale-95"
-              style={{ backgroundColor: '#FEF3C7', border: '2px solid #FCD34D', color: '#92400E', boxShadow: '0 2px 6px rgba(252,211,77,0.3)' }}
+              className="flex h-10 w-10 items-center justify-center rounded-xl transition-all hover:scale-105 active:scale-95 sm:pointer-events-auto"
+              style={{ backgroundColor: '#FFF2B8', border: '2px solid #E6B93E', color: '#7A4A0A', boxShadow: '0 10px 24px rgba(83,50,12,0.18), inset 0 1px 0 rgba(255,255,255,0.65)' }}
+              aria-label="Crear meta"
             >
               <Plus className="w-5 h-5" strokeWidth={3} />
             </button>
@@ -361,18 +386,18 @@ const GoalsPage = () => {
 
         {/* Active Goals — Post-it notes */}
         {/* Active Goals (móvil) */}
-        <div className="sm:hidden grid grid-cols-1 gap-4">
+        <div className="sm:hidden mx-auto grid w-full max-w-[390px] grid-cols-1 gap-3">
           {activeGoals.length === 0 ? (
             <button
               onClick={() => { setWizardData({ title: '', deadline: '', meaningful: '', obstacle: '', taskTitle: '' }); setWizardStep(0); setWizardOpen(true); }}
-              className="w-full rounded-2xl border-2 p-5 text-left cursor-click"
-              style={{ backgroundColor: '#FEF3C7', borderColor: '#FCD34D', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}
+              className="w-full rounded-[18px] border-2 p-5 text-left cursor-click"
+              style={{ backgroundColor: '#FEF3C7', borderColor: '#FCD34D', boxShadow: '0 14px 28px rgba(83,50,12,0.14)' }}
             >
               <p className="font-black text-[#92400E]">Crea tu primera meta</p>
               <p className="text-xs mt-1 text-[#A16207]/70">Escribe aquí tu objetivo...</p>
             </button>
           ) : (
-            activeGoals.map((goal) => {
+            activeGoals.map((goal, goalIndex) => {
               const stats = getGoalStats(goal);
               const hasDeadline = stats.daysLeft !== null;
               const desc = parseDesc(goal);
@@ -383,17 +408,17 @@ const GoalsPage = () => {
               return (
                 <div
                   key={goal.id}
-                  className="relative mx-auto w-full max-w-[390px] rounded-lg border-2 p-4 active:scale-[0.99] transition-transform cursor-click"
+                  className="relative mx-auto w-full rounded-[18px] border-2 p-4 active:scale-[0.99] transition-transform cursor-click"
                   style={{
                     backgroundColor: postitColor.bg,
                     borderColor: postitColor.border,
-                    boxShadow: '0 12px 28px rgba(0,0,0,0.18), 0 2px 4px rgba(0,0,0,0.08)',
-                    transform: `rotate(${(activeGoals.indexOf(goal) % 3) - 1}deg)`,
+                    boxShadow: '0 14px 30px rgba(83,50,12,0.17), 0 2px 4px rgba(83,50,12,0.08)',
+                    transform: `rotate(${(goalIndex % 3) - 1}deg)`,
                   }}
-                  onClick={() => setDetailGoal(goal)}
+                  onClick={() => openDetail(goal)}
                 >
-                  <div className="absolute -top-2 left-1/2 h-4 w-4 -translate-x-1/2 rounded-full border-2 border-zinc-300 bg-zinc-400 shadow-sm" />
-                  <div className="pointer-events-none absolute inset-x-4 top-14 bottom-4 opacity-15" style={{ backgroundImage: 'repeating-linear-gradient(180deg, #1f2937 0 1px, transparent 1px 28px)' }} />
+                  <div className="absolute -top-2 left-1/2 h-5 w-5 -translate-x-1/2 rounded-full border-[3px] border-white/70 bg-[#a7adba] shadow-sm" />
+                  <div className="pointer-events-none absolute inset-x-4 top-16 bottom-4 opacity-15" style={{ backgroundImage: 'repeating-linear-gradient(180deg, #1f2937 0 1px, transparent 1px 28px)' }} />
                   <div className="flex items-start gap-3">
                     <button
                       onClick={(e) => { e.stopPropagation(); handleCompleteGoal(goal); }}
@@ -404,10 +429,10 @@ const GoalsPage = () => {
                     </button>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-start justify-between gap-2">
-                        <h3 className="text-[15px] font-black leading-snug break-words" style={{ color: '#1f2937' }}>
+                        <h3 className="text-[17px] font-black leading-snug break-words" style={{ color: '#1f2937' }}>
                           {goal.title}
                         </h3>
-                        <div className="flex gap-1 shrink-0 mt-0.5">
+                        <div className="flex gap-1 shrink-0 mt-0.5 rounded-full bg-white/35 p-1">
                           {POSTIT_COLORS.map((c, i) => (
                             <button
                               key={c.name}
@@ -425,6 +450,15 @@ const GoalsPage = () => {
                           ))}
                         </div>
                       </div>
+                      {stats.deadlineDate && (
+                        <div className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-[#1f2937]/10 bg-white/45 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em]" style={{ color: '#4b5563' }}>
+                          <CalendarDays className="h-3.5 w-3.5" />
+                          <span>{stats.deadlineDate.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })}</span>
+                          {stats.daysLeft !== null && (
+                            <span className="opacity-70">{stats.daysLeft <= 0 ? 'Hoy' : `En ${Math.max(0, stats.daysLeft)} d`}</span>
+                          )}
+                        </div>
+                      )}
                       {hasDeadline && (
                         <div className="mt-3 space-y-1">
                           <div className="relative h-2" style={{ color: '#1f2937' }}>
@@ -456,7 +490,7 @@ const GoalsPage = () => {
 
         {/* Active Goals â€” Post-it notes (desktop/tablet) */}
         <div
-          className="relative hidden sm:block min-h-[60vh] overflow-x-auto overflow-y-auto overscroll-contain"
+          className="relative hidden sm:block min-h-[calc(100vh-72px)] overflow-x-auto overflow-y-auto overscroll-contain"
           style={{
             WebkitOverflowScrolling: 'touch',
             minWidth: activeGoals.length > 0 ? `${20 + (Math.min(activeGoals.length, 3)) * 280 + 60}px` : undefined,
@@ -763,7 +797,7 @@ const GoalsPage = () => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black z-[9998]"
+              className="fixed inset-0 z-[9998] bg-[#1f1408]/55 backdrop-blur-[2px]"
               onClick={() => setWizardOpen(false)}
             />
             <motion.div
@@ -771,15 +805,15 @@ const GoalsPage = () => {
               animate={{ opacity: 1, scale: 1, rotate: 0 }}
               exit={{ opacity: 0, scale: 0.9, rotate: 2 }}
               transition={{ type: 'spring', stiffness: 200, damping: 20 }}
-              className="fixed inset-x-4 top-[8%] lg:inset-x-0 lg:w-[440px] lg:mx-auto z-[9999] max-h-[84vh] flex flex-col"
+              className="fixed inset-x-3 top-[7%] z-[9999] flex max-h-[86vh] flex-col sm:inset-x-0 sm:mx-auto sm:w-[440px]"
             >
               <div
-                className="flex flex-col max-h-full gap-3 rounded-lg border-2 p-5 shadow-2xl"
+                className="flex max-h-full flex-col gap-3 rounded-[22px] border-2 p-5 shadow-2xl"
                 style={{
                   backgroundColor: '#FEF3C7',
                   borderColor: '#FCD34D',
                   color: '#1f2937',
-                  boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+                  boxShadow: '0 24px 60px rgba(31,20,8,0.34), inset 0 1px 0 rgba(255,255,255,0.55)',
                 }}
               >
                 {/* Pin dot */}
@@ -856,10 +890,10 @@ const GoalsPage = () => {
                   {wizardQuestions[wizardStep].type === 'date' && (
                     <div className="space-y-1">
                       <div className="flex justify-center">
-                        <CalendarRac
+                    <CalendarRac
                           value={wizardData.deadline ? parseDate(wizardData.deadline) : undefined}
                           onChange={(d) => setWizardData({ ...wizardData, deadline: d.toString() })}
-                          className="p-1 bg-transparent border-0 shadow-none rounded-none [&_td>div]:size-8 [&_td>div]:text-xs"
+                          className="rounded-[16px] border border-[#D9A72C]/35 bg-[#FFF8D8]/90 p-2 text-[#5D3707] shadow-inner [&_*]:!text-[#5D3707] [&_[data-selected]]:!bg-[#FCD34D] [&_[data-selected]]:!text-[#5D3707] [&_[role=columnheader]]:!text-[#8A5A13] [&_[role=gridcell]]:!text-[#5D3707] [&_button]:!text-[#5D3707] [&_td>div]:size-8 [&_td>div]:text-xs [&_td>div]:font-black"
                         />
                       </div>
                       {wizardData.deadline === '' && (

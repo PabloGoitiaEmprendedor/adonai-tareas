@@ -63,7 +63,12 @@ module.exports = defineConfig({
       workbox: {
         globPatterns: ["**/*.{js,css,html,ico,png,svg,webp,woff2}"],
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
+        navigateFallbackDenylist: [/\.apk$/i, /^\/downloads\/.*\.apk$/i],
         runtimeCaching: [
+          {
+            urlPattern: /\/(?:downloads\/)?[^/?]+\.apk$/i,
+            handler: "NetworkOnly",
+          },
           {
             urlPattern: /^https?:\/\/.*\/rest\/v1\/.*/i,
             handler: "NetworkFirst",
