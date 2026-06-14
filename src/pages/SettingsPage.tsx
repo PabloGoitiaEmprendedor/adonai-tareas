@@ -33,7 +33,7 @@ import { useCalendarIntegration } from '@/hooks/useCalendarIntegration';
 import { useSheetsIntegration } from '@/hooks/useSheetsIntegration';
 import { usePriorityColors } from '@/hooks/usePriorityColors';
 import { replayVideoTutorial } from '@/lib/videoTutorial';
-import { ensureOneSignalSubscribed } from '@/lib/onesignal';
+import { isCapacitor, requestLocalNotificationPermission } from '@/lib/mobileNotifications';
 
 const SettingsPage = () => {
   const { user: currentUser } = useAuth();
@@ -677,22 +677,13 @@ const SettingsPage = () => {
                         <BellRing className="w-4 h-4 text-foreground/60" />
                         <div>
                             <span className="block text-sm font-bold text-foreground">Notificaciones</span>
-                            <span className="text-xs text-on-surface-variant/40">Avisos del sistema y navegador</span>
+                            <span className="text-xs text-on-surface-variant/40">Notificaciones nativas en app de escritorio y móvil</span>
                         </div>
                     </div>
                     <button onClick={async () => {
                       const next = !notificationsEnabled;
-                      if (next) {
-                        if ('Notification' in window) {
-                          if (Notification.permission === 'denied') {
-                            toast.error('Notificaciones bloqueadas por el navegador', { duration: 5000 });
-                            return;
-                          }
-                          if (Notification.permission === 'default') {
-                            await Notification.requestPermission();
-                          }
-                        }
-                        ensureOneSignalSubscribed();
+                      if (next && isCapacitor()) {
+                        await requestLocalNotificationPermission();
                       }
                       localStorage.setItem('adonai_notifications_enabled', String(next));
                       setNotificationsEnabled(next);
@@ -701,25 +692,6 @@ const SettingsPage = () => {
                         <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${notificationsEnabled ? 'translate-x-6' : ''}`} />
                     </button>
                 </div>
-
-                {'Notification' in window && Notification.permission === 'denied' && (
-                  <div className="px-4 pb-4">
-                    <div className="bg-error/10 border border-error/20 rounded-xl p-3 flex items-start gap-2">
-                      <div className="text-error/60 mt-0.5 shrink-0">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-                      </div>
-                      <div className="text-xs text-on-surface-variant/70">
-                        <span className="font-bold text-error/80">Notificaciones bloqueadas.</span>
-                        {' '}Para activarlas:
-                        <ol className="mt-1.5 list-decimal list-inside space-y-0.5">
-                          <li>Haz clic en el <span className="font-bold">🔒 candado</span> en la barra de direcciones</li>
-                          <li>Ve a <span className="font-bold">Configuración del sitio → Notificaciones</span></li>
-                          <li>Cambia a <span className="font-bold">"Permitir"</span> y recarga la página</li>
-                        </ol>
-                      </div>
-                    </div>
-                  </div>
-                )}
                 
                 <div className="p-4 flex items-center justify-between">
                     <div className="flex items-center gap-3">

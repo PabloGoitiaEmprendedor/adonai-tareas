@@ -8,6 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import type { Database } from '@/integrations/supabase/types';
 import { getReminderLabel, getReminderSettings } from '@/lib/reminders';
 import { playReminderSound } from '@/lib/soundEffects';
+import { isCapacitor, scheduleLocalNotification } from '@/lib/mobileNotifications';
 
 const TIME_PREFIX_REGEX = /^\[T:(\d{2}:\d{2})-(\d{2}:\d{2})\]/;
 
@@ -118,26 +119,22 @@ const isMissingAdminNotificationsTable = (error: { code?: string; message?: stri
   || error?.code === '42P01'
   || Boolean(error?.message?.includes('admin_notifications') && error.message.includes('schema cache'));
 
-const sendExternalNotification = async (title: string, body: string, type: 'info' | 'warning' | 'success' = 'info') => {
+const sendExternalNotification = async (title: string, body: string) => {
   if (!canNotify()) return false;
 
+  // Electron native (desktop)
   if (window.electronAPI?.showNotification) {
-    window.electronAPI.showNotification(title, body, type);
+    window.electronAPI.showNotification(title, body, 'info');
     return true;
   }
 
-  if (!('Notification' in window)) return false;
-  if (Notification.permission === 'default') {
-    await Notification.requestPermission();
+  // Capacitor native (mobile)
+  if (isCapacitor()) {
+    await scheduleLocalNotification(title, body);
+    return true;
   }
-  if (Notification.permission !== 'granted') return false;
 
-  new Notification(title, {
-    body,
-    tag: `adonai-${title}-${body}`,
-    requireInteraction: false,
-  });
-  return true;
+  return false;
 };
 
 const buildReminderNotification = (item: ScheduledReminder) => {
@@ -179,7 +176,6 @@ const NotificationManager = () => {
   const runtimeReminderTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const runtimeReminderKeysRef = useRef<Map<string, string>>(new Map());
   const desktopScheduledKeysRef = useRef<Set<string>>(new Set());
-  const permissionRequestedRef = useRef(false);
   const adminNotificationsUnavailableRef = useRef(false);
 
   const fireReminderIfDue = useCallback((item: ScheduledReminder, now = new Date()) => {
@@ -191,11 +187,11 @@ const NotificationManager = () => {
     }
 
     firedRemindersRef.current.add(reminderKey);
-    if (!window.electronAPI?.showNotification) {
+    if (!window.electronAPI?.showNotification && !isCapacitor()) {
       playReminderSound();
     }
     sendInAppNotification(title, body, 'info');
-    sendExternalNotification(title, body, 'info');
+    sendExternalNotification(title, body);
     return true;
   }, []);
 
@@ -395,11 +391,6 @@ const NotificationManager = () => {
   useEffect(() => {
     if (!user || !canNotify()) return;
 
-    if (!permissionRequestedRef.current && !window.electronAPI?.showNotification && 'Notification' in window && Notification.permission === 'default') {
-      permissionRequestedRef.current = true;
-      Notification.requestPermission().catch(() => {});
-    }
-
     const seenKey = `adonai_admin_notifications_seen_${user.id}`;
     const seen = new Set<string>(JSON.parse(localStorage.getItem(seenKey) || '[]'));
     const unseen = adminNotifications
@@ -408,7 +399,7 @@ const NotificationManager = () => {
 
     unseen.forEach((notification: AdminNotification) => {
       sendInAppNotification(notification.title, notification.body, 'info');
-      sendExternalNotification(notification.title, notification.body, 'info');
+      sendExternalNotification(notification.title, notification.body);
       seen.add(notification.id);
       supabase
         .rpc('mark_admin_notification_sent', { notification_id: notification.id })

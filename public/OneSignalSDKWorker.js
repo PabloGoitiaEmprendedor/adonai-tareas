@@ -1,1 +1,0 @@
-importScripts('/OneSignalSDK.sw.js');

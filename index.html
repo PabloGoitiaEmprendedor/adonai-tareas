@@ -285,31 +285,6 @@
     </script>
 
     <!-- ═══════════════════════════════════════
-         ONESIGNAL PUSH NOTIFICATIONS
-    ═══════════════════════════════════════ -->
-    <script>
-      if (location.hostname !== "localhost" && location.hostname !== "127.0.0.1") {
-        const oneSignalScript = document.createElement("script");
-        oneSignalScript.src = "/OneSignalSDK.page.js";
-        oneSignalScript.defer = true;
-        document.head.appendChild(oneSignalScript);
-
-        window.OneSignalDeferred = window.OneSignalDeferred || [];
-        window.OneSignalDeferred.push(async function(OneSignal) {
-          await OneSignal.init({
-            appId: "%VITE_ONESIGNAL_APP_ID%",
-            safari_web_id: "%VITE_ONESIGNAL_SAFARI_WEB_ID%",
-            notifyButton: {
-              enable: false,
-            },
-            allowLocalhostAsSecureOrigin: true,
-            serviceWorkerPath: "/OneSignalSDKWorker.js",
-          });
-        });
-      }
-    </script>
-
-    <!-- ═══════════════════════════════════════
          PERFORMANCE: error handler
     ═══════════════════════════════════════ -->
     <script>

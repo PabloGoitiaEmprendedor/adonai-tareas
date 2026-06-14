@@ -13,7 +13,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { buildReminderMetadata, getReminderSettings } from '@/lib/reminders';
-import { ensureOneSignalSubscribed } from '@/lib/onesignal';
+import { isCapacitor, requestLocalNotificationPermission } from '@/lib/mobileNotifications';
 
 interface AdonaiCalendarViewProps {
   selectedDate: Date;
@@ -713,10 +713,9 @@ const AdonaiCalendarView: React.FC<AdonaiCalendarViewProps> = ({ selectedDate, o
   const handleEventUpdate = async (id: string, updates: Partial<Event>) => {
     if (updates.reminderEnabled) {
       localStorage.setItem('adonai_notifications_enabled', 'true');
-      if (!window.electronAPI?.showNotification && 'Notification' in window && Notification.permission === 'default') {
-        Notification.requestPermission().catch(() => {});
+      if (isCapacitor()) {
+        requestLocalNotificationPermission().catch(() => {});
       }
-      ensureOneSignalSubscribed();
     }
 
     maybeDispatchRuntimeReminder(id, updates);

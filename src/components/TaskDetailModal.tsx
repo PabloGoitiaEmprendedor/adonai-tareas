@@ -5,7 +5,7 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 import { useTasks } from '@/hooks/useTasks';
-import { ensureOneSignalSubscribed } from '@/lib/onesignal';
+import { isCapacitor, requestLocalNotificationPermission } from '@/lib/mobileNotifications';
 import { useRecurrenceRules } from '@/hooks/useRecurrenceRules';
 import { notify } from '@/components/ui/adonai-notifier';
 import FullscreenTimer from './FullscreenTimer';
@@ -302,7 +302,7 @@ const TaskDetailModal = ({ task, open, onClose, variant = 'modal' }: TaskDetailM
                           setReminderEnabled(nextReminder.reminderEnabled);
                           setReminderMinutesBefore(nextReminder.reminderMinutesBefore);
                           markChanged();
-                          if (nextReminder.reminderEnabled) ensureOneSignalSubscribed();
+                          if (nextReminder.reminderEnabled && isCapacitor()) requestLocalNotificationPermission();
                         }}
                         className={`h-[48px] w-full rounded-[20px] px-3 flex items-center justify-center gap-2 border transition-all text-[10px] font-black whitespace-nowrap self-end ${reminderEnabled ? 'bg-primary/15 text-primary border-primary/25 shadow-sm' : 'bg-surface-container/30 text-muted-foreground border-outline-variant/15 hover:border-primary/30 hover:text-primary'}`}
                       >

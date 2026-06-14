@@ -2,8 +2,6 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
-const ONESIGNAL_APP_ID = Deno.env.get("ONESIGNAL_APP_ID");
-const ONESIGNAL_API_KEY = Deno.env.get("ONESIGNAL_API_KEY");
 const APP_URL = Deno.env.get("APP_URL") || "https://webadonai.com";
 const GOOGLE_CLIENT_ID = Deno.env.get("GOOGLE_CLIENT_ID");
 const GOOGLE_CLIENT_SECRET = Deno.env.get("GOOGLE_CLIENT_SECRET");
@@ -151,15 +149,6 @@ const normalizeReminder = (metadata: Record<string, unknown> | null | undefined)
 const buildReminderKey = (kind: "task" | "event", id: string, reminderAt: Date, minutesBefore: number) =>
   `${kind}:${id}:${reminderAt.toISOString()}:${minutesBefore}`;
 
-const buildIdempotencyKey = async (reminderKey: string) => {
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(reminderKey));
-  const bytes = new Uint8Array(digest).slice(0, 16);
-  bytes[6] = (bytes[6] & 0x0f) | 0x50;
-  bytes[8] = (bytes[8] & 0x3f) | 0x80;
-  const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
-  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
-};
-
 const hasBeenSent = (metadata: Record<string, unknown> | null | undefined, key: string) =>
   Boolean(metadata && typeof metadata.notification_key === "string" && metadata.notification_key === key);
 
@@ -173,35 +162,6 @@ const attachReminderKey = (metadata: Record<string, unknown> | null | undefined,
 const isDueInWindow = (now: Date, reminderAt: Date) => {
   const diffMs = now.getTime() - reminderAt.getTime();
   return diffMs >= 0 && diffMs <= 15 * 60 * 1000;
-};
-
-const sendOneSignalPush = async (externalId: string, title: string, body: string, url: string, idempotencyKey: string) => {
-  if (!ONESIGNAL_APP_ID || !ONESIGNAL_API_KEY) {
-    return { sent: false, error: "OneSignal secrets are not configured" };
-  }
-
-  const response = await fetch("https://api.onesignal.com/notifications", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Key ${ONESIGNAL_API_KEY}`,
-    },
-    body: JSON.stringify({
-      app_id: ONESIGNAL_APP_ID,
-      idempotency_key: idempotencyKey,
-      include_aliases: { external_id: [externalId] },
-      target_channel: "push",
-      headings: { en: title },
-      contents: { en: body },
-      url,
-      web_url: url,
-    }),
-  });
-
-  const responseBody = await response.text();
-  return response.ok
-    ? { sent: true }
-    : { sent: false, error: `OneSignal ${response.status}: ${responseBody}` };
 };
 
 const sendEmailReminder = async (email: string, name: string | null, title: string, body: string) => {
@@ -328,9 +288,8 @@ serve(async (req) => {
   try {
     if (req.method === "GET") {
       return new Response(JSON.stringify({
-        ready: Boolean(ONESIGNAL_APP_ID && ONESIGNAL_API_KEY),
-        onesignal_app_id_configured: Boolean(ONESIGNAL_APP_ID),
-        onesignal_api_key_configured: Boolean(ONESIGNAL_API_KEY),
+        ready: true,
+        message: "Task reminders function is running (push notifications disabled, email only)",
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
@@ -369,7 +328,6 @@ serve(async (req) => {
     for (const profile of usersToRemind) {
       const userId = profile.user_id;
       const settings = settingsByUserId.get(userId);
-      const pushEnabled = settings?.notifications_enabled !== false;
       const emailEnabled = settings?.email_notifications_enabled !== false;
 
       const [{ data: tasks }, { data: timeBlocks }, { data: googleToken }] = await Promise.all([
@@ -505,31 +463,21 @@ serve(async (req) => {
       const sent: Array<Record<string, unknown>> = [];
       for (const reminder of reminders) {
         const key = buildReminderKey(reminder.kind, reminder.id, reminder.reminderAt, reminder.minutesBefore);
-        const idempotencyKey = await buildIdempotencyKey(key);
-        const pushTitle = reminder.kind === "task" ? `Tarea: ${reminder.title}` : reminder.title;
-        const pushUrl = `${APP_URL}/daily`;
-
-        let pushSent = false;
-        let pushError: string | undefined;
-        if (pushEnabled) {
-          const pushResult = await sendOneSignalPush(userId, pushTitle, reminder.pushBody, pushUrl, idempotencyKey);
-          pushSent = pushResult.sent;
-          pushError = pushResult.error;
-        }
+        const reminderTitle = reminder.kind === "task" ? `Tarea: ${reminder.title}` : reminder.title;
 
         let emailSent = false;
         if (emailEnabled && profile?.email) {
           emailSent = await sendEmailReminder(
             profile.email,
             (profile as { name?: string | null } | null)?.name ?? null,
-            pushTitle,
+            reminderTitle,
             reminder.pushBody
           );
         }
 
-        if ((pushSent || emailSent) && reminder.source === "google") {
-          sent.push({ id: reminder.id, source: reminder.source, pushSent, emailSent, pushError });
-        } else if (pushSent || emailSent) {
+        if (emailSent && reminder.source === "google") {
+          sent.push({ id: reminder.id, source: reminder.source, emailSent });
+        } else if (emailSent) {
           const nextMetadata = attachReminderKey(reminder.metadata, key);
           const table = reminder.source === "task" ? "tasks" : "time_blocks";
           const { error: updateError } = await supabase
@@ -538,12 +486,12 @@ serve(async (req) => {
             .eq("id", reminder.id);
 
           if (updateError) {
-            sent.push({ id: reminder.id, source: reminder.source, pushSent, emailSent, pushError, updateError: updateError.message });
+            sent.push({ id: reminder.id, source: reminder.source, emailSent, updateError: updateError.message });
           } else {
-            sent.push({ id: reminder.id, source: reminder.source, pushSent, emailSent, pushError });
+            sent.push({ id: reminder.id, source: reminder.source, emailSent });
           }
         } else {
-          sent.push({ id: reminder.id, source: reminder.source, pushSent, emailSent, pushError, skipped: true });
+          sent.push({ id: reminder.id, source: reminder.source, emailSent, skipped: true });
         }
       }
 

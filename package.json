@@ -26,6 +26,7 @@
     "@capacitor/browser": "^8.0.3",
     "@capacitor/cli": "^8.3.2",
     "@capacitor/core": "^8.3.2",
+    "@capacitor/local-notifications": "^8.2.0",
     "@clerk/localizations": "^4.7.1",
     "@clerk/react": "^6.7.3",
     "@clerk/ui": "^1.15.0",

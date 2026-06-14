@@ -74,7 +74,6 @@ import CalendarSetupGuide from "./pages/CalendarSetupGuide";
 import SheetsCallback from "./pages/SheetsCallback";
 import { WeeklySummaryCollector } from "@/components/WeeklySummaryCollector";
 import { subscribeElectronEvent } from "@/lib/electronEvents";
-import OneSignalInitializer from '@/components/OneSignalInitializer';
 import { BrandLogo } from '@/components/BrandLogo';
 import { getLegacyWebRouteRedirect } from '@/lib/webRouteBridge';
 
@@ -440,7 +439,6 @@ const App = () => {
             <AuthProvider>
               <AnalyticsRouteTracking />
               <AnalyticsIdentity />
-              <OneSignalInitializer />
               <NotificationManager />
               <WeeklySummaryCollector />
               <NavigationWrapper>
