@@ -76,6 +76,7 @@ import { WeeklySummaryCollector } from "@/components/WeeklySummaryCollector";
 import { subscribeElectronEvent } from "@/lib/electronEvents";
 import { BrandLogo } from '@/components/BrandLogo';
 import { getLegacyWebRouteRedirect } from '@/lib/webRouteBridge';
+import { isCapacitor, requestLocalNotificationPermission } from '@/lib/mobileNotifications';
 
 
 const queryClient = new QueryClient({
@@ -332,6 +333,15 @@ const App = () => {
       window.location.hash.startsWith('#/toast')
       || window.location.pathname.replace(/\/$/, '') === '/toast'
     );
+
+  useEffect(() => {
+    if (isCapacitor()) {
+      const timer = setTimeout(() => {
+        requestLocalNotificationPermission();
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, []);
 
   useEffect(() => {
     const browserPath = window.location.pathname.replace(/\/$/, '');

@@ -8,6 +8,16 @@ export function isCapacitor(): boolean {
   }
 }
 
+export async function areNotificationsEnabled(): Promise<boolean> {
+  try {
+    if (!isCapacitor()) return false;
+    const result = await LocalNotifications.checkPermissions();
+    return result.display === 'granted';
+  } catch {
+    return false;
+  }
+}
+
 export async function requestLocalNotificationPermission(): Promise<boolean> {
   try {
     const { display } = await LocalNotifications.requestPermissions();
@@ -37,6 +47,7 @@ export async function scheduleLocalNotification(
           schedule: { at: scheduleAt ?? new Date(Date.now() + 1000) },
           smallIcon: 'ic_stat_icon_configurable',
           iconColor: '#5B7CFA',
+          channelId: 'default',
         },
       ],
     });

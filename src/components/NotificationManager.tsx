@@ -8,7 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import type { Database } from '@/integrations/supabase/types';
 import { getReminderLabel, getReminderSettings } from '@/lib/reminders';
 import { playReminderSound } from '@/lib/soundEffects';
-import { isCapacitor, scheduleLocalNotification } from '@/lib/mobileNotifications';
+import { isCapacitor, scheduleLocalNotification, cancelLocalNotification, getPendingLocalNotifications } from '@/lib/mobileNotifications';
 
 const TIME_PREFIX_REGEX = /^\[T:(\d{2}:\d{2})-(\d{2}:\d{2})\]/;
 
@@ -165,6 +165,14 @@ const buildDesktopReminderPayload = (item: ScheduledReminder): DesktopReminderPa
   };
 };
 
+const hashReminderId = (id: string): number => {
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) {
+    hash = ((hash << 5) - hash + id.charCodeAt(i)) | 0;
+  }
+  return Math.abs(hash);
+};
+
 const NotificationManager = () => {
   const { user } = useAuth();
   const today = format(new Date(), 'yyyy-MM-dd');
@@ -294,6 +302,29 @@ const NotificationManager = () => {
     });
     desktopScheduledKeysRef.current = nextKeys;
   }, [scheduleElectronReminder, scheduledReminders, user]);
+
+  useEffect(() => {
+    if (!user || !isCapacitor()) return;
+    const preScheduleAll = async () => {
+      const pending = await getPendingLocalNotifications();
+      const pendingMap = new Map(pending.map((n) => [n.id, n]));
+
+      scheduledReminders.forEach((item) => {
+        const reminderAt = new Date(item.start.getTime() - item.reminder.minutes_before * 60000);
+        const now = new Date();
+        if (reminderAt <= now) return;
+
+        const notifId = hashReminderId(item.id);
+        if (pendingMap.has(notifId)) return;
+
+        const title = item.kind === 'event' ? item.title : `Tarea: ${item.title}`;
+        const body = `${getReminderLabel(item.reminder.minutes_before)}. Empieza a las ${format(item.start, 'HH:mm')}.`;
+
+        scheduleLocalNotification(title, body, notifId, reminderAt);
+      });
+    };
+    preScheduleAll();
+  }, [user, scheduledReminders]);
 
   useEffect(() => {
     if (!user || window.electronAPI?.scheduleReminder) return;

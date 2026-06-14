@@ -19,9 +19,16 @@ export interface UpdateInfo {
   downloadUrl: string
 }
 
+function isCapacitor(): boolean {
+  try {
+    return !!(window as any).Capacitor?.isNativePlatform()
+  } catch {
+    return false
+  }
+}
+
 export async function checkForUpdate(): Promise<UpdateInfo | null> {
-  const isCapacitor = typeof (window as any).Capacitor !== 'undefined' && (window as any).Capacitor.isNative
-  if (!isCapacitor) return null
+  if (!isCapacitor()) return null
 
   const platform = (window as any).Capacitor.getPlatform() as string
   if (platform !== 'android' && platform !== 'ios') return null
@@ -52,6 +59,30 @@ export async function checkForUpdate(): Promise<UpdateInfo | null> {
   } catch {
     return null
   }
+}
+
+export function startUpdatePolling(
+  onUpdate: (info: UpdateInfo) => void,
+  intervalMs = 30000,
+): () => void {
+  let active = true
+  let lastAvailable = false
+
+  const poll = async () => {
+    if (!active) return
+    const info = await checkForUpdate()
+    if (!active) return
+    if (info && info.available && !lastAvailable) {
+      lastAvailable = true
+      onUpdate(info)
+    } else if (info && !info.available) {
+      lastAvailable = false
+    }
+  }
+
+  poll()
+  const id = setInterval(poll, intervalMs)
+  return () => { active = false; clearInterval(id) }
 }
 
 function compareVersions(a: string, b: string): number {
