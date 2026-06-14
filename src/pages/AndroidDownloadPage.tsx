@@ -1,23 +1,10 @@
 import { useEffect, useState } from 'react';
 import { ArrowLeft, Download, Smartphone } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { ANDROID_DOWNLOAD } from '@/lib/download-urls';
 
-const APK_URL = '/adonai.apk';
+const APK_URL = ANDROID_DOWNLOAD;
 const APK_FILENAME = 'Adonai.apk';
-
-const startDownload = async () => {
-  const response = await fetch(APK_URL, { cache: 'no-store' });
-  if (!response.ok) throw new Error('No se pudo descargar el APK');
-  const blob = await response.blob();
-  const objectUrl = URL.createObjectURL(blob);
-  const anchor = document.createElement('a');
-  anchor.href = objectUrl;
-  anchor.download = APK_FILENAME;
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
-  window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
-};
 
 const AndroidDownloadPage = () => {
   const [status, setStatus] = useState<'downloading' | 'ready' | 'error'>('downloading');

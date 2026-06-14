@@ -8,7 +8,10 @@ export const WIN_DOWNLOAD =
 export const MAC_DOWNLOAD =
   'https://github.com/PabloGoitiaEmprendedor/adonai-tareas/releases/latest/download/Adonai-Mac.dmg';
 
-export const ANDROID_DOWNLOAD = '/android';
+export const ANDROID_DOWNLOAD =
+  'https://github.com/PabloGoitiaEmprendedor/adonai-tareas/releases/latest/download/adonai.apk';
+
+export const ANDROID_PAGE = '/android';
 
 const configuredAppleDownload = import.meta.env.VITE_APPLE_DOWNLOAD_URL as string | undefined;
 
