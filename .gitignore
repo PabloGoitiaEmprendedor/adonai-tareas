@@ -37,3 +37,8 @@ vite.config.ts.timestamp-*.mjs
 
 # Vendored ECC repo (kept locally, not pushed)
 .vendor/
+
+# Temp and test artifacts
+.tmp/
+test-results/
+antigravity-awesome-skills-main/
